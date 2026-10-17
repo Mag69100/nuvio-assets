@@ -711,7 +711,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
     </div>
     <ol>
       <li><span class="path">Paramètres → Langue de l'application → Français</span>. Sinon, l'appli affiche « Movie » au lieu de « Film ».</li>
-      <li><span class="path">Paramètres → Enrichissement TMDB</span> : <b>Langue → Français</b> (titres, résumés et logos en VF) et active <b>Bandes-annonces</b> (elles passeront en VF quand elle existe). Désactive <b>Infos</b> pour voir quand arrivent les films à venir (« 📅 Dispo le 17 nov. » en tête du résumé).</li>
+      <li><span class="path">Paramètres → Enrichissement TMDB</span> : <b>Langue → Français</b> (titres, résumés et logos en VF) et active <b>Bandes-annonces</b> (elles passeront en VF quand elle existe). Désactive <b>Infos</b> pour voir quand arrivent les films à venir (« 📅 Dispo le 17 nov. » en tête du résumé), et <b>Illustrations</b> pour garder les fonds en pleine définition et les logos en français du Catalogue FR.</li>
     </ol>
   </section>
 

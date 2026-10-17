@@ -218,14 +218,23 @@ aside { position: sticky; top: 18px; display: grid; grid-template-columns: minma
   .dock { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; gap: 10px; align-items: center;
     padding: 12px max(16px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
     background: rgba(23,12,18,.94); backdrop-filter: blur(8px); border-top: 1px solid var(--seat); }
-  .dock span { flex: 1; min-width: 0; font-size: .85rem; color: var(--dim); }
-  .dock span b { color: var(--cream); }
-  .dock .btn { border-color: var(--cream); background: var(--cream); color: var(--ink); flex: none; }
+  .dock { transition: transform .25s cubic-bezier(.22,1,.36,1); }
+  .dock.cache { transform: translateY(110%); }
+  .dock-billet { flex: 1; min-width: 0; min-height: 44px; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; font: 400 .85rem/1.35 var(--body); color: var(--dim); }
+  .dock-billet b { color: var(--cream); }
+  .dock-billet i { font-style: normal; color: var(--bulb); margin-left: 4px; }
+  .dock .btn { border-color: var(--cream); background: var(--cream); color: var(--ink); flex: none; min-height: 46px; }
+  /* Clavier ouvert : la barre du bas cacherait le champ qu'on remplit. */
+  body:has(:is(input[type=text], input[type=number], input[type=search], select):focus) .dock { display: none; }
 }
 @media (max-width: 520px) {
   .frame { grid-template-columns: 22px auto minmax(0, 1fr); }
-  .tools { grid-column: 3; }
+  .tools { grid-column: 2 / -1; }
   .ticket { grid-template-columns: minmax(0, 1fr) 54px; }
+  .act { padding: 18px 16px; }
+  .act h2 { font-size: 1.75rem; }
+  .t-btns { grid-template-columns: minmax(0, 1fr); }
+  .t-btns .btn { min-height: 48px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
 
@@ -414,6 +423,7 @@ body::after { content: ""; position: fixed; inset: -50%; pointer-events: none; z
 .pp-key input { flex: 1; min-width: 0; font: 600 .95rem var(--type); padding: 9px 11px; border-radius: 8px; border: 1px solid var(--seat); background: var(--velvet); color: var(--cream); }
 .pp-key small { color: var(--dim); font-size: .8rem; line-height: 1.4; }
 .pp-key .err { color: #ff9c95; }
+.pp-key .paste { justify-self: start; border-color: rgba(255,207,107,.5); color: var(--bulb); }
 /* Une seule animation par rangée (pas une par carte) : 5 rangées en attente = 5 animations, pas 70. */
 .nv-row.loading .nv-track { animation: shimmer 1.2s ease-in-out infinite; }
 @keyframes shimmer { 50% { opacity: .55; } }
@@ -529,6 +539,32 @@ body::after { content: ""; position: fixed; inset: -50%; pointer-events: none; z
 @keyframes tick { from { transform: scale(.3); opacity: 0; } }
 
 ${STAGE_CSS}
+/* ---------- Téléphone (après tout le reste, pour passer devant) ---------- */
+@media (max-width: 960px) {
+  /* L'aperçu en haut, les réglages, puis le billet tout à la fin (là où on en a besoin). */
+  aside { display: contents; }
+  .stage { order: -2; }
+  .caption { order: -1; margin-top: -26px; }
+  .ticket { order: 1; scroll-margin: 24px; }
+}
+/* Doigt plutôt que souris : des cibles d'au moins 44 px, et des champs en 16 px (sinon iOS zoome dans la page). */
+.caption .doigt { display: none; }
+@media (hover: none), (pointer: coarse) {
+  .caption .souris { display: none; }
+  .caption .doigt { display: inline; }
+  .arrow, .icon { width: 44px; height: 44px; font-size: 1.05rem; }
+  .toggle { min-height: 44px; padding: 8px 12px; }
+  .tools { gap: 6px; }
+  .mini, .seg button, .screen-tools .seg button { min-height: 44px; }
+  .chip span { min-height: 44px; }
+  .nav a { padding: 11px 12px; }
+  .reset { padding: 12px 0; }
+  .add-row { min-height: 48px; }
+  .coll details summary { padding-block: 11px; }
+  .nv-onglets button { font-size: 12px; padding: 7px 12px; }
+  .rename input, .pp-key input, .field input[type=text].plain, select, input[type=number] { font-size: 16px; }
+  .act { scroll-margin-top: 76px; }
+}
 @media (prefers-reduced-motion: reduce) { body::after, .frame::after, .frame .pos, .screen::before, .nv *, .fiche, .fiche * { animation: none !important; } .ticket { transform: none; } .nv, .nv-track { scroll-behavior: auto; } }
 </style>
 </head>
@@ -554,7 +590,7 @@ ${STAGE_CSS}
       <section class="act" id="s-nom">
         <header><span>Affiche</span><h2>Le nom de ton addon</h2></header>
         <label for="name" class="sub">Il apparaît dans la liste des addons de Nuvio.</label>
-        <input type="text" id="name" maxlength="40" autocomplete="off" spellcheck="false">
+        <input type="text" id="name" maxlength="40" autocomplete="off" spellcheck="false" enterkeyhint="done">
       </section>
 
       <section class="act" id="s-pays">
@@ -570,13 +606,13 @@ ${STAGE_CSS}
         <button type="button" class="add-row" id="add-row">+ Créer une rangée sur mesure</button>
         <div class="builder" id="builder" hidden>
           <h3 id="b-title">Nouvelle rangée</h3>
-          <label class="field"><span>Nom de la rangée</span><input type="text" class="plain" id="b-name" maxlength="40" placeholder="ex. K-dramas à pleurer"></label>
+          <label class="field"><span>Nom de la rangée</span><input type="text" class="plain" id="b-name" maxlength="40" enterkeyhint="done" placeholder="ex. K-dramas à pleurer"></label>
           <div class="field"><span>Quoi</span><div class="seg" id="b-type" role="group" aria-label="Type"></div></div>
           <div class="field"><span>Genres (l'un ou l'autre)</span><div class="chips" id="b-genres"></div></div>
           <div class="field"><span>Seulement sur ces plateformes (facultatif)</span><div class="chips" id="b-prov"></div></div>
           <div class="two">
             <label class="field"><span>Langue d'origine</span><select id="b-lang"></select></label>
-            <div class="field"><span>Sortis entre</span><div class="two"><input type="number" id="b-from" min="1900" max="2100" placeholder="1900" aria-label="Année de début"><input type="number" id="b-to" min="1900" max="2100" placeholder="aujourd'hui" aria-label="Année de fin"></div></div>
+            <div class="field"><span>Sortis entre</span><div class="two"><input type="number" id="b-from" min="1900" max="2100" inputmode="numeric" enterkeyhint="done" placeholder="1900" aria-label="Année de début"><input type="number" id="b-to" min="1900" max="2100" inputmode="numeric" enterkeyhint="done" placeholder="aujourd'hui" aria-label="Année de fin"></div></div>
           </div>
           <div class="field"><span>Note minimale</span><div class="range"><input type="range" id="b-vote" min="0" max="9" step="0.5" aria-label="Note minimale"><output id="b-vote-out"></output></div></div>
           <div class="field"><span>Ordre</span><div class="seg" id="b-sort" role="group" aria-label="Ordre"></div></div>
@@ -653,8 +689,9 @@ ${STAGE_CSS}
         </div>
         <form class="pp-key" id="pp-key" hidden>
           <label for="pp-input">Ta clé TMDB, pour les affiches PostersPlus
-            <span class="row"><input id="pp-input" type="text" autocomplete="off" spellcheck="false" placeholder="32 lettres et chiffres"><button type="submit" class="mini ok">Valider</button></span>
+            <span class="row"><input id="pp-input" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="32 lettres et chiffres"><button type="submit" class="mini ok">Valider</button></span>
           </label>
+          <button type="button" class="mini paste" id="pp-paste" hidden>Coller ma clé</button>
           <small id="pp-note">Elle reste sur ton appareil : elle sert seulement à demander les affiches à PostersPlus. C'est la même que dans le guide : pas encore de clé ? <a href="${origin}/guide#comptes" target="_blank" rel="noopener">l'étape 5 explique comment l'avoir</a> (gratuit).</small>
         </form>
         <div class="screen-fun">
@@ -662,7 +699,7 @@ ${STAGE_CSS}
         </div>
         <button type="button" class="btn big-close" id="big-close">Fermer le grand écran</button>
       </div>
-      <p class="caption">Clique sur une affiche pour ouvrir sa fiche, ou navigue avec les flèches comme à la télécommande.</p>
+      <p class="caption"><span class="souris">Clique sur une affiche pour ouvrir sa fiche, ou navigue avec les flèches comme à la télécommande.</span><span class="doigt">Touche une affiche pour ouvrir sa fiche, fais glisser les rangées du doigt.</span></p>
 
       <div class="ticket" id="ticket">
         <div class="main">
@@ -695,7 +732,7 @@ ${STAGE_CSS}
   ${SEATS_HTML}
   ${CREDITS_HTML}
 
-  <div class="dock"><span>Ton billet : <b id="dock-count"></b></span><button type="button" class="btn" id="dock-copy">Copier mon lien</button></div>
+  <div class="dock"><button type="button" class="dock-billet" id="dock-billet">Ton billet : <b id="dock-count"></b><i aria-hidden="true">↓</i></button><button type="button" class="btn" id="dock-copy">Copier mon lien</button></div>
 
 <script>
 const D = ${json};
@@ -705,7 +742,9 @@ window.hashDepart = hashDepart;
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const state = clone(D.cfg);
 const $ = (id) => document.getElementById(id);
-const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+// Écran tactile : on n'y donne jamais le focus à un champ de nous-mêmes (ça ouvrirait le clavier).
+const tactile = matchMedia("(hover: none), (pointer: coarse)").matches;
+const same =(a, b) => JSON.stringify(a) === JSON.stringify(b);
 const baseIds = D.rows.map(r => r.id);
 let order = [];
 function resetOrder() { order = [...state.r, ...allRowIds().filter(id => !state.r.includes(id))]; }
@@ -802,7 +841,7 @@ function renderRows(flashId) {
       el("span", { class: "kind", text: r.kind }),
       state.o[id] ? el("em", { class: "orig", text: "(" + r.name + ")" }) : null,
       el("small", { text: r.hint + (r.now ? " · en ce moment : " + r.now : "") }));
-    const inp = el("input", { type: "text", value: state.o[id] || "", placeholder: r.name, maxlength: "40", "aria-label": "Nouveau nom pour " + r.name });
+    const inp = el("input", { type: "text", value: state.o[id] || "", placeholder: r.name, maxlength: "40", enterkeyhint: "done", "aria-label": "Nouveau nom pour " + r.name });
     const saveName = () => { const v = inp.value.trim(); if (v && v !== r.name) state.o[id] = v; else delete state.o[id]; renderRows(id); update(); };
     inp.addEventListener("keydown", (e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") renderRows(); });
     const box = el("div", { class: "body" }, lab, el("div", { class: "rename" }, inp, el("button", { type: "button", class: "mini ok", text: "OK", onclick: saveName })));
@@ -859,7 +898,7 @@ function openBuilder(i) {
   $("b-lang").value = draft.l; $("b-from").value = draft.y[0] || ""; $("b-to").value = draft.y[1] || ""; $("b-vote").value = draft.v; paintRange($("b-vote"));
   delBtn.hidden = i < 0;
   $("builder").hidden = false; drawBuilder();
-  $("builder").scrollIntoView({ behavior: "smooth", block: "center" }); $("b-name").focus({ preventScroll: true });
+  $("builder").scrollIntoView({ behavior: "smooth", block: tactile ? "start" : "center" }); if (!tactile) $("b-name").focus({ preventScroll: true });
 }
 function toggleIdx(list, i, on) { const k = list.indexOf(i); if (on && k < 0) list.push(i); if (!on && k >= 0) list.splice(k, 1); list.sort((a, b) => a - b); }
 function drawBuilder() {
@@ -1291,8 +1330,18 @@ function setPP(on) {
 $("pp-btn").addEventListener("click", () => {
   if (ppOn) { setPP(false); return; }
   if (tmdbKey()) { setPP(true); return; }
-  $("pp-key").hidden = false; $("pp-input").focus();
+  // Sur téléphone, on montre le champ sans lui donner le focus : le clavier ne s'ouvre que si on touche le champ.
+  $("pp-key").hidden = false;
+  if (tactile) $("pp-key").scrollIntoView({ block: "center", behavior: "smooth" }); else $("pp-input").focus();
 });
+// « Coller ma clé » : lit le presse-papiers et valide d'un coup, sans passer par le clavier.
+if (navigator.clipboard && navigator.clipboard.readText) {
+  $("pp-paste").hidden = false;
+  $("pp-paste").addEventListener("click", async () => {
+    try { $("pp-input").value = (await navigator.clipboard.readText()).trim(); } catch (err) { $("pp-note").textContent = "Le collage automatique est bloqué : touche le champ et colle ta clé."; $("pp-note").className = "err"; return; }
+    $("pp-key").requestSubmit();
+  });
+}
 $("pp-key").addEventListener("submit", (e) => {
   e.preventDefault();
   const k = $("pp-input").value.trim().replace(/[^A-Za-z0-9]/g, "");
@@ -1426,7 +1475,12 @@ function copy(btn, node, label) {
 $("copy-manifest").addEventListener("click", e => copy(e.currentTarget, $("u-manifest"), "Copier"));
 $("copy-collections").addEventListener("click", e => copy(e.currentTarget, $("u-collections"), "Copier"));
 $("dock-copy").addEventListener("click", e => copy(e.currentTarget, $("u-manifest"), "Copier mon lien"));
+$("dock-billet").addEventListener("click", () => $("ticket").scrollIntoView({ behavior: "smooth", block: "start" }));
+// Le billet est à l'écran : la barre du bas ferait doublon (et cacherait ses boutons).
+if ("IntersectionObserver" in window) new IntersectionObserver(([e]) => document.querySelector(".dock").classList.toggle("cache", e.isIntersecting), { threshold: .15 }).observe($("ticket"));
 $("name").addEventListener("input", update);
+// « OK » du clavier : on referme le clavier au lieu de rester dans le champ.
+$("name").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } });
 $("reset").addEventListener("click", () => { Object.assign(state, clone(D.defaults)); $("builder").hidden = true; renderAll(); });
 
 // ---------- billet : séance, QR code, partage, reflet ----------

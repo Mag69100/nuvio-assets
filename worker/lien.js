@@ -35,6 +35,8 @@ pre { margin: 0; max-height: 40vh; overflow: auto; padding: 12px 14px; border-ra
 .aide { margin: 0; font-size: .9rem; color: var(--dim); }
 .etat { min-height: 1.4em; margin: 0; font-weight: 800; color: var(--bulb); text-align: center; }
 .erreur { color: #ff9c95; }
+a, button, summary { touch-action: manipulation; }
+summary.aide { padding: 10px 0; cursor: pointer; }
 </style>
 </head>
 <body>

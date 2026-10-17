@@ -45,6 +45,7 @@ export const APERCU_CSS = `/* L'aperçu du résultat : l'accueil Nuvio qu'on obt
 .r-cle input { font: 600 .95rem var(--type); padding: 8px 10px; border-radius: 8px; border: 1px dashed var(--bulb); background: #0f080c; color: var(--cream); width: 260px; max-width: 100%; }
 .r-cle button { font: 800 .85rem var(--body); padding: 8px 14px; border-radius: 8px; border: 0; background: var(--bulb); color: var(--ink); cursor: pointer; }
 .r-cle .err { color: #ff9c95; }
+.r-cle .coller { background: transparent; color: var(--bulb); border: 1px solid rgba(255,207,107,.5); }
 .r-cle .aide-cle { background: none; color: var(--bulb); text-decoration: underline; text-underline-offset: 3px; padding: 8px 4px; }
 /* La fenêtre de l'étape 5, ouverte par-dessus l'aperçu */
 .pop-etape { position: fixed; inset: 0; z-index: 88; display: grid; place-items: center; padding: 16px; background: rgba(5,3,4,.82); animation: rise .25s ease both; }
@@ -94,12 +95,24 @@ export const APERCU_CSS = `/* L'aperçu du résultat : l'accueil Nuvio qu'on obt
 .rf-btns button:disabled { opacity: .5; cursor: default; }
 .rf-fermer { position: absolute; top: 2.5cqw; right: 2.5cqw; z-index: 2; width: max(5cqw, 28px); height: max(5cqw, 28px); border-radius: 50%; border: 0; cursor: pointer; background: rgba(255,255,255,.15); color: #fff; font: 700 max(2.8cqw, 15px)/1 var(--body); }
 .rf-video { position: absolute; inset: 0; z-index: 4; background: #000; }
-.rf-video iframe { width: 100%; height: 100%; border: 0; display: block; }`;
+.rf-video iframe { width: 100%; height: 100%; border: 0; display: block; }
+/* Doigt plutôt que souris : cibles plus grandes, champs en 16 px (sinon iOS zoome dans la page). */
+@media (hover: none), (pointer: coarse) {
+  .r-outils button, .r-cle button { min-height: 44px; }
+  .r-cle input, .r-rech input { font-size: 16px; }
+  .r-onglets button { font-size: 12px; padding: 7px 12px; }
+  .rf-btns i, .rf-btns button { font-size: 12px; padding: 8px 12px; }
+  .rf-fermer { width: 36px; height: 36px; }
+  .resultat .fermer { width: 44px; height: 44px; }
+  .pop-etape .fermer { width: 40px; height: 40px; }
+}`;
 
 /** Le script de l'aperçu ; posterUrl est le réglage PostersPlus conseillé, avec « TA_CLE_TMDB » à la place de la clé. */
 export const apercuJS = (origin, posterUrl) => "const ORIG_AP = " + JSON.stringify(origin) + ", PP_AP = " + JSON.stringify(posterUrl) + ", ETAPE5_AP = " + JSON.stringify('<li>Crée un compte sur <a href="https://www.themoviedb.org/signup" target="_blank" rel="noopener">themoviedb.org</a> et confirme ton adresse e-mail.</li><li>Va dans <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">Paramètres → API</a> et demande une clé : type <b>Développeur</b>, usage <b>personnel</b>. Remplis le formulaire simplement (nom de l\'appli : « Nuvio perso »).</li><li>Copie la <b>Clé d\'API</b> (une suite de 32 lettres et chiffres) et garde-la dans tes notes.</li>') + ";\n" + `// ---------- L'accueil qu'on aura à la fin du guide (réglages conseillés, vraies affiches) ----------
 (() => {
   let ouvert = null, aGlisse = 0;
+  // Écran tactile : on ne donne jamais le focus à un champ de nous-mêmes (ça ouvrirait le clavier).
+  const tactile = matchMedia("(hover: none), (pointer: coarse)").matches;
   const mkd = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
   const url = (u) => "url('" + String(u).replace(/'/g, "%27") + "')";
   // Film pas encore regardable : l'addon met « 📅 Dispo le… » en tête du résumé ; comme sur la TV,
@@ -160,7 +173,7 @@ export const apercuJS = (origin, posterUrl) => "const ORIG_AP = " + JSON.stringi
     // La recherche, en direct : les rangées « Films » et « Séries » du Catalogue FR,
     // telles que Nuvio les affiche (titres en français, les plus connus d'abord).
     const rech = mkd("div", "r-biblio r-rech"); rech.hidden = true;
-    const champ = mkd("input"); champ.type = "search"; champ.placeholder = "Un film, une série…"; champ.setAttribute("aria-label", "Rechercher un film ou une série");
+    const champ = mkd("input"); champ.type = "search"; champ.enterKeyHint = "search"; champ.placeholder = "Un film, une série…"; champ.setAttribute("aria-label", "Rechercher un film ou une série");
     const resultats = mkd("div"), astuce = mkd("p", "vide", "Tape un titre : les résultats arrivent en français, avec la date de dispo des films à venir.");
     rech.append(mkd("h3", null, "Recherche"), champ, astuce, resultats);
     let rT = 0, rN = 0;
@@ -185,7 +198,7 @@ export const apercuJS = (origin, posterUrl) => "const ORIG_AP = " + JSON.stringi
       bAcc.setAttribute("aria-pressed", String(v === "accueil")); bRech.setAttribute("aria-pressed", String(v === "rech")); bBib.setAttribute("aria-pressed", String(v === "biblio"));
       biblio.hidden = v !== "biblio"; rech.hidden = v !== "rech";
       if (v === "biblio") dessineBiblio();
-      if (v === "rech") champ.focus();
+      if (v === "rech" && !tactile) champ.focus();
     };
     [bAcc, bRech, bBib].forEach((b) => { b.type = "button"; }); bAcc.addEventListener("click", () => vue("accueil")); bRech.addEventListener("click", () => vue("rech")); bBib.addEventListener("click", () => vue("biblio"));
     onglets.append(bAcc, bRech, bBib); ecran.append(biblio, rech, onglets); vue("accueil");
@@ -235,14 +248,27 @@ export const apercuJS = (origin, posterUrl) => "const ORIG_AP = " + JSON.stringi
     bV.addEventListener("click", () => { format = "p"; ecrit("apercu-format", "p"); boutons(); toutPeindre(); });
     bP.addEventListener("click", () => { format = "l"; ecrit("apercu-format", "l"); boutons(); toutPeindre(); });
     const cleBox = mkd("form", "r-cle"); cleBox.hidden = true;
-    cleBox.innerHTML = '<label for="r-cle-in">Ta clé TMDB (étape 5) :</label><input id="r-cle-in" type="text" autocomplete="off" spellcheck="false" placeholder="32 caractères"><button type="submit">Valider</button><button type="button" class="aide-cle">Pas de clé ? Voir l’étape 5</button><span class="err" hidden>Une clé TMDB fait 32 caractères (chiffres et lettres de a à f).</span>';
+    cleBox.innerHTML = '<label for="r-cle-in">Ta clé TMDB (étape 5) :</label><input id="r-cle-in" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="32 caractères"><button type="submit">Valider</button><button type="button" class="coller" hidden>Coller ma clé</button><button type="button" class="aide-cle">Pas de clé ? Voir l’étape 5</button><span class="err" hidden>Une clé TMDB fait 32 caractères (chiffres et lettres de a à f).</span>';
     cleBox.addEventListener("submit", (e) => {
       e.preventDefault();
       const k = cleBox.querySelector("input").value.trim().replace(/[^A-Za-z0-9]/g, "");
-      if (!/^[A-Fa-f0-9]{32}$/.test(k)) { cleBox.querySelector(".err").hidden = false; return; }
+      if (!/^[A-Fa-f0-9]{32}$/.test(k)) { const er = cleBox.querySelector(".err"); er.textContent = "Une clé TMDB fait 32 caractères (chiffres et lettres de a à f)."; er.hidden = false; return; }
       ecrit("tmdb-key", k); if (typeof keyInput !== "undefined") { keyInput.value = k; drawPoster(); }
       cleBox.hidden = true; pp = true; ecrit("apercu-pp", "1"); boutons(); toutPeindre();
     });
+    // Montrer le champ de la clé : sur téléphone, sans focus (le clavier ne s'ouvre que si on touche le champ).
+    const montreCle = () => {
+      cleBox.hidden = false;
+      if (tactile) cleBox.scrollIntoView({ block: "center", behavior: "smooth" }); else cleBox.querySelector("input").focus();
+    };
+    // « Coller ma clé » : lit le presse-papiers et valide d'un coup, sans passer par le clavier.
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      const coller = cleBox.querySelector(".coller"); coller.hidden = false;
+      coller.addEventListener("click", async () => {
+        try { cleBox.querySelector("input").value = (await navigator.clipboard.readText()).trim(); } catch (e) { const er = cleBox.querySelector(".err"); er.textContent = "Le collage automatique est bloqué : touche le champ et colle ta clé."; er.hidden = false; return; }
+        cleBox.requestSubmit();
+      });
+    }
     // « Pas de clé ? » : l'étape 5 (clé TMDB) dans une fenêtre, sans quitter l'aperçu.
     cleBox.querySelector(".aide-cle").addEventListener("click", () => {
       const pop = mkd("div", "pop-etape"); pop.setAttribute("role", "dialog"); pop.setAttribute("aria-label", "Étape 5 : la clé TMDB");
@@ -255,14 +281,14 @@ export const apercuJS = (origin, posterUrl) => "const ORIG_AP = " + JSON.stringi
       boite.append(mkd("p", "small", "Elle reste sur ton appareil : elle sert seulement à demander les affiches."));
       const ok = mkd("button", "ok", "J'ai ma clé, je la colle"); ok.type = "button"; boite.append(ok);
       pop.append(boite); document.body.append(pop); x.focus();
-      const ferme = () => { pop.remove(); cleBox.querySelector("input").focus(); };
+      const ferme = () => { pop.remove(); montreCle(); };
       x.addEventListener("click", ferme); ok.addEventListener("click", ferme);
       pop.addEventListener("click", (e) => { if (e.target === pop) ferme(); });
       pop.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); ferme(); } });
     });
     bPP.addEventListener("click", () => {
       if (pp && cle()) { pp = false; ecrit("apercu-pp", "0"); boutons(); toutPeindre(); return; }
-      if (!cle()) { cleBox.hidden = false; cleBox.querySelector("input").focus(); return; }
+      if (!cle()) { montreCle(); return; }
       pp = true; ecrit("apercu-pp", "1"); boutons(); toutPeindre();
     });
     seg.append(bV, bP); outils.append(seg, bPP); boutons(); toutPeindre();

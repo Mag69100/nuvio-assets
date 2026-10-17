@@ -734,6 +734,14 @@ export const STAGE_CSS = `
   .generique .defile { animation: none; }
   .generique dl + dl { display: none; }
 }
+/* Les draperies n'ont de place qu'au-delà de 1260 px ; en dessous, leur bas qui déborde ferait glisser la page de côté. */
+@media (max-width: 1260px) { .draperie { display: none; } }
+/* Doigt : pas de zoom au double appui (on tape vite sur les flèches), et des plaques assez hautes pour le pouce. */
+a, button, label, summary, input, select { touch-action: manipulation; }
+@media (hover: none), (pointer: coarse) {
+  .salle { min-height: 40px; align-content: center; }
+  .regie button { min-height: 44px; min-width: 44px; justify-content: center; }
+}
 `;
 
 /** Tout ce qui entoure la page : rideau, iris, lampe, draperies, décor de saison, et le foyer. */

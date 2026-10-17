@@ -423,6 +423,15 @@ ${STAGE_CSS}
 @media (max-width: 520px) { .act > header { grid-template-columns: auto minmax(0, 1fr); } .composte { grid-column: 1 / -1; grid-row: 3; justify-self: start; margin-top: 8px; } .entracte { gap: 14px; } .entracte .titre { font-size: 2.1rem; } }
 @media (max-width: 520px) { .act { padding: 18px; } .act .num { width: 64px; height: 64px; font-size: 2.2rem; } .act h2 { font-size: 1.8rem; } body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); } .reel-btn small { max-width: 16ch; } }
 @media (prefers-reduced-motion: reduce) { body::after, .act .num, .act .num::before, .reel-menu, .choix span.focus::after, .cornet i, .sortie::after, .composte { animation: none !important; } }
+/* Doigt plutôt que souris : des cibles d'au moins 44 px (les points de la réclame gardent leur taille, seule la zone à toucher grandit). */
+@media (hover: none), (pointer: coarse) {
+  .composte { min-height: 44px; }
+  .faq details { padding: 3px 0; }
+  .faq summary, .manual summary { padding-block: 10px; }
+  .reel-menu a { padding: 12px; }
+  .r-dots { gap: 0; }
+  .r-dots button { box-sizing: border-box; width: 30px; height: 30px; padding: 10px; background-clip: content-box; }
+}
 </style>
 </head>
 <body>
@@ -859,6 +868,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
     <p><button type="button" class="voir-resultat" data-resultat>Voir à quoi ressemble l'accueil terminé</button></p>
     <p><span class="path">Paramètres → Réorganiser les catalogues de l'accueil</span> → active <b>Suivre l'ordre des addons</b>.</p>
     <p class="note">C'est tout : le reste est déjà dans le bon ordre. Plateformes est épinglée tout en haut, puis viennent les rangées du Catalogue FR, puis Genres, J'ai envie de…, Sagas et Studios. Une collection n'est pas à sa place (importée avec une ancienne version) ? Déplace-la dans ce même écran, ou depuis le téléphone, onglet « Disposition de l'accueil ».</p>
+    <p class="note">Tu as réinstallé le Catalogue FR et ses rangées sont passées tout en bas, sous les collections ? C'est normal : Nuvio range l'accueil addon par addon, et pour lui c'est un nouvel addon. Dans ce même écran, fais descendre d'un cran <b>Studios</b>, puis <b>Sagas</b>, puis <b>J'ai envie de…</b>, puis <b>Genres</b> : chacune saute sous les rangées du Catalogue FR, et l'ordre est rétabli.</p>
   </section>
 
   <section class="act" id="tester">

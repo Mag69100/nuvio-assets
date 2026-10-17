@@ -29,7 +29,7 @@ import { lienPage } from "./lien.js";
 import { hallPage } from "./hall.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.7.2";
+const VERSION = "5.8.0";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const ASSETS = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main";
 const NOISE_TV = ["10763", "10764", "10766", "10767"]; // actualité, téléréalité, soap, talk-show
@@ -213,14 +213,24 @@ async function tmdb(env, path, params = {}, lang = "fr-FR") {
  */
 async function extraInfo(env, kind, tmdbId) {
   const movie = kind !== "series";
-  const url = new URL(`https://api.themoviedb.org/3/${movie ? "movie" : "tv"}/${tmdbId}${movie ? "" : "/external_ids"}`);
-  url.search = new URLSearchParams(movie
-    ? { api_key: env.TMDB_API_KEY, append_to_response: "release_dates", language: "fr-FR" }
-    : { api_key: env.TMDB_API_KEY });
-  const res = await fetch(url, { cf: { cacheTtl: movie ? 86400 : CACHE_IMDB_S, cacheEverything: true } });
+  const url = new URL(`https://api.themoviedb.org/3/${movie ? "movie" : "tv"}/${tmdbId}`);
+  // Même appel qu'avant, avec en plus les images : logo (en français si possible) et fond
+  // sans texte en pleine définition pour le grand carrousel et le mode ambiant.
+  url.search = new URLSearchParams({
+    api_key: env.TMDB_API_KEY, language: "fr-FR", include_image_language: "fr,en,null",
+    append_to_response: movie ? "release_dates,images" : "external_ids,images",
+  });
+  const res = await fetch(url, { cf: { cacheTtl: movie ? 86400 : 7 * 86400, cacheEverything: true } });
   if (!res.ok) return { imdb: null };
   const j = await res.json();
-  return { imdb: j.imdb_id || null, releases: movie ? (j.release_dates && j.release_dates.results) || [] : null };
+  const logo = bestImage(j.images && j.images.logos, "fr");
+  const backdrop = bestImage((j.images && j.images.backdrops || []).filter((b) => !b.iso_639_1), "fr");
+  return {
+    imdb: (movie ? j.imdb_id : j.external_ids && j.external_ids.imdb_id) || null,
+    releases: movie ? (j.release_dates && j.release_dates.results) || [] : null,
+    logo: logo ? `${IMG}w500${logo.file_path.replace(/\.svg$/, ".png")}` : undefined,
+    backdrop: backdrop ? backdrop.file_path : null,
+  };
 }
 
 const MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
@@ -322,7 +332,9 @@ async function toMetas(env, ctx, results, kind, opts, today) {
       type: kind,
       name: (it.title || it.name || "").replace(/^[‎‏\s]+|[‎‏\s]+$/g, ""),
       poster: it.poster_path ? `${IMG}w500${it.poster_path}` : undefined,
-      background: it.backdrop_path ? `${IMG}w1280${it.backdrop_path}` : undefined,
+      // Fond en définition d'origine (le w1280 de TMDB paraît flou en plein écran).
+      background: infos[i].backdrop || it.backdrop_path ? `${IMG}original${infos[i].backdrop || it.backdrop_path}` : undefined,
+      logo: infos[i].logo,
       description: [note ? `📅 ${note}${note.endsWith(".") ? "" : "."}` : "", it.overview || ""].filter(Boolean).join("\n") || undefined,
       releaseInfo: [date.slice(0, 4), note].filter(Boolean).join(" · ") || undefined,
       released: shownDate ? `${shownDate}T00:00:00.000Z` : undefined,
@@ -548,7 +560,7 @@ function bestImage(list, lang) {
 function trailersOf(videos) {
   return (videos || [])
     .filter((v) => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"))
-    .sort((a, b) => (b.iso_639_1 === "fr") - (a.iso_639_1 === "fr") || (b.type === "Trailer") - (a.type === "Trailer")
+    .sort((a, b) => (b.iso_639_1 === "fr") - (a.iso_639_1 === "fr") || (b.size >= 1080) - (a.size >= 1080) || (b.type === "Trailer") - (a.type === "Trailer")
       || (b.official === true) - (a.official === true))
     .slice(0, 4)
     .map((v) => ({ source: v.key, ytId: v.key, type: v.type, name: v.name, lang: v.iso_639_1 }));
@@ -680,7 +692,7 @@ async function trailer(env, kind, id) {
   const path = `/${kind === "series" ? "tv" : "movie"}/${tmdbId}/videos`;
   const pick = (r) => (r.results || [])
     .filter((v) => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"))
-    .sort((a, b) => (b.type === "Trailer") - (a.type === "Trailer") || (b.official === true) - (a.official === true))[0];
+    .sort((a, b) => (b.size >= 1080) - (a.size >= 1080) || (b.type === "Trailer") - (a.type === "Trailer") || (b.official === true) - (a.official === true))[0];
   const v = pick(await tmdb(env, path, {}, "fr-FR")) || pick(await tmdb(env, path, {}, "en-US"));
   return { key: v ? v.key : null, lang: v ? v.iso_639_1 : null };
 }

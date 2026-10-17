@@ -1,0 +1,880 @@
+{
+ "id": "com.xnzx07.catalogue-fr",
+ "version": "2.6.0",
+ "name": "Catalogue FR",
+ "description": "Rangées d'accueil, Découvrir (films et séries par filtre) et saison en cours, en français, mis à jour chaque nuit.",
+ "resources": [
+  "catalog"
+ ],
+ "types": [
+  "movie",
+  "series"
+ ],
+ "idPrefixes": [
+  "tt"
+ ],
+ "catalogs": [
+  {
+   "type": "movie",
+   "id": "films-populaires",
+   "name": "Populaires",
+   "showInHome": false,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "genre",
+     "isRequired": true,
+     "options": [
+      "Tout",
+      "Action",
+      "Aventure",
+      "Animation",
+      "Comédie",
+      "Crime",
+      "Documentaire",
+      "Drame",
+      "Famille",
+      "Fantastique",
+      "Horreur",
+      "Romance",
+      "Science-fiction",
+      "Thriller",
+      "Guerre",
+      "Histoire",
+      "Western"
+     ]
+    },
+    {
+     "name": "skip"
+    }
+   ],
+   "extraRequired": [
+    "genre"
+   ],
+   "extraSupported": [
+    "genre",
+    "skip"
+   ],
+   "genres": [
+    "Tout",
+    "Action",
+    "Aventure",
+    "Animation",
+    "Comédie",
+    "Crime",
+    "Documentaire",
+    "Drame",
+    "Famille",
+    "Fantastique",
+    "Horreur",
+    "Romance",
+    "Science-fiction",
+    "Thriller",
+    "Guerre",
+    "Histoire",
+    "Western"
+   ]
+  },
+  {
+   "type": "movie",
+   "id": "films-tendances",
+   "name": "Tendances",
+   "showInHome": false,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "genre",
+     "isRequired": true,
+     "options": [
+      "Cette semaine",
+      "Aujourd'hui"
+     ]
+    },
+    {
+     "name": "skip"
+    }
+   ],
+   "extraRequired": [
+    "genre"
+   ],
+   "extraSupported": [
+    "genre",
+    "skip"
+   ],
+   "genres": [
+    "Cette semaine",
+    "Aujourd'hui"
+   ]
+  },
+  {
+   "type": "movie",
+   "id": "films-mieux-notes",
+   "name": "Les mieux notés",
+   "showInHome": false,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "genre",
+     "isRequired": true,
+     "options": [
+      "Tout",
+      "Action",
+      "Aventure",
+      "Animation",
+      "Comédie",
+      "Crime",
+      "Documentaire",
+      "Drame",
+      "Famille",
+      "Fantastique",
+      "Horreur",
+      "Romance",
+      "Science-fiction",
+      "Thriller",
+      "Guerre",
+      "Histoire",
+      "Western"
+     ]
+    },
+    {
+     "name": "skip"
+    }
+   ],
+   "extraRequired": [
+    "genre"
+   ],
+   "extraSupported": [
+    "genre",
+    "skip"
+   ],
+   "genres": [
+    "Tout",
+    "Action",
+    "Aventure",
+    "Animation",
+    "Comédie",
+    "Crime",
+    "Documentaire",
+    "Drame",
+    "Famille",
+    "Fantastique",
+    "Horreur",
+    "Romance",
+    "Science-fiction",
+    "Thriller",
+    "Guerre",
+    "Histoire",
+    "Western"
+   ]
+  },
+  {
+   "type": "movie",
+   "id": "films-cinema",
+   "name": "Au cinéma",
+   "showInHome": false,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "genre",
+     "isRequired": true,
+     "options": [
+      "En ce moment",
+      "Prochainement"
+     ]
+    },
+    {
+     "name": "skip"
+    }
+   ],
+   "extraRequired": [
+    "genre"
+   ],
+   "extraSupported": [
+    "genre",
+    "skip"
+   ],
+   "genres": [
+    "En ce moment",
+    "Prochainement"
+   ]
+  },
+  {
+   "type": "movie",
+   "id": "films-nouveautes",
+   "name": "Nouveautés",
+   "showInHome": false,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "genre",
+     "isRequired": true,
+     "options": [
+      "Ce mois-ci",
+      "Ces 3 derniers mois"
+     ]
+    },
+    {
+     "name": "skip"
+    }
+   ],
+   "extraRequired": [
+    "genre"
+   ],
+   "extraSupported": [
+    "genre",
+    "skip"
+   ],
+   "genres": [
+    "Ce mois-ci",
+    "Ces 3 derniers mois"
+   ]
+  },
+  {
+   "type": "movie",
+   "id": "films-annees",
+   "name": "Par année",
+   "showInHome": false,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "genre",
+     "isRequired": true,
+     "options": [
+      "2026",
+      "2025",
+      "2024",
+      "2023",
+      "2022",
+      "2021",
+      "2020",
+      "2019",
+      "2018",
+      "2017",
+      "2016",
+      "2015",
+      "2014",
+      "2013",
+      "2012",
+      "2011",
+      "2010",
+      "2009",
+      "2008",
+      "2007",
+      "2006",
+      "2005",
+      "2004",
+      "2003",
+      "2002",
+      "2001",
+      "2000",
+      "1999",
+      "1998",
+      "1997",
+      "1996",
+      "1995",
+      "1994",
+      "1993",
+      "1992",
+      "1991",
+      "1990",
+      "1989",
+      "1988",
+      "1987",
+      "1986",
+      "1985",
+      "1984",
+      "1983",
+      "1982",
+      "1981",
+      "1980",
+      "1979",
+      "1978",
+      "1977",
+      "1976",
+      "1975",
+      "1974",
+      "1973",
+      "1972",
+      "1971",
+      "1970"
+     ]
+    },
+    {
+     "name": "skip"
+    }
+   ],
+   "extraRequired": [
+    "genre"
+   ],
+   "extraSupported": [
+    "genre",
+    "skip"
+   ],
+   "genres": [
+    "2026",
+    "2025",
+    "2024",
+    "2023",
+    "2022",
+    "2021",
+    "2020",
+    "2019",
+    "2018",
+    "2017",
+    "2016",
+    "2015",
+    "2014",
+    "2013",
+    "2012",
+    "2011",
+    "2010",
+    "2009",
+    "2008",
+    "2007",
+    "2006",
+    "2005",
+    "2004",
+    "2003",
+    "2002",
+    "2001",
+    "2000",
+    "1999",
+    "1998",
+    "1997",
+    "1996",
+    "1995",
+    "1994",
+    "1993",
+    "1992",
+    "1991",
+    "1990",
+    "1989",
+    "1988",
+    "1987",
+    "1986",
+    "1985",
+    "1984",
+    "1983",
+    "1982",
+    "1981",
+    "1980",
+    "1979",
+    "1978",
+    "1977",
+    "1976",
+    "1975",
+    "1974",
+    "1973",
+    "1972",
+    "1971",
+    "1970"
+   ]
+  },
+  {
+   "type": "movie",
+   "id": "films-decennies",
+   "name": "Par décennie",
+   "showInHome": false,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "genre",
+     "isRequired": true,
+     "options": [
+      "Années 2010",
+      "Années 2000",
+      "Années 90",
+      "Années 80",
+      "Années 70",
+      "Classiques (avant 1970)"
+     ]
+    },
+    {
+     "name": "skip"
+    }
+   ],
+   "extraRequired": [
+    "genre"
+   ],
+   "extraSupported": [
+    "genre",
+    "skip"
+   ],
+   "genres": [
+    "Années 2010",
+    "Années 2000",
+    "Années 90",
+    "Années 80",
+    "Années 70",
+    "Classiques (avant 1970)"
+   ]
+  },
+  {
+   "type": "series",
+   "id": "series-populaires",
+   "name": "Populaires",
+   "showInHome": false,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "genre",
+     "isRequired": true,
+     "options": [
+      "Tout",
+      "Action & Aventure",
+      "Animation",
+      "Comédie",
+      "Crime",
+      "Documentaire",
+      "Drame",
+      "Famille",
+      "Enfants",
+      "Mystère",
+      "SF & Fantastique",
+      "Guerre & Politique",
+      "Western"
+     ]
+    },
+    {
+     "name": "skip"
+    }
+   ],
+   "extraRequired": [
+    "genre"
+   ],
+   "extraSupported": [
+    "genre",
+    "skip"
+   ],
+   "genres": [
+    "Tout",
+    "Action & Aventure",
+    "Animation",
+    "Comédie",
+    "Crime",
+    "Documentaire",
+    "Drame",
+    "Famille",
+    "Enfants",
+    "Mystère",
+    "SF & Fantastique",
+    "Guerre & Politique",
+    "Western"
+   ]
+  },
+  {
+   "type": "series",
+   "id": "series-tendances",
+   "name": "Tendances",
+   "showInHome": false,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "genre",
+     "isRequired": true,
+     "options": [
+      "Cette semaine",
+      "Aujourd'hui"
+     ]
+    },
+    {
+     "name": "skip"
+    }
+   ],
+   "extraRequired": [
+    "genre"
+   ],
+   "extraSupported": [
+    "genre",
+    "skip"
+   ],
+   "genres": [
+    "Cette semaine",
+    "Aujourd'hui"
+   ]
+  },
+  {
+   "type": "series",
+   "id": "series-mieux-notees",
+   "name": "Les mieux notées",
+   "showInHome": false,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "genre",
+     "isRequired": true,
+     "options": [
+      "Tout",
+      "Action & Aventure",
+      "Animation",
+      "Comédie",
+      "Crime",
+      "Documentaire",
+      "Drame",
+      "Famille",
+      "Enfants",
+      "Mystère",
+      "SF & Fantastique",
+      "Guerre & Politique",
+      "Western"
+     ]
+    },
+    {
+     "name": "skip"
+    }
+   ],
+   "extraRequired": [
+    "genre"
+   ],
+   "extraSupported": [
+    "genre",
+    "skip"
+   ],
+   "genres": [
+    "Tout",
+    "Action & Aventure",
+    "Animation",
+    "Comédie",
+    "Crime",
+    "Documentaire",
+    "Drame",
+    "Famille",
+    "Enfants",
+    "Mystère",
+    "SF & Fantastique",
+    "Guerre & Politique",
+    "Western"
+   ]
+  },
+  {
+   "type": "series",
+   "id": "series-diffusion",
+   "name": "En diffusion",
+   "showInHome": false,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "genre",
+     "isRequired": true,
+     "options": [
+      "Cette semaine",
+      "Aujourd'hui"
+     ]
+    },
+    {
+     "name": "skip"
+    }
+   ],
+   "extraRequired": [
+    "genre"
+   ],
+   "extraSupported": [
+    "genre",
+    "skip"
+   ],
+   "genres": [
+    "Cette semaine",
+    "Aujourd'hui"
+   ]
+  },
+  {
+   "type": "series",
+   "id": "series-nouveautes",
+   "name": "Nouveautés",
+   "showInHome": false,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "genre",
+     "isRequired": true,
+     "options": [
+      "Ce mois-ci",
+      "Ces 3 derniers mois"
+     ]
+    },
+    {
+     "name": "skip"
+    }
+   ],
+   "extraRequired": [
+    "genre"
+   ],
+   "extraSupported": [
+    "genre",
+    "skip"
+   ],
+   "genres": [
+    "Ce mois-ci",
+    "Ces 3 derniers mois"
+   ]
+  },
+  {
+   "type": "series",
+   "id": "series-annees",
+   "name": "Par année",
+   "showInHome": false,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "genre",
+     "isRequired": true,
+     "options": [
+      "2026",
+      "2025",
+      "2024",
+      "2023",
+      "2022",
+      "2021",
+      "2020",
+      "2019",
+      "2018",
+      "2017",
+      "2016",
+      "2015",
+      "2014",
+      "2013",
+      "2012",
+      "2011",
+      "2010",
+      "2009",
+      "2008",
+      "2007",
+      "2006",
+      "2005",
+      "2004",
+      "2003",
+      "2002",
+      "2001",
+      "2000",
+      "1999",
+      "1998",
+      "1997",
+      "1996",
+      "1995",
+      "1994",
+      "1993",
+      "1992",
+      "1991",
+      "1990",
+      "1989",
+      "1988",
+      "1987",
+      "1986",
+      "1985",
+      "1984",
+      "1983",
+      "1982",
+      "1981",
+      "1980",
+      "1979",
+      "1978",
+      "1977",
+      "1976",
+      "1975",
+      "1974",
+      "1973",
+      "1972",
+      "1971",
+      "1970"
+     ]
+    },
+    {
+     "name": "skip"
+    }
+   ],
+   "extraRequired": [
+    "genre"
+   ],
+   "extraSupported": [
+    "genre",
+    "skip"
+   ],
+   "genres": [
+    "2026",
+    "2025",
+    "2024",
+    "2023",
+    "2022",
+    "2021",
+    "2020",
+    "2019",
+    "2018",
+    "2017",
+    "2016",
+    "2015",
+    "2014",
+    "2013",
+    "2012",
+    "2011",
+    "2010",
+    "2009",
+    "2008",
+    "2007",
+    "2006",
+    "2005",
+    "2004",
+    "2003",
+    "2002",
+    "2001",
+    "2000",
+    "1999",
+    "1998",
+    "1997",
+    "1996",
+    "1995",
+    "1994",
+    "1993",
+    "1992",
+    "1991",
+    "1990",
+    "1989",
+    "1988",
+    "1987",
+    "1986",
+    "1985",
+    "1984",
+    "1983",
+    "1982",
+    "1981",
+    "1980",
+    "1979",
+    "1978",
+    "1977",
+    "1976",
+    "1975",
+    "1974",
+    "1973",
+    "1972",
+    "1971",
+    "1970"
+   ]
+  },
+  {
+   "type": "series",
+   "id": "series-decennies",
+   "name": "Par décennie",
+   "showInHome": false,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "genre",
+     "isRequired": true,
+     "options": [
+      "Années 2010",
+      "Années 2000",
+      "Années 90",
+      "Années 80",
+      "Classiques (avant 1980)"
+     ]
+    },
+    {
+     "name": "skip"
+    }
+   ],
+   "extraRequired": [
+    "genre"
+   ],
+   "extraSupported": [
+    "genre",
+    "skip"
+   ],
+   "genres": [
+    "Années 2010",
+    "Années 2000",
+    "Années 90",
+    "Années 80",
+    "Classiques (avant 1980)"
+   ]
+  },
+  {
+   "type": "movie",
+   "id": "accueil-en-ce-moment",
+   "name": "Spécial Halloween",
+   "showInHome": true,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "skip"
+    }
+   ],
+   "extraSupported": [
+    "skip"
+   ]
+  },
+  {
+   "type": "movie",
+   "id": "accueil-top10",
+   "name": "Tendances de la semaine · Films",
+   "showInHome": true,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "skip"
+    }
+   ],
+   "extraSupported": [
+    "skip"
+   ]
+  },
+  {
+   "type": "series",
+   "id": "accueil-tendances-series",
+   "name": "Tendances de la semaine · Séries",
+   "showInHome": true,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "skip"
+    }
+   ],
+   "extraSupported": [
+    "skip"
+   ]
+  },
+  {
+   "type": "movie",
+   "id": "accueil-nouveautes-plateformes",
+   "name": "Nouveautés sur tes plateformes",
+   "showInHome": true,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "skip"
+    }
+   ],
+   "extraSupported": [
+    "skip"
+   ]
+  },
+  {
+   "type": "series",
+   "id": "accueil-series-a-devorer",
+   "name": "Séries à dévorer",
+   "showInHome": true,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "skip"
+    }
+   ],
+   "extraSupported": [
+    "skip"
+   ]
+  },
+  {
+   "type": "series",
+   "id": "accueil-mini-series",
+   "name": "Mini-séries",
+   "showInHome": true,
+   "pageSize": 20,
+   "extra": [
+    {
+     "name": "skip"
+    }
+   ],
+   "extraSupported": [
+    "skip"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,46 @@
+name: Mettre à jour l'addon (chaque nuit)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/update_addon.py"
+      - "catalogs.json"
+  schedule:
+    - cron: "17 3 * * *"   # chaque nuit vers 5 h (heure de Paris en été)
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Forcer une saison (halloween, noel, saint-valentin, paques, ete, a-laffiche) — vide = selon la date"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: assets
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pillow
+      - name: Construire l'addon
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: python scripts/update_addon.py ${{ github.event.inputs.season }}
+      - name: Enregistrer
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add addon seasons gifs titles data
+          git diff --cached --quiet || git commit -m "Addon du $(date +%F) — saison : $(python -c 'import json;print(json.load(open("addon/state.json"))["label"])')"
+          git pull --rebase
+          git push

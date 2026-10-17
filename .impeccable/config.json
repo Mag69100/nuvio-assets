@@ -1,0 +1,20 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(.3, 1.6, .5, 1)",
+        "createdAt": "2026-10-17T13:54:28.889Z",
+        "reason": "Claude's call: the marquee letter swinging back onto its nail (rehang) is a literal pendulum motion; the overshoot is the effect"
+      },
+      {
+        "rule": "overused-font",
+        "value": "instrument serif",
+        "createdAt": "2026-10-17T16:08:21.445Z",
+        "reason": "Claude's call: Instrument Serif is the site's established italic serif (guide.js, page.js taglines and cartons since before the hall); hall.js must match the existing type system"
+      }
+    ]
+  }
+}

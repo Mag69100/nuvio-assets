@@ -1,0 +1,378 @@
+{
+ "genres": [
+  [
+   "action",
+   "Action",
+   "/gqrnQA6Xppdl8vIb2eJc58VC1tW.jpg"
+  ],
+  [
+   "comedie",
+   "Comédie",
+   "/q6OGlZ1KMEb14AC8KbPCxyNOal6.jpg"
+  ],
+  [
+   "horreur",
+   "Horreur",
+   "/tcheoA2nPATCm2vvXw2hVQoaEFD.jpg"
+  ],
+  [
+   "sf",
+   "Science-fiction",
+   "/zRKQW58MBEY078AxkHxEJzUskCl.jpg"
+  ],
+  [
+   "thriller",
+   "Thriller",
+   "/p1PLSI5Nw2krGxD7X4ulul1tDAk.jpg"
+  ],
+  [
+   "policier",
+   "Policier",
+   "/pUpT5mFiNYRPd49eI3B8tbL99os.jpg"
+  ],
+  [
+   "drame",
+   "Drame",
+   "/66Kn4XWhkuPkJxOJyPEx4U2CUfN.jpg"
+  ],
+  [
+   "romance",
+   "Romance",
+   "/nlPCdZlHtRNcF6C9hzUH4ebmV1w.jpg"
+  ],
+  [
+   "fantastique",
+   "Fantastique",
+   "/z51Wzj94hvAIsWfknifKTqKJRwp.jpg"
+  ],
+  [
+   "animation",
+   "Animation",
+   "/hlCq6Qh9GVtuNcGZF4mQYluaZix.jpg"
+  ],
+  [
+   "animes",
+   "Animés",
+   "/rjs5IfIv6Psl2YCSHKcluhTQGjJ.jpg"
+  ],
+  [
+   "famille",
+   "Famille",
+   "/g7CHF8gTLGooTbP4GznIGwaqAGL.jpg"
+  ],
+  [
+   "guerre",
+   "Guerre & Histoire",
+   "/2lBOQK06tltt8SQaswgb8d657Mv.jpg"
+  ],
+  [
+   "documentaire",
+   "Documentaire",
+   "/z2uuQasY4gQJ8VDAFki746JWeQJ.jpg"
+  ],
+  [
+   "western",
+   "Western",
+   "/x4biAVdPVCghBlsVIzB6NmbghIz.jpg"
+  ]
+ ],
+ "seasons": [
+  [
+   "halloween",
+   "Halloween",
+   "/c4Fl1cWiXcq4uJdOQudQClFjhho.jpg"
+  ],
+  [
+   "noel",
+   "Noël",
+   "/ih2xVgeMS8R5WUetYE8Mr9hVTlB.jpg"
+  ],
+  [
+   "saint-valentin",
+   "Saint-Valentin",
+   "/l4VlSCmsGHuGyQf7juLZbG5kb5v.jpg"
+  ],
+  [
+   "paques",
+   "Pâques",
+   "/h217Zex0muVgQDfXoeQ7cQXwHzS.jpg"
+  ],
+  [
+   "ete",
+   "Vacances d'été",
+   "/90sDsHugeRU5dtTG3zEVIOXXl4L.jpg"
+  ]
+ ],
+ "sagas": [
+  [
+   "saga-1241",
+   "Harry Potter",
+   "/xrOzCeeftRL2L4j7dFFTHYXUSQW.jpg"
+  ],
+  [
+   "saga-10",
+   "Star Wars",
+   "/itH1Wlzwf6yTNa7fVkYMVUwXlhR.jpg"
+  ],
+  [
+   "saga-119",
+   "Le Seigneur des anneaux",
+   "/1EmWSiZ38Z3UWeVNeDyriXhYvUE.jpg"
+  ],
+  [
+   "saga-121938",
+   "Le Hobbit",
+   "/abMnXtltJ1o7JHoMxMY026G0Aaa.jpg"
+  ],
+  [
+   "saga-86311",
+   "Avengers",
+   "/6Ho6Qg9DpSaOLr3OLgaHUYtlA6j.jpg"
+  ],
+  [
+   "saga-748",
+   "X-Men",
+   "/fHJv0TvTXOYx3Ndlrb9wvHCOTKZ.jpg"
+  ],
+  [
+   "saga-263",
+   "The Dark Knight",
+   "/l4ngTsBv2SEKwWRLyoVVdA6TUkx.jpg"
+  ],
+  [
+   "saga-9485",
+   "Fast & Furious",
+   "/abproxa0V1h7BZ2tcZpACkGc8LG.jpg"
+  ],
+  [
+   "saga-87359",
+   "Mission : Impossible",
+   "/j6Y1qjfoJcJ0S3ah9kifbI2bzq0.jpg"
+  ],
+  [
+   "saga-404609",
+   "John Wick",
+   "/3pn3z2ymVPomQPATBbjdMxICPfR.jpg"
+  ],
+  [
+   "saga-645",
+   "James Bond 007",
+   "/hhkQyyBfThplbHvc4PSrcgdViPI.jpg"
+  ],
+  [
+   "saga-295",
+   "Pirates des Caraïbes",
+   "/nHlpRHNLecVZ30GaaNHtBiz3TSr.jpg"
+  ],
+  [
+   "saga-328",
+   "Jurassic Park",
+   "/oWvK8xtf6a7hutdrGCyAbEx8jIk.jpg"
+  ],
+  [
+   "saga-84",
+   "Indiana Jones",
+   "/yJZCQBRMyuPT4J3NSDlZikxBjEA.jpg"
+  ],
+  [
+   "saga-264",
+   "Retour vers le futur",
+   "/48T2EQe93dguK2pPCMELoP9upVP.jpg"
+  ],
+  [
+   "saga-2344",
+   "Matrix",
+   "/fj37PDPrFHRopa72KyhkYggzMgv.jpg"
+  ],
+  [
+   "saga-131635",
+   "Hunger Games",
+   "/vLxlGijhwlM0R1LFfAT6jC1rKDt.jpg"
+  ],
+  [
+   "saga-8650",
+   "Transformers",
+   "/v3ppmiMhozPIejkg99B5WPetSj.jpg"
+  ],
+  [
+   "saga-1709",
+   "La Planète des singes",
+   "/63q3Igwdbdxj4AvBgakAEH6iURV.jpg"
+  ],
+  [
+   "saga-2980",
+   "S.O.S. Fantômes",
+   "/tV6ESBQp9bzUZU3swuYYsA94SCR.jpg"
+  ],
+  [
+   "saga-313086",
+   "Conjuring",
+   "/jr5Ks5ZgKYf0JncBWj7ZVY3xJ4U.jpg"
+  ],
+  [
+   "saga-10194",
+   "Toy Story",
+   "/evFUMr5F8Qq1nHUSYnhsHyIWoCp.jpg"
+  ],
+  [
+   "saga-2150",
+   "Shrek",
+   "/9TVbQKKXZ3lKcanUh5TESnlVszT.jpg"
+  ],
+  [
+   "saga-86066",
+   "Moi, moche et méchant",
+   "/eVdlgg69kmnDmnZP2hyAKE6GuJH.jpg"
+  ]
+ ],
+ "platforms": [
+  [
+   "netflix",
+   "Netflix",
+   "/wwemzKWzjKYJFfCeiB57q3r4Bcm.png"
+  ],
+  [
+   "prime-video",
+   "Prime Video",
+   "/ifhbNuuVnlwYy5oXA5VIb2YR8AZ.png"
+  ],
+  [
+   "paramount-plus",
+   "Paramount+",
+   "/fi83B1oztoS47xxcemFdPMhIzK.png"
+  ],
+  [
+   "disney-plus",
+   "Disney+",
+   "/gJ8VX6JSu3ciXHuC2dDGAo2lvwM.png"
+  ],
+  [
+   "hbo-max",
+   "HBO Max",
+   "/nmU0UMDJB3dRRQSTUqawzF2Od1a.png"
+  ],
+  [
+   "apple-tv-plus",
+   "Apple TV+",
+   "/4KAy34EHvRM25Ih8wb82AuGU7zJ.png"
+  ],
+  [
+   "canal-plus",
+   "Canal+",
+   "/9aotxauvc9685tq9pTcRJszuT06.png"
+  ],
+  [
+   "marvel-studios",
+   "Marvel Studios",
+   "/hUzeosd33nzE5MCNsZxCGEKTXaQ.png"
+  ],
+  [
+   "warner-bros",
+   "Warner Bros",
+   "/zhD3hhtKB5qyv7ZeL4uLpNxgMVU.png"
+  ],
+  [
+   "dc-comics",
+   "DC Comics",
+   "/4Y00XuSMuP1gimd0jP6JT57QbCI.png"
+  ]
+ ],
+ "studios": [
+  [
+   "studio-33",
+   "Universal",
+   "/8lvHyhjr8oUKOOy2dKXoALWKdp0.png"
+  ],
+  [
+   "studio-1",
+   "Lucasfilm",
+   "/tlVSws0RvvtPBwViUyOFAO0vcQS.png"
+  ],
+  [
+   "studio-41077",
+   "A24",
+   "/1ZXsGaFPgrgS6ZZGS37AqD5uU12.png"
+  ],
+  [
+   "studio-3172",
+   "Blumhouse",
+   "/rzKluDcRkIwHZK2pHsiT667A2Kw.png"
+  ],
+  [
+   "studio-3",
+   "Pixar",
+   "/1TjvGVDMYsj6JBxOAkUHpPEwLf7.png"
+  ],
+  [
+   "studio-6125",
+   "Disney Animation",
+   "/8bH86UPmMP8hlITzXV3XgV9eaAc.png"
+  ],
+  [
+   "studio-521",
+   "DreamWorks Animation",
+   "/3BPX5VGBov8SDqTV7wC1L1xShAS.png"
+  ],
+  [
+   "studio-6704",
+   "Illumination",
+   "/fOG2oY4m1YuYTQh4bMqqZkmgOAI.png"
+  ],
+  [
+   "studio-10342",
+   "Studio Ghibli",
+   "/uFuxPEZRUcBTEiYIxjHJq62Vr77.png"
+  ]
+ ],
+ "keep_logo_colors": [
+  "netflix",
+  "warner-bros",
+  "dc-comics",
+  "canal-plus"
+ ],
+ "lighten_dark_logos": [
+  "marvel-studios"
+ ],
+ "moods": [
+  [
+   "rire",
+   "Rire",
+   "/9udCLTxTFl28RxnK8Q05E154ZGa.jpg"
+  ],
+  [
+   "frissonner",
+   "Frissonner",
+   "/AdKA2F1SzYPhSZdEbjH1Zh75UVQ.jpg"
+  ],
+  [
+   "pleurer",
+   "Pleurer",
+   "/sCzcYW9h55WcesOqA12cgEr9Exw.jpg"
+  ],
+  [
+   "reflechir",
+   "Réfléchir",
+   "/gqby0RhyehP3uRrzmdyUZ0CgPPe.jpg"
+  ],
+  [
+   "voyager",
+   "Voyager",
+   "/pzMrxeP9XkKOtQVUBPTq5yk4ck5.jpg"
+  ],
+  [
+   "rever",
+   "Rêver",
+   "/vwBa7djy1oxfxUjc7YtVgGNsjrT.jpg"
+  ],
+  [
+   "detendre",
+   "Me détendre",
+   "/kRVUMsXFzhuXjr20JcCGc6TapxA.jpg"
+  ],
+  [
+   "adrenaline",
+   "De l'adrénaline",
+   "/AaV1YIdWKnjAIAOe8UUKBFm327v.jpg"
+  ]
+ ]
+}

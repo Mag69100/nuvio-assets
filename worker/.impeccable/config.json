@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(.3,1.6,.5,1)",
+        "createdAt": "2026-10-17T03:07:29.667Z",
+        "reason": "Claude's call: only remaining use is the marquee letter swinging back onto its nail (rehang), a literal physical pendulum motion where overshoot is the point"
+      }
+    ]
+  }
+}

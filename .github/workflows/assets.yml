@@ -1,0 +1,37 @@
+name: Générer les images des collections
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/make_assets.py"
+      - "assets.json"
+      - "fonts/**"
+      - ".github/workflows/assets.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: assets
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pillow
+      - run: python scripts/make_assets.py
+      - name: Enregistrer les images
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add genres seasons moods gifs logos titles
+          git diff --cached --quiet || git commit -m "Met à jour les images des collections"
+          git pull --rebase
+          git push

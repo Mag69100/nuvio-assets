@@ -1,0 +1,35 @@
+name: Liste des plateformes TMDB (France)
+
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/providers.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Télécharger la liste
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          mkdir -p data
+          curl -sf "https://api.themoviedb.org/3/watch/providers/movie?watch_region=FR&language=fr-FR&api_key=${TMDB_API_KEY}" \
+            | python3 -c "import json,sys; d=json.load(sys.stdin)['results']; json.dump([{'id':p['provider_id'],'name':p['provider_name'],'logo':p['logo_path'],'rank':p.get('display_priorities',{}).get('FR')} for p in d], open('data/providers_fr.json','w'), ensure_ascii=False, indent=1)"
+          curl -sf "https://api.themoviedb.org/3/discover/tv?watch_region=FR&with_watch_providers=381&sort_by=popularity.desc&language=fr-FR&api_key=${TMDB_API_KEY}" \
+            | python3 -c "import json,sys; d=json.load(sys.stdin)['results'][:10]; json.dump([{'id':x['id'],'name':x['name'],'backdrop':x.get('backdrop_path')} for x in d], open('data/canal_top.json','w'), ensure_ascii=False, indent=1)"
+          for n in 285 1352 ; do curl -sf "https://api.themoviedb.org/3/network/$n/images?api_key=${TMDB_API_KEY}" -o data/network_$n.json || true; curl -sf "https://api.themoviedb.org/3/network/$n?api_key=${TMDB_API_KEY}" -o data/network_${n}_info.json || true; done
+          curl -sf "https://api.themoviedb.org/3/search/company?query=Canal%2B&api_key=${TMDB_API_KEY}" -o data/company_canal.json || true
+      - name: Enregistrer
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/providers_fr.json data/canal_top.json data/network_*.json data/company_canal.json
+          git diff --cached --quiet || git commit -m "Liste des plateformes TMDB (France)"
+          git pull --rebase
+          git push

@@ -1,0 +1,27 @@
+{
+  "configName": "Recherche FR",
+  "preferences": {
+    "showAdultContent": false,
+    "defaultLanguage": "fr-FR",
+    "artwork": {},
+    "disableImdbSearch": true,
+    "disableAnilistSearch": true,
+    "disableMalSearch": true,
+    "disableKitsuSearch": true,
+    "disableSimklSearch": true,
+    "region": "FR",
+    "disableSearch": true,
+    "disableTmdbSearch": false
+  },
+  "catalogs": [
+    {
+      "name": "Inutilisé (désactivé, ne pas supprimer)",
+      "type": "movie",
+      "source": "tmdb",
+      "enabled": false,
+      "filters": {
+        "listType": "popular"
+      }
+    }
+  ]
+}

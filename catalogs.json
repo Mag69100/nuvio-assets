@@ -1,0 +1,4231 @@
+{
+ "catalogs": [
+  {
+   "id": "accueil-top10",
+   "type": "movie",
+   "name": "Tendances de la semaine · Films",
+   "home": true,
+   "endpoint": "/trending/movie/week"
+  },
+  {
+   "id": "accueil-tendances-series",
+   "type": "series",
+   "name": "Tendances de la semaine · Séries",
+   "home": true,
+   "endpoint": "/trending/tv/week"
+  },
+  {
+   "id": "accueil-nouveautes-plateformes",
+   "type": "movie",
+   "name": "Nouveautés sur tes plateformes",
+   "home": true,
+   "mix": [
+    {
+     "type": "movie",
+     "lastDays": 90,
+     "discover": {
+      "sort_by": "popularity.desc",
+      "watch_region": "FR",
+      "with_watch_providers": "8|119|337|531|1899|350",
+      "with_watch_monetization_types": "flatrate",
+      "vote_count.gte": 20
+     }
+    },
+    {
+     "type": "series",
+     "lastDays": 90,
+     "discover": {
+      "sort_by": "popularity.desc",
+      "watch_region": "FR",
+      "with_watch_providers": "8|119|337|531|1899|350",
+      "with_watch_monetization_types": "flatrate",
+      "vote_count.gte": 10
+     }
+    }
+   ]
+  },
+  {
+   "id": "accueil-series-a-devorer",
+   "type": "series",
+   "name": "Séries à dévorer",
+   "home": true,
+   "discover": {
+    "sort_by": "popularity.desc",
+    "vote_average.gte": 8,
+    "vote_count.gte": 500
+   }
+  },
+  {
+   "id": "accueil-mini-series",
+   "type": "series",
+   "name": "Mini-séries",
+   "home": true,
+   "discover": {
+    "with_type": "2",
+    "sort_by": "popularity.desc",
+    "vote_average.gte": 7.3,
+    "vote_count.gte": 200
+   }
+  },
+  {
+   "id": "accueil-pepites",
+   "type": "movie",
+   "name": "Pépites méconnues",
+   "optional": true,
+   "rotateDaily": true,
+   "discover": {
+    "sort_by": "vote_average.desc",
+    "vote_average.gte": 7.4,
+    "vote_count.gte": 300,
+    "vote_count.lte": 3000,
+    "without_genres": "99|10770"
+   }
+  },
+  {
+   "id": "accueil-cinema-francais",
+   "type": "movie",
+   "name": "Cinéma français du moment",
+   "optional": true,
+   "lastDays": 730,
+   "discover": {
+    "sort_by": "popularity.desc",
+    "with_original_language": "fr",
+    "with_origin_country": "FR",
+    "vote_count.gte": 30
+   }
+  },
+  {
+   "id": "accueil-films-cultes",
+   "type": "movie",
+   "name": "Films cultes",
+   "optional": true,
+   "rotateDaily": true,
+   "discover": {
+    "sort_by": "popularity.desc",
+    "vote_average.gte": 7.8,
+    "vote_count.gte": 8000
+   }
+  },
+  {
+   "id": "accueil-anime",
+   "type": "series",
+   "name": "Anime du moment",
+   "optional": true,
+   "discover": {
+    "sort_by": "popularity.desc",
+    "with_genres": "16",
+    "with_original_language": "ja",
+    "vote_count.gte": 50
+   }
+  },
+  {
+   "id": "accueil-famille",
+   "type": "movie",
+   "name": "À voir en famille",
+   "optional": true,
+   "discover": {
+    "sort_by": "popularity.desc",
+    "with_genres": "10751",
+    "vote_count.gte": 300,
+    "without_genres": "27"
+   }
+  },
+  {
+   "id": "accueil-documentaires",
+   "type": "movie",
+   "name": "Documentaires à ne pas manquer",
+   "optional": true,
+   "discover": {
+    "sort_by": "popularity.desc",
+    "with_genres": "99",
+    "vote_average.gte": 7,
+    "vote_count.gte": 100
+   }
+  },
+  {
+   "id": "netflix--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "watch_region": "FR",
+    "with_watch_providers": "8",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "netflix--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "watch_region": "FR",
+    "with_watch_providers": "8",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "netflix--2",
+   "name": "Nouveaux films",
+   "type": "movie",
+   "discover": {
+    "vote_count.gte": 10,
+    "watch_region": "FR",
+    "with_watch_providers": "8",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "netflix--3",
+   "name": "Nouvelles séries",
+   "type": "series",
+   "discover": {
+    "vote_count.gte": 10,
+    "watch_region": "FR",
+    "with_watch_providers": "8",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "first_air_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "netflix--4",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "vote_count.gte": 500,
+    "watch_region": "FR",
+    "with_watch_providers": "8",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "netflix--5",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "vote_count.gte": 200,
+    "watch_region": "FR",
+    "with_watch_providers": "8",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "prime-video--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "watch_region": "FR",
+    "with_watch_providers": "119",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "prime-video--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "watch_region": "FR",
+    "with_watch_providers": "119",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "prime-video--2",
+   "name": "Nouveaux films",
+   "type": "movie",
+   "discover": {
+    "vote_count.gte": 10,
+    "watch_region": "FR",
+    "with_watch_providers": "119",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "prime-video--3",
+   "name": "Nouvelles séries",
+   "type": "series",
+   "discover": {
+    "vote_count.gte": 10,
+    "watch_region": "FR",
+    "with_watch_providers": "119",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "first_air_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "prime-video--4",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "vote_count.gte": 500,
+    "watch_region": "FR",
+    "with_watch_providers": "119",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "prime-video--5",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "vote_count.gte": 200,
+    "watch_region": "FR",
+    "with_watch_providers": "119",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "paramount-plus--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "watch_region": "FR",
+    "with_watch_providers": "531",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "paramount-plus--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "watch_region": "FR",
+    "with_watch_providers": "531",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "paramount-plus--2",
+   "name": "Nouveaux films",
+   "type": "movie",
+   "discover": {
+    "vote_count.gte": 10,
+    "watch_region": "FR",
+    "with_watch_providers": "531",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "paramount-plus--3",
+   "name": "Nouvelles séries",
+   "type": "series",
+   "discover": {
+    "vote_count.gte": 10,
+    "watch_region": "FR",
+    "with_watch_providers": "531",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "first_air_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "paramount-plus--4",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "vote_count.gte": 500,
+    "watch_region": "FR",
+    "with_watch_providers": "531",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "paramount-plus--5",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "vote_count.gte": 200,
+    "watch_region": "FR",
+    "with_watch_providers": "531",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "disney-plus--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "watch_region": "FR",
+    "with_watch_providers": "337",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "disney-plus--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "watch_region": "FR",
+    "with_watch_providers": "337",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "disney-plus--2",
+   "name": "Nouveaux films",
+   "type": "movie",
+   "discover": {
+    "vote_count.gte": 10,
+    "watch_region": "FR",
+    "with_watch_providers": "337",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "disney-plus--3",
+   "name": "Nouvelles séries",
+   "type": "series",
+   "discover": {
+    "vote_count.gte": 10,
+    "watch_region": "FR",
+    "with_watch_providers": "337",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "first_air_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "disney-plus--4",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "vote_count.gte": 500,
+    "watch_region": "FR",
+    "with_watch_providers": "337",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "disney-plus--5",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "vote_count.gte": 200,
+    "watch_region": "FR",
+    "with_watch_providers": "337",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "hbo-max--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "watch_region": "FR",
+    "with_watch_providers": "1899",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "hbo-max--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "watch_region": "FR",
+    "with_watch_providers": "1899",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "hbo-max--2",
+   "name": "Nouveaux films",
+   "type": "movie",
+   "discover": {
+    "vote_count.gte": 10,
+    "watch_region": "FR",
+    "with_watch_providers": "1899",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "hbo-max--3",
+   "name": "Nouvelles séries",
+   "type": "series",
+   "discover": {
+    "vote_count.gte": 10,
+    "watch_region": "FR",
+    "with_watch_providers": "1899",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "first_air_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "hbo-max--4",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "vote_count.gte": 500,
+    "watch_region": "FR",
+    "with_watch_providers": "1899",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "hbo-max--5",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "vote_count.gte": 200,
+    "watch_region": "FR",
+    "with_watch_providers": "1899",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "apple-tv-plus--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "watch_region": "FR",
+    "with_watch_providers": "350",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "apple-tv-plus--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "watch_region": "FR",
+    "with_watch_providers": "350",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "apple-tv-plus--2",
+   "name": "Nouveaux films",
+   "type": "movie",
+   "discover": {
+    "vote_count.gte": 10,
+    "watch_region": "FR",
+    "with_watch_providers": "350",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "apple-tv-plus--3",
+   "name": "Nouvelles séries",
+   "type": "series",
+   "discover": {
+    "vote_count.gte": 10,
+    "watch_region": "FR",
+    "with_watch_providers": "350",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "first_air_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "apple-tv-plus--4",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "vote_count.gte": 500,
+    "watch_region": "FR",
+    "with_watch_providers": "350",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "apple-tv-plus--5",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "vote_count.gte": 200,
+    "watch_region": "FR",
+    "with_watch_providers": "350",
+    "with_watch_monetization_types": "flatrate|free|ads",
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "marvel-studios--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_companies": "420",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "marvel-studios--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "with_companies": "420",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "marvel-studios--2",
+   "name": "Nouveaux films",
+   "type": "movie",
+   "discover": {
+    "with_companies": "420",
+    "vote_count.gte": 10,
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "marvel-studios--3",
+   "name": "Nouvelles séries",
+   "type": "series",
+   "discover": {
+    "with_companies": "420",
+    "vote_count.gte": 10,
+    "sort_by": "first_air_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "marvel-studios--4",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "420",
+    "vote_count.gte": 500,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "marvel-studios--5",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "with_companies": "420",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "warner-bros--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_companies": "174",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "warner-bros--1",
+   "name": "Nouveaux films",
+   "type": "movie",
+   "discover": {
+    "with_companies": "174",
+    "vote_count.gte": 10,
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "warner-bros--2",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "174",
+    "vote_count.gte": 500,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "dc-comics--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_companies": "429|128064",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "dc-comics--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "with_companies": "429|128064",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "dc-comics--2",
+   "name": "Nouveaux films",
+   "type": "movie",
+   "discover": {
+    "vote_count.gte": 10,
+    "with_companies": "429|128064",
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "dc-comics--3",
+   "name": "Nouvelles séries",
+   "type": "series",
+   "discover": {
+    "vote_count.gte": 10,
+    "with_companies": "429|128064",
+    "sort_by": "first_air_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "dc-comics--4",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "vote_count.gte": 500,
+    "with_companies": "429|128064",
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "dc-comics--5",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "vote_count.gte": 200,
+    "with_companies": "429|128064",
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "saison-halloween--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_keywords": "3335|9694|232795",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "saison-halloween--1",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_keywords": "3335|9694|232795",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "saison-halloween--2",
+   "name": "En famille",
+   "type": "movie",
+   "discover": {
+    "with_keywords": "3335|9694|232795",
+    "with_genres": "10751",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "saison-halloween--3",
+   "name": "Séries & épisodes spéciaux",
+   "type": "series",
+   "discover": {
+    "with_keywords": "3335|9694|232795",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "saison-noel--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_keywords": "207317|5570|260365",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "saison-noel--1",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_keywords": "207317|5570|260365",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "saison-noel--2",
+   "name": "En famille",
+   "type": "movie",
+   "discover": {
+    "with_keywords": "207317|5570|260365",
+    "with_genres": "10751",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "saison-noel--3",
+   "name": "Séries & épisodes spéciaux",
+   "type": "series",
+   "discover": {
+    "with_keywords": "207317|5570|260365",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "saison-saint-valentin--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_keywords": "160404",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "saison-saint-valentin--1",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_keywords": "160404",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "saison-saint-valentin--2",
+   "name": "Séries & épisodes spéciaux",
+   "type": "series",
+   "discover": {
+    "with_keywords": "160404",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "saison-paques--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_keywords": "9921|9923",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "saison-paques--1",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_keywords": "9921|9923",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "saison-paques--2",
+   "name": "En famille",
+   "type": "movie",
+   "discover": {
+    "with_keywords": "9921|9923",
+    "with_genres": "10751",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "saison-paques--3",
+   "name": "Séries & épisodes spéciaux",
+   "type": "series",
+   "discover": {
+    "with_keywords": "9921|9923",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "saison-ete--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_keywords": "14714",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "saison-ete--1",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_keywords": "14714",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "saison-ete--2",
+   "name": "En famille",
+   "type": "movie",
+   "discover": {
+    "with_keywords": "14714",
+    "with_genres": "10751",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "saison-ete--3",
+   "name": "Séries & épisodes spéciaux",
+   "type": "series",
+   "discover": {
+    "with_keywords": "14714",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-action--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_genres": "28",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-action--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "with_genres": "10759",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-action--2",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_genres": "28",
+    "vote_count.gte": 500,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-action--3",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "with_genres": "10759",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-comedie--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_genres": "35",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-comedie--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "with_genres": "35",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-comedie--2",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_genres": "35",
+    "vote_count.gte": 500,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-comedie--3",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "with_genres": "35",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-horreur--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_genres": "27",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-horreur--1",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_genres": "27",
+    "vote_count.gte": 500,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-sf--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_genres": "878",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-sf--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "with_genres": "10765",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-sf--2",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_genres": "878",
+    "vote_count.gte": 500,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-sf--3",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "with_genres": "10765",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-thriller--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_genres": "53",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-thriller--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "with_genres": "9648",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-thriller--2",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_genres": "53",
+    "vote_count.gte": 500,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-thriller--3",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "with_genres": "9648",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-policier--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_genres": "80",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-policier--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "with_genres": "80",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-policier--2",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_genres": "80",
+    "vote_count.gte": 500,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-policier--3",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "with_genres": "80",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-drame--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_genres": "18",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-drame--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "with_genres": "18",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-drame--2",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_genres": "18",
+    "vote_count.gte": 500,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-drame--3",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "with_genres": "18",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-romance--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_genres": "10749",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-romance--1",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_genres": "10749",
+    "vote_count.gte": 500,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-fantastique--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_genres": "14",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-fantastique--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "with_genres": "10765",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-fantastique--2",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_genres": "14",
+    "vote_count.gte": 500,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-fantastique--3",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "with_genres": "10765",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-animation--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_genres": "16",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-animation--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "with_genres": "16",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-animation--2",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_genres": "16",
+    "vote_count.gte": 500,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-animation--3",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "with_genres": "16",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-animes--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_genres": "16",
+    "with_original_language": "ja",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-animes--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "with_genres": "16",
+    "with_original_language": "ja",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-animes--2",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_genres": "16",
+    "vote_count.gte": 500,
+    "with_original_language": "ja",
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-animes--3",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "with_genres": "16",
+    "vote_count.gte": 200,
+    "with_original_language": "ja",
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-famille--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_genres": "10751",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-famille--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "with_genres": "10751",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-famille--2",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_genres": "10751",
+    "vote_count.gte": 500,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-famille--3",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "with_genres": "10751",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-guerre--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_genres": "10752|36",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-guerre--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "with_genres": "10768",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-guerre--2",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_genres": "10752|36",
+    "vote_count.gte": 500,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-guerre--3",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "with_genres": "10768",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-documentaire--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_genres": "99",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-documentaire--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "with_genres": "99",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-documentaire--2",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_genres": "99",
+    "vote_count.gte": 500,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-documentaire--3",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "with_genres": "99",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-western--0",
+   "name": "Films populaires",
+   "type": "movie",
+   "discover": {
+    "with_genres": "37",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-western--1",
+   "name": "Séries populaires",
+   "type": "series",
+   "discover": {
+    "with_genres": "37",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "genre-western--2",
+   "name": "Films les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_genres": "37",
+    "vote_count.gte": 500,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "genre-western--3",
+   "name": "Séries les mieux notées",
+   "type": "series",
+   "discover": {
+    "with_genres": "37",
+    "vote_count.gte": 200,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "saga-1241--0",
+   "name": "Harry Potter",
+   "type": "movie",
+   "collection": 1241
+  },
+  {
+   "id": "saga-10--0",
+   "name": "Star Wars",
+   "type": "movie",
+   "collection": 10
+  },
+  {
+   "id": "saga-119--0",
+   "name": "Le Seigneur des anneaux",
+   "type": "movie",
+   "collection": 119
+  },
+  {
+   "id": "saga-121938--0",
+   "name": "Le Hobbit",
+   "type": "movie",
+   "collection": 121938
+  },
+  {
+   "id": "saga-86311--0",
+   "name": "Avengers",
+   "type": "movie",
+   "collection": 86311
+  },
+  {
+   "id": "saga-748--0",
+   "name": "X-Men",
+   "type": "movie",
+   "collection": 748
+  },
+  {
+   "id": "saga-263--0",
+   "name": "The Dark Knight",
+   "type": "movie",
+   "collection": 263
+  },
+  {
+   "id": "saga-9485--0",
+   "name": "Fast & Furious",
+   "type": "movie",
+   "collection": 9485
+  },
+  {
+   "id": "saga-87359--0",
+   "name": "Mission : Impossible",
+   "type": "movie",
+   "collection": 87359
+  },
+  {
+   "id": "saga-404609--0",
+   "name": "John Wick",
+   "type": "movie",
+   "collection": 404609
+  },
+  {
+   "id": "saga-645--0",
+   "name": "James Bond 007",
+   "type": "movie",
+   "collection": 645
+  },
+  {
+   "id": "saga-295--0",
+   "name": "Pirates des Caraïbes",
+   "type": "movie",
+   "collection": 295
+  },
+  {
+   "id": "saga-328--0",
+   "name": "Jurassic Park",
+   "type": "movie",
+   "collection": 328
+  },
+  {
+   "id": "saga-84--0",
+   "name": "Indiana Jones",
+   "type": "movie",
+   "collection": 84
+  },
+  {
+   "id": "saga-264--0",
+   "name": "Retour vers le futur",
+   "type": "movie",
+   "collection": 264
+  },
+  {
+   "id": "saga-2344--0",
+   "name": "Matrix",
+   "type": "movie",
+   "collection": 2344
+  },
+  {
+   "id": "saga-131635--0",
+   "name": "Hunger Games",
+   "type": "movie",
+   "collection": 131635
+  },
+  {
+   "id": "saga-8650--0",
+   "name": "Transformers",
+   "type": "movie",
+   "collection": 8650
+  },
+  {
+   "id": "saga-1709--0",
+   "name": "La Planète des singes",
+   "type": "movie",
+   "collection": 1709
+  },
+  {
+   "id": "saga-2980--0",
+   "name": "S.O.S. Fantômes",
+   "type": "movie",
+   "collection": 2980
+  },
+  {
+   "id": "saga-313086--0",
+   "name": "Conjuring",
+   "type": "movie",
+   "collection": 313086
+  },
+  {
+   "id": "saga-10194--0",
+   "name": "Toy Story",
+   "type": "movie",
+   "collection": 10194
+  },
+  {
+   "id": "saga-2150--0",
+   "name": "Shrek",
+   "type": "movie",
+   "collection": 2150
+  },
+  {
+   "id": "saga-86066--0",
+   "name": "Moi, moche et méchant",
+   "type": "movie",
+   "collection": 86066
+  },
+  {
+   "id": "studio-33--0",
+   "name": "Populaires",
+   "type": "movie",
+   "discover": {
+    "with_companies": "33",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "studio-33--1",
+   "name": "Nouveautés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "33",
+    "vote_count.gte": 10,
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "studio-33--2",
+   "name": "Les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "33",
+    "vote_count.gte": 300,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "studio-1--0",
+   "name": "Populaires",
+   "type": "movie",
+   "discover": {
+    "with_companies": "1",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "studio-1--1",
+   "name": "Nouveautés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "1",
+    "vote_count.gte": 10,
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "studio-1--2",
+   "name": "Les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "1",
+    "vote_count.gte": 300,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "studio-41077--0",
+   "name": "Populaires",
+   "type": "movie",
+   "discover": {
+    "with_companies": "41077",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "studio-41077--1",
+   "name": "Nouveautés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "41077",
+    "vote_count.gte": 10,
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "studio-41077--2",
+   "name": "Les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "41077",
+    "vote_count.gte": 300,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "studio-3172--0",
+   "name": "Populaires",
+   "type": "movie",
+   "discover": {
+    "with_companies": "3172",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "studio-3172--1",
+   "name": "Nouveautés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "3172",
+    "vote_count.gte": 10,
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "studio-3172--2",
+   "name": "Les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "3172",
+    "vote_count.gte": 300,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "studio-3--0",
+   "name": "Populaires",
+   "type": "movie",
+   "discover": {
+    "with_companies": "3",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "studio-3--1",
+   "name": "Nouveautés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "3",
+    "vote_count.gte": 10,
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "studio-3--2",
+   "name": "Les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "3",
+    "vote_count.gte": 300,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "studio-6125--0",
+   "name": "Populaires",
+   "type": "movie",
+   "discover": {
+    "with_companies": "6125",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "studio-6125--1",
+   "name": "Nouveautés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "6125",
+    "vote_count.gte": 10,
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "studio-6125--2",
+   "name": "Les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "6125",
+    "vote_count.gte": 300,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "studio-521--0",
+   "name": "Populaires",
+   "type": "movie",
+   "discover": {
+    "with_companies": "521",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "studio-521--1",
+   "name": "Nouveautés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "521",
+    "vote_count.gte": 10,
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "studio-521--2",
+   "name": "Les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "521",
+    "vote_count.gte": 300,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "studio-6704--0",
+   "name": "Populaires",
+   "type": "movie",
+   "discover": {
+    "with_companies": "6704",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "studio-6704--1",
+   "name": "Nouveautés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "6704",
+    "vote_count.gte": 10,
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "studio-6704--2",
+   "name": "Les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "6704",
+    "vote_count.gte": 300,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "studio-10342--0",
+   "name": "Populaires",
+   "type": "movie",
+   "discover": {
+    "with_companies": "10342",
+    "sort_by": "popularity.desc"
+   }
+  },
+  {
+   "id": "studio-10342--1",
+   "name": "Nouveautés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "10342",
+    "vote_count.gte": 10,
+    "sort_by": "primary_release_date.desc"
+   },
+   "untilToday": true
+  },
+  {
+   "id": "studio-10342--2",
+   "name": "Les mieux notés",
+   "type": "movie",
+   "discover": {
+    "with_companies": "10342",
+    "vote_count.gte": 300,
+    "sort_by": "vote_average.desc"
+   }
+  },
+  {
+   "id": "accueil-vod-semaine",
+   "type": "movie",
+   "name": "Dispo depuis cette semaine",
+   "defaultHome": true,
+   "homeRank": 65,
+   "digital": [
+    -14,
+    0
+   ],
+   "discover": {
+    "sort_by": "popularity.desc",
+    "vote_count.gte": 20
+   }
+  },
+  {
+   "id": "accueil-vod-bientot",
+   "type": "movie",
+   "name": "Bientôt dispo",
+   "defaultHome": true,
+   "homeRank": 66,
+   "digital": [
+    1,
+    45
+   ],
+   "discover": {
+    "sort_by": "popularity.desc",
+    "vote_count.gte": 10
+   }
+  }
+ ],
+ "folders": {
+  "netflix": [
+   "netflix--0",
+   "netflix--1",
+   "netflix--2",
+   "netflix--3",
+   "netflix--4",
+   "netflix--5"
+  ],
+  "prime-video": [
+   "prime-video--0",
+   "prime-video--1",
+   "prime-video--2",
+   "prime-video--3",
+   "prime-video--4",
+   "prime-video--5"
+  ],
+  "paramount-plus": [
+   "paramount-plus--0",
+   "paramount-plus--1",
+   "paramount-plus--2",
+   "paramount-plus--3",
+   "paramount-plus--4",
+   "paramount-plus--5"
+  ],
+  "disney-plus": [
+   "disney-plus--0",
+   "disney-plus--1",
+   "disney-plus--2",
+   "disney-plus--3",
+   "disney-plus--4",
+   "disney-plus--5"
+  ],
+  "hbo-max": [
+   "hbo-max--0",
+   "hbo-max--1",
+   "hbo-max--2",
+   "hbo-max--3",
+   "hbo-max--4",
+   "hbo-max--5"
+  ],
+  "apple-tv-plus": [
+   "apple-tv-plus--0",
+   "apple-tv-plus--1",
+   "apple-tv-plus--2",
+   "apple-tv-plus--3",
+   "apple-tv-plus--4",
+   "apple-tv-plus--5"
+  ],
+  "marvel-studios": [
+   "marvel-studios--0",
+   "marvel-studios--1",
+   "marvel-studios--2",
+   "marvel-studios--3",
+   "marvel-studios--4",
+   "marvel-studios--5"
+  ],
+  "warner-bros": [
+   "warner-bros--0",
+   "warner-bros--1",
+   "warner-bros--2"
+  ],
+  "dc-comics": [
+   "dc-comics--0",
+   "dc-comics--1",
+   "dc-comics--2",
+   "dc-comics--3",
+   "dc-comics--4",
+   "dc-comics--5"
+  ],
+  "saison-halloween": [
+   "saison-halloween--0",
+   "saison-halloween--1",
+   "saison-halloween--2",
+   "saison-halloween--3"
+  ],
+  "saison-noel": [
+   "saison-noel--0",
+   "saison-noel--1",
+   "saison-noel--2",
+   "saison-noel--3"
+  ],
+  "saison-saint-valentin": [
+   "saison-saint-valentin--0",
+   "saison-saint-valentin--1",
+   "saison-saint-valentin--2"
+  ],
+  "saison-paques": [
+   "saison-paques--0",
+   "saison-paques--1",
+   "saison-paques--2",
+   "saison-paques--3"
+  ],
+  "saison-ete": [
+   "saison-ete--0",
+   "saison-ete--1",
+   "saison-ete--2",
+   "saison-ete--3"
+  ],
+  "genre-action": [
+   "genre-action--0",
+   "genre-action--1",
+   "genre-action--2",
+   "genre-action--3"
+  ],
+  "genre-comedie": [
+   "genre-comedie--0",
+   "genre-comedie--1",
+   "genre-comedie--2",
+   "genre-comedie--3"
+  ],
+  "genre-horreur": [
+   "genre-horreur--0",
+   "genre-horreur--1"
+  ],
+  "genre-sf": [
+   "genre-sf--0",
+   "genre-sf--1",
+   "genre-sf--2",
+   "genre-sf--3"
+  ],
+  "genre-thriller": [
+   "genre-thriller--0",
+   "genre-thriller--1",
+   "genre-thriller--2",
+   "genre-thriller--3"
+  ],
+  "genre-policier": [
+   "genre-policier--0",
+   "genre-policier--1",
+   "genre-policier--2",
+   "genre-policier--3"
+  ],
+  "genre-drame": [
+   "genre-drame--0",
+   "genre-drame--1",
+   "genre-drame--2",
+   "genre-drame--3"
+  ],
+  "genre-romance": [
+   "genre-romance--0",
+   "genre-romance--1"
+  ],
+  "genre-fantastique": [
+   "genre-fantastique--0",
+   "genre-fantastique--1",
+   "genre-fantastique--2",
+   "genre-fantastique--3"
+  ],
+  "genre-animation": [
+   "genre-animation--0",
+   "genre-animation--1",
+   "genre-animation--2",
+   "genre-animation--3"
+  ],
+  "genre-animes": [
+   "genre-animes--0",
+   "genre-animes--1",
+   "genre-animes--2",
+   "genre-animes--3"
+  ],
+  "genre-famille": [
+   "genre-famille--0",
+   "genre-famille--1",
+   "genre-famille--2",
+   "genre-famille--3"
+  ],
+  "genre-guerre": [
+   "genre-guerre--0",
+   "genre-guerre--1",
+   "genre-guerre--2",
+   "genre-guerre--3"
+  ],
+  "genre-documentaire": [
+   "genre-documentaire--0",
+   "genre-documentaire--1",
+   "genre-documentaire--2",
+   "genre-documentaire--3"
+  ],
+  "genre-western": [
+   "genre-western--0",
+   "genre-western--1",
+   "genre-western--2",
+   "genre-western--3"
+  ],
+  "saga-1241": [
+   "saga-1241--0"
+  ],
+  "saga-10": [
+   "saga-10--0"
+  ],
+  "saga-119": [
+   "saga-119--0"
+  ],
+  "saga-121938": [
+   "saga-121938--0"
+  ],
+  "saga-86311": [
+   "saga-86311--0"
+  ],
+  "saga-748": [
+   "saga-748--0"
+  ],
+  "saga-263": [
+   "saga-263--0"
+  ],
+  "saga-9485": [
+   "saga-9485--0"
+  ],
+  "saga-87359": [
+   "saga-87359--0"
+  ],
+  "saga-404609": [
+   "saga-404609--0"
+  ],
+  "saga-645": [
+   "saga-645--0"
+  ],
+  "saga-295": [
+   "saga-295--0"
+  ],
+  "saga-328": [
+   "saga-328--0"
+  ],
+  "saga-84": [
+   "saga-84--0"
+  ],
+  "saga-264": [
+   "saga-264--0"
+  ],
+  "saga-2344": [
+   "saga-2344--0"
+  ],
+  "saga-131635": [
+   "saga-131635--0"
+  ],
+  "saga-8650": [
+   "saga-8650--0"
+  ],
+  "saga-1709": [
+   "saga-1709--0"
+  ],
+  "saga-2980": [
+   "saga-2980--0"
+  ],
+  "saga-313086": [
+   "saga-313086--0"
+  ],
+  "saga-10194": [
+   "saga-10194--0"
+  ],
+  "saga-2150": [
+   "saga-2150--0"
+  ],
+  "saga-86066": [
+   "saga-86066--0"
+  ],
+  "studio-33": [
+   "studio-33--0",
+   "studio-33--1",
+   "studio-33--2"
+  ],
+  "studio-1": [
+   "studio-1--0",
+   "studio-1--1",
+   "studio-1--2"
+  ],
+  "studio-41077": [
+   "studio-41077--0",
+   "studio-41077--1",
+   "studio-41077--2"
+  ],
+  "studio-3172": [
+   "studio-3172--0",
+   "studio-3172--1",
+   "studio-3172--2"
+  ],
+  "studio-3": [
+   "studio-3--0",
+   "studio-3--1",
+   "studio-3--2"
+  ],
+  "studio-6125": [
+   "studio-6125--0",
+   "studio-6125--1",
+   "studio-6125--2"
+  ],
+  "studio-521": [
+   "studio-521--0",
+   "studio-521--1",
+   "studio-521--2"
+  ],
+  "studio-6704": [
+   "studio-6704--0",
+   "studio-6704--1",
+   "studio-6704--2"
+  ],
+  "studio-10342": [
+   "studio-10342--0",
+   "studio-10342--1",
+   "studio-10342--2"
+  ]
+ },
+ "discover": [
+  {
+   "id": "films-populaires",
+   "name": "Populaires",
+   "options": [
+    {
+     "label": "Tout",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100
+      }
+     }
+    },
+    {
+     "label": "Action",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "28"
+      }
+     }
+    },
+    {
+     "label": "Aventure",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "12"
+      }
+     }
+    },
+    {
+     "label": "Animation",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "16"
+      }
+     }
+    },
+    {
+     "label": "Comédie",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "35"
+      }
+     }
+    },
+    {
+     "label": "Crime",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "80"
+      }
+     }
+    },
+    {
+     "label": "Documentaire",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "99"
+      }
+     }
+    },
+    {
+     "label": "Drame",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "18"
+      }
+     }
+    },
+    {
+     "label": "Famille",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "10751"
+      }
+     }
+    },
+    {
+     "label": "Fantastique",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "14"
+      }
+     }
+    },
+    {
+     "label": "Horreur",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "27"
+      }
+     }
+    },
+    {
+     "label": "Romance",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "10749"
+      }
+     }
+    },
+    {
+     "label": "Science-fiction",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "878"
+      }
+     }
+    },
+    {
+     "label": "Thriller",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "53"
+      }
+     }
+    },
+    {
+     "label": "Guerre",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "10752"
+      }
+     }
+    },
+    {
+     "label": "Histoire",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "36"
+      }
+     }
+    },
+    {
+     "label": "Western",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "37"
+      }
+     }
+    }
+   ],
+   "type": "movie"
+  },
+  {
+   "id": "films-tendances",
+   "name": "Tendances",
+   "options": [
+    {
+     "label": "Cette semaine",
+     "def": {
+      "endpoint": "/trending/movie/week"
+     }
+    },
+    {
+     "label": "Aujourd'hui",
+     "def": {
+      "endpoint": "/trending/movie/day"
+     }
+    }
+   ],
+   "type": "movie"
+  },
+  {
+   "id": "films-mieux-notes",
+   "name": "Les mieux notés",
+   "options": [
+    {
+     "label": "Tout",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 2000
+      }
+     }
+    },
+    {
+     "label": "Action",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 2000,
+       "with_genres": "28"
+      }
+     }
+    },
+    {
+     "label": "Aventure",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 2000,
+       "with_genres": "12"
+      }
+     }
+    },
+    {
+     "label": "Animation",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 2000,
+       "with_genres": "16"
+      }
+     }
+    },
+    {
+     "label": "Comédie",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 2000,
+       "with_genres": "35"
+      }
+     }
+    },
+    {
+     "label": "Crime",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 2000,
+       "with_genres": "80"
+      }
+     }
+    },
+    {
+     "label": "Documentaire",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 2000,
+       "with_genres": "99"
+      }
+     }
+    },
+    {
+     "label": "Drame",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 2000,
+       "with_genres": "18"
+      }
+     }
+    },
+    {
+     "label": "Famille",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 2000,
+       "with_genres": "10751"
+      }
+     }
+    },
+    {
+     "label": "Fantastique",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 2000,
+       "with_genres": "14"
+      }
+     }
+    },
+    {
+     "label": "Horreur",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 2000,
+       "with_genres": "27"
+      }
+     }
+    },
+    {
+     "label": "Romance",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 2000,
+       "with_genres": "10749"
+      }
+     }
+    },
+    {
+     "label": "Science-fiction",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 2000,
+       "with_genres": "878"
+      }
+     }
+    },
+    {
+     "label": "Thriller",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 2000,
+       "with_genres": "53"
+      }
+     }
+    },
+    {
+     "label": "Guerre",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 2000,
+       "with_genres": "10752"
+      }
+     }
+    },
+    {
+     "label": "Histoire",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 2000,
+       "with_genres": "36"
+      }
+     }
+    },
+    {
+     "label": "Western",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 2000,
+       "with_genres": "37"
+      }
+     }
+    }
+   ],
+   "type": "movie"
+  },
+  {
+   "id": "films-cinema",
+   "name": "Au cinéma",
+   "options": [
+    {
+     "label": "En ce moment",
+     "def": {
+      "endpoint": "/movie/now_playing",
+      "params": {
+       "region": "FR"
+      }
+     }
+    },
+    {
+     "label": "Prochainement",
+     "def": {
+      "endpoint": "/movie/upcoming",
+      "params": {
+       "region": "FR"
+      }
+     }
+    }
+   ],
+   "type": "movie"
+  },
+  {
+   "id": "films-nouveautes",
+   "name": "Nouveautés",
+   "options": [
+    {
+     "label": "Ce mois-ci",
+     "def": {
+      "lastDays": 30,
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 10
+      }
+     }
+    },
+    {
+     "label": "Ces 3 derniers mois",
+     "def": {
+      "lastDays": 90,
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 20
+      }
+     }
+    }
+   ],
+   "type": "movie"
+  },
+  {
+   "id": "films-annees",
+   "name": "Par année",
+   "options": [
+    {
+     "label": "2026",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2026,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2025",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2025,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2024",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2024,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2023",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2023,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2022",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2022,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2021",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2021,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2020",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2020,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2019",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2019,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2018",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2018,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2017",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2017,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2016",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2016,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2015",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2015,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2014",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2014,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2013",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2013,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2012",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2012,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2011",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2011,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2010",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2010,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2009",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2009,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2008",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2008,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2007",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2007,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2006",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2006,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2005",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2005,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2004",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2004,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2003",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2003,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2002",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2002,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2001",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2001,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2000",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 2000,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1999",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1999,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1998",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1998,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1997",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1997,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1996",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1996,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1995",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1995,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1994",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1994,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1993",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1993,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1992",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1992,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1991",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1991,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1990",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1990,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1989",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1989,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1988",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1988,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1987",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1987,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1986",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1986,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1985",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1985,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1984",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1984,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1983",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1983,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1982",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1982,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1981",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1981,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1980",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1980,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1979",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1979,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1978",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1978,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1977",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1977,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1976",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1976,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1975",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1975,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1974",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1974,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1973",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1973,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1972",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1972,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1971",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1971,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1970",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "primary_release_year": 1970,
+       "vote_count.gte": 30
+      }
+     }
+    }
+   ],
+   "type": "movie"
+  },
+  {
+   "id": "films-decennies",
+   "name": "Par décennie",
+   "options": [
+    {
+     "label": "Années 2010",
+     "def": {
+      "discover": {
+       "sort_by": "vote_count.desc",
+       "primary_release_date.gte": "2010-01-01",
+       "primary_release_date.lte": "2019-12-31"
+      }
+     }
+    },
+    {
+     "label": "Années 2000",
+     "def": {
+      "discover": {
+       "sort_by": "vote_count.desc",
+       "primary_release_date.gte": "2000-01-01",
+       "primary_release_date.lte": "2009-12-31"
+      }
+     }
+    },
+    {
+     "label": "Années 90",
+     "def": {
+      "discover": {
+       "sort_by": "vote_count.desc",
+       "primary_release_date.gte": "1990-01-01",
+       "primary_release_date.lte": "1999-12-31"
+      }
+     }
+    },
+    {
+     "label": "Années 80",
+     "def": {
+      "discover": {
+       "sort_by": "vote_count.desc",
+       "primary_release_date.gte": "1980-01-01",
+       "primary_release_date.lte": "1989-12-31"
+      }
+     }
+    },
+    {
+     "label": "Années 70",
+     "def": {
+      "discover": {
+       "sort_by": "vote_count.desc",
+       "primary_release_date.gte": "1970-01-01",
+       "primary_release_date.lte": "1979-12-31"
+      }
+     }
+    },
+    {
+     "label": "Classiques (avant 1970)",
+     "def": {
+      "discover": {
+       "sort_by": "vote_count.desc",
+       "primary_release_date.gte": "1900-01-01",
+       "primary_release_date.lte": "1969-12-31"
+      }
+     }
+    }
+   ],
+   "type": "movie"
+  },
+  {
+   "id": "series-populaires",
+   "name": "Populaires",
+   "options": [
+    {
+     "label": "Tout",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100
+      }
+     }
+    },
+    {
+     "label": "Action & Aventure",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "10759"
+      }
+     }
+    },
+    {
+     "label": "Animation",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "16"
+      }
+     }
+    },
+    {
+     "label": "Comédie",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "35"
+      }
+     }
+    },
+    {
+     "label": "Crime",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "80"
+      }
+     }
+    },
+    {
+     "label": "Documentaire",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "99"
+      }
+     }
+    },
+    {
+     "label": "Drame",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "18"
+      }
+     }
+    },
+    {
+     "label": "Famille",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "10751"
+      }
+     }
+    },
+    {
+     "label": "Enfants",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "10762"
+      }
+     }
+    },
+    {
+     "label": "Mystère",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "9648"
+      }
+     }
+    },
+    {
+     "label": "SF & Fantastique",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "10765"
+      }
+     }
+    },
+    {
+     "label": "Guerre & Politique",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "10768"
+      }
+     }
+    },
+    {
+     "label": "Western",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 100,
+       "with_genres": "37"
+      }
+     }
+    }
+   ],
+   "type": "series"
+  },
+  {
+   "id": "series-tendances",
+   "name": "Tendances",
+   "options": [
+    {
+     "label": "Cette semaine",
+     "def": {
+      "endpoint": "/trending/tv/week"
+     }
+    },
+    {
+     "label": "Aujourd'hui",
+     "def": {
+      "endpoint": "/trending/tv/day"
+     }
+    }
+   ],
+   "type": "series"
+  },
+  {
+   "id": "series-mieux-notees",
+   "name": "Les mieux notées",
+   "options": [
+    {
+     "label": "Tout",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 500
+      }
+     }
+    },
+    {
+     "label": "Action & Aventure",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 500,
+       "with_genres": "10759"
+      }
+     }
+    },
+    {
+     "label": "Animation",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 500,
+       "with_genres": "16"
+      }
+     }
+    },
+    {
+     "label": "Comédie",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 500,
+       "with_genres": "35"
+      }
+     }
+    },
+    {
+     "label": "Crime",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 500,
+       "with_genres": "80"
+      }
+     }
+    },
+    {
+     "label": "Documentaire",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 500,
+       "with_genres": "99"
+      }
+     }
+    },
+    {
+     "label": "Drame",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 500,
+       "with_genres": "18"
+      }
+     }
+    },
+    {
+     "label": "Famille",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 500,
+       "with_genres": "10751"
+      }
+     }
+    },
+    {
+     "label": "Enfants",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 500,
+       "with_genres": "10762"
+      }
+     }
+    },
+    {
+     "label": "Mystère",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 500,
+       "with_genres": "9648"
+      }
+     }
+    },
+    {
+     "label": "SF & Fantastique",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 500,
+       "with_genres": "10765"
+      }
+     }
+    },
+    {
+     "label": "Guerre & Politique",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 500,
+       "with_genres": "10768"
+      }
+     }
+    },
+    {
+     "label": "Western",
+     "def": {
+      "discover": {
+       "sort_by": "vote_average.desc",
+       "vote_count.gte": 500,
+       "with_genres": "37"
+      }
+     }
+    }
+   ],
+   "type": "series"
+  },
+  {
+   "id": "series-diffusion",
+   "name": "En diffusion",
+   "options": [
+    {
+     "label": "Cette semaine",
+     "def": {
+      "endpoint": "/tv/on_the_air"
+     }
+    },
+    {
+     "label": "Aujourd'hui",
+     "def": {
+      "endpoint": "/tv/airing_today"
+     }
+    }
+   ],
+   "type": "series"
+  },
+  {
+   "id": "series-nouveautes",
+   "name": "Nouveautés",
+   "options": [
+    {
+     "label": "Ce mois-ci",
+     "def": {
+      "lastDays": 30,
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 5
+      }
+     }
+    },
+    {
+     "label": "Ces 3 derniers mois",
+     "def": {
+      "lastDays": 90,
+      "discover": {
+       "sort_by": "popularity.desc",
+       "vote_count.gte": 10
+      }
+     }
+    }
+   ],
+   "type": "series"
+  },
+  {
+   "id": "series-annees",
+   "name": "Par année",
+   "options": [
+    {
+     "label": "2026",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2026,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2025",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2025,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2024",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2024,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2023",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2023,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2022",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2022,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2021",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2021,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2020",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2020,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2019",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2019,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2018",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2018,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2017",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2017,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2016",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2016,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2015",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2015,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2014",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2014,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2013",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2013,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2012",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2012,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2011",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2011,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2010",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2010,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2009",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2009,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2008",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2008,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2007",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2007,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2006",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2006,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2005",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2005,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2004",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2004,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2003",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2003,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2002",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2002,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2001",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2001,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "2000",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 2000,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1999",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1999,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1998",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1998,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1997",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1997,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1996",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1996,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1995",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1995,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1994",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1994,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1993",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1993,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1992",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1992,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1991",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1991,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1990",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1990,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1989",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1989,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1988",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1988,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1987",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1987,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1986",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1986,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1985",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1985,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1984",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1984,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1983",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1983,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1982",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1982,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1981",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1981,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1980",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1980,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1979",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1979,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1978",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1978,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1977",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1977,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1976",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1976,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1975",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1975,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1974",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1974,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1973",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1973,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1972",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1972,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1971",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1971,
+       "vote_count.gte": 30
+      }
+     }
+    },
+    {
+     "label": "1970",
+     "def": {
+      "discover": {
+       "sort_by": "popularity.desc",
+       "first_air_date_year": 1970,
+       "vote_count.gte": 30
+      }
+     }
+    }
+   ],
+   "type": "series"
+  },
+  {
+   "id": "series-decennies",
+   "name": "Par décennie",
+   "options": [
+    {
+     "label": "Années 2010",
+     "def": {
+      "discover": {
+       "sort_by": "vote_count.desc",
+       "first_air_date.gte": "2010-01-01",
+       "first_air_date.lte": "2019-12-31"
+      }
+     }
+    },
+    {
+     "label": "Années 2000",
+     "def": {
+      "discover": {
+       "sort_by": "vote_count.desc",
+       "first_air_date.gte": "2000-01-01",
+       "first_air_date.lte": "2009-12-31"
+      }
+     }
+    },
+    {
+     "label": "Années 90",
+     "def": {
+      "discover": {
+       "sort_by": "vote_count.desc",
+       "first_air_date.gte": "1990-01-01",
+       "first_air_date.lte": "1999-12-31"
+      }
+     }
+    },
+    {
+     "label": "Années 80",
+     "def": {
+      "discover": {
+       "sort_by": "vote_count.desc",
+       "first_air_date.gte": "1980-01-01",
+       "first_air_date.lte": "1989-12-31"
+      }
+     }
+    },
+    {
+     "label": "Classiques (avant 1980)",
+     "def": {
+      "discover": {
+       "sort_by": "vote_count.desc",
+       "first_air_date.gte": "1900-01-01",
+       "first_air_date.lte": "1979-12-31"
+      }
+     }
+    }
+   ],
+   "type": "series"
+  }
+ ]
+}

@@ -550,15 +550,18 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
 
   // Un acteur ou un réalisateur (« nolan », « omar sy ») : ses films d'abord, puis les titres.
   // Pas quand un titre connu porte exactement ce nom (« lupin », « dune »).
-  // Un titre exact ne l'emporte que s'il est connu au regard de la personne : le documentaire
-  // « Spielberg » (300 votes) ne cache pas les films de Spielberg.
+  // Un titre qui correspond l'emporte s'il est connu au regard de la personne : le documentaire
+  // « Spielberg » (300 votes) ne cache pas les films de Spielberg, mais Super Mario Bros.
+  // (11 000 votes) passe devant le chanteur Mario (titres phares à 4 000 votes).
   const exactVotes = Math.max(0, ...pool.filter((it) => titleMatch(main, it)).map((it) => it.vote_count || 0));
+  const nearVotes = Math.max(0, ...pool.filter((it) => text.get(it.id) >= 0.7).map((it) => it.vote_count || 0));
   const topVotes = (p) => Math.max(0, ...(p.known_for || []).map((k) => k.vote_count || 0));
   if (people) {
     const person = results(people).slice(0, 5).find((p) => ["Acting", "Directing", "Writing"].includes(p.known_for_department)
       && personMatch(main, p.name)
       && ((p.popularity || 0) >= PERSON_POP || topVotes(p) >= PERSON_VOTES)
-      && exactVotes < Math.max(FAMOUS, 0.1 * topVotes(p)));
+      && exactVotes < Math.max(FAMOUS, 0.1 * topVotes(p))
+      && nearVotes < Math.max(FAMOUS, 2 * topVotes(p)));
     if (person) {
       const credits = await api(`/person/${person.id}/${kind === "series" ? "tv" : "movie"}_credits`);
       const films = dedupe(usable(filmography(person, credits, kind))).slice(0, PERSON_MAX);

@@ -115,9 +115,9 @@ export const apercuJS = (origin, posterUrl) => "const ORIG_AP = " + JSON.stringi
   const tactile = matchMedia("(hover: none), (pointer: coarse)").matches;
   const mkd = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
   const url = (u) => "url('" + String(u).replace(/'/g, "%27") + "')";
-  // Film pas encore regardable : l'addon met « DISPO · le… » en tête du résumé ; comme sur la TV,
+  // Film pas encore regardable : l'addon met « 📅 Dispo le… » en tête du résumé ; comme sur la TV,
   // la ligne du dessous ne garde alors que l'année.
-  const aDispo = (m) => String(m.description || "").indexOf("DISPO · ") === 0;
+  const aDispo = (m) => String(m.description || "").indexOf("📅") === 0;
   const ri = (m) => aDispo(m) ? String(m.releaseInfo || "").split(" · ")[0] : m.releaseInfo;
   // Faire glisser une rangée à la souris
   const glisse = (piste) => {

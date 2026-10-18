@@ -178,15 +178,15 @@ async function findOne(pick, kind, search) {
   const best = (list) => list.filter(fits).sort((a, b) => rank(b) - rank(a) || (b.vote_count || 0) - (a.vote_count || 0))[0] || null;
   // Titre + année d'abord ; sinon le titre français sans l'année ; sinon le titre anglais (sans
   // accents, sûr même quand Gemini abîme les autres), cherché en anglais, puis sa fiche en français.
+  // La recherche sans l'année est toujours faite : TMDB filtre sur la date de sortie du pays
+  // (Coherence : 2013 pour Gemini, 2014 en France).
   const byYear = pick.year ? { [yearKey]: pick.year } : {};
   const first = best(results(await search(pick.title, 1, byYear)));
   if (first) return first;
-  if (pick.title_fr && pick.title_fr !== pick.title) {
-    const fr = best(results(await search(pick.title_fr, 1)));
-    if (fr) return fr;
-  }
+  const fr = best(results(await search(pick.title_fr || pick.title, 1)));
+  if (fr) return fr;
   if (!pick.title_en) return null;
-  const en = best(results(await search(pick.title_en, 1, { ...byYear, language: "en-US" })));
+  const en = best(results(await search(pick.title_en, 1, { language: "en-US" })));
   if (!en) return null;
   const orig = en.original_title || en.original_name;
   return results(await search(orig, 1, byYear)).find((it) => it.id === en.id) || en;

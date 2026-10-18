@@ -31,7 +31,7 @@ import { smartSearch, prepareWords } from "./search.js";
 import { looksDescriptive, aiTitles, resolveTitles, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.13.4";
+const VERSION = "5.13.5";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 40;                  // 1re page d'une recherche par IA (sagas entières comprises)
 const ASSETS = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main";

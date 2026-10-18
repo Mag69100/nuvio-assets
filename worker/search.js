@@ -142,7 +142,8 @@ export async function smartSearch(query, page, search, kind) {
   const best = Math.max(0, ...[...first, ...main].map((it) => scoreOf(q, it)), ...(alias ? [1] : []));
   if (best >= GOOD || first.length) {
     // Le plus ressemblant d'abord, puis par popularité.
-    const rest = uniq(main).sort((a, b) => (scoreOf(q, b) >= GOOD) - (scoreOf(q, a) >= GOOD) || byPop(a, b));
+    // Avec une année, la recherche brute « dune 1984 » ramène aussi des « d'une… » : on les écarte.
+    const rest = uniq(main).filter((it) => !ym || scoreOf(ym[1], it) >= KEEP).sort((a, b) => (scoreOf(q, b) >= GOOD) - (scoreOf(q, a) >= GOOD) || byPop(a, b));
     return [...first, ...rest];
   }
 

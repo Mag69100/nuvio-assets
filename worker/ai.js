@@ -17,7 +17,7 @@
  * Secret facultatif : GEMINI_API_KEY (sans lui, rien ne change). Variable facultative : GEMINI_MODEL
  * (modèle à essayer en premier).
  */
-import { norm, scoreOf, isExact } from "./search.js";
+import { norm, scoreOf, isExact, similarity } from "./search.js";
 
 // Dans l'ordre : Flash-Lite répond en 1 à 2 s avec de bons titres ; 3.6 Flash en 3 s. 3.8 Flash,
 // un peu meilleur, met jusqu'à 6 s et sature souvent : pas retenu.
@@ -50,7 +50,7 @@ Réponds avec les titres qui correspondent le mieux, du plus probable au moins p
 - saga : true si l'œuvre a des suites ou des préquelles, sinon false.
 Chaque détail de la requête compte : nationalité des personnages ou du film, pays, lieu, époque, métier, objet, situation. L'œuvre recherchée est celle qui réunit TOUS ces détails, même si elle est peu connue ou indépendante : elle passe avant une œuvre célèbre qui n'en réunit qu'une partie (« une japonaise part chercher un trésor aux états-unis » → Kumiko, the Treasure Hunter, pas Indiana Jones).
 Si la requête désigne une œuvre précise, mets-la en premier, puis ajoute des œuvres proches (même sujet, même genre) : donne toujours au moins 8 titres quand c'est possible. Si elle décrit une envie (« un thriller coréen glauque »), propose les titres les plus réputés qui correspondent.
-Si la requête est une réplique, même approximative, en français ou en version originale (« je suis ton père », « tu veux mon zizi »), mets en premier l'œuvre d'où elle vient, puis des œuvres proches.
+Si la requête est une réplique, même approximative, en français ou en version originale (« je suis ton père », « Houston, on a un problème »), mets en premier l'œuvre d'où elle vient, puis des œuvres proches.
 Si elle demande un mélange (« entre Amélie et Fight Club », « comme Alien mais en comédie »), propose des œuvres qui réunissent les deux, sans remettre en tête les œuvres citées.
 Pour une saga, ne cite qu'un film : celui qui correspond le mieux, sinon le premier. Les autres films de la saga sont ajoutés automatiquement : garde tes places pour d'autres œuvres.
 Pense aux films comme aux séries : un même sujet peut avoir les deux (dessins animés, adaptations, séries dérivées).
@@ -242,7 +242,12 @@ const yearOf = (it) => Number((it.release_date || it.first_air_date || "").slice
 async function findOne(pick, kind, search) {
   const yearKey = kind === "series" ? "first_air_date_year" : "year";
   const names = [...new Set([pick.title, pick.title_fr, pick.title_en].filter(Boolean))];
-  const sim = (it) => Math.max(...names.map((n) => scoreOf(n, it)));
+  // Dans les deux sens : le titre TMDB peut être une partie du titre proposé (« L'Empire
+  // contre-attaque » dans « Star Wars : Épisode V - L'Empire contre-attaque »). Titres TMDB d'au
+  // moins deux mots seulement : pas un film « Star » pour n'importe quel Star Wars.
+  const inside = (it) => Math.max(0, ...[it.title || it.name, it.original_title || it.original_name]
+    .filter((t) => norm(t).split(" ").length >= 2).flatMap((t) => names.map((n) => similarity(t, n))));
+  const sim = (it) => Math.max(...names.map((n) => scoreOf(n, it)), inside(it));
   const gap = (it) => (pick.year ? Math.abs(yearOf(it) - pick.year) : 0);
   // Titre identique (année à 3 ans près : dates de sortie qui varient selon les pays et les
   // festivals, « The Upside » 2017 ou 2019) ou titre ressemblant à un an près. Puis : identique

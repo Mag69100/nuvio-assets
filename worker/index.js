@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.16.4";
+const VERSION = "5.17.0";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -753,11 +753,13 @@ async function meta(env, kind, id, cfg, today, ctx) {
   // Infos en plus, après le résumé : scène après le générique, œuvre adaptée, temps pour tout voir,
   // « pour qui » et « à savoir » (IA), puis le rappel de l'œuvre précédente (IA).
   const keywords = ((movie ? d.keywords && d.keywords.keywords : d.keywords && d.keywords.results) || []).map((k) => k.name);
-  const extras = [movie ? creditsScene(keywords) : "", sourceNote(keywords, crew)];
+  // En premier : y aura-t-il une suite ? (série terminée, saison annoncée, film suivant de la saga)
+  const extras = [movie ? "" : seriesFollow(d, today), movie ? creditsScene(keywords) : "", sourceNote(keywords, crew)];
 
   let saga = null;
   if (movie && d.belongs_to_collection) {
     const col = await tmdb(env, `/collection/${d.belongs_to_collection.id}`, {}, lang);
+    extras[0] = sagaFollow(col.parts || [], d, today);
     saga = (col.parts || []).filter((p) => p.release_date && p.release_date <= today)
       .sort((a, b) => a.release_date.localeCompare(b.release_date));
     if (saga.length >= 2) extras.push(await sagaTime(env, saga, d, lang));
@@ -834,6 +836,47 @@ async function meta(env, kind, id, cfg, today, ctx) {
 }
 
 const FICHE_AI_WAIT_MS = 3500;   // attente maximale du rappel et du « pour qui » à l'ouverture d'une fiche
+
+/** « 7 nov. », ou « 7 nov. 2027 » hors de l'année en cours. */
+const dateFr = (iso, today) => `${shortDate(iso)}${iso.slice(0, 4) !== today.slice(0, 4) ? ` ${iso.slice(0, 4)}` : ""}`;
+
+/**
+ * Film d'une saga : le film suivant (sorti, daté ou seulement annoncé), ou « pas de suite annoncée »
+ * pour le dernier. D'après la collection TMDB, où les suites annoncées figurent, datées ou non.
+ */
+function sagaFollow(parts, d, today) {
+  const order = [...parts.filter((p) => p.release_date).sort((a, b) => a.release_date.localeCompare(b.release_date)),
+    ...parts.filter((p) => !p.release_date)];
+  const i = order.findIndex((p) => p.id === d.id);
+  if (i < 0) return "";
+  const next = order[i + 1];
+  if (!next) return "🏁 Pas de suite annoncée pour l'instant.";
+  const title = `« ${next.title || next.original_title} »`;
+  if (!next.release_date) return `🔜 Une suite est annoncée : ${title}, pas encore de date.`;
+  if (next.release_date > today) return `🔜 La suite : ${title}, sortie prévue le ${dateFr(next.release_date, today)}.`;
+  return `➡️ La suite : ${title} (${next.release_date.slice(0, 4)}).`;
+}
+
+/**
+ * Série : terminée, annulée, prochaine saison datée ou annoncée, ou pas encore terminée sans date.
+ * Rien pendant une saison en cours (le prochain épisode est déjà en tête du résumé).
+ */
+function seriesFollow(d, today) {
+  if (d.status === "Ended") return "🏁 Série terminée : il n'y aura pas de suite.";
+  if (d.status === "Canceled") return "❌ Série annulée : il n'y aura pas de suite.";
+  if (d.status !== "Returning Series") return "";
+  const last = d.last_episode_to_air, next = d.next_episode_to_air;
+  const lastSeason = last ? last.season_number : 0;
+  if (next && next.season_number > lastSeason && next.air_date) return `🔜 Saison ${next.season_number} : à partir du ${dateFr(next.air_date, today)}.`;
+  if (next) return "";
+  const coming = (d.seasons || []).find((x) => x.season_number > lastSeason);
+  if (coming) {
+    return coming.air_date && coming.air_date > today
+      ? `🔜 Saison ${coming.season_number} : à partir du ${dateFr(coming.air_date, today)}.`
+      : `🔜 Saison ${coming.season_number} annoncée, pas encore de date.`;
+  }
+  return `🔜 Pas encore terminée : aucune date pour la saison ${lastSeason + 1}.`;
+}
 
 /** Scène pendant ou après le générique, d'après les mots-clés TMDB. */
 function creditsScene(keywords) {

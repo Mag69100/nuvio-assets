@@ -28,10 +28,10 @@ import { guidePage, NUVIO_TV_APK } from "./guide.js";
 import { lienPage } from "./lien.js";
 import { hallPage } from "./hall.js";
 import { smartSearch, prepareWords, isExact } from "./search.js";
-import { looksDescriptive, aiTitles, resolveTitles, AI_WAIT_MS } from "./ai.js";
+import { looksDescriptive, aiTitles, resolveTitles, aiRecap, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.13.6";
+const VERSION = "5.14.0";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -219,8 +219,8 @@ async function tmdb(env, path, params = {}, lang = "fr-FR") {
 
 /**
  * Infos complémentaires d'un titre : identifiant IMDb et, pour les films, dates de sortie
- * (cinéma et numérique) par pays. Un seul appel TMDB par titre, mis en cache par Cloudflare
- * (1 jour pour les films, car les dates numériques bougent ; 30 jours pour les séries).
+ * (cinéma et numérique) par pays ; pour les séries, dernier et prochain épisode. Un seul appel
+ * TMDB par titre, gardé 1 jour par Cloudflare (dates numériques et épisodes bougent).
  */
 async function extraInfo(env, kind, tmdbId) {
   const movie = kind !== "series";
@@ -232,7 +232,7 @@ async function extraInfo(env, kind, tmdbId) {
     append_to_response: movie ? "release_dates,images" : "external_ids,images",
   });
   // Sans réponse (limite d'appels de Cloudflare…) : le titre s'affiche quand même, sans ces infos.
-  const j = await fetch(url, { cf: { cacheTtl: movie ? 86400 : 7 * 86400, cacheEverything: true } })
+  const j = await fetch(url, { cf: { cacheTtl: 86400, cacheEverything: true } })
     .then((res) => (res.ok ? res.json() : null), () => null);
   if (!j) return { imdb: null };
   const logo = bestImage(j.images && j.images.logos, "fr");
@@ -240,6 +240,7 @@ async function extraInfo(env, kind, tmdbId) {
   return {
     imdb: (movie ? j.imdb_id : j.external_ids && j.external_ids.imdb_id) || null,
     releases: movie ? (j.release_dates && j.release_dates.results) || [] : null,
+    episode: movie ? null : { next: j.next_episode_to_air, last: j.last_episode_to_air },
     logo: logo ? `${IMG}w500${logo.file_path.replace(/\.svg$/, ".png")}` : undefined,
     backdrop: backdrop ? backdrop.file_path : null,
   };
@@ -247,6 +248,25 @@ async function extraInfo(env, kind, tmdbId) {
 
 const MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
 const shortDate = (iso) => `${Number(iso.slice(8, 10))} ${MONTHS[Number(iso.slice(5, 7)) - 1]}`;
+const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+const dayName = (iso) => DAYS[new Date(`${iso}T12:00:00Z`).getUTCDay()];
+
+/**
+ * Épisode d'une série en cours à signaler : sorti ces 3 derniers jours (regardable), sinon prévu
+ * dans les 7 prochains. « Nouvel épisode sorti mardi 21 oct. (S2 É4) », « Nouvel épisode jeudi
+ * 23 oct. (S2 É5) », « Saison 3 : 1er épisode vendredi 7 nov. ». ep = { next, last } de TMDB.
+ */
+function episodeNote(ep, today) {
+  if (!ep) return "";
+  const when = (e) => (e.air_date === today ? "aujourd'hui" : `${dayName(e.air_date)} ${shortDate(e.air_date)}`);
+  const say = (e, past) => (e.episode_number === 1
+    ? `Saison ${e.season_number} : 1er épisode ${past ? "sorti " : ""}${when(e)}`
+    : `Nouvel épisode ${past ? "sorti " : ""}${when(e)} (S${e.season_number} É${e.episode_number})`);
+  const { next, last } = ep;
+  if (last && last.air_date && last.air_date <= today && last.air_date >= addDays(today, -3)) return say(last, true);
+  if (next && next.air_date && next.air_date >= today && next.air_date <= addDays(today, 7)) return say(next, false);
+  return "";
+}
 
 /**
  * Quand le film sera visible chez soi : première sortie numérique (VOD, achat, location)
@@ -330,7 +350,8 @@ async function toMetas(env, ctx, results, kind, opts, today) {
   const ids = infos.map((x) => x.imdb);
   return results.map((it, i) => {
     const date = it.release_date || it.first_air_date || "";
-    const note = kind === "movie" ? releaseNote(infos[i].releases, opts.region, today) : "";
+    // Films : quand ils deviennent regardables ; séries : l'épisode de la semaine.
+    const note = kind === "movie" ? releaseNote(infos[i].releases, opts.region, today) : episodeNote(infos[i].episode, today);
     // Pas encore regardable : la date affichée par Nuvio (carrousel, « date de sortie
     // complète ») devient la date de dispo plutôt que la sortie en salle.
     const dispo = kind === "movie" ? (firstDigital(infos[i].releases) || digitalGuess(infos[i].releases)) : "";
@@ -348,7 +369,7 @@ async function toMetas(env, ctx, results, kind, opts, today) {
       // (l'original est souvent en 4K, plusieurs Mo par image). Le w1280 paraît flou en plein écran.
       background: infos[i].backdrop || it.backdrop_path ? `${IMG}w1920${infos[i].backdrop || it.backdrop_path}` : undefined,
       logo: infos[i].logo,
-      description: [note ? `📅 ${note}${note.endsWith(".") ? "" : "."}` : "", it.overview || ""].filter(Boolean).join("\n") || undefined,
+      description: [note ? `${kind === "movie" ? "📅" : "📺"} ${note}${note.endsWith(".") ? "" : "."}` : "", it.overview || ""].filter(Boolean).join("\n") || undefined,
       releaseInfo: [date.slice(0, 4), note].filter(Boolean).join(" · ") || undefined,
       released: shownDate ? `${shownDate}T00:00:00.000Z` : undefined,
       genres: (it.genre_ids || []).map((g) => GENRE_NAMES[g]).filter(Boolean).slice(0, 3),
@@ -398,6 +419,8 @@ function discoverParams(def, kind, today, opts) {
     p["primary_release_date.gte"] = addDays(today, -365);
   }
   if (def.airDays !== undefined) { p["air_date.gte"] = addDays(today, -def.airDays); p["air_date.lte"] = addDays(today, def.airDays); }
+  // Séries avec un épisode dans la fenêtre (« Nouveaux épisodes cette semaine » : 3 jours avant, 7 après).
+  if (def.airWindow) { p["air_date.gte"] = addDays(today, def.airWindow[0]); p["air_date.lte"] = addDays(today, def.airWindow[1]); }
   if (cfg.a) {
     p[gte] = maxDate(p[gte], `${cfg.a}-01-01`);
     const yearKey = kind === "series" ? "first_air_date_year" : "primary_release_year";
@@ -662,7 +685,7 @@ function trailersOf(videos) {
 
 const person = (p) => ({ name: p.name, character: p.character || p.job || undefined, photo: p.profile_path ? `${IMG}w185${p.profile_path}` : undefined, tmdbId: p.id });
 
-async function meta(env, kind, id, cfg, today) {
+async function meta(env, kind, id, cfg, today, ctx) {
   const tmdbId = await tmdbIdOf(env, kind, id);
   if (!tmdbId) return null;
   const lang = langOf(cfg);
@@ -678,7 +701,7 @@ async function meta(env, kind, id, cfg, today) {
   const metaId = id.startsWith("tt") ? id : imdb || `tmdb:${tmdbId}`;
   const date = (movie ? d.release_date : d.first_air_date) || "";
   const releases = movie ? (d.release_dates && d.release_dates.results) || [] : null;
-  const note = movie ? releaseNote(releases, cfg.g, today) : "";
+  const note = movie ? releaseNote(releases, cfg.g, today) : episodeNote({ next: d.next_episode_to_air, last: d.last_episode_to_air }, today);
   const dispo = movie ? firstDigital(releases) || digitalGuess(releases) : "";
   const shownDate = dispo && dispo > today ? dispo : date;
   const credits = d.credits || {};
@@ -703,7 +726,7 @@ async function meta(env, kind, id, cfg, today) {
     poster: d.poster_path ? `${IMG}w500${d.poster_path}` : undefined,
     background: backdrop ? `${IMG}w1920${backdrop.file_path}` : d.backdrop_path ? `${IMG}w1920${d.backdrop_path}` : undefined,
     logo: logo ? `${IMG}w500${logo.file_path.replace(/\.svg$/, ".png")}` : undefined,
-    description: [note ? `📅 ${note}.` : "", d.overview || ""].filter(Boolean).join("\n") || undefined,
+    description: [note ? `${movie ? "📅" : "📺"} ${note}.` : "", d.overview || ""].filter(Boolean).join("\n") || undefined,
     releaseInfo: movie ? [date.slice(0, 4), note].filter(Boolean).join(" · ") || undefined
       : date ? `${date.slice(0, 4)}-${endYear}` : undefined,
     released: shownDate ? `${shownDate}T00:00:00.000Z` : undefined,
@@ -760,7 +783,56 @@ async function meta(env, kind, id, cfg, today) {
     videos.sort((a, b) => a.season - b.season || a.episode - b.episode);
     m.videos = videos;
   }
+
+  // Rappel de l'œuvre précédente (suite d'un film, nouvelle saison), à la fin du résumé.
+  const prev = env.GEMINI_API_KEY ? await previousWork(env, d, movie, m.videos, lang, today) : null;
+  if (prev) {
+    const job = aiRecap(env, ctx, prev.id, prev.prompt);
+    const r = await Promise.race([job, new Promise((res) => setTimeout(() => res(null), RECAP_WAIT_MS))]);
+    if (!r) m._partial = true;   // pas encore prêt : il le sera à la prochaine ouverture de la fiche
+    else if (r.recap) m.description = [m.description, `🔁 ${prev.label}, attention ça raconte la fin : ${r.recap}`].filter(Boolean).join("\n\n");
+  }
   return m;
+}
+
+const RECAP_WAIT_MS = 3500;   // attente maximale du rappel à l'ouverture d'une fiche
+
+/**
+ * L'œuvre à rappeler avant celle-ci → { id, label, prompt }, ou null :
+ *   - film d'une saga : le film précédent de la saga (assez connu pour que Gemini le connaisse) ;
+ *   - série : la saison d'avant la saison en cours (ou d'avant celle qui va commencer), racontée
+ *     d'après les résumés de ses épisodes (rien d'inventé).
+ */
+async function previousWork(env, d, movie, videos, lang, today) {
+  if (movie) {
+    if (!d.belongs_to_collection) return null;
+    const col = await tmdb(env, `/collection/${d.belongs_to_collection.id}`, {}, lang);
+    const parts = (col.parts || []).filter((p) => p.release_date && p.release_date <= today)
+      .sort((a, b) => a.release_date.localeCompare(b.release_date));
+    const i = parts.findIndex((p) => p.id === d.id);
+    const p = i > 0 ? parts[i - 1] : null;
+    if (!p || (p.vote_count || 0) < 300) return null;
+    const year = p.release_date.slice(0, 4);
+    return {
+      id: `movie-${p.id}`,
+      label: `Rappel de « ${p.title} » (${year})`,
+      prompt: `Film à raconter : « ${p.title} » (titre original : ${p.original_title}, ${year}).\nSynopsis : ${p.overview || "?"}\nLa suite qu'on va regarder : « ${d.title} ».`,
+    };
+  }
+  const next = d.next_episode_to_air, last = d.last_episode_to_air;
+  const current = next && next.episode_number === 1 ? next.season_number : last && last.season_number;
+  if (!current || current < 2) return null;
+  const season = current - 1;
+  const eps = (videos || []).filter((v) => v.season === season && v.overview);
+  // Sans résumés d'épisodes, seulement une série assez connue pour que Gemini la connaisse.
+  if (eps.length < 2 && (d.vote_count || 0) < 300) return null;
+  return {
+    id: `tv-${d.id}-s${season}`,
+    label: `Rappel de la saison ${season}`,
+    prompt: [`Série : « ${d.name} » (titre original : ${d.original_name}), saison ${season} à raconter.`,
+      eps.length >= 2 ? `Résumés des épisodes :\n${eps.map((e) => `${e.episode}. ${e.title} : ${e.overview}`).join("\n")}` : ""]
+      .filter(Boolean).join("\n").slice(0, 12000),
+  };
 }
 
 // ---------- HTTP ----------
@@ -913,10 +985,13 @@ export default {
       const hitMeta = await caches.default.match(metaKey);
       if (hitMeta) return new Response(hitMeta.body, { headers: { ...HEADERS, "Cache-Control": `public, max-age=${CACHE_META_CLIENT_S}` } });
       let found = null;
-      try { found = await meta(env, mm[1], decodeURIComponent(mm[2]), cfg, today); } catch (e) { return json({ meta: null, error: String(e) }, 60); }
+      try { found = await meta(env, mm[1], decodeURIComponent(mm[2]), cfg, today, ctx); } catch (e) { return json({ meta: null, error: String(e) }, 60); }
       if (!found) return json({ meta: null }, 600);
-      ctx.waitUntil(caches.default.put(metaKey, json({ meta: found }, CACHE_META_S)));
-      return json({ meta: found }, CACHE_META_CLIENT_S);
+      // Rappel encore en préparation : fiche pas gardée, pour l'avoir à la prochaine ouverture.
+      const { _partial, ...metaOut } = found;
+      if (_partial) return json({ meta: metaOut }, 60);
+      ctx.waitUntil(caches.default.put(metaKey, json({ meta: metaOut }, CACHE_META_S)));
+      return json({ meta: metaOut }, CACHE_META_CLIENT_S);
     }
 
     const m = path.match(/^\/catalog\/(movie|series)\/([^/]+?)(?:\/(.+))?\.json$/);

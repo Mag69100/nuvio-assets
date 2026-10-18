@@ -78,23 +78,26 @@ const NAMES = ["title", "title_fr", "title_en"];
 
 /** Question à Gemini, reposée une fois si la réponse a des titres abîmés ; ceux qui le restent sont vidés. */
 async function askGemini(env, query, model, thinking) {
-  let titles = await askOnce(env, query, model, thinking);
-  if (titles.some((t) => NAMES.some((k) => BROKEN.test(t[k] || "")))) titles = await askOnce(env, query, model, thinking);
+  const ask = async () => ((await geminiJSON(env, model, PROMPT, query, SCHEMA, thinking)).titles || [])
+    .filter((t) => t && t.title).slice(0, 15);
+  let titles = await ask();
+  if (titles.some((t) => NAMES.some((k) => BROKEN.test(t[k] || "")))) titles = await ask();
   return titles
     .map((t) => ({ ...t, ...Object.fromEntries(NAMES.map((k) => [k, BROKEN.test(t[k] || "") ? "" : (t[k] || "").trim()])) }))
     .map((t) => ({ ...t, title: t.title || t.title_en || t.title_fr }))
     .filter((t) => t.title);
 }
 
-async function askOnce(env, query, model, thinking) {
+/** Une question à un modèle Gemini, réponse JSON selon le schéma (erreur avec .status sinon). */
+async function geminiJSON(env, model, system, user, schema, thinking) {
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: PROMPT }] },
-      contents: [{ role: "user", parts: [{ text: query }] }],
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: user }] }],
       generationConfig: {
-        temperature: 0.2, responseMimeType: "application/json", responseSchema: SCHEMA,
+        temperature: 0.2, responseMimeType: "application/json", responseSchema: schema,
         thinkingConfig: { thinkingLevel: thinking || thinkingOf(model) },
       },
     }),
@@ -106,12 +109,11 @@ async function askOnce(env, query, model, thinking) {
   }
   const j = await res.json();
   const parts = (((j.candidates || [])[0] || {}).content || {}).parts || [];
-  const text = parts.filter((p) => !p.thought).map((p) => p.text || "").join("");
-  const titles = (JSON.parse(text || "{}").titles || []).filter((t) => t && t.title);
-  return titles.slice(0, 15);
+  return JSON.parse(parts.filter((p) => !p.thought).map((p) => p.text || "").join("") || "{}");
 }
 
-// Les deux catalogues (Films, Séries) posent la même question en même temps : une seule part.
+// Deux requêtes qui posent la même question en même temps (les catalogues Films et Séries d'une
+// recherche) : une seule part.
 const PENDING = new Map();
 // Modèle → moment où on peut le solliciter de nouveau (quota épuisé : 10 min ; surchargé : 1 min).
 const RESTING = new Map();
@@ -126,39 +128,73 @@ function modelsFor(env, forced) {
 }
 
 /**
- * Titres proposés par Gemini pour une requête → { titles, cached, ms, model, tried, error }.
- * Ne lève jamais d'erreur : en cas de souci, titles est vide et error dit pourquoi.
- * opts.model → un seul modèle, imposé ; opts.thinking → niveau de réflexion ; opts.fresh → sans le
- * cache (diagnostic).
+ * Réponse de Gemini gardée en cache → { value, cached, ms, model, tried, error }.
+ * ask(model) pose la question à un modèle ; un modèle en panne ou à court de quota passe la main au
+ * suivant. Ne lève jamais d'erreur : en cas de souci, value est null et error dit pourquoi.
+ * La réponse finit d'arriver et part en cache même si la requête a cessé de l'attendre.
  */
-export function aiTitles(env, ctx, query, opts = {}) {
-  const key = new Request(`https://cache.local/ai/v5/${encodeURIComponent(norm(query))}`);
+function cachedAsk(env, ctx, cacheUrl, ttl, ask, opts = {}) {
+  const key = new Request(cacheUrl);
   if (PENDING.has(key.url) && !opts.model) return PENDING.get(key.url);
   const start = Date.now();
   const job = (async () => {
     const hit = opts.fresh ? null : await caches.default.match(key);
-    if (hit) return { titles: await hit.json(), cached: true, ms: Date.now() - start };
+    if (hit) return { value: await hit.json(), cached: true, ms: Date.now() - start };
     const tried = [];
     for (const model of modelsFor(env, opts.model)) {
       try {
-        const titles = await askGemini(env, query, model, opts.thinking);
-        await caches.default.put(key, new Response(JSON.stringify(titles), {
-          headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${CACHE_S}` },
+        const value = await ask(model);
+        await caches.default.put(key, new Response(JSON.stringify(value), {
+          headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${ttl}` },
         }));
-        return { titles, cached: false, ms: Date.now() - start, model, tried };
+        return { value, cached: false, ms: Date.now() - start, model, tried };
       } catch (e) {
         tried.push(`${model} : ${e.name === "TimeoutError" ? "pas de réponse en 5 s" : e.message}`);
         const rest = restFor(e.status);
         if (rest) RESTING.set(model, Date.now() + rest);
       }
     }
-    console.warn("Recherche IA :", tried.join(" / "));
-    return { titles: [], cached: false, ms: Date.now() - start, tried, error: tried.join(" / ") };
+    console.warn("Gemini :", tried.join(" / "));
+    return { value: null, cached: false, ms: Date.now() - start, tried, error: tried.join(" / ") };
   })().finally(() => { if (PENDING.get(key.url) === job) PENDING.delete(key.url); });
   if (!opts.model) PENDING.set(key.url, job);
-  // La réponse finit d'arriver et part en cache même si la recherche a cessé de l'attendre.
   if (ctx) ctx.waitUntil(job);
   return job;
+}
+
+/**
+ * Titres proposés par Gemini pour une requête → { titles, cached, ms, model, tried, error }.
+ * opts.model → un seul modèle, imposé ; opts.thinking → niveau de réflexion ; opts.fresh → sans le
+ * cache (diagnostic).
+ */
+export async function aiTitles(env, ctx, query, opts = {}) {
+  const url = `https://cache.local/ai/v5/${encodeURIComponent(norm(query))}`;
+  const r = await cachedAsk(env, ctx, url, CACHE_S, (model) => askGemini(env, query, model, opts.thinking), opts);
+  return { ...r, titles: r.value || [] };
+}
+
+// ---------- rappel avant la suite ----------
+const RECAP_PROMPT = `Tu écris des rappels pour des spectateurs français qui vont regarder la suite d'un film ou la saison suivante d'une série, et qui ont oublié l'histoire.
+Écris en français, au présent, en 4 à 6 phrases, sans titre, sans liste et sans phrase d'introduction (pas de « Dans ce film… »).
+Raconte toute l'histoire, fin comprise : les événements clés, ce que deviennent les personnages principaux (avec leurs noms), et où en est l'intrigue à la toute fin, puisque la suite part de là.
+N'invente rien. Si des résumés d'épisodes sont fournis, appuie-toi uniquement sur eux. Si tu ne connais pas bien l'œuvre, renvoie un texte vide.`;
+const RECAP_SCHEMA = { type: "OBJECT", properties: { recap: { type: "STRING" } }, required: ["recap"] };
+const RECAP_CACHE_S = 180 * 86400;
+
+/**
+ * Rappel de l'histoire d'un film ou d'une saison (fin comprise), gardé 6 mois → { recap, … }.
+ * id → clé de cache (« movie-438631 », « tv-1399-s3 ») ; prompt → l'œuvre et ce qu'on en sait.
+ * recap vaut "" quand Gemini ne connaît pas assez l'œuvre (réponse gardée aussi : pas reposée).
+ */
+export async function aiRecap(env, ctx, id, prompt) {
+  const ask = async (model) => {
+    const recap = String((await geminiJSON(env, model, RECAP_PROMPT, prompt, RECAP_SCHEMA)).recap || "").trim();
+    // Texte abîmé (retours à la ligne permis) : le modèle suivant, sans mettre celui-ci au repos.
+    if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffd]|#00/.test(recap)) throw Object.assign(new Error("texte abîmé"), { status: -1 });
+    return recap;
+  };
+  const r = await cachedAsk(env, ctx, `https://cache.local/recap/v1/${id}`, RECAP_CACHE_S, ask);
+  return { ...r, recap: r.value || "" };
 }
 
 const results = (d) => (d && d.results) || [];

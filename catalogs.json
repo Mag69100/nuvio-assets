@@ -1883,6 +1883,21 @@
     "sort_by": "popularity.desc",
     "vote_count.gte": 10
    }
+  },
+  {
+   "id": "accueil-episodes-semaine",
+   "type": "series",
+   "name": "Nouveaux épisodes cette semaine",
+   "defaultHome": true,
+   "homeRank": 35,
+   "airWindow": [
+    -3,
+    7
+   ],
+   "discover": {
+    "sort_by": "popularity.desc",
+    "vote_count.gte": 100
+   }
   }
  ],
  "folders": {

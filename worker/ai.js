@@ -238,16 +238,21 @@ export async function aiProfile(env, ctx, id, prompt) {
 const results = (d) => (d && d.results) || [];
 const yearOf = (it) => Number((it.release_date || it.first_air_date || "").slice(0, 4));
 
-/** Fiche TMDB d'un titre proposé par Gemini, ou null s'il n'existe pas (titre inventé). */
-async function findOne(pick, kind, search) {
-  const yearKey = kind === "series" ? "first_air_date_year" : "year";
+/**
+ * Juge des résultats TMDB pour un titre proposé par Gemini : renvoie la bonne fiche d'une liste,
+ * ou null (titre inventé ou pas dans cette liste).
+ */
+function matcher(pick) {
   const names = [...new Set([pick.title, pick.title_fr, pick.title_en].filter(Boolean))];
+  // Ressemblance : seulement avec les titres d'au moins 5 lettres (« Shi », titre coréen de Poetry,
+  // ressemble au début de « Shinjuku Incident ») ; les plus courts doivent être identiques.
+  const long = names.filter((n) => norm(n).replace(/ /g, "").length >= 5);
   // Dans les deux sens : le titre TMDB peut être une partie du titre proposé (« L'Empire
   // contre-attaque » dans « Star Wars : Épisode V - L'Empire contre-attaque »). Titres TMDB d'au
   // moins deux mots seulement : pas un film « Star » pour n'importe quel Star Wars.
   const inside = (it) => Math.max(0, ...[it.title || it.name, it.original_title || it.original_name]
-    .filter((t) => norm(t).split(" ").length >= 2).flatMap((t) => names.map((n) => similarity(t, n))));
-  const sim = (it) => Math.max(...names.map((n) => scoreOf(n, it)), inside(it));
+    .filter((t) => norm(t).split(" ").length >= 2).flatMap((t) => long.map((n) => similarity(t, n))));
+  const sim = (it) => Math.max(0, ...long.map((n) => scoreOf(n, it)), inside(it));
   const gap = (it) => (pick.year ? Math.abs(yearOf(it) - pick.year) : 0);
   // Titre identique (année à 3 ans près : dates de sortie qui varient selon les pays et les
   // festivals, « The Upside » 2017 ou 2019) ou titre ressemblant à un an près. Puis : identique
@@ -256,21 +261,37 @@ async function findOne(pick, kind, search) {
   const exactOf = (it) => names.some((n) => isExact(n, it));
   const fits = (it) => it && it.poster_path && it.vote_count > 0 && (exactOf(it) ? gap(it) <= 3 : sim(it) >= MATCH && gap(it) <= 1);
   const rank = (it) => 2 * exactOf(it) + (gap(it) <= 1);
-  const best = (list) => list.filter(fits).sort((a, b) => rank(b) - rank(a) || (b.vote_count || 0) - (a.vote_count || 0))[0] || null;
-  // Titre + année d'abord ; sinon le titre français sans l'année ; sinon le titre anglais (sans
-  // accents, sûr même quand Gemini abîme les autres), cherché en anglais, puis sa fiche en français.
-  // La recherche sans l'année est toujours faite : TMDB filtre sur la date de sortie du pays
-  // (Coherence : 2013 pour Gemini, 2014 en France).
-  const byYear = pick.year ? { [yearKey]: pick.year } : {};
-  const first = best(results(await search(pick.title, 1, byYear)));
-  if (first) return first;
-  const fr = best(results(await search(pick.title_fr || pick.title, 1)));
-  if (fr) return fr;
-  if (!pick.title_en) return null;
-  const en = best(results(await search(pick.title_en, 1, { language: "en-US" })));
-  if (!en) return null;
-  const orig = en.original_title || en.original_name;
-  return results(await search(orig, 1, byYear)).find((it) => it.id === en.id) || en;
+  return (list) => list.filter(fits).sort((a, b) => rank(b) - rank(a) || (b.vote_count || 0) - (a.vote_count || 0))[0] || null;
+}
+
+/**
+ * Fiches TMDB des titres proposés par Gemini (null pour un titre inventé), en trois vagues :
+ *   1. titre + année, pour tous les titres en même temps ;
+ *   2. sans l'année (TMDB filtre sur la date de sortie du pays : Coherence, 2013 pour Gemini, 2014
+ *      en France), titre français ;
+ *   3. titre anglais (sans accents : sûr même quand Gemini abîme les autres), cherché en anglais,
+ *      puis sa fiche en français.
+ * Chaque vague part dans l'ordre de Gemini : le budget d'appels va d'abord aux titres les plus probables.
+ */
+async function findAll(wanted, kind, search) {
+  const yearKey = kind === "series" ? "first_air_date_year" : "year";
+  const byYear = (t) => (t.year ? { [yearKey]: t.year } : {});
+  const judge = wanted.map(matcher);
+  const hits = wanted.map(() => null);
+  const wave = async (ids, ask, pickOut) => {
+    const answers = await Promise.all(ids.map((i) => ask(wanted[i]).catch(() => null)));
+    await Promise.all(ids.map(async (i, k) => { hits[i] = await pickOut(i, answers[k]); }));
+  };
+  const misses = () => wanted.map((_, i) => i).filter((i) => !hits[i]);
+  await wave(misses(), (t) => search(t.title, 1, byYear(t)), (i, d) => judge[i](results(d)));
+  await wave(misses(), (t) => search(t.title_fr || t.title, 1), (i, d) => judge[i](results(d)));
+  await wave(misses().filter((i) => wanted[i].title_en), (t) => search(t.title_en, 1, { language: "en-US" }), async (i, d) => {
+    const en = judge[i](results(d));
+    if (!en) return null;
+    const fr = await search(en.original_title || en.original_name, 1, byYear(wanted[i])).catch(() => null);
+    return results(fr).find((it) => it.id === en.id) || en;
+  });
+  return hits;
 }
 
 const dedupe = (list) => { const seen = new Set(); return list.filter((it) => it && !seen.has(it.id) && seen.add(it.id)); };
@@ -285,7 +306,7 @@ const sagaOrder = (parts) => (parts || []).filter((p) => p.poster_path && p.rele
  */
 export async function resolveTitles(titles, kind, search, api) {
   const wanted = titles.filter((t) => (t.type === "serie") === (kind === "series")).slice(0, MAX_PICKS);
-  const hits = await Promise.all(wanted.map((t) => findOne(t, kind, search).catch(() => null)));
+  const hits = await findAll(wanted, kind, search);
   const seen = new Set();
   const pairs = wanted.map((t, i) => ({ t, it: hits[i] })).filter(({ it }) => it && !seen.has(it.id) && seen.add(it.id));
   const found = pairs.map((p) => p.it);

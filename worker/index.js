@@ -28,10 +28,10 @@ import { guidePage, NUVIO_TV_APK } from "./guide.js";
 import { lienPage } from "./lien.js";
 import { hallPage } from "./hall.js";
 import { smartSearch, prepareWords } from "./search.js";
-import { looksDescriptive, aiTitles, resolveTitles } from "./ai.js";
+import { looksDescriptive, aiTitles, resolveTitles, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.12.0";
+const VERSION = "5.12.1";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const ASSETS = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main";
 const NOISE_TV = ["10763", "10764", "10766", "10767"]; // actualité, téléréalité, soap, talk-show
@@ -531,13 +531,18 @@ async function runSearch(env, type, query, page, opts, trace) {
   }
   // Titre connu, personne, saga ou studio : la recherche classique suffit, sans attendre Gemini
   // (s'il est déjà parti, il finit en arrière-plan et remplit son cache).
-  const why = stats.sure ? null : descriptive ? "description" : !stats.strong ? "rien de proche" : null;
-  if (trace) trace.ai = { descriptive, sure: !!stats.sure, strong: stats.strong, why };
-  if (!why) {
-    if (ai && opts.ctx) opts.ctx.waitUntil(ai);
+  const why = stats.sure ? null : descriptive ? "description" : !stats.strong.size ? "rien de proche" : null;
+  if (trace) trace.ai = { descriptive, sure: !!stats.sure, strong: stats.strong.size, why };
+  if (!why) return classic;
+  const job = ai || aiTitles(env, opts.ctx, query);
+  const answer = await Promise.race([job, new Promise((r) => setTimeout(() => r(null), AI_WAIT_MS))]);
+  // Pas de réponse à temps ou erreur : la recherche classique, sans la garder en cache, pour que
+  // la même recherche refaite profite de la réponse de Gemini (qui finit en arrière-plan).
+  if (!answer || answer.error) {
+    opts.partial = true;
+    if (trace) trace.ai.error = answer ? answer.error : `pas de réponse en ${AI_WAIT_MS} ms`;
     return classic;
   }
-  const answer = await (ai || aiTitles(env, opts.ctx, query));
   const found = await resolveTitles(answer.titles, type, search);
   if (trace) {
     Object.assign(trace.ai, {
@@ -545,9 +550,12 @@ async function runSearch(env, type, query, page, opts, trace) {
       picks: answer.titles, found: found.map((it) => ({ name: it.title || it.name, date: it.release_date || it.first_air_date, votes: it.vote_count })),
     });
   }
-  // Les titres retrouvés par l'IA d'abord, puis ceux de la recherche classique.
+  if (!found.length) return classic;
+  // Les titres retrouvés par l'IA d'abord, puis seulement les titres de la recherche classique
+  // qui ressemblent à la requête (pas « Fils de personne » pour « des personnages bleus »).
   const seen = new Set();
-  return [...found, ...classic].filter((it) => !seen.has(it.id) && seen.add(it.id)).slice(0, PAGE);
+  return [...found, ...classic.filter((it) => stats.strong.has(it.id))]
+    .filter((it) => !seen.has(it.id) && seen.add(it.id)).slice(0, PAGE);
 }
 
 async function catalog(env, ctx, type, id, extra, today, cfg) {
@@ -559,9 +567,10 @@ async function catalog(env, ctx, type, id, extra, today, cfg) {
     if (!query) return [];
     const page = Math.floor(skip / PAGE) + 1;
     const results = await runSearch(env, type, query, page, opts);
-    if (!results.length) return [];
-    const metas = await toMetas(env, ctx, results, type, opts, today);
-    return metas.map(({ _digital, _guess, _vf, ...m }) => m);
+    const metas = results.length ? (await toMetas(env, ctx, results, type, opts, today)).map(({ _digital, _guess, _vf, ...m }) => m) : [];
+    // Recherche faite sans l'IA (Gemini trop lent ou en panne) : à ne pas garder en cache.
+    if (opts.partial) metas.partial = true;
+    return metas;
   }
   // « accueil-en-ce-moment » : ancien identifiant de la rangée de saison, encore demandé
   // par les Nuvio qui ont gardé l'ancien manifeste en mémoire.
@@ -892,7 +901,7 @@ export default {
     }
     // Copie gardée côté Cloudflare quelques heures ; Nuvio, lui, ne garde la réponse
     // que 5 minutes (son cache disque respecte max-age), pour voir vite les changements.
-    if (metas.length) ctx.waitUntil(caches.default.put(cacheKey, json({ metas }, CACHE_CATALOG_S)));
-    return json({ metas }, CACHE_CLIENT_S);
+    if (metas.length && !metas.partial) ctx.waitUntil(caches.default.put(cacheKey, json({ metas }, CACHE_CATALOG_S)));
+    return json({ metas }, metas.partial ? 0 : CACHE_CLIENT_S);
   },
 };

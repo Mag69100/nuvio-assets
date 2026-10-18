@@ -7,13 +7,16 @@
  * chacun est retrouvé dans TMDB, et ce que TMDB ne connaît pas est écarté : aucun titre inventé.
  *   - une seule question pour les films et les séries (les deux catalogues de recherche) ;
  *   - réponse gardée 30 jours dans le cache Cloudflare : la même requête ne coûte qu'une fois ;
- *   - Gemini trop lent, en panne ou à court de quota : la recherche classique seule, comme avant.
+ *   - Gemini trop lent : la recherche classique seule cette fois-ci, mais Gemini finit en arrière-plan
+ *     et la même recherche, refaite, a sa réponse tout de suite. En panne ou à court de quota : la
+ *     recherche classique seule, comme avant.
  * Secret facultatif : GEMINI_API_KEY (sans lui, rien ne change). Variable facultative : GEMINI_MODEL.
  */
 import { norm, scoreOf } from "./search.js";
 
 const MODEL = "gemini-3.6-flash";   // rapide et bonne culture ciné ; réflexion réduite au minimum
-const TIMEOUT_MS = 3500;            // au-delà, on se passe de Gemini
+const TIMEOUT_MS = 15000;           // Gemini abandonné (la recherche, elle, n'attend que AI_WAIT_MS)
+export const AI_WAIT_MS = 6000;     // attente maximale d'une réponse de Gemini pendant une recherche
 const CACHE_S = 30 * 86400;
 const MATCH = 0.75;                 // ressemblance minimale entre le titre proposé et la fiche TMDB
 
@@ -98,7 +101,7 @@ export function aiTitles(env, ctx, query) {
       const save = caches.default.put(key, new Response(JSON.stringify(titles), {
         headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${CACHE_S}` },
       }));
-      if (ctx) ctx.waitUntil(save); else await save;
+      await save;
       return { titles, cached: false, ms: Date.now() - start, model };
     } catch (e) {
       console.warn("Recherche IA :", String(e));
@@ -106,6 +109,8 @@ export function aiTitles(env, ctx, query) {
     }
   })().finally(() => PENDING.delete(key.url));
   PENDING.set(key.url, job);
+  // La réponse finit d'arriver et part en cache même si la recherche a cessé de l'attendre.
+  if (ctx) ctx.waitUntil(job);
   return job;
 }
 
@@ -117,13 +122,14 @@ async function findOne(pick, kind, search) {
   const yearKey = kind === "series" ? "first_air_date_year" : "year";
   const names = [...new Set([pick.title, pick.title_fr].filter(Boolean))];
   const ok = (it) => it && it.poster_path && it.vote_count > 0 && names.some((n) => scoreOf(n, it) >= MATCH);
-  const best = (list) => list.sort((a, b) => (yearOf(b) === pick.year) - (yearOf(a) === pick.year)
-    || (b.vote_count || 0) - (a.vote_count || 0))[0] || null;
-  // Titre + année d'abord ; sinon sans l'année (une année à un an près : sortie décalée selon les pays).
-  const exact = best(results(await search(pick.title, 1, pick.year ? { [yearKey]: pick.year } : {})).filter(ok));
+  // L'année à un an près (TMDB donne la date de sortie du pays : Aladdin de Disney, 1992, sort en
+  // France en 1993), puis le plus connu : pas un Aladdin obscur de la même année.
+  const near = (it) => !pick.year || Math.abs(yearOf(it) - pick.year) <= 1;
+  const best = (list) => list.filter((it) => ok(it) && near(it)).sort((a, b) => (b.vote_count || 0) - (a.vote_count || 0))[0] || null;
+  // Titre + année d'abord ; sinon le titre français sans l'année.
+  const exact = best(results(await search(pick.title, 1, pick.year ? { [yearKey]: pick.year } : {})));
   if (exact) return exact;
-  const loose = await search(pick.title_fr || pick.title, 1);
-  return best(results(loose).filter((it) => ok(it) && (!pick.year || Math.abs(yearOf(it) - pick.year) <= 1)));
+  return best(results(await search(pick.title_fr || pick.title, 1)));
 }
 
 /** Fiches TMDB des titres proposés pour ce type (films ou séries), dans l'ordre de Gemini. */

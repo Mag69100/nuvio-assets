@@ -15,7 +15,7 @@
  *   /catalog/<type>/<id>/<genre=…&skip=…>.json
  *
  * Définitions des rangées et de Découvrir : ../catalogs.json (le même fichier qu'avant).
- * Secret requis : TMDB_API_KEY (clé API TMDB v3).
+ * Secret requis : TMDB_API_KEY (clé API TMDB v3). Facultatif : GEMINI_API_KEY (recherche par IA, voir ai.js).
  *   /meta/<type>/<id>.json      fiche détaillée (résumé, casting, saisons, épisodes) en français
  */
 import DEFS from "../catalogs.json";
@@ -28,9 +28,10 @@ import { guidePage, NUVIO_TV_APK } from "./guide.js";
 import { lienPage } from "./lien.js";
 import { hallPage } from "./hall.js";
 import { smartSearch, prepareWords } from "./search.js";
+import { looksDescriptive, aiTitles, resolveTitles } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.11.3";
+const VERSION = "5.12.0";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const ASSETS = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main";
 const NOISE_TV = ["10763", "10764", "10766", "10767"]; // actualité, téléréalité, soap, talk-show
@@ -506,20 +507,52 @@ function searchWords() {
   return WORDS;
 }
 
-/** Recherche tolérante (sigles, fautes, année, suites, personnes, studios) : voir search.js. */
-function runSearch(env, type, query, page, opts, trace) {
+/**
+ * Recherche tolérante (sigles, fautes, année, suites, personnes, studios) : voir search.js.
+ * Avec GEMINI_API_KEY, l'IA prend le relais pour les descriptions (« le film où… ») et les
+ * requêtes que la recherche classique ne reconnaît pas : voir ai.js.
+ */
+async function runSearch(env, type, query, page, opts, trace) {
   const endpoint = `/search/${type === "series" ? "tv" : "movie"}`;
   const search = (q, p, extra = {}) => {
     const { language, ...rest } = extra;
     return tmdb(env, endpoint, { query: q, page: p, include_adult: "false", region: opts.region, ...rest }, language || opts.lang);
   };
   const api = (path, params = {}) => tmdb(env, path, params, opts.lang);
-  return smartSearch(query, page, search, type, api, { words: searchWords, region: opts.region, trace });
+  const useAI = !!env.GEMINI_API_KEY && page === 1;
+  // Une description : Gemini part tout de suite, en même temps que la recherche classique.
+  const descriptive = useAI && looksDescriptive(query);
+  const ai = descriptive ? aiTitles(env, opts.ctx, query) : null;
+  const stats = {};
+  const classic = await smartSearch(query, page, search, type, api, { words: searchWords, region: opts.region, trace, stats });
+  if (!useAI) {
+    if (trace) trace.ai = env.GEMINI_API_KEY ? "page suivante : recherche classique" : "pas de secret GEMINI_API_KEY";
+    return classic;
+  }
+  // Titre connu, personne, saga ou studio : la recherche classique suffit, sans attendre Gemini
+  // (s'il est déjà parti, il finit en arrière-plan et remplit son cache).
+  const why = stats.sure ? null : descriptive ? "description" : !stats.strong ? "rien de proche" : null;
+  if (trace) trace.ai = { descriptive, sure: !!stats.sure, strong: stats.strong, why };
+  if (!why) {
+    if (ai && opts.ctx) opts.ctx.waitUntil(ai);
+    return classic;
+  }
+  const answer = await (ai || aiTitles(env, opts.ctx, query));
+  const found = await resolveTitles(answer.titles, type, search);
+  if (trace) {
+    Object.assign(trace.ai, {
+      model: answer.model, ms: answer.ms, cached: answer.cached, error: answer.error,
+      picks: answer.titles, found: found.map((it) => ({ name: it.title || it.name, date: it.release_date || it.first_air_date, votes: it.vote_count })),
+    });
+  }
+  // Les titres retrouvés par l'IA d'abord, puis ceux de la recherche classique.
+  const seen = new Set();
+  return [...found, ...classic].filter((it) => !seen.has(it.id) && seen.add(it.id)).slice(0, PAGE);
 }
 
 async function catalog(env, ctx, type, id, extra, today, cfg) {
   const skip = Number(extra.skip || 0);
-  const opts = { cfg, lang: langOf(cfg), region: cfg.g, filtered: hasGlobalFilters(cfg) };
+  const opts = { cfg, ctx, lang: langOf(cfg), region: cfg.g, filtered: hasGlobalFilters(cfg) };
   const search = SEARCH.find((c) => c.id === id && c.type === type);
   if (search) {
     const query = (extra.search || "").trim();
@@ -822,7 +855,7 @@ export default {
     const dbg = path.match(/^\/debug\/search\/(movie|series)\/(.+)$/);
     if (dbg) {
       const trace = {};
-      await runSearch(env, dbg[1], decodeURIComponent(dbg[2]), 1, { lang: langOf(cfg), region: cfg.g }, trace);
+      await runSearch(env, dbg[1], decodeURIComponent(dbg[2]), 1, { ctx, lang: langOf(cfg), region: cfg.g }, trace);
       return json(trace, 0);
     }
     const tm = path.match(/^\/trailer\/(movie|series)\/([^/]+)\.json$/);

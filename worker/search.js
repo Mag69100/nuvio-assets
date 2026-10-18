@@ -444,6 +444,7 @@ async function sagaFilms({ sagas, base, n, api, pool, trace }) {
  * api(path, params) → autre appel TMDB (sagas, personnes, studios) ; sans lui, ces recherches sont sautées.
  * opts.words() → vocabulaire préparé (prepareWords) ; opts.region → pays des plateformes ;
  * opts.trace → objet rempli avec le détail de la recherche (adresse /debug/search).
+ * opts.stats → objet rempli avec { strong, sure } : nombre de titres proches, requête reconnue.
  */
 export async function smartSearch(query, page, search, kind, api, opts = {}) {
   const trace = opts.trace;
@@ -570,6 +571,12 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   }
 
   const out = dedupe([...head, ...ranked]).slice(0, FIRST_PAGE);
+  // Pour la recherche par IA (ai.js) : titres qui ressemblent vraiment à la requête, et « sûr »
+  // quand la requête est clairement un titre connu, une personne, une saga ou un studio.
+  if (opts.stats) {
+    opts.stats.strong = out.filter((it) => head.includes(it) || text.get(it.id) >= GOOD).length;
+    opts.stats.sure = !!headKind || out.some((it) => text.get(it.id) >= EXACT && it.vote_count >= FAMOUS);
+  }
   if (trace) {
     Object.assign(trace, {
       forms, fixed, variant, alias: alias || null, year: ym ? ym[2] : null, sequel: sq, sagaBase, studio: studio || null,

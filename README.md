@@ -45,7 +45,9 @@ tous les résultats ensemble (ressemblance du titre français, original ou angla
 (« got »), les fautes de frappe (vocabulaire des titres connus `data/search-words.json`, refait chaque nuit par
 `scripts/build_search_words.py`), les mots en trop (« film barbie », « the boys saison 4 »), l'année (« dune 2021 »),
 les numéros de suite (« harry potter 3 »), les acteurs et réalisateurs (« nolan ») et les studios et plateformes
-(« pixar », « netflix »). Détail d'une recherche : `/debug/search/<movie|series>/<requête>`. Fiches (`/meta/<type>/<id>.json`) : résumé,
+(« pixar », « netflix »). Avec le secret facultatif `GEMINI_API_KEY`, l'IA (`worker/ai.js`) prend le relais pour les
+descriptions (« le film où un mec revit la même journée ») et les requêtes sans résultat proche : Gemini propose des titres,
+chacun vérifié dans TMDB, réponse gardée 30 jours en cache. Détail d'une recherche : `/debug/search/<movie|series>/<requête>`. Fiches (`/meta/<type>/<id>.json`) : résumé,
 casting, saisons et épisodes en français. TMDB Discover Plus n'est plus nécessaire (`config/recherche-fr-tmdb.json`
 reste pour les anciennes installations).
 

@@ -1,6 +1,7 @@
 # Addon « Catalogue FR » en direct, sur Cloudflare Workers.
 # Déployé automatiquement par Cloudflare à chaque modification du dépôt (Workers Builds).
 # Secret à définir dans le tableau de bord Cloudflare : TMDB_API_KEY
+# Facultatif : GEMINI_API_KEY (recherche par IA, voir worker/ai.js)
 name = "nuvio-assets"
 main = "worker/index.js"
 compatibility_date = "2026-10-01"

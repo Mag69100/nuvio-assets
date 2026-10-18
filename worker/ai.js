@@ -40,6 +40,7 @@ const PROMPT = `Tu aides à retrouver des films et des séries à partir de ce q
 Réponds avec les titres qui correspondent le mieux, du plus probable au moins probable, 15 au maximum :
 - title : le titre original exact s'il s'écrit en alphabet latin, sinon le titre anglais international ;
 - title_fr : le titre français s'il existe, sinon le même que title ;
+- title_en : le titre anglais international, sinon le même que title ;
 - year : l'année de sortie (pour une série : l'année de la première saison) ;
 - type : "film" ou "serie".
 Chaque détail de la requête compte : nationalité des personnages ou du film, pays, lieu, époque, métier, objet, situation. L'œuvre recherchée est celle qui réunit TOUS ces détails, même si elle est peu connue ou indépendante : elle passe avant une œuvre célèbre qui n'en réunit qu'une partie (« une japonaise part chercher un trésor aux états-unis » → Kumiko, the Treasure Hunter, pas Indiana Jones).
@@ -56,10 +57,10 @@ const SCHEMA = {
       items: {
         type: "OBJECT",
         properties: {
-          title: { type: "STRING" }, title_fr: { type: "STRING" },
+          title: { type: "STRING" }, title_fr: { type: "STRING" }, title_en: { type: "STRING" },
           year: { type: "INTEGER" }, type: { type: "STRING", enum: ["film", "serie"] },
         },
-        required: ["title", "title_fr", "year", "type"],
+        required: ["title", "title_fr", "title_en", "year", "type"],
       },
     },
   },
@@ -69,7 +70,21 @@ const SCHEMA = {
 // Niveau de réflexion le plus bas accepté par le modèle (« minimal » n'existe pas sur 3.8 Flash).
 const thinkingOf = (model) => (/3\.8-flash/.test(model) ? "low" : "minimal");
 
+// Gemini abîme parfois les lettres accentuées (« Hr\u0001tur » pour « Hrútar », « Hr#00fat#00ar »).
+const BROKEN = /[\u0000-\u001f\ufffd]|#00/;
+const NAMES = ["title", "title_fr", "title_en"];
+
+/** Question à Gemini, reposée une fois si la réponse a des titres abîmés ; ceux qui le restent sont vidés. */
 async function askGemini(env, query, model, thinking) {
+  let titles = await askOnce(env, query, model, thinking);
+  if (titles.some((t) => NAMES.some((k) => BROKEN.test(t[k] || "")))) titles = await askOnce(env, query, model, thinking);
+  return titles
+    .map((t) => ({ ...t, ...Object.fromEntries(NAMES.map((k) => [k, BROKEN.test(t[k] || "") ? "" : (t[k] || "").trim()])) }))
+    .map((t) => ({ ...t, title: t.title || t.title_en || t.title_fr }))
+    .filter((t) => t.title);
+}
+
+async function askOnce(env, query, model, thinking) {
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
@@ -115,7 +130,7 @@ function modelsFor(env, forced) {
  * cache (diagnostic).
  */
 export function aiTitles(env, ctx, query, opts = {}) {
-  const key = new Request(`https://cache.local/ai/v3/${encodeURIComponent(norm(query))}`);
+  const key = new Request(`https://cache.local/ai/v4/${encodeURIComponent(norm(query))}`);
   if (PENDING.has(key.url) && !opts.model) return PENDING.get(key.url);
   const start = Date.now();
   const job = (async () => {
@@ -150,7 +165,7 @@ const yearOf = (it) => Number((it.release_date || it.first_air_date || "").slice
 /** Fiche TMDB d'un titre proposé par Gemini, ou null s'il n'existe pas (titre inventé). */
 async function findOne(pick, kind, search) {
   const yearKey = kind === "series" ? "first_air_date_year" : "year";
-  const names = [...new Set([pick.title, pick.title_fr].filter(Boolean))];
+  const names = [...new Set([pick.title, pick.title_fr, pick.title_en].filter(Boolean))];
   const sim = (it) => Math.max(...names.map((n) => scoreOf(n, it)));
   const gap = (it) => (pick.year ? Math.abs(yearOf(it) - pick.year) : 0);
   // Titre identique (année à 3 ans près : dates de sortie qui varient selon les pays et les
@@ -161,10 +176,20 @@ async function findOne(pick, kind, search) {
   const fits = (it) => it && it.poster_path && it.vote_count > 0 && (exactOf(it) ? gap(it) <= 3 : sim(it) >= MATCH && gap(it) <= 1);
   const rank = (it) => 2 * exactOf(it) + (gap(it) <= 1);
   const best = (list) => list.filter(fits).sort((a, b) => rank(b) - rank(a) || (b.vote_count || 0) - (a.vote_count || 0))[0] || null;
-  // Titre + année d'abord ; sinon le titre français sans l'année.
-  const exact = best(results(await search(pick.title, 1, pick.year ? { [yearKey]: pick.year } : {})));
-  if (exact) return exact;
-  return best(results(await search(pick.title_fr || pick.title, 1)));
+  // Titre + année d'abord ; sinon le titre français sans l'année ; sinon le titre anglais (sans
+  // accents, sûr même quand Gemini abîme les autres), cherché en anglais, puis sa fiche en français.
+  const byYear = pick.year ? { [yearKey]: pick.year } : {};
+  const first = best(results(await search(pick.title, 1, byYear)));
+  if (first) return first;
+  if (pick.title_fr && pick.title_fr !== pick.title) {
+    const fr = best(results(await search(pick.title_fr, 1)));
+    if (fr) return fr;
+  }
+  if (!pick.title_en) return null;
+  const en = best(results(await search(pick.title_en, 1, { ...byYear, language: "en-US" })));
+  if (!en) return null;
+  const orig = en.original_title || en.original_name;
+  return results(await search(orig, 1, byYear)).find((it) => it.id === en.id) || en;
 }
 
 const dedupe = (list) => { const seen = new Set(); return list.filter((it) => it && !seen.has(it.id) && seen.add(it.id)); };

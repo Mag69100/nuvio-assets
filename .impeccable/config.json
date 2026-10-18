@@ -14,6 +14,21 @@
         "value": "instrument serif",
         "createdAt": "2026-10-17T16:08:21.445Z",
         "reason": "Claude's call: Instrument Serif is the site's established italic serif (guide.js, page.js taglines and cartons since before the hall); hall.js must match the existing type system"
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-10-18T22:57:16.948Z",
+        "reason": "Claude: Nuvio TV ships Inter (res/font/inter_variable.ttf) and the guide's recommended app font is Inter; the preview must match the real app"
+      },
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "worker/reglages.js"
+        ],
+        "createdAt": "2026-10-18T23:04:32.742Z",
+        "reason": "Claude decided: .nv-ring is one absolutely positioned, pointer-events:none focus ring that must morph between rows of different sizes (scale would distort its 2px outline and glow); position already moved to transform, only width/height remain"
       }
     ]
   }

@@ -24,7 +24,7 @@ import {
   decodeConfig, defaults, langOf, contentKey, hasGlobalFilters,
 } from "./config.js";
 import { configurePage } from "./page.js";
-import { guidePage, NUVIO_TV_APK } from "./guide.js";
+import { guidePage, NUVIO_TV_APK, POSTER_URL } from "./guide.js";
 import { lienPage } from "./lien.js";
 import { hallPage } from "./hall.js";
 import { smartSearch, prepareWords, isExact, norm } from "./search.js";
@@ -899,7 +899,7 @@ async function meta(env, kind, id, cfg, today, ctx) {
     poster: d.poster_path ? `${IMG}w500${d.poster_path}` : undefined,
     background: backdrop ? `${IMG}w1920${backdrop.file_path}` : d.backdrop_path ? `${IMG}w1920${d.backdrop_path}` : undefined,
     logo: logo ? `${IMG}w500${logo.file_path.replace(/\.svg$/, ".png")}` : undefined,
-    description: [note ? `${movie ? "📅" : "📺"} ${note}.` : "", d.overview || ""].filter(Boolean).join("\n") || undefined,
+    description: [note ? `${movie ? "📅" : "📺"} ${dot(note)}` : "", d.overview || ""].filter(Boolean).join("\n") || undefined,
     releaseInfo: movie ? [date.slice(0, 4), note].filter(Boolean).join(" · ") || undefined
       : date ? `${date.slice(0, 4)}-${endYear}` : undefined,
     released: shownDate ? `${shownDate}T00:00:00.000Z` : undefined,
@@ -1298,7 +1298,7 @@ function json(data, maxAge) {
   });
 }
 
-const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug"]);
+const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche"]);
 
 async function loadCollections() {
   const res = await fetch(`${ASSETS}/collections/collections.json`, { cf: { cacheTtl: 600, cacheEverything: true } });
@@ -1429,6 +1429,23 @@ export default {
       d.external_ids = await tmdb(env, `/tv/${dr[1]}/external_ids`);
       const r = (await renewalOf(env, ctx, d, follow.season, today)) || { error: "pas d'article Wikipédia" };
       return json({ wikipedia: await wikiNews(d.external_ids.wikidata_id), ...r, note: r.status ? renewalNote(r, follow.season) : follow.text }, 0);
+    }
+    // Affiche PostersPlus de l'aperçu (réglage conseillé de l'étape 8) avec la clé TMDB du worker :
+    // le visiteur voit les affiches qu'il aura à la fin sans coller la sienne. /affiche/<type>/<poster|landscape>/<id>
+    const af = path.match(/^\/affiche\/(movie|series)\/(poster|landscape)\/(tt\d{1,10}|tmdb%3A\d{1,10}|tmdb:\d{1,10})$/);
+    if (af) {
+      const id = decodeURIComponent(af[3]), imdb = url.searchParams.get("imdb") || "";
+      const vals = { "{tmdb_id?}": id.startsWith("tmdb:") ? id.slice(5) : "", "{imdb_id?}": /^tt\d{1,10}$/.test(imdb) ? imdb : (id.startsWith("tt") ? id : ""), "{id}": id, "{type}": af[1], "{shape}": af[2] };
+      let src = POSTER_URL.replace("TA_CLE_TMDB", encodeURIComponent(env.TMDB_API_KEY));
+      for (const [k, v] of Object.entries(vals)) src = src.split(k).join(encodeURIComponent(v));
+      const key = new Request(`https://cache.local/affiche/${af[1]}/${af[2]}/${id}?imdb=${vals["{imdb_id?}"]}`);
+      const hitA = await caches.default.match(key);
+      if (hitA) return hitA;
+      const r = await fetch(src, { cf: { cacheTtl: 7 * 86400, cacheEverything: true } }).catch(() => null);
+      if (!r || !r.ok || !/^image\//.test(r.headers.get("Content-Type") || "")) return new Response(null, { status: 404, headers: { ...HEADERS, "Cache-Control": "public, max-age=3600" } });
+      const out = new Response(r.body, { headers: { "Access-Control-Allow-Origin": "*", "Content-Type": r.headers.get("Content-Type"), "Cache-Control": "public, max-age=604800" } });
+      ctx.waitUntil(caches.default.put(key, out.clone()));
+      return out;
     }
     const tm = path.match(/^\/trailer\/(movie|series)\/([^/]+)\.json$/);
     if (tm) return json(await trailer(env, tm[1], decodeURIComponent(tm[2])), 7 * 86400);

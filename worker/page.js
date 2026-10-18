@@ -25,8 +25,8 @@ const ROW_HINTS = {
   "accueil-vod-bientot": "Films qui deviennent regardables dans les six prochaines semaines, avec la date",
 };
 
-/** Affiches PostersPlus conseillées pour l'aperçu, SANS clé : « TA_CLE_TMDB » est remplacé dans
- *  le navigateur par la clé que la personne tape (gardée sur son appareil, comme dans le guide). */
+/** Affiches PostersPlus conseillées pour l'aperçu, SANS clé : avec la clé TMDB du visiteur (guide, étape 8),
+ *  le navigateur la met à la place de « TA_CLE_TMDB » ; sans elle, le worker sert l'affiche (/affiche/…). */
 const PP_URL = "https://postersplus.stremio.ru/poster?tmdb_id={tmdb_id?}&imdb_id={imdb_id?}&stremio_id={id}&type={type}&shape={shape}&pc=stremio_tv_nuvio&tmdb_key=TA_CLE_TMDB&tg=low&bgr=low&vpcb=1&sm=notch&_bgr=low&_sm=sash&bp=top_left&_ip=bottom_right&_soo10=1&_rs=bullet_star&_gs=1&_bst=gold&_rb=1&_rbl=imdb&_cl=off&fti=1&irs=dataset&trs=direct&rdm=2&nsyo=0.93&soo10=1&rb=imdb&rbs=normalized&mw=lb:.01,tk:.01,im:.97,tm:.01&tw=tk:.01,im:.97,tm:.02&ll=fr-fr&fbs=photoreal&lba=1&cgsia=1&rsco=1&hur=1&mo=genre,year,rating&_mo=&ol=fr&stc=FFFFFF&sbs=gold&sbsw=1.40&sbsh=1.20&sbpo=auto_hug&bdm=7&bg1=tr:4:res&bms=3&_bdm=7&_bg1=chip:4:res:30&qad=1&wfq=1&gnq=1";
 
 /** Couleur d'accent de chaque plateforme (pastille et tuile de l'aperçu). */
@@ -36,6 +36,7 @@ const PROVIDER_COLORS = {
 };
 
 import { STAGE_HEAD, STAGE_CSS, stageTop, secretsHTML, BEAM_HTML, SEATS_HTML, CREDITS_HTML, STAGE_JS } from "./stage.js";
+import { NUVIO_CSS, nuvioJS } from "./nuvio.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -73,7 +74,7 @@ ${STAGE_HEAD}
 <link rel="icon" href="${LOGO}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Figtree:wght@400;500;700;800&family=Courier+Prime:wght@400;700&family=Instrument+Serif:ital@0;1&family=Limelight&family=Pacifico&family=Orbitron:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Figtree:wght@400;500;700;800&family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&family=Instrument+Serif:ital@0;1&family=Limelight&family=Pacifico&family=Orbitron:wght@500;700&display=swap">
 <style>
 /* Salle obscure : enseigne en haut, la bobine de réglages à gauche, l'écran et le billet à droite. */
 :root {
@@ -381,92 +382,10 @@ body::after { content: ""; position: fixed; inset: -50%; pointer-events: none; z
 .stage .glow { position: absolute; inset: 6% 4% 10%; z-index: -1; filter: blur(42px) saturate(1.4); opacity: .55; background-size: cover; background-position: center; transition: background-image .6s ease; border-radius: 30px; }
 /* ---------- L'écran : un vrai petit Nuvio, qu'on parcourt à la souris ou aux flèches ---------- */
 .tv { overflow: hidden; background: #050304; border-radius: 16px; padding: 10px; box-shadow: 0 0 0 2px #2b1820, 0 30px 80px rgba(0,0,0,.6), 0 0 90px rgba(120,160,255,.06); }
-.screen { position: relative; aspect-ratio: 16 / 10.5; border-radius: 8px; overflow: hidden; background: linear-gradient(180deg, #13101a, #0b0910); container-type: inline-size; }
-.screen::after { content: ""; position: absolute; inset: 0; z-index: 4; pointer-events: none; background: linear-gradient(115deg, rgba(255,255,255,.07), transparent 40%); }
+.screen { position: relative; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: linear-gradient(180deg, #13101a, #0b0910); container-type: inline-size; }
 .tv-foot { height: 10px; width: 34%; margin: 8px auto 0; border-radius: 0 0 10px 10px; background: #1c1116; }
-.nv { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; padding-bottom: 4cqw; scroll-behavior: smooth; }
-.nv::-webkit-scrollbar { display: none; }
-.nv-hero { position: relative; height: 31cqw; overflow: hidden; display: flex; align-items: flex-end; padding: 0 3cqw 3cqw; }
-.nv-bg { position: absolute; inset: 0; background: #000 center 25% / cover no-repeat; animation: kb 14s ease-out both, fade-in .9s ease both; }
-.nv-bg.out { animation: fade-out .9s ease forwards; }
-.nv-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8,6,12,.94), rgba(8,6,12,.35) 60%, transparent), linear-gradient(transparent 45%, #0f0c14); }
-@keyframes kb { from { transform: scale(1.12); } to { transform: scale(1); } }
 @keyframes fade-in { from { opacity: 0; } }
-@keyframes fade-out { to { opacity: 0; } }
-.nv-info { position: relative; z-index: 1; max-width: 62%; display: grid; gap: .9cqw; justify-items: start; animation: rise .5s ease both; }
-.nv-info b { font: 400 5.4cqw/.95 var(--display); letter-spacing: .02em; color: #fff; }
-.nv-info span { font: 600 1.8cqw/1.3 var(--body); color: #d9d4e6; }
-.nv-info p { margin: 0; font: 400 1.7cqw/1.4 var(--body); color: #bdb6cc; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.nv-btns { display: flex; gap: 1cqw; }
-.nv-btns i { font: normal 800 1.6cqw var(--body); background: rgba(255,255,255,.18); color: #fff; padding: .7cqw 1.7cqw; border-radius: .7cqw; }
-.nv-btns i:first-child { background: #fff; color: #111; }
-.nv-dots { position: absolute; right: 3cqw; bottom: 3.4cqw; z-index: 1; display: flex; gap: .7cqw; }
-.nv-dots i { width: 1cqw; height: 1cqw; border-radius: 1cqw; background: rgba(255,255,255,.3); transition: width .4s ease, background .4s ease; }
-.nv-dots i.on { width: 3cqw; background: #fff; }
-.nv-label { margin: 2cqw 3cqw .2cqw; font: 700 2.2cqw/1.2 var(--body); color: #e8e2ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nv-row, .nv-coll { animation: rise .45s ease both; }
-.nv-track { position: relative; display: flex; gap: 1.4cqw; overflow-x: auto; scrollbar-width: none; padding: 1.3cqw 3cqw; scroll-behavior: smooth; }
-.nv-track::-webkit-scrollbar { display: none; }
-.nv-track { cursor: grab; }
-.nv-track.drag, .nv.drag { cursor: grabbing; scroll-behavior: auto; user-select: none; }
-.nv-track.drag .nv-card, .nv-track.drag .nv-tile { cursor: grabbing; }
-.nv-card, .nv-tile { flex: none; position: relative; padding: 0; border: 0; cursor: pointer; overflow: hidden; color: #fff; border-radius: 1.2cqw;
-  background: var(--ph) center / cover no-repeat; transition: transform .25s cubic-bezier(.3,1.4,.5,1), box-shadow .25s ease; }
-.nv-card { width: 12cqw; aspect-ratio: 2 / 3; }
-.nv.paysage .nv-card { width: 24cqw; aspect-ratio: 16 / 9; }
-.nv-tile { width: 18cqw; aspect-ratio: 16 / 9; display: grid; place-items: center; padding: .5cqw; text-align: center; font: 400 2cqw/1.05 var(--display); letter-spacing: .04em; }
-.nv-tile.img { color: transparent; background-color: #fff; }
-.nv-card:hover, .nv-card:focus-visible, .nv-tile:hover, .nv-tile:focus-visible { transform: scale(1.08); z-index: 1; outline: none; box-shadow: 0 0 0 .45cqw #fff, 0 1.5cqw 3cqw rgba(0,0,0,.6); }
-.nv-card.img { animation: fade-in .45s ease both; }
-.nv-t { position: absolute; left: 0; right: 0; bottom: 0; display: none; padding: 3cqw 1.2cqw 1cqw; text-align: left; font: 400 2.3cqw/1 var(--display); letter-spacing: .03em; background: linear-gradient(transparent, rgba(0,0,0,.88)); }
-.nv.paysage .nv-card.img .nv-t { display: block; }
-.nv.pp .nv-card .nv-t { display: none !important; }
-.pp-key { display: grid; gap: 8px; margin-top: 12px; padding: 14px; border-radius: 12px; border: 1px dashed rgba(255,207,107,.45); background: rgba(255,207,107,.05); }
-.pp-key label { display: grid; gap: 6px; font-weight: 700; font-size: .88rem; }
-.pp-key .row { display: flex; gap: 8px; }
-.pp-key input { flex: 1; min-width: 0; font: 600 .95rem var(--type); padding: 9px 11px; border-radius: 8px; border: 1px solid var(--seat); background: var(--velvet); color: var(--cream); }
-.pp-key small { color: var(--dim); font-size: .8rem; line-height: 1.4; }
-.pp-key .err { color: #ff9c95; }
-.pp-key .paste { justify-self: start; border-color: rgba(255,207,107,.5); color: var(--bulb); }
-/* Une seule animation par rangée (pas une par carte) : 5 rangées en attente = 5 animations, pas 70. */
-.nv-row.loading .nv-track { animation: shimmer 1.2s ease-in-out infinite; }
-@keyframes shimmer { 50% { opacity: .55; } }
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
-.nv-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: #8d86a0; font-size: 2.8cqw; }
-/* Comme dans Nuvio : l'accueil et la bibliothèque sont deux écrans séparés. */
-.nv-onglets { position: absolute; top: 2.4cqw; right: 2.4cqw; z-index: 2; display: flex; gap: .8cqw; padding: .6cqw; border-radius: 99px; background: rgba(10,8,14,.6); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
-.nv-onglets button { font: 800 max(1.7cqw, 10px) var(--body); padding: .7cqw 1.8cqw; border: 0; border-radius: 99px; background: transparent; color: #cfc8dc; cursor: pointer; }
-.nv-onglets button[aria-pressed="true"] { background: #fff; color: #111; }
-.nv-biblio { position: absolute; inset: 0; z-index: 1; overflow-y: auto; scrollbar-width: none; padding: 9cqw 3cqw 4cqw; background: linear-gradient(180deg, #13101a, #0b0910); animation: fade-in .3s ease both; }
-.nv-biblio::-webkit-scrollbar { display: none; }
-.nv-biblio h3 { margin: 0 0 2cqw; font: 400 5cqw/1 var(--display); letter-spacing: .02em; color: #fff; }
-.nv-biblio .grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(12cqw, 1fr)); gap: 1.6cqw; }
-.nv-biblio .nv-card { width: auto; }
-.nv-biblio .vide { margin: 6cqw auto 0; max-width: 46ch; text-align: center; color: #8d86a0; font-size: max(2.2cqw, 11px); line-height: 1.5; }
-/* La fiche d'un film, ouverte par-dessus l'accueil */
-.fiche { position: absolute; inset: 0; z-index: 2; overflow: hidden; background: #0b0910; animation: fiche-in .35s cubic-bezier(.2,.9,.3,1) both; }
-.fiche.closing { animation: fiche-out .24s ease forwards; }
-@keyframes fiche-in { from { opacity: 0; transform: scale(1.04); } }
-@keyframes fiche-out { to { opacity: 0; transform: scale(1.03); } }
-.f-bg { position: absolute; inset: 0; background: center 20% / cover no-repeat; animation: kb 16s ease-out both; }
-.f-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8,6,12,.96) 30%, rgba(8,6,12,.55) 65%, rgba(8,6,12,.2)), linear-gradient(transparent 60%, #0b0910); }
-.f-body { position: relative; height: 100%; display: grid; grid-template-columns: 22cqw minmax(0, 1fr); gap: 3.5cqw; align-items: center; padding: 4cqw 7cqw 4cqw 5cqw; }
-.f-poster { aspect-ratio: 2 / 3; border-radius: 1.2cqw; background: #221a2b center / cover no-repeat; box-shadow: 0 2cqw 4cqw rgba(0,0,0,.6); animation: rise .5s .1s ease both; }
-.fiche.tile .f-body { grid-template-columns: 34cqw minmax(0, 1fr); }
-.fiche.tile .f-poster { aspect-ratio: 16 / 9; background-color: #fff; }
-.f-info { display: grid; gap: 1.3cqw; justify-items: start; animation: rise .5s .16s ease both; }
-.f-info b { font: 400 6cqw/.95 var(--display); letter-spacing: .02em; color: #fff; }
-.f-meta { font: 700 1.8cqw/1.3 var(--body); color: #e0d9ee; }
-.nv-info p, .f-desc { white-space: pre-line; }
-.nv-info p.a-dispo { -webkit-line-clamp: 3; }
-.a-dispo::first-line { color: #f3c969; font-weight: 700; }
-.f-desc { margin: 0; font: 400 1.9cqw/1.45 var(--body); color: #c9c1d6; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
-.f-btns { display: flex; gap: 1.2cqw; flex-wrap: wrap; }
-.f-btns i { font: normal 800 max(1.8cqw, 11px) var(--body); padding: .9cqw 2cqw; border-radius: .8cqw; background: rgba(255,255,255,.16); color: #fff; }
-.f-btns i:first-child { background: #fff; color: #111; }
-.f-close { position: absolute; top: 2.5cqw; right: 2.5cqw; z-index: 1; width: max(5cqw, 28px); height: max(5cqw, 28px); border-radius: 50%; border: 0; cursor: pointer;
-  background: rgba(255,255,255,.15); color: #fff; font: 700 max(2.8cqw, 15px)/1 var(--body); }
-.f-close:hover, .f-close:focus-visible { background: #fff; color: #111; outline: none; }
 /* Sous l'écran : format des affiches, agrandir */
 .screen-tools { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: -8px; }
 .screen-tools .seg button { padding: 7px 12px; font-size: .82rem; }
@@ -478,30 +397,11 @@ body::after { content: ""; position: fixed; inset: -50%; pointer-events: none; z
 .screen-fun .mini { padding: 8px 14px; font-size: .84rem; border-color: rgba(255,207,107,.4); color: var(--bulb); }
 .screen-fun .mini:hover { background: rgba(255,207,107,.1); }
 .stage .screen-tools { margin-top: 14px; }
-/* Boutons qui marchent vraiment dans la fiche (bande-annonce, autre idée…) */
-.f-act { font: 800 max(1.8cqw, 11px) var(--body); padding: .9cqw 2cqw; border-radius: .8cqw; border: 0; cursor: pointer; background: rgba(255,255,255,.16); color: #fff; transition: background .2s ease, transform .2s ease; }
-.f-act:hover, .f-act:focus-visible { background: #fff; color: #111; outline: none; transform: scale(1.05); }
-.f-act:disabled { opacity: .5; cursor: default; transform: none; background: rgba(255,255,255,.1); color: #fff; }
-.f-video { position: absolute; inset: 0; z-index: 3; background: #000; animation: fade-in .3s ease both; }
-/* Amorce de film (5, 4, 3, 2, 1) avant chaque bande-annonce */
-.amorce { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 50%, #2a2622, #0d0b0a 70%); animation: fade-in .2s ease both; }
-.a-cercle { position: relative; isolation: isolate; width: 30cqw; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center;
-  background: radial-gradient(circle, transparent 0 62%, #d8cfbf 63% 64.5%, transparent 65.5% 76%, rgba(216,207,191,.6) 77% 78%, transparent 79%),
-    linear-gradient(#d8cfbf, #d8cfbf) center / max(.3cqw, 1px) 100% no-repeat, linear-gradient(#d8cfbf, #d8cfbf) center / 100% max(.3cqw, 1px) no-repeat; }
-.a-cercle::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: 50%; background: conic-gradient(rgba(216,207,191,.35) var(--sweep), transparent 0); }
-.a-cercle.tourne::before { animation: amorce-sweep .45s linear; }
-@keyframes amorce-sweep { from { --sweep: 0deg; } to { --sweep: 360deg; } }
-.a-cercle b { font: 400 16cqw/1 var(--display); color: #f2ead8; }
-.f-video iframe, .nv-video iframe { width: 100%; height: 100%; border: 0; display: block; }
-.f-video .f-close { z-index: 4; }
-/* La une joue la bande-annonce en sourdine (grand écran) */
-.nv-video { position: absolute; left: 0; right: 0; top: 50%; height: 56.25cqw; transform: translateY(-50%); opacity: 0; transition: opacity 1.2s ease; pointer-events: none; }
-.nv-video.on { opacity: 1; }
 /* La colonne collante crée sa propre pile d'affichage : on la passe devant tout quand l'écran est en grand. */
 .ecran-grand aside { z-index: 66; }
 /* L'écran en grand, par-dessus la page */
 .stage.big { position: fixed; inset: 0; z-index: 65; display: grid; place-content: center; justify-items: center; padding: 24px; background: rgba(5,3,4,.92); }
-.stage.big .tv { width: min(1100px, calc(100vw - 48px), calc((100vh - 230px) * 1.45)); max-width: none; }
+.stage.big .tv { width: min(1180px, calc(100vw - 48px), calc((100vh - 230px) * 16 / 9)); max-width: none; }
 .stage.big .screen-tools, .stage.big .screen-fun { width: min(1100px, calc(100vw - 48px)); }
 .stage.big .caption { display: none; }
 .stage.big .glow { inset: 15%; }
@@ -543,6 +443,7 @@ body::after { content: ""; position: fixed; inset: -50%; pointer-events: none; z
 @keyframes tick { from { transform: scale(.3); opacity: 0; } }
 
 ${STAGE_CSS}
+${NUVIO_CSS}
 /* ---------- Téléphone (après tout le reste, pour passer devant) ---------- */
 @media (max-width: 960px) {
   /* L'aperçu en haut, les réglages, puis le billet tout à la fin (là où on en a besoin). */
@@ -565,8 +466,7 @@ ${STAGE_CSS}
   .reset { padding: 12px 0; }
   .add-row { min-height: 48px; }
   .coll details summary { padding-block: 11px; }
-  .nv-onglets button { font-size: 12px; padding: 7px 12px; }
-  .rename input, .pp-key input, .field input[type=text].plain, select, input[type=number] { font-size: 16px; }
+  .nvo-rech input, .rename input, .field input[type=text].plain, select, input[type=number] { font-size: 16px; }
   .act { scroll-margin-top: 76px; }
 }
 @media (prefers-reduced-motion: reduce) { body::after, .frame::after, .frame .pos, .screen::before, .nv *, .fiche, .fiche * { animation: none !important; } .ticket { transform: none; } .nv, .nv-track { scroll-behavior: auto; } }
@@ -681,31 +581,20 @@ ${STAGE_CSS}
       <div class="rail">
       <div class="stage" id="stage">
         <div class="glow" id="glow" aria-hidden="true"></div>
-        <div class="tv"><div class="screen" id="screen" role="region" aria-label="Aperçu interactif de ton accueil Nuvio">
-          <div class="nv" id="nv"></div>
-          <div class="nv-biblio" id="nv-biblio" hidden><h3>Bibliothèque</h3><div class="grille" id="nv-biblio-grille"></div><p class="vide" id="nv-biblio-vide">Ta bibliothèque est vide. Ouvre la fiche d'un film et choisis « Ajouter à la bibliothèque ».</p></div>
-          <div class="nv-onglets" role="group" aria-label="Écran de Nuvio"><button type="button" data-vue="accueil" aria-pressed="true">Accueil</button><button type="button" data-vue="biblio" aria-pressed="false">Bibliothèque</button></div>
-          <div class="fiche" id="fiche" role="dialog" hidden></div>
-        </div></div>
+        <div class="tv"><div class="screen" id="screen" role="region" aria-label="Aperçu interactif de ton accueil Nuvio"></div></div>
         <div class="tv-foot"></div>
         <div class="screen-tools">
+          <button type="button" class="mini" id="ret-btn" title="Le bouton Retour de la télécommande (touche Retour arrière du clavier)">◀ Retour</button>
           <div class="seg" id="fmt" role="group" aria-label="Format des affiches"></div>
           <button type="button" class="mini" id="pp-btn" aria-pressed="false">Affiches PostersPlus</button>
         </div>
-        <form class="pp-key" id="pp-key" hidden>
-          <label for="pp-input">Ta clé TMDB, pour les affiches PostersPlus
-            <span class="row"><input id="pp-input" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="32 lettres et chiffres"><button type="submit" class="mini ok">Valider</button></span>
-          </label>
-          <button type="button" class="mini paste" id="pp-paste" hidden>Coller ma clé</button>
-          <small id="pp-note">Elle reste sur ton appareil : elle sert seulement à demander les affiches à PostersPlus. C'est la même que dans le guide : pas encore de clé ? <a href="${origin}/guide#comptes" target="_blank" rel="noopener">l'étape 5 explique comment l'avoir</a> (gratuit).</small>
-        </form>
         <div class="screen-fun">
           <button type="button" class="mini" id="zoom" aria-pressed="false">Agrandir l'écran</button>
         </div>
         <button type="button" class="btn big-close" id="big-close">Fermer le grand écran</button>
       </div>
       </div>
-      <p class="caption"><span class="souris">Clique sur une affiche pour ouvrir sa fiche, ou navigue avec les flèches comme à la télécommande.</span><span class="doigt">Touche une affiche pour ouvrir sa fiche, fais glisser les rangées du doigt.</span></p>
+      <p class="caption"><span class="souris">Passe la souris sur une affiche (ou utilise les flèches) comme avec la télécommande, clique pour ouvrir sa fiche ; « Retour » ouvre le menu de Nuvio.</span><span class="doigt">Touche une affiche pour ouvrir sa fiche, fais glisser les rangées du doigt.</span></p>
 
       <div class="ticket" id="ticket">
         <div class="main">
@@ -738,11 +627,12 @@ ${STAGE_CSS}
   ${SEATS_HTML}
   ${CREDITS_HTML}
 
+
   <div class="dock"><button type="button" class="dock-billet" id="dock-billet">Ton billet : <b id="dock-count"></b><i aria-hidden="true">↓</i></button><button type="button" class="btn" id="dock-copy">Copier mon lien</button></div>
 
+<script>${nuvioJS(origin, PP_URL)}</script>
 <script>
 const D = ${json};
-const PP = ${JSON.stringify(PP_URL)};
 const hashDepart = location.hash; // l'adresse est réécrite ensuite (réglages), on garde l'ancre demandée
 window.hashDepart = hashDepart;
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -938,16 +828,14 @@ function deleteCustom(i) {
 const delBtn = el("button", { type: "button", class: "mini del", text: "Supprimer cette rangée", onclick: () => { if (editing >= 0) { deleteCustom(editing); $("builder").hidden = true; renderRows(); update(); } } });
 $("b-cancel").after(delBtn);
 
-// ---------- aperçu ----------
-// Collections dans l'ordre du fichier (l'ordre de D.collections sert aux positions dans le lien).
+// ---------- aperçu : l'écran Nuvio commun (nuvio.js), nourri par le lien en cours ----------
+// Il lit exactement ce que Nuvio recevra : le manifest.json et le collections.json de ce lien, dans leur ordre
+// (« Suivre l'ordre des addons »), avec Plateformes épinglée tout en haut.
 const byPos = (list) => [...list].sort((a, b) => (a.pos ?? 99) - (b.pos ?? 99));
-function hue(str) { let h = 0; for (const ch of str) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; }
-// Aperçu réel : on interroge l'addon lui-même (même adresse, mêmes réglages) pour
-// afficher les vraies affiches. Résultats gardés en mémoire pour ne rien redemander.
-const metaCache = new Map();
-function fetchRow(url) {
-  if (!metaCache.has(url)) metaCache.set(url, fetch(url).then(r => r.ok ? r.json() : { metas: [] }).then(d => d.metas || []).catch(() => []));
-  return metaCache.get(url);
+const jsonCache = new Map();
+function fetchJSON(url) {
+  if (!jsonCache.has(url)) jsonCache.set(url, fetch(url).then(r => r.ok ? r.json() : null).catch(() => null));
+  return jsonCache.get(url);
 }
 let currentBase = D.origin, screenTimer = 0, screenToken = 0, lastZap = 0;
 let configureUrl = D.origin + "/configure"; // adresse de cette page avec les réglages en cours
@@ -956,358 +844,43 @@ function zap(sc) {
   const now = Date.now(); if (now - lastZap < 450) return; lastZap = now;
   sc.classList.remove("zap"); void sc.offsetWidth; sc.classList.add("zap");
 }
-function rowType(id) {
-  if (id.startsWith("perso-")) { const x = state.x[Number(id.slice(6))]; return x && x.t === 1 ? "series" : "movie"; }
-  const r = D.rows.find(r => r.id === id); return r ? r.type : "movie";
-}
-// Format des affiches de l'aperçu (le réglage « Affiches paysage » de Nuvio). Les collections restent en paysage.
-let fmt = "p";
-try { fmt = localStorage.getItem("apercu-format") === "l" ? "l" : "p"; } catch (e) {}
-let heroList = [], heroIdx = 0, heroTimer = 0, heroHold = 0, hoverT = 0, ficheFrom = null;
-const calmMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
-// Fonds envoyés en w1920 (ou original, w1280 selon la version de l'addon) : on demande la taille utile.
-const imgW = (u, w) => (u || "").replace(/[/](original|w1920|w1280)[/]/, "/" + w + "/");
-const cssUrl = (u) => "url('" + u.replace(/'/g, "%27") + "')";
-// Film pas encore regardable : l'addon met « 📅 Dispo le… » en tête du résumé ; comme sur la TV,
-// la ligne du dessous ne garde alors que l'année.
-const aDispo = (m) => String(m.description || "").indexOf("📅") === 0;
-const metaLine = (m) => [aDispo(m) ? String(m.releaseInfo || "").split(" · ")[0] : m.releaseInfo, (m.genres || []).slice(0, 2).join(", "), m.imdbRating ? "★ " + m.imdbRating : ""].filter(Boolean).join("  ·  ");
-
-// Bandes-annonces (YouTube, via l'addon : en français si elle existe, sinon en VO).
-const trailerCache = new Map();
-function trailerKey(m) {
-  if (!m || !m.id) return Promise.resolve(null);
-  const url = D.origin + "/trailer/" + (m.type === "series" ? "series" : "movie") + "/" + encodeURIComponent(m.id) + ".json";
-  if (!trailerCache.has(url)) trailerCache.set(url, fetch(url).then(r => r.ok ? r.json() : {}).then(d => (d && /^[A-Za-z0-9_-]{6,20}$/.test(d.key || "")) ? d.key : null).catch(() => null));
-  return trailerCache.get(url);
-}
-function ytFrame(key, muted) {
-  const q = "autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3" + (muted ? "&mute=1&controls=0&loop=1&disablekb=1&playlist=" + key : "");
-  return el("iframe", { src: "https://www.youtube-nocookie.com/embed/" + key + "?" + q, title: "Bande-annonce", allow: "autoplay; encrypted-media; picture-in-picture", allowfullscreen: "", tabindex: muted ? "-1" : null });
-}
-let heroVideoT = 0;
-// En grand écran, la une lance la bande-annonce en sourdine si on reste dessus.
-function heroVideo(hero, m) {
-  clearTimeout(heroVideoT);
-  hero.querySelectorAll(".nv-video").forEach((v) => v.remove());
-  if (!document.getElementById("stage").classList.contains("big") || calmMotion()) return;
-  heroVideoT = setTimeout(() => trailerKey(m).then((key) => {
-    if (!key || !hero.isConnected || hero._m !== m) return;
-    const v = el("div", { class: "nv-video" }, ytFrame(key, true));
-    hero.insertBefore(v, hero.querySelector(".nv-shade"));
-    v.querySelector("iframe").addEventListener("load", () => setTimeout(() => v.classList.add("on"), 1200));
-    heroHold = Date.now() + 60000;
-  }), 2500);
-}
-
-function setHero(m, fromUser) {
-  const hero = $("nv").querySelector(".nv-hero"); if (!hero || !m) return;
-  const src = imgW(m.background || m.poster, "w780");
-  const olds = [...hero.querySelectorAll(".nv-bg:not(.out)")];
-  if (!olds.length || olds[olds.length - 1].dataset.src !== src) {
-    const bg = el("div", { class: "nv-bg", "data-src": src });
-    if (src) bg.style.backgroundImage = cssUrl(src);
-    hero.insertBefore(bg, hero.querySelector(".nv-shade"));
-    olds.forEach((b) => { b.classList.add("out"); setTimeout(() => b.remove(), 950); });
-    $("glow").style.backgroundImage = src ? cssUrl(src) : "";
-  }
-  const info = el("div", { class: "nv-info" }, el("b", { text: m.name }), el("span", { text: metaLine(m) }), el("p", { class: aDispo(m) ? "a-dispo" : "", text: m.description || "" }),
-    el("div", { class: "nv-btns" }, el("i", { text: "▶ Lecture" }), el("i", { text: "Plus d'infos" })));
-  hero.querySelector(".nv-info").replaceWith(info);
-  hero.querySelectorAll(".nv-dots i").forEach((d, k) => d.classList.toggle("on", heroList[k] === m));
-  if (fromUser) heroHold = Date.now() + 9000;
-  if (hero._m !== m) { hero._m = m; heroVideo(hero, m); }
-}
-// La une défile toute seule, sauf quand on regarde une affiche.
-function startHero() {
-  clearInterval(heroTimer);
-  heroTimer = setInterval(() => {
-    if (heroList.length < 2 || Date.now() < heroHold || document.hidden || !$("fiche").hidden || calmMotion()) return;
-    heroIdx = (heroIdx + 1) % heroList.length; setHero(heroList[heroIdx]);
-  }, 6000);
-}
-// Affiches PostersPlus (avec badges) : demandent la clé TMDB de la personne.
-let ppOn = false;
-try { ppOn = localStorage.getItem("apercu-pp") === "1"; } catch (e) {}
-const tmdbKey = () => { try { return (localStorage.getItem("tmdb-key") || "").trim(); } catch (e) { return ""; } };
-function ppSrc(m, shape) {
-  const key = tmdbKey(); if (!ppOn || !key || !m || !m.id) return "";
-  const id = String(m.id);
-  const vals = { "{tmdb_id?}": id.startsWith("tmdb:") ? id.slice(5) : "", "{imdb_id?}": m.imdb_id || (id.startsWith("tt") ? id : ""), "{id}": id, "{type}": m.type || "movie", "{shape}": shape };
-  let u = PP.replace("TA_CLE_TMDB", encodeURIComponent(key));
-  for (const [k, v] of Object.entries(vals)) u = u.split(k).join(encodeURIComponent(v));
-  return u;
-}
-function paintCard(b) {
-  const m = b._m; if (!m) return;
-  const plain = fmt === "l" ? imgW(m.background || m.poster, "w300") : m.poster;
-  const pp = ppSrc(m, fmt === "l" ? "landscape" : "poster");
-  b.classList.remove("img"); b.style.backgroundImage = "";
-  const show = (src, fallback) => {
-    if (!src) return;
-    const im = new Image();
-    im.onload = () => { if (b.isConnected && b._m === m) { b.style.backgroundImage = cssUrl(src); b.classList.add("img"); } };
-    if (fallback) im.onerror = () => show(fallback);
-    im.src = src;
-  };
-  show(pp || plain, pp ? plain : null);
-}
-function fillCard(b, m) {
-  b._m = m; b.setAttribute("aria-label", m.name);
-  b.append(el("span", { class: "nv-t", text: m.name }));
-  paintCard(b);
-}
+const E = NV.ecran($("screen"));
+E.paysage(NV.reglages.format === "l"); E.pp();
+// La lueur derrière la TV prend les couleurs du haut de l'écran.
+new MutationObserver(() => { const i = E.hero.el.querySelector(".nvo-bd > i.on:last-of-type") || E.hero.el.querySelector(".nvo-bd > i:last-of-type"); if (i && i.style.backgroundImage) $("glow").style.backgroundImage = i.style.backgroundImage; })
+  .observe(E.hero.el, { subtree: true, attributes: true, attributeFilter: ["class", "style"] });
 function renderScreen() {
-  const sc = $("screen"), nv = $("nv"); zap(sc);
-  const keep = nv.scrollTop;
-  nv.textContent = ""; nv.classList.toggle("paysage", fmt === "l"); closeFiche(true);
-  const token = ++screenToken; heroList = []; heroIdx = 0;
-  const hero = el("div", { class: "nv-hero" }, el("div", { class: "nv-shade" }), el("div", { class: "nv-info" }, el("b", { text: "…" })), el("div", { class: "nv-dots" }));
-  nv.append(hero);
-  // Comme dans Nuvio : Plateformes (épinglée) en haut, puis les rangées, puis les autres collections.
-  const drawCollection = (c) => {
-    const hidden = new Set(state.t[c.id] || []);
-    let items = c.folders.map((f) => ({ f, i: f.i })).filter(({ i }) => !hidden.has(i));
-    if (c.id === "plateformes-streaming") items = items.filter(({ f }) => { const p = D.providers.find(p => p.name === f.title); return !p || state.p.includes(p.id); });
-    if (!items.length) return;
-    const box = el("div", { class: "nv-track" });
-    items.forEach(({ f }, k) => {
-      const t = el("button", { type: "button", class: "nv-tile", tabindex: "-1", "aria-label": f.title, text: f.title });
-      t._tile = { title: f.title, cover: f.cover, coll: c.name };
-      t.style.setProperty("--ph", "linear-gradient(135deg, hsl(" + ((hue(c.id) + k * 28) % 360) + " 45% 34%), hsl(" + ((hue(c.id) + k * 28 + 50) % 360) + " 55% 16%))");
-      if (f.cover) { const img = new Image(); img.onload = () => { if (token !== screenToken) return; t.style.backgroundImage = cssUrl(f.cover); t.classList.add("img"); }; img.src = f.cover; }
-      box.append(t);
-    });
-    nv.append(el("section", { class: "nv-coll", "aria-label": c.name }, el("div", { class: "nv-label", text: c.name }), box));
-  };
-  const chosen = byPos(D.collections).filter(c => state.c.includes(c.id));
-  chosen.filter(c => c.id === "plateformes-streaming").forEach(drawCollection);
-  const visible = state.r.filter(id => id !== "accueil-nouveautes-plateformes" || state.p.length);
-  const rowEls = [];
-  visible.forEach((id, i) => {
-    const r = rowInfo(id); if (!r) return;
-    const label = state.o[id] || r.now || r.name;
-    const row = el("section", { class: "nv-row loading", "aria-label": label });
-    row.style.animationDelay = (i * 40) + "ms";
-    const tr = el("div", { class: "nv-track" });
-    const h = hue(id + (state.o[id] || ""));
-    for (let k = 0; k < 14; k++) {
-      const b = el("button", { type: "button", class: "nv-card", tabindex: "-1", "aria-label": "Chargement" });
-      b.style.setProperty("--ph", "linear-gradient(160deg, hsl(" + ((h + k * 23) % 360) + " 30% 26%), hsl(" + ((h + k * 23 + 40) % 360) + " 35% 12%))");
-      tr.append(b);
-    }
-    row.append(el("div", { class: "nv-label", text: label }), tr); nv.append(row);
-    rowEls.push({ id, row, tr, first: !rowEls.length });
-  });
-  chosen.filter(c => c.id !== "plateformes-streaming").forEach(drawCollection);
-  if (!visible.length) { hero.remove(); nv.append(el("p", { class: "nv-empty", text: "Écran noir : coche au moins une rangée." })); return; }
-  const firstFocus = nv.querySelector(".nv-card, .nv-tile"); if (firstFocus) firstFocus.tabIndex = 0;
-  nv.style.scrollBehavior = "auto"; nv.scrollTop = keep; nv.style.scrollBehavior = "";
-  // Remplissage au fil du défilement (après une courte pause, pour ne pas interroger l'addon à chaque clic).
-  const load = ({ id, row, tr, first }) => fetchRow(currentBase + "/catalog/" + rowType(id) + "/" + id + ".json").then(metas => {
-    if (token !== screenToken) return;
-    row.classList.remove("loading");
-    if (!metas.length) return;
-    [...tr.children].forEach((b, k) => { if (metas[k]) fillCard(b, metas[k]); else b.remove(); });
-    if (first) {
-      heroList = metas.filter(m => m.background).slice(0, 5);
-      if (!heroList.length) heroList = metas.slice(0, 1);
-      hero.querySelector(".nv-dots").replaceChildren(...heroList.map(() => el("i")));
-      setHero(heroList[0]); startHero();
-    }
-  });
+  zap($("screen"));
+  const token = ++screenToken, base = currentBase;
   clearTimeout(screenTimer);
-  screenTimer = setTimeout(() => {
+  screenTimer = setTimeout(async () => {
+    const [man, colls] = await Promise.all([fetchJSON(base + "/manifest.json"), fetchJSON(base + "/collections.json")]);
     if (token !== screenToken) return;
-    const io = new IntersectionObserver((ents) => ents.forEach((e) => { if (e.isIntersecting) { io.unobserve(e.target); load(e.target._r); } }), { root: nv, rootMargin: "150px 0px" });
-    rowEls.forEach((r) => { r.row._r = r; if (r.first) load(r); else io.observe(r.row); });
-  }, 350);
-}
-
-// ---------- La bibliothèque : les films ajoutés depuis les fiches (gardés sur l'appareil) ----------
-let maListe = [];
-try { maListe = JSON.parse(localStorage.getItem("ma-liste") || "[]"); } catch (e) {}
-const dansListe = (m) => maListe.some((x) => x.id === m.id);
-function drawMaListe() {
-  const grille = $("nv-biblio-grille"); grille.textContent = "";
-  $("nv-biblio-vide").hidden = maListe.length > 0;
-  maListe.forEach((m) => {
-    const b = el("button", { type: "button", class: "nv-card" });
-    b.style.setProperty("--ph", "linear-gradient(160deg, #3a2430, #1a0f16)");
-    grille.append(b); fillCard(b, m);
-  });
-}
-// Onglets Accueil / Bibliothèque de l'écran
-function montrerVue(vue) {
-  document.querySelectorAll(".nv-onglets button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.vue === vue)));
-  $("nv-biblio").hidden = vue !== "biblio";
-  if (vue === "biblio") drawMaListe();
-}
-document.querySelectorAll(".nv-onglets button").forEach((b) => b.addEventListener("click", () => { montrerVue(b.dataset.vue); if (window.sfx) sfx.click(); }));
-$("nv-biblio").addEventListener("click", (e) => { const b = e.target.closest(".nv-card"); if (b) openFiche(b); });
-drawMaListe();
-// Bibliothèque modifiée ailleurs (fiche d'un billet de collection) : on relit et on redessine.
-addEventListener("ma-liste", () => { try { maListe = JSON.parse(localStorage.getItem("ma-liste") || "[]"); } catch (e) {} drawMaListe(); });
-function toggleListe(m) {
-  if (dansListe(m)) maListe = maListe.filter((x) => x.id !== m.id);
-  else maListe.unshift({ id: m.id, type: m.type, name: m.name, poster: m.poster, background: m.background, description: m.description, releaseInfo: m.releaseInfo, genres: m.genres, imdbRating: m.imdbRating, imdb_id: m.imdb_id });
-  maListe = maListe.slice(0, 50);
-  try { localStorage.setItem("ma-liste", JSON.stringify(maListe)); } catch (e) {}
-  drawMaListe();
-}
-
-// ---------- la fiche ----------
-function openFiche(b, extra) {
-  const f = $("fiche"), m = b._m, t = b._tile;
-  if (!m && !t) return;
-  ficheFrom = b; f.textContent = ""; f.classList.remove("closing");
-  const trailerBtn = m ? el("button", { type: "button", class: "f-act", text: "Bande-annonce" }) : null;
-  if (trailerBtn) trailerBtn.addEventListener("click", () => {
-    trailerBtn.disabled = true;
-    const keyP = trailerKey(m);
-    // L'amorce : 5, 4, 3, 2, 1 avec le secteur qui balaie le cercle, pendant qu'on cherche la vidéo.
-    const cercle = el("div", { class: "a-cercle" }, el("b", { text: "5" }));
-    const amorce = el("div", { class: "amorce", role: "status", "aria-label": "La bande-annonce commence" }, cercle);
-    f.append(amorce);
-    const lancer = (key) => {
-      if (!amorce.isConnected) return;
-      amorce.remove(); trailerBtn.disabled = false;
-      if (!key) { trailerBtn.textContent = "Pas de bande-annonce"; trailerBtn.disabled = true; trailerBtn.focus({ preventScroll: true }); return; }
-      const back = el("button", { type: "button", class: "f-close", "aria-label": "Revenir à la fiche", text: "×" });
-      const v = el("div", { class: "f-video" }, ytFrame(key, false), back);
-      back.addEventListener("click", () => { v.remove(); trailerBtn.focus({ preventScroll: true }); });
-      f.append(v); back.focus({ preventScroll: true });
-    };
-    let n = 5;
-    const top = () => { cercle.querySelector("b").textContent = String(n); cercle.classList.remove("tourne"); void cercle.offsetWidth; cercle.classList.add("tourne"); if (window.sfx) sfx.tick(); };
-    top();
-    const iv = setInterval(() => {
-      if (!amorce.isConnected) { clearInterval(iv); return; }
-      n--; if (n > 0) top(); else { clearInterval(iv); keyP.then(lancer); }
-    }, calmMotion() ? 100 : 480);
-  });
-  const listeBtn = m ? el("button", { type: "button", class: "f-act", text: dansListe(m) ? "Retirer de la bibliothèque" : "+ Ajouter à la bibliothèque" }) : null;
-  if (listeBtn) listeBtn.addEventListener("click", () => {
-    toggleListe(m);
-    const dedans = dansListe(m);
-    listeBtn.textContent = dedans ? "Retirer de la bibliothèque" : "+ Ajouter à la bibliothèque";
-    if (window.sfx) sfx.click();
-    if (dedans) { popcorn(listeBtn); toast("Ajouté à la bibliothèque : retrouve-le dans l'onglet « Bibliothèque » de l'écran."); }
-    else toast("Retiré de la bibliothèque.");
-  });
-  f.classList.toggle("tile", !m);
-  const bg = el("div", { class: "f-bg" });
-  const bgSrc = m ? imgW(m.background || m.poster, "w780") : "";
-  if (bgSrc) bg.style.backgroundImage = cssUrl(bgSrc);
-  const poster = el("div", { class: "f-poster" });
-  const ps = m ? (ppSrc(m, "poster") || m.poster) : t.cover;
-  if (ps) poster.style.backgroundImage = cssUrl(ps);
-  const info = m
-    ? [el("b", { text: m.name }), el("span", { class: "f-meta", text: metaLine(m) }), el("p", { class: aDispo(m) ? "f-desc a-dispo" : "f-desc", text: m.description || "Pas encore de résumé en français pour ce titre." }),
-       el("div", { class: "f-btns" }, el("i", { text: "▶ Lecture" }), trailerBtn, listeBtn),
-       extra && extra.length ? el("div", { class: "f-btns" }, ...extra) : null]
-    : [el("b", { text: t.title }), el("span", { class: "f-meta", text: "Collection " + t.coll }), el("p", { class: "f-desc", text: "Dans Nuvio, cette tuile ouvre le catalogue « " + t.title + " » en plein écran, avec ses filtres." }),
-       el("div", { class: "f-btns" }, el("i", { text: "Ouvrir" }))];
-  const close = el("button", { type: "button", class: "f-close", "aria-label": "Fermer la fiche", text: "×", onclick: () => closeFiche() });
-  f.append(bg, el("div", { class: "f-shade" }), close, el("div", { class: "f-body" }, poster, el("div", { class: "f-info" }, ...info.filter(Boolean))));
-  f.setAttribute("aria-label", m ? m.name : t.title);
-  f.hidden = false; close.focus({ preventScroll: true });
-  if (window.sfx) sfx.click();
-}
-function closeFiche(now) {
-  const f = $("fiche"); if (f.hidden) return;
-  const done = () => { f.hidden = true; f.classList.remove("closing"); };
-  if (now || calmMotion()) done(); else { f.classList.add("closing"); setTimeout(done, 230); }
-  if (!now && ficheFrom && ficheFrom.isConnected) ficheFrom.focus({ preventScroll: true });
-}
-$("fiche").addEventListener("keydown", (e) => {
-  if (e.key === "Escape" || e.key === "Backspace") {
-    e.preventDefault(); e.stopPropagation();
-    const v = $("fiche").querySelector(".f-video");
-    if (v) v.querySelector(".f-close").click(); else closeFiche();
-  }
-  // La touche Tab reste dans la fiche (ou dans la vidéo si elle est ouverte).
-  if (e.key === "Tab") {
-    const scope = $("fiche").querySelector(".f-video") || $("fiche");
-    const items = [...scope.querySelectorAll("button:not(:disabled)")].filter((x) => scope === $("fiche") ? !x.closest(".f-video") : true);
-    if (!items.length) return;
-    const i = items.indexOf(document.activeElement);
-    e.preventDefault(); items[(i + (e.shiftKey ? -1 : 1) + items.length) % items.length].focus();
-  }
-});
-
-// ---------- navigation dans l'écran : souris, clavier (flèches), toucher ----------
-const nvEl = $("nv");
-function reveal(b) {
-  const tr = b.parentElement, pad = tr.clientWidth * .03;
-  if (b.offsetLeft - pad < tr.scrollLeft) tr.scrollTo({ left: b.offsetLeft - pad });
-  else if (b.offsetLeft + b.offsetWidth + pad > tr.scrollLeft + tr.clientWidth) tr.scrollTo({ left: b.offsetLeft + b.offsetWidth + pad - tr.clientWidth });
-  const sect = tr.parentElement, tracks = nvEl.querySelectorAll(".nv-track");
-  nvEl.scrollTo({ top: tracks[0] === tr ? 0 : Math.max(0, sect.offsetTop - nvEl.clientHeight * .28) });
-}
-nvEl.addEventListener("click", (e) => { const b = e.target.closest(".nv-card, .nv-tile"); if (b) openFiche(b); });
-const heroSoon = (b) => { clearTimeout(hoverT); if (b._m) hoverT = setTimeout(() => setHero(b._m, true), 220); };
-nvEl.addEventListener("pointerover", (e) => { const b = e.target.closest(".nv-card"); if (b) heroSoon(b); });
-nvEl.addEventListener("focusin", (e) => {
-  const b = e.target.closest(".nv-card, .nv-tile"); if (!b) return;
-  nvEl.querySelectorAll('[tabindex="0"]').forEach((x) => { if (x !== b) x.tabIndex = -1; });
-  b.tabIndex = 0; heroSoon(b);
-});
-nvEl.addEventListener("keydown", (e) => {
-  const b = e.target.closest(".nv-card, .nv-tile"); if (!b) return;
-  let next = null;
-  if (e.key === "ArrowRight") next = b.nextElementSibling;
-  else if (e.key === "ArrowLeft") next = b.previousElementSibling;
-  else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-    const tracks = [...nvEl.querySelectorAll(".nv-track")].filter((x) => x.children.length && x.offsetParent);
-    const t = tracks[tracks.indexOf(b.parentElement) + (e.key === "ArrowDown" ? 1 : -1)];
-    if (t && t.children.length) {
-      const x = b.getBoundingClientRect().left;
-      next = [...t.children].reduce((best, c) => Math.abs(c.getBoundingClientRect().left - x) < Math.abs(best.getBoundingClientRect().left - x) ? c : best);
-    }
-  } else return;
-  e.preventDefault();
-  if (next) { next.focus({ preventScroll: true }); reveal(next); }
-});
-
-// Glisser à la souris (clic droit ou gauche maintenu) : la rangée suit la main, l'écran défile
-// aussi en hauteur, et la rangée continue un peu sur sa lancée quand on lâche.
-{
-  let drag = null, glide = 0;
-  const swallowClick = (e) => { e.stopPropagation(); e.preventDefault(); };
-  nvEl.addEventListener("contextmenu", (e) => { if (e.target.closest(".nv-track")) e.preventDefault(); });
-  nvEl.addEventListener("pointerdown", (e) => {
-    const tr = e.target.closest(".nv-track");
-    if (!tr || e.pointerType !== "mouse" || (e.button !== 0 && e.button !== 2)) return;
-    cancelAnimationFrame(glide);
-    drag = { tr, x: e.clientX, y: e.clientY, left: tr.scrollLeft, top: nvEl.scrollTop, moved: false, v: 0, lastX: e.clientX, lastT: performance.now(), id: e.pointerId };
-    if (e.button === 2) e.preventDefault();
-  });
-  addEventListener("pointermove", (e) => {
-    if (!drag || e.pointerId !== drag.id) return;
-    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-    if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 6) return;
-    if (!drag.moved) { drag.moved = true; drag.tr.classList.add("drag"); nvEl.classList.add("drag"); try { drag.tr.setPointerCapture(e.pointerId); } catch (err) {} }
-    drag.tr.scrollLeft = drag.left - dx;
-    nvEl.scrollTop = drag.top - dy;
-    const now = performance.now();
-    drag.v = (drag.lastX - e.clientX) / Math.max(1, now - drag.lastT) * 16; drag.lastX = e.clientX; drag.lastT = now;
-  });
-  const end = (e) => {
-    if (!drag || e.pointerId !== drag.id) return;
-    const d = drag; drag = null;
-    if (!d.moved) return;
-    d.tr.classList.remove("drag"); nvEl.classList.remove("drag");
-    // Le clic qui suit un glissé n'ouvre pas de fiche.
-    addEventListener("click", swallowClick, { capture: true, once: true });
-    setTimeout(() => removeEventListener("click", swallowClick, { capture: true }), 50);
-    let v = d.v;
-    if (calmMotion()) return;
-    const step = () => { if (Math.abs(v) < .4) return; d.tr.scrollLeft += v; v *= .92; glide = requestAnimationFrame(step); };
-    glide = requestAnimationFrame(step);
-  };
-  addEventListener("pointerup", end);
-  addEventListener("pointercancel", end);
+    const keep = E.rangees.scrollTop;
+    E.vider();
+    const collections = Array.isArray(colls) ? colls : ((colls && colls.collections) || []);
+    const accueil = ((man && man.catalogs) || []).filter((c) => c.showInHome !== false && !(c.extra || []).some((x) => x.isRequired));
+    const rangeeTuiles = (c) => { const { piste } = E.rangee(c.title); (c.folders || []).forEach((f) => piste.append(NV.tuile(f, c.title))); };
+    collections.filter((c) => c.pinToTop).forEach(rangeeTuiles);
+    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { io.unobserve(e.target); e.target._charge(); } }), { root: E.rangees, rootMargin: "300px 0px" });
+    accueil.forEach((c) => {
+      const { section, piste } = E.rangee(c.name);
+      for (let k = 0; k < 8; k++) piste.append(NV.carte(null));
+      section._charge = () => fetchJSON(base + "/catalog/" + c.type + "/" + encodeURIComponent(c.id) + ".json").then((d) => {
+        if (token !== screenToken) return;
+        const metas = ((d && d.metas) || []).filter((m) => m.poster);
+        piste.textContent = "";
+        if (!metas.length) { section.remove(); return; }
+        metas.slice(0, 20).forEach((m) => piste.append(NV.carte(m)));
+        E.pret();
+      });
+      io.observe(section);
+    });
+    collections.filter((c) => !c.pinToTop).forEach(rangeeTuiles);
+    if (!E.rangees.children.length) { const { piste } = E.rangee("Écran noir"); piste.append(NV.mkd("p", "vide", "Coche au moins une rangée ou une collection.")); }
+    E.rangees.scrollTop = keep;
+    E.pret();
+  }, 300);
 }
 
 // ---------- Les salles du foyer ajoutent leur rangée sur mesure ----------
@@ -1322,49 +895,15 @@ window.ajouterRangee = (r) => {
   return "ok";
 };
 
-// ---------- outils : format des affiches, grand écran ----------
-// Interrupteur PostersPlus (la clé est demandée une seule fois).
-function drawPP() {
-  $("pp-btn").setAttribute("aria-pressed", String(ppOn));
-  nvEl.classList.toggle("pp", ppOn && !!tmdbKey());
-}
-function setPP(on) {
-  ppOn = on;
-  try { localStorage.setItem("apercu-pp", on ? "1" : "0"); } catch (e) {}
-  drawPP(); nvEl.querySelectorAll(".nv-card").forEach(paintCard);
-  if (window.sfx) sfx.click();
-}
-$("pp-btn").addEventListener("click", () => {
-  if (ppOn) { setPP(false); return; }
-  if (tmdbKey()) { setPP(true); return; }
-  // Sur téléphone, on montre le champ sans lui donner le focus : le clavier ne s'ouvre que si on touche le champ.
-  $("pp-key").hidden = false;
-  if (tactile) $("pp-key").scrollIntoView({ block: "center", behavior: "smooth" }); else $("pp-input").focus();
-});
-// « Coller ma clé » : lit le presse-papiers et valide d'un coup, sans passer par le clavier.
-if (navigator.clipboard && navigator.clipboard.readText) {
-  $("pp-paste").hidden = false;
-  $("pp-paste").addEventListener("click", async () => {
-    try { $("pp-input").value = (await navigator.clipboard.readText()).trim(); } catch (err) { $("pp-note").textContent = "Le collage automatique est bloqué : touche le champ et colle ta clé."; $("pp-note").className = "err"; return; }
-    $("pp-key").requestSubmit();
-  });
-}
-$("pp-key").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const k = $("pp-input").value.trim().replace(/[^A-Za-z0-9]/g, "");
-  if (!/^[A-Fa-f0-9]{32}$/.test(k)) { $("pp-note").textContent = "Ça ne ressemble pas à une clé TMDB : elle fait 32 caractères (chiffres et lettres de a à f)."; $("pp-note").className = "err"; return; }
-  try { localStorage.setItem("tmdb-key", k); } catch (err) {}
-  $("pp-key").hidden = true; $("pp-input").value = "";
-  setPP(true);
-});
+// ---------- outils : télécommande, format des affiches, PostersPlus, grand écran ----------
+$("ret-btn").addEventListener("click", () => E.retour());
+function drawPP() { $("pp-btn").setAttribute("aria-pressed", String(NV.reglages.pp)); }
+$("pp-btn").addEventListener("click", () => { NV.reglages.pp = !NV.reglages.pp; drawPP(); E.pp(); if (window.sfx) sfx.click(); });
 drawPP();
-
 function drawFmt() {
-  seg($("fmt"), ["Affiches verticales", "Paysage"], fmt === "l" ? 1 : 0, (i) => {
-    fmt = i ? "l" : "p";
-    try { localStorage.setItem("apercu-format", fmt); } catch (e) {}
-    drawFmt(); nvEl.classList.toggle("paysage", fmt === "l");
-    nvEl.querySelectorAll(".nv-card").forEach(paintCard);
+  seg($("fmt"), ["Affiches verticales", "Paysage"], NV.reglages.format === "l" ? 1 : 0, (i) => {
+    NV.reglages.format = i ? "l" : "p";
+    drawFmt(); E.paysage(i === 1);
     if (window.sfx) sfx.click();
   });
 }
@@ -1373,18 +912,20 @@ const stageEl = $("stage");
 function setBig(on) {
   stageEl.classList.toggle("big", on);
   document.body.classList.toggle("ecran-grand", on);
-  const hero = nvEl.querySelector(".nv-hero");
-  if (hero && hero._m) heroVideo(hero, hero._m);
   $("zoom").setAttribute("aria-pressed", String(on));
   document.body.style.overflow = on ? "hidden" : "";
-  if (on) { const f = nvEl.querySelector('[tabindex="0"]'); if (f) f.focus({ preventScroll: true }); }
+  if (on) { const f = E.pilote.sel; if (f) f.focus({ preventScroll: true }); }
   else $("zoom").focus({ preventScroll: true });
   if (window.sfx) sfx.click();
 }
 $("zoom").addEventListener("click", () => setBig(!stageEl.classList.contains("big")));
 $("big-close").addEventListener("click", () => setBig(false));
 stageEl.addEventListener("click", (e) => { if (e.target === stageEl) setBig(false); });
-addEventListener("keydown", (e) => { if (e.key === "Escape" && stageEl.classList.contains("big") && $("fiche").hidden) setBig(false); });
+addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (E.ouvert() && (stageEl.classList.contains("big") || $("screen").contains(document.activeElement))) { e.preventDefault(); E.retour(); return; }
+  if (stageEl.classList.contains("big")) setBig(false);
+});
 
 // ---------- billet ----------
 function serial(s) { let h = 7; for (const ch of s) h = (h * 131 + ch.charCodeAt(0)) % 99991; return "N° " + String(h).padStart(5, "0"); }

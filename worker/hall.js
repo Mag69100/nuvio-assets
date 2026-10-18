@@ -31,7 +31,7 @@ ${STAGE_HEAD}
 <link rel="icon" href="${LOGO}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Figtree:wght@400;500;700;800&family=Courier+Prime:wght@400;700&family=Instrument+Serif:ital@0;1&family=Limelight&family=Pacifico&family=Orbitron:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Figtree:wght@400;500;700;800&family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&family=Instrument+Serif:ital@0;1&family=Limelight&family=Pacifico&family=Orbitron:wght@500;700&display=swap">
 <style>
 :root {
   --foyer-w: 1180px;
@@ -137,7 +137,7 @@ ${stageTop({ here: "hall", origin })}
 
   <section class="mur" aria-labelledby="a-laffiche">
     <h2 id="a-laffiche">Actuellement à l'affiche</h2>
-    <p>Les films dont tout le monde parle cette semaine, tels qu'ils arrivent sur ton accueil.</p>
+    <p>Les films dont tout le monde parle cette semaine, avec les affiches qu'ils auront sur ton accueil.</p>
     <div class="affiches" id="affiches">${'<div class="cadre vide"></div>'.repeat(6)}</div>
   </section>
   <footer>${CREDITS_HTML}</footer>
@@ -153,7 +153,9 @@ fetch(${JSON.stringify(origin)} + "/catalog/movie/accueil-top10.json").then((r) 
   box.textContent = "";
   metas.forEach((m) => {
     const c = document.createElement("div"); c.className = "cadre"; c.title = m.name; c.setAttribute("role", "img"); c.setAttribute("aria-label", m.name);
-    c.style.backgroundImage = "url('" + String(m.poster).replace(/'/g, "%27") + "')";
+    // Les affiches PostersPlus du réglage conseillé (étape 8), celles qu'on aura sur l'accueil
+    const pp = NV.ppSrc(m, "poster"), pose = (u) => { c.style.backgroundImage = NV.cssUrl(u); };
+    if (pp) { const im = new Image(); im.onload = () => pose(pp); im.onerror = () => pose(m.poster); im.src = pp; } else pose(m.poster);
     box.append(c);
   });
 }).catch(() => { document.querySelector(".mur").hidden = true; });

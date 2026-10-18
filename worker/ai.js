@@ -116,7 +116,7 @@ async function geminiText(env, model, system, user, opts = {}) {
   });
   if (!res.ok) {
     const j = await res.json().catch(() => ({}));
-    throw Object.assign(new Error(`${res.status} ${((j.error || {}).message || "").slice(0, 200)}`), { status: res.status });
+    throw Object.assign(new Error(`${res.status} ${((j.error || {}).message || "").slice(0, 600)}`), { status: res.status });
   }
   const j = await res.json();
   const parts = (((j.candidates || [])[0] || {}).content || {}).parts || [];

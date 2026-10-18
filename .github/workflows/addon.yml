@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "scripts/update_addon.py"
+      - "scripts/build_search_words.py"
       - "catalogs.json"
   schedule:
     - cron: "17 3 * * *"   # chaque nuit vers 5 h (heure de Paris en été)
@@ -36,6 +37,10 @@ jobs:
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: python scripts/update_addon.py ${{ github.event.inputs.season }}
+      - name: Vocabulaire de la recherche (fautes de frappe)
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: python scripts/build_search_words.py
       - name: Enregistrer
         run: |
           git config user.name "github-actions[bot]"

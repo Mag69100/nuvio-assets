@@ -27,10 +27,10 @@ import { configurePage } from "./page.js";
 import { guidePage, NUVIO_TV_APK } from "./guide.js";
 import { lienPage } from "./lien.js";
 import { hallPage } from "./hall.js";
-import { smartSearch } from "./search.js";
+import { smartSearch, prepareWords } from "./search.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.10.5";
+const VERSION = "5.11.0";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const ASSETS = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main";
 const NOISE_TV = ["10763", "10764", "10766", "10767"]; // actualité, téléréalité, soap, talk-show
@@ -493,6 +493,30 @@ const SEARCH = [
   { id: "recherche-series", type: "series", name: "Séries" },
 ];
 
+// Vocabulaire des titres connus, pour corriger les fautes de frappe de la recherche
+// (data/search-words.json, refait chaque nuit) : chargé une fois par instance du Worker.
+let WORDS = null;
+function searchWords() {
+  if (!WORDS) {
+    WORDS = fetch(`${ASSETS}/data/search-words.json`, { cf: { cacheTtl: 6 * 3600, cacheEverything: true } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(prepareWords)
+      .catch(() => { WORDS = null; return null; });
+  }
+  return WORDS;
+}
+
+/** Recherche tolérante (sigles, fautes, année, suites, personnes, studios) : voir search.js. */
+function runSearch(env, type, query, page, opts, trace) {
+  const endpoint = `/search/${type === "series" ? "tv" : "movie"}`;
+  const search = (q, p, extra = {}) => {
+    const { language, ...rest } = extra;
+    return tmdb(env, endpoint, { query: q, page: p, include_adult: "false", region: opts.region, ...rest }, language || opts.lang);
+  };
+  const api = (path, params = {}) => tmdb(env, path, params, opts.lang);
+  return smartSearch(query, page, search, type, api, { words: searchWords, region: opts.region, trace });
+}
+
 async function catalog(env, ctx, type, id, extra, today, cfg) {
   const skip = Number(extra.skip || 0);
   const opts = { cfg, lang: langOf(cfg), region: cfg.g, filtered: hasGlobalFilters(cfg) };
@@ -501,11 +525,7 @@ async function catalog(env, ctx, type, id, extra, today, cfg) {
     const query = (extra.search || "").trim();
     if (!query) return [];
     const page = Math.floor(skip / PAGE) + 1;
-    // Recherche tolérante (sigles, fautes de frappe, année, suites, acteurs) : voir search.js.
-    const endpoint = `/search/${type === "series" ? "tv" : "movie"}`;
-    const results = await smartSearch(query, page, (q, p, extra = {}) =>
-      tmdb(env, endpoint, { query: q, page: p, include_adult: "false", region: opts.region, ...extra }, opts.lang), type,
-      (path, params = {}) => tmdb(env, path, params, opts.lang));
+    const results = await runSearch(env, type, query, page, opts);
     if (!results.length) return [];
     const metas = await toMetas(env, ctx, results, type, opts, today);
     return metas.map(({ _digital, _guess, _vf, ...m }) => m);
@@ -704,7 +724,7 @@ function json(data, maxAge) {
   });
 }
 
-const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png"]);
+const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug"]);
 
 async function loadCollections() {
   const res = await fetch(`${ASSETS}/collections/collections.json`, { cf: { cacheTtl: 600, cacheEverything: true } });
@@ -798,6 +818,13 @@ export default {
       return new Response(r.body, { status: r.status, headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } });
     }
     if (!env.TMDB_API_KEY) return json({ error: "Secret TMDB_API_KEY manquant" }, 0);
+    // Détail d'une recherche (formes essayées, correction, classement) : /debug/search/<movie|series>/<requête>
+    const dbg = path.match(/^\/debug\/search\/(movie|series)\/(.+)$/);
+    if (dbg) {
+      const trace = {};
+      await runSearch(env, dbg[1], decodeURIComponent(dbg[2]), 1, { lang: langOf(cfg), region: cfg.g }, trace);
+      return json(trace, 0);
+    }
     const tm = path.match(/^\/trailer\/(movie|series)\/([^/]+)\.json$/);
     if (tm) return json(await trailer(env, tm[1], decodeURIComponent(tm[2])), 7 * 86400);
 

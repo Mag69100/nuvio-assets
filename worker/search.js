@@ -138,10 +138,14 @@ const sagaName = (s) => String(s || "").replace(/\s*[-–:]?\s*(la )?(saga|colle
  * « épisode I ») ; les autres prennent les places libres dans l'ordre de sortie : Star Wars,
  * dont seuls les épisodes I à III sont numérotés sur TMDB, donne bien « La Guerre des étoiles »
  * pour 4. « 2e partie » / « Part 2 » n'est pas un numéro de suite (Harry Potter 7 et 8), ni un
- * chiffre du nom de la saga (« Les 4 Fantastiques »).
+ * chiffre du nom de la saga (« Les 4 Fantastiques »). Les courts-métrages (peu de votes) et les
+ * spin-offs (« Presents: Hobbs & Shaw », « A Star Wars Story ») ne prennent pas de numéro.
+ * explicit : le film trouvé porte le numéro dans son titre.
  */
 export function nthPart(parts, n, sagaTitle = "") {
   const dated = parts.filter((p) => p.release_date).sort((a, b) => a.release_date.localeCompare(b.release_date));
+  const top = Math.max(0, ...dated.map((p) => p.vote_count || 0));
+  const counted = dated.filter((p) => (p.vote_count || 0) >= 0.1 * top && !SPIN_OFF.test(p.original_title || ""));
   const inSaga = new Set(norm(sagaTitle).split(" "));
   const numberOf = (p) => {
     for (const t of [p.title, p.original_title]) {
@@ -154,16 +158,20 @@ export function nthPart(parts, n, sagaTitle = "") {
     return 0;
   };
   const slots = new Map();
-  for (const p of dated) { const k = numberOf(p); if (k && !slots.has(k)) slots.set(k, p); }
+  for (const p of counted) { const k = numberOf(p); if (k && !slots.has(k)) slots.set(k, p); }
   const numbered = new Set(slots.values());
+  const explicit = slots.has(n);
   let free = 1;
-  for (const p of dated) {
+  for (const p of counted) {
     if (numbered.has(p)) continue;
     while (slots.has(free)) free++;
     slots.set(free, p);
   }
-  return { hit: slots.get(n) || null, dated };
+  // Toute la saga pour la suite des résultats, spin-offs compris, sans les courts-métrages.
+  return { hit: slots.get(n) || null, explicit, dated: dated.filter((p) => (p.vote_count || 0) >= 0.1 * top) };
 }
+
+const SPIN_OFF = /\b(presents|a .+ story)\b/i;
 
 /** Le nom de la personne correspond à la requête (« nolan » → Christopher Nolan, pas Nolan Gould). */
 export function personMatch(query, name) {
@@ -217,7 +225,9 @@ const byTier = (text) => (a, b) => tier(text, b) - tier(text, a) || byPop(a, b);
 /**
  * Saga TMDB qui correspond à la requête → [le n-ième film, puis toute la saga dans l'ordre].
  * Les 3 sagas les plus proches sont ouvertes : pour « fast 3 », la plus proche du mot « fast »
- * n'est pas forcément Fast & Furious ; on garde la première qui a un n-ième film.
+ * n'est pas forcément Fast & Furious. Parmi celles qui ont un n-ième film, on garde celle dont
+ * le film porte le numéro dans son titre (« spider man 2 » → Spider-Man 2 de Sam Raimi), sinon
+ * la plus vue.
  */
 async function sagaFilms(sagas, base, n, api) {
   const picks = (sagas.results || [])
@@ -226,12 +236,14 @@ async function sagaFilms(sagas, base, n, api) {
     .sort((a, b) => b.s - a.s)
     .slice(0, 3);
   const details = await Promise.all(picks.map((x) => api(`/collection/${x.c.id}`)));
-  for (let i = 0; i < picks.length; i++) {
-    const { c } = picks[i];
-    const { hit, dated } = nthPart(details[i].parts || [], n, `${sagaName(c.name)} ${sagaName(c.original_name)}`);
-    if (usable([hit]).length) return [hit, ...usable(dated)];
-  }
-  return null;
+  const found = picks
+    .map(({ c }, i) => {
+      const parts = details[i].parts || [];
+      return { ...nthPart(parts, n, `${sagaName(c.name)} ${sagaName(c.original_name)}`), votes: parts.reduce((t, p) => t + (p.vote_count || 0), 0) };
+    })
+    .filter((x) => usable([x.hit]).length)
+    .sort((a, b) => b.explicit - a.explicit || b.votes - a.votes)[0];
+  return found ? [found.hit, ...usable(found.dated)] : null;
 }
 
 /**

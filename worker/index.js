@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.20.3";
+const VERSION = "5.21.0";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -359,6 +359,20 @@ function releaseNote(releases, region, today) {
   return `Dispo vers le ${shortDate(guess > today ? guess : addDays(today, 7))}`;
 }
 
+/**
+ * Film pas encore sorti (« Les plus attendus ») : sa sortie au cinéma dans le pays choisi, sinon
+ * sa première sortie ailleurs. L'année n'est ajoutée que si ce n'est pas l'année en cours.
+ *   « Au cinéma le 3 déc. »   « Sortie le 12 mars 2027 »   « Date de sortie pas encore annoncée »
+ */
+function cinemaNote(releases, region, date, today) {
+  const withYear = (iso) => shortDate(iso) + (iso.slice(0, 4) === today.slice(0, 4) ? "" : ` ${iso.slice(0, 4)}`);
+  const here = cinemaHere(releases, region, today);
+  if (here) return `Au cinéma le ${withYear(here)}`;
+  const first = releaseDates(releases, [1, 2, 3, 4]).find((d) => d > today) || (date > today ? date : "");
+  return first ? `Sortie le ${withYear(first)}` : "Date de sortie pas encore annoncée";
+}
+const cinemaHere = (releases, region, today) => releaseDates(releases, [2, 3], [region]).find((d) => d > today) || "";
+
 const IMG = "https://image.tmdb.org/t/p/";
 
 // Genres TMDB en français (affichés sous le titre dans le grand carrousel).
@@ -384,12 +398,16 @@ async function toMetas(env, ctx, results, kind, opts, today) {
   const vfIndex = opts.search ? {} : await (opts.vfIndex = opts.vfIndex || readVfIndex());
   return results.map((it, i) => {
     const date = it.release_date || it.first_air_date || "";
-    // Films : quand ils deviennent regardables ; séries : l'épisode de la semaine.
-    const note = kind === "movie" ? releaseNote(infos[i].releases, opts.region, today) : episodeNote(infos[i].episode, today);
+    // Films : quand ils deviennent regardables (« Les plus attendus » : quand ils sortent au cinéma) ;
+    // séries : l'épisode de la semaine.
+    const note = kind !== "movie" ? episodeNote(infos[i].episode, today)
+      : opts.upcoming ? cinemaNote(infos[i].releases, opts.region, date, today)
+      : releaseNote(infos[i].releases, opts.region, today);
     // Pas encore regardable : la date affichée par Nuvio (carrousel, « date de sortie
     // complète ») devient la date de dispo plutôt que la sortie en salle.
     const dispo = kind === "movie" ? (firstDigital(infos[i].releases) || digitalGuess(infos[i].releases)) : "";
-    const shownDate = dispo && dispo > today ? dispo : date;
+    const shownDate = opts.upcoming ? cinemaHere(infos[i].releases, opts.region, today) || date
+      : dispo && dispo > today ? dispo : date;
     // Séries : identifiant TMDB direct. Avec l'identifiant IMDb, Nuvio refait la
     // correspondance IMDb → TMDB et tombe parfois sur une autre série (fiches TMDB
     // en double, ex. « Frères d'armes » affiché avec l'image d'une telenovela).
@@ -496,7 +514,9 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
     return out;
   }
   if (def.digital) return fetchVfPage(env, ctx, def, kind, page, today, opts);
+  if (def.upcoming) return fetchUpcomingPage(env, ctx, kind, page, today, opts);
   if (def.endpoint && opts.filtered) def = endpointAsDiscover(def);
+  if (def.endpoint && def.endpoint.startsWith("/trending/") && !opts.cfg.u) return fetchReleasedPage(env, ctx, def, kind, page, today, opts);
   let data;
   if (def.endpoint) {
     const params = { ...(def.params || {}) };
@@ -515,6 +535,49 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
   }
   if (!data.results || page > (data.total_pages || 0)) return [];
   const metas = await toMetas(env, ctx, data.results, kind, opts, today);
+  return metas.map(({ _digital, _guess, _vf, ...m }) => m);
+}
+
+/**
+ * Tendances sans les titres pas encore sortis : TMDB y classe aussi les films attendus dès leur
+ * bande-annonce (Godzilla Minus Zero). Les pages restent pleines (20) pour que Nuvio pagine comme
+ * avant : la page N reprend la suite de la liste filtrée, lue sur les pages TMDB 1 à N + 1
+ * (gardées 3 h par Cloudflare). Sans date de sortie, le titre est compté comme pas encore sorti.
+ */
+async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
+  const pages = await Promise.all(Array.from({ length: page + 1 }, (_, i) =>
+    tmdb(env, def.endpoint, { ...(def.params || {}), page: i + 1 }, opts.lang)));
+  const released = pages.flatMap((d) => d.results || [])
+    .filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; });
+  const slice = released.slice((page - 1) * PAGE, page * PAGE);
+  if (!slice.length) return [];
+  const metas = await toMetas(env, ctx, slice, kind, opts, today);
+  return metas.map(({ _digital, _guess, _vf, ...m }) => m);
+}
+
+/**
+ * Rangée « Les plus attendus » : les films pas encore sortis que les Tendances écartent, dans le
+ * même ordre (le buzz). Ils sont rares (2 ou 3 sur 20) : une seule page, lue sur les 10 premières
+ * pages des tendances. Avec des filtres globaux (les tendances n'en acceptent pas) : les films à
+ * venir les plus populaires d'après « discover ».
+ */
+const UPCOMING_PAGES = 10;
+async function fetchUpcomingPage(env, ctx, kind, page, today, opts) {
+  if (page > 1) return [];
+  let found;
+  if (opts.filtered) {
+    const params = discoverParams({ discover: { sort_by: "popularity.desc", "vote_count.gte": 0 } }, kind, today, opts);
+    params["primary_release_date.gte"] = maxDate(params["primary_release_date.gte"], addDays(today, 1));
+    found = (await tmdb(env, "/discover/movie", params, opts.lang)).results || [];
+  } else {
+    const pages = await Promise.all(Array.from({ length: UPCOMING_PAGES }, (_, i) =>
+      tmdb(env, "/trending/movie/week", { page: i + 1 }, opts.lang)));
+    const seen = new Set();
+    found = pages.flatMap((d) => d.results || [])
+      .filter((it) => !(it.release_date && it.release_date <= today) && !seen.has(it.id) && seen.add(it.id));
+  }
+  if (!found.length) return [];
+  const metas = await toMetas(env, ctx, found.slice(0, PAGE), kind, { ...opts, upcoming: true }, today);
   return metas.map(({ _digital, _guess, _vf, ...m }) => m);
 }
 
@@ -729,7 +792,7 @@ function trailersOf(videos) {
 // existe et donne son titre exact, YouTube la fournit (Nuvio ne lit que YouTube).
 const VF_CACHE_S = 7 * 86400;  // VF trouvée : 7 jours
 const VF_MISS_S = 2 * 86400;   // pas de VF : on réessaie dans 2 jours (elle sort souvent peu avant le titre)
-const VF_WAIT_MS = 3000;       // attente maximale à l'ouverture d'une fiche
+const VF_WAIT_MS = 2000;       // attente maximale à l'ouverture d'une fiche
 const BROWSER_HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36",
   "Accept-Language": "fr-FR,fr;q=0.9",
@@ -1044,8 +1107,9 @@ async function meta(env, kind, id, cfg, today, ctx) {
 }
 
 // Attente maximale des lignes écrites par l'IA (rappel, « pour qui », saison commandée) à la première
-// ouverture d'une fiche : elles arrivent presque toujours d'un coup. Ensuite tout est en cache (6 mois).
-const FICHE_AI_WAIT_MS = 7000;
+// ouverture d'une fiche. Gemini lent ou saturé (un modèle met 5 s à passer la main au suivant) : la fiche
+// part sans elles et n'est pas gardée ; elles finissent d'arriver en cache (6 mois) pour l'ouverture suivante.
+const FICHE_AI_WAIT_MS = 2000;
 
 /** « 7 nov. », ou « 7 nov. 2027 » hors de l'année en cours. */
 const dateFr = (iso, today) => `${shortDate(iso)}${iso.slice(0, 4) !== today.slice(0, 4) ? ` ${iso.slice(0, 4)}` : ""}`;

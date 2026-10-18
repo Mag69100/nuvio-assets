@@ -1883,6 +1883,14 @@
     "sort_by": "popularity.desc",
     "vote_count.gte": 10
    }
+  },
+  {
+   "id": "accueil-attendus",
+   "type": "movie",
+   "name": "Les plus attendus",
+   "defaultHome": true,
+   "homeRank": 67,
+   "upcoming": true
   }
  ],
  "folders": {

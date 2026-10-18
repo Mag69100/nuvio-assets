@@ -23,6 +23,7 @@ const ROW_HINTS = {
   "accueil-documentaires": "Documentaires bien notés",
   "accueil-vod-semaine": "Films sortis en numérique ces deux dernières semaines : regardables maintenant",
   "accueil-vod-bientot": "Films qui deviennent regardables dans les six prochaines semaines, avec la date",
+  "accueil-attendus": "Les films pas encore sortis dont tout le monde parle, avec leur date au cinéma",
 };
 
 /** Affiches PostersPlus conseillées pour l'aperçu, SANS clé : avec la clé TMDB du visiteur (guide, étape 8),
@@ -41,7 +42,7 @@ import { NUVIO_CSS, nuvioJS } from "./nuvio.js";
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 export function configurePage({ origin, cfg, rows, discover, providers, collections, defaults, regions, genres, languages, sorts, seasons, maxCustom, season }) {
-  const plain = (c) => ({ n: c.n, r: c.r, p: c.p, d: c.d, c: c.c, o: c.o, x: c.x, g: c.g, e: c.e, m: c.m, a: c.a, f: c.f, h: c.h, t: c.t });
+  const plain = (c) => ({ n: c.n, r: c.r, p: c.p, d: c.d, c: c.c, o: c.o, x: c.x, g: c.g, e: c.e, m: c.m, a: c.a, f: c.f, h: c.h, t: c.t, u: c.u });
   const data = {
     origin, maxCustom,
     cfg: plain(cfg),
@@ -399,6 +400,8 @@ body::after { content: ""; position: fixed; inset: -50%; pointer-events: none; z
 .stage .screen-tools { margin-top: 14px; }
 /* La colonne collante crée sa propre pile d'affichage : on la passe devant tout quand l'écran est en grand. */
 .ecran-grand aside { z-index: 66; }
+/* Le billet du jour (z-index 84) ne passe pas devant l'écran agrandi. */
+.ecran-grand .billet-jour { display: none; }
 /* L'écran en grand, par-dessus la page */
 .stage.big { position: fixed; inset: 0; z-index: 65; display: grid; place-content: center; justify-items: center; padding: 24px; background: rgba(5,3,4,.92); }
 .stage.big .tv { width: min(1180px, calc(100vw - 48px), calc((100vh - 230px) * 16 / 9)); max-width: none; }
@@ -547,6 +550,7 @@ ${NUVIO_CSS}
           <label class="field"><span>Rien de sorti avant</span><select id="g-year"></select></label>
         </div>
         <label class="switch"><input type="checkbox" id="g-family"><span><b>Mode famille</b><small>Films tous publics ou -10 ans seulement, pas d'horreur, séries pour la famille et les enfants.</small></span></label>
+        <label class="switch"><input type="checkbox" id="g-unreleased"><span><b>Pas de films pas encore sortis dans les Tendances</b><small>TMDB y met aussi les films très attendus dès leur bande-annonce. Ils ont leur rangée : « Les plus attendus ».</small></span></label>
       </section>
 
       <section class="act" id="s-decouvrir">
@@ -669,6 +673,7 @@ function compact(st) {
   if (st.m) o.m = st.m;
   if (st.a) o.a = st.a;
   if (st.f) o.f = 1;
+  if (st.u) o.u = 1;
   if (!same(st.h, df.h)) o.h = mask(st.h, D.seasons.map(s => s[0]));
   const t = {};
   D.collections.forEach((c, i) => { if (st.t[c.id] && st.t[c.id].length) t[i] = st.t[c.id]; });
@@ -1001,6 +1006,7 @@ function renderAll() {
   D.genres.forEach(([name]) => chip($("excl"), "excl-" + name, name, state.e.includes(name), on => toggle("e", name, on, D.genres.map(g => g[0]))));
   $("g-vote").value = state.m; $("g-vote-out").textContent = fmtVote(state.m); paintRange($("g-vote"));
   $("g-year").value = String(state.a); $("g-family").checked = state.f;
+  $("g-unreleased").checked = !state.u;
   renderCollections();
   update();
 }
@@ -1011,6 +1017,7 @@ D.languages.forEach(([code, label]) => $("b-lang").append(el("option", { value: 
 $("g-vote").addEventListener("input", () => { state.m = Number($("g-vote").value); $("g-vote-out").textContent = fmtVote(state.m); update(); });
 $("g-year").addEventListener("change", () => { state.a = Number($("g-year").value); update(); });
 $("g-family").addEventListener("change", () => { state.f = $("g-family").checked; update(); });
+$("g-unreleased").addEventListener("change", () => { state.u = !$("g-unreleased").checked; update(); });
 
 function copy(btn, node, label) {
   const ok = () => {

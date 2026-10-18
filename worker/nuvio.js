@@ -390,7 +390,7 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
     if (!lueurs.has(src)) lueurs.set(src, new Promise((ok) => {
       const im = new Image(); im.crossOrigin = "anonymous";
       im.onload = () => { try {
-        const cv = document.createElement("canvas"); cv.width = cv.height = 8; const cx = cv.getContext("2d"); cx.drawImage(im, 0, 0, 8, 8);
+        const cv = document.createElement("canvas"); cv.width = cv.height = 8; const cx = cv.getContext("2d", { willReadFrequently: true }); cx.drawImage(im, 0, 0, 8, 8);
         const d = cx.getImageData(0, 0, 8, 8).data; let r = 0, g = 0, b = 0;
         for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
         r /= 64; g /= 64; b /= 64;
@@ -398,7 +398,8 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
         if (l < .45) { const k = (.45 - l) * 1.6; r += (255 - r) * k; g += (255 - g) * k; b += (255 - b) * k; }
         ok("rgba(" + Math.round(r) + "," + Math.round(g) + "," + Math.round(b) + ",.92)");
       } catch (e) { ok(""); } };
-      im.onerror = () => ok(""); im.src = src;
+      // Miniature 8 × 8 par wsrv.nl : elle autorise la lecture des pixels (pas les images de TMDB ni de GitHub).
+      im.onerror = () => ok(""); im.src = "https://wsrv.nl/?url=" + encodeURIComponent(src) + "&w=8&h=8&fit=fill&output=png";
     }));
     return lueurs.get(src);
   };

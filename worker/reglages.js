@@ -103,7 +103,7 @@ const PAGES = (posterUrl) => [
       CARDS("style", [["Par défaut", "Disposition standard avec des cartes"], ["Minimal", "Disposition simple et épurée"], ["Barre supérieure", "Onglets de navigation en haut"]], "Par défaut"),
     ]),
     G("Launcher Artwork", "Choose how Nuvio appears on your TV home screen", [
-      V("App Icon & Banner", "Change app icon and banner", "Rose Gold", { n: "L'icône de Nuvio sur l'accueil du Fire TV." }),
+      V("App Icon & Banner", "Change app icon and banner", "Rose Gold", { a: "Au choix : l'icône et la bannière de Nuvio sur l'accueil du Fire TV. Rose Gold sur le Fire TV de test." }),
     ]),
     G("Ambient Mode", "Show artwork from your catalogs while the TV sits idle", [
       T("Ambient Mode", "Fill the screen with backdrops after a period with no remote input", true, { a: "Un économiseur d'écran avec les images des films. Sur une TV OLED, garde-le pour éviter le marquage." }),
@@ -371,7 +371,7 @@ export const REGLAGES_CSS = `/* Étape 9 : les écrans de paramètres de Nuvio T
 .nv-head h4 { margin: 0; font: 600 19px/1.15 Inter, var(--body); letter-spacing: -.01em; }
 .nv-head p { margin: 3px 0 0; font-size: 11.5px; color: rgba(255,255,255,.78); }
 .nv-vp { position: relative; overflow: hidden; -webkit-mask: linear-gradient(transparent, #000 10px, #000 calc(100% - 26px), transparent); mask: linear-gradient(transparent, #000 10px, #000 calc(100% - 26px), transparent); }
-.nv-ct { position: relative; display: grid; gap: 10px; padding: 6px 4px 140px; transition: transform .5s cubic-bezier(.3,.7,.2,1); }
+.nv-ct { position: relative; display: grid; gap: 10px; padding: 6px 4px 240px; transition: transform .5s cubic-bezier(.3,.7,.2,1); }
 .nv-group { display: grid; gap: 7px; padding: 10px; border-radius: 20px; background: linear-gradient(180deg, rgba(150,96,78,.42), rgba(122,74,60,.36)); border: 1px solid rgba(255,226,212,.3); }
 .nv-gh { margin: 0 4px 2px; display: grid; }
 .nv-gh b { font-weight: 600; font-size: 13px; }
@@ -546,8 +546,13 @@ export const REGLAGES_JS = `// ---------- Étape 9 : les réglages rejoués comm
     const ring = ringOf(page), ct = page.querySelector(".nv-ct"), vp = page.querySelector(".nv-vp");
     if (!el || inSide) { ring.classList.remove("on"); return; }
     const cr = ct.getBoundingClientRect(), r = el.getBoundingClientRect();
-    const top = r.top - cr.top, H = vp.clientHeight, C = ct.scrollHeight - 130;
-    const y = Math.max(0, Math.min(top - H * .26, C - H));
+    const top = r.top - cr.top, H = vp.clientHeight, C = ct.scrollHeight - 230;
+    let y = Math.max(0, Math.min(top - H * .26, C - H));
+    // Avec une bulle, la ligne doit rester au-dessus d'elle, même en bas de liste (on défile dans la marge du bas).
+    if (el.dataset.a || el.dataset.n) {
+      const capTop = scr.getBoundingClientRect().bottom - 14 - cap.offsetHeight - vp.getBoundingClientRect().top;
+      y = Math.min(Math.max(y, top + r.height - capTop + 12), ct.scrollHeight - H);
+    }
     ct.style.transform = "translateY(" + (-y) + "px)";
     vp.classList.toggle("up", y > 2); vp.classList.toggle("down", y < C - H - 2);
     // Première apparition sur l'écran : le cadre se pose directement, sans grandir depuis le coin.
@@ -581,7 +586,7 @@ export const REGLAGES_JS = `// ---------- Étape 9 : les réglages rejoués comm
     else if (a.t === "open") { openSec(a.el); }
     else if (a.t === "leave") { inSide = true; el = null; setSide(+(a.p.dataset.side), true); }
     if (instant) return;
-    layout(); caption();
+    caption(); layout();
     // Une section qui s'ouvre change les hauteurs : on recale une fois le dépliage fini.
     clearTimeout(relayT); if (a.t === "open") relayT = setTimeout(layout, 480);
   };
@@ -609,7 +614,7 @@ export const REGLAGES_JS = `// ---------- Étape 9 : les réglages rejoués comm
   const seek = (n) => {
     nv.classList.add("instant"); reset();
     for (let i = 0; i < n; i++) apply(A[i], true);
-    k = n; layout(); caption(); progress();
+    k = n; caption(); layout(); progress();
     void nv.offsetWidth; requestAnimationFrame(() => nv.classList.remove("instant"));
   };
   const tick = () => {

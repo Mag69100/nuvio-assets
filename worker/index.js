@@ -29,10 +29,10 @@ import { lienPage } from "./lien.js";
 import { hallPage } from "./hall.js";
 import { smartSearch, prepareWords, isExact, norm } from "./search.js";
 import { imdbRating } from "./ratings.js";
-import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, AI_WAIT_MS } from "./ai.js";
+import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.17.1";
+const VERSION = "5.18.0";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -754,7 +754,8 @@ async function meta(env, kind, id, cfg, today, ctx) {
   // « pour qui » et « à savoir » (IA), puis le rappel de l'œuvre précédente (IA).
   const keywords = ((movie ? d.keywords && d.keywords.keywords : d.keywords && d.keywords.results) || []).map((k) => k.name);
   // En premier : y aura-t-il une suite ? (série terminée, saison annoncée, film suivant de la saga)
-  const extras = [movie ? "" : seriesFollow(d, today), movie ? creditsScene(keywords) : "", sourceNote(keywords, crew)];
+  const follow = movie ? null : seriesFollow(d, today);
+  const extras = [follow ? follow.text : "", movie ? creditsScene(keywords) : "", sourceNote(keywords, crew)];
 
   let saga = null;
   if (movie && d.belongs_to_collection) {
@@ -819,12 +820,15 @@ async function meta(env, kind, id, cfg, today, ctx) {
     const prev = previousWork(d, movie, saga, m.videos);
     const wait = new Promise((res) => setTimeout(() => res("attente"), FICHE_AI_WAIT_MS));
     const ask = (job) => (job ? Promise.race([job, wait]) : null);
-    const [recap, profile] = await Promise.all([
+    const [recap, profile, renewal] = await Promise.all([
       ask(prev && aiRecap(env, ctx, prev.id, prev.prompt)),
       ask(aiProfile(env, ctx, `${movie ? "movie" : "tv"}-${d.id}`, profilePrompt(d, movie, keywords, cert))),
+      // TMDB dit « pas terminée » sans saison annoncée : les actualités tranchent (renouvelée ou non).
+      ask(follow && follow.unsure && aiRenewal(env, ctx, `tv-${d.id}-s${follow.season}`, renewalPrompt(d, follow.season, today))),
     ]);
     // Pas encore prêt, ou Gemini indisponible : la fiche n'est pas gardée, pour l'avoir plus tard.
-    if ([recap, profile].some((r) => r === "attente" || (r && r.error))) m._partial = true;
+    if ([recap, profile, renewal].some((r) => r === "attente" || (r && r.error))) m._partial = true;
+    if (renewal && renewal !== "attente" && renewal.status) extras[0] = renewalNote(renewal, follow.season);
     if (profile && profile !== "attente") {
       if (profile.pourQui) extras.push(`🎯 ${profile.pourQui}`);
       if (profile.aSavoir) extras.push(`⚠️ À savoir : ${profile.aSavoir}`);
@@ -864,20 +868,42 @@ function sagaFollow(parts, d, today) {
  * Rien pendant une saison en cours (le prochain épisode est déjà en tête du résumé).
  */
 function seriesFollow(d, today) {
-  if (d.status === "Ended") return "🏁 Série terminée : il n'y aura pas de suite.";
-  if (d.status === "Canceled") return "❌ Série annulée : il n'y aura pas de suite.";
-  if (d.status !== "Returning Series") return "";
+  const say = (text) => ({ text });
+  if (d.status === "Ended") return say("🏁 Série terminée : il n'y aura pas de suite.");
+  if (d.status === "Canceled") return say("❌ Série annulée : il n'y aura pas de suite.");
+  if (d.status !== "Returning Series") return null;
   const last = d.last_episode_to_air, next = d.next_episode_to_air;
   const lastSeason = last ? last.season_number : 0;
-  if (next && next.season_number > lastSeason && next.air_date) return dot(`🔜 Saison ${next.season_number} : à partir du ${dateFr(next.air_date, today)}`);
-  if (next) return "";
+  if (next && next.season_number > lastSeason && next.air_date) return say(dot(`🔜 Saison ${next.season_number} : à partir du ${dateFr(next.air_date, today)}`));
+  if (next) return null;
   const coming = (d.seasons || []).find((x) => x.season_number > lastSeason);
   if (coming) {
-    return coming.air_date && coming.air_date > today
+    return say(coming.air_date && coming.air_date > today
       ? dot(`🔜 Saison ${coming.season_number} : à partir du ${dateFr(coming.air_date, today)}`)
-      : `🔜 Saison ${coming.season_number} annoncée, pas encore de date.`;
+      : `🔜 Saison ${coming.season_number} annoncée, pas encore de date.`);
   }
-  return `🔜 Pas encore terminée : aucune date pour la saison ${lastSeason + 1}.`;
+  // TMDB ne sait pas si la saison suivante est commandée : les actualités trancheront (aiRenewal).
+  return { text: `🔜 Pas encore terminée : aucune date pour la saison ${lastSeason + 1}.`, unsure: true, season: lastSeason + 1 };
+}
+
+/** La série et la date du jour, pour chercher si la saison suivante est commandée. */
+function renewalPrompt(d, season, today) {
+  const networks = (d.networks || []).map((n) => n.name).join(", ");
+  const last = d.last_episode_to_air;
+  return [
+    `Série : « ${d.name} » (titre original : ${d.original_name}${networks ? `, ${networks}` : ""}, depuis ${(d.first_air_date || "").slice(0, 4)}).`,
+    `Dernière saison diffusée : saison ${season - 1}${last && last.air_date ? `, dernier épisode le ${last.air_date}` : ""}.`,
+    `Question : la saison ${season} a-t-elle été commandée ? Date du jour : ${today}.`,
+  ].join("\n");
+}
+
+/** Ligne « suite » d'après les actualités : commandée, annulée, terminée ou en attente. */
+function renewalNote(r, season) {
+  const more = r.detail ? ` : ${r.detail}` : "";
+  if (r.status === "RENOUVELEE") return `🔜 Saison ${season} commandée${more}.`;
+  if (r.status === "ANNULEE") return `❌ Série annulée : il n'y aura pas de saison ${season}.`;
+  if (r.status === "TERMINEE") return "🏁 Série terminée : il n'y aura pas de suite.";
+  return `⏸️ Saison ${season} pas encore commandée${more}.`;
 }
 
 /** Scène pendant ou après le générique, d'après les mots-clés TMDB. */

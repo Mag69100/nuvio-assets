@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.18.9";
+const VERSION = "5.18.10";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -676,7 +676,9 @@ function bestImage(list, lang) {
 function trailersOf(videos) {
   return (videos || [])
     .filter((v) => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"))
-    .sort((a, b) => (b.iso_639_1 === "fr") - (a.iso_639_1 === "fr") || (b.size >= 1080) - (a.size >= 1080) || (b.type === "Trailer") - (a.type === "Trailer")
+    // Français d'abord, puis la meilleure définition (4K, 1080p, 720p…) : Nuvio lit la première dans le
+    // hero, et une vidéo pas en HD y devient floue (le hero zoome l'image).
+    .sort((a, b) => (b.iso_639_1 === "fr") - (a.iso_639_1 === "fr") || (b.size || 0) - (a.size || 0) || (b.type === "Trailer") - (a.type === "Trailer")
       || (b.official === true) - (a.official === true))
     .slice(0, 4)
     .map((v) => ({ source: v.key, ytId: v.key, type: v.type, name: v.name, lang: v.iso_639_1 }));
@@ -751,7 +753,9 @@ async function vfTrailer(kind, imdb, name, year) {
     // Titre absent d'Allociné : recherche directe, seulement pour un nom assez précis.
     found = await youtubeVf(`${name} ${year} bande annonce VF`, shortName(name), null);
   }
-  const out = found ? { key: found.key, title: found.title } : { key: null };
+  // HD ou pas : YouTube n'a l'image « maxresdefault » que pour les vidéos d'au moins 720p.
+  const hd = found ? await fetch(`https://i.ytimg.com/vi/${found.key}/maxresdefault.jpg`, { method: "HEAD" }).then((r) => r.ok, () => true) : false;
+  const out = found ? { key: found.key, title: found.title, hd } : { key: null };
   // YouTube n'a pas répondu : rien n'est gardé, on réessaiera à la prochaine ouverture.
   if (found !== undefined) {
     await caches.default.put(cacheKey, new Response(JSON.stringify(out), { headers: { "Cache-Control": `public, max-age=${found ? VF_CACHE_S : VF_MISS_S}` } }));
@@ -928,7 +932,11 @@ async function meta(env, kind, id, cfg, today, ctx) {
     // Pas encore trouvée : la fiche n'est pas gardée, la VF sera là à la prochaine ouverture.
     if (vf === "attente") m._partial = true;
     else if (vf && vf.key) {
-      m.trailers = [{ source: vf.key, ytId: vf.key, type: "Trailer", name: vf.title, lang: "fr" }, ...trailers];
+      const vfTrailer = { source: vf.key, ytId: vf.key, type: "Trailer", name: vf.title, lang: "fr" };
+      // VF pas en HD sur YouTube : la bande-annonce HD de TMDB reste en premier (celle du hero), la VF
+      // juste après dans la liste de la fiche.
+      const first = trailers[0] && ((d.videos && d.videos.results) || []).find((v) => v.key === trailers[0].source);
+      m.trailers = vf.hd === false && first && first.size >= 720 ? [trailers[0], vfTrailer, ...trailers.slice(1)] : [vfTrailer, ...trailers];
       m.trailerStreams = m.trailers.map((t) => ({ ytId: t.ytId }));
     }
   }

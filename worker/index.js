@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.18.8";
+const VERSION = "5.18.9";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -841,6 +841,16 @@ async function meta(env, kind, id, cfg, today, ctx) {
   const follow = movie ? null : seriesFollow(d, today);
   const extras = [follow ? follow.text : "", movie ? creditsScene(keywords) : "", sourceNote(keywords, crew)];
 
+  // Lignes écrites par l'IA, lancées dès que possible, pendant que le reste de la fiche se construit :
+  // « pour qui » et saison commandée n'ont besoin que de la fiche TMDB ; le rappel part dès que la
+  // saga ou les épisodes sont connus. L'attente maximale compte à partir d'ici.
+  const ai = !!env.GEMINI_API_KEY;
+  const aiWait = ai ? new Promise((res) => setTimeout(() => res("attente"), FICHE_AI_WAIT_MS)) : null;
+  const ask = (job) => (job ? Promise.race([job, aiWait]) : null);
+  const profileJob = ai ? ask(aiProfile(env, ctx, `${movie ? "movie" : "tv"}-${d.id}`, profilePrompt(d, movie, keywords, cert))) : null;
+  // TMDB dit « pas terminée » sans saison annoncée : Wikipédia tranche (renouvelée ou non).
+  const renewalJob = ai && follow && follow.unsure ? ask(renewalOf(env, ctx, d, follow.season, today)) : null;
+
   let saga = null;
   if (movie && d.belongs_to_collection) {
     const col = await tmdb(env, `/collection/${d.belongs_to_collection.id}`, {}, lang);
@@ -900,16 +910,9 @@ async function meta(env, kind, id, cfg, today, ctx) {
   }
 
   let recapLine = "";
-  if (env.GEMINI_API_KEY) {
+  if (ai) {
     const prev = previousWork(d, movie, saga, m.videos);
-    const wait = new Promise((res) => setTimeout(() => res("attente"), FICHE_AI_WAIT_MS));
-    const ask = (job) => (job ? Promise.race([job, wait]) : null);
-    const [recap, profile, renewal] = await Promise.all([
-      ask(prev && aiRecap(env, ctx, prev.id, prev.prompt)),
-      ask(aiProfile(env, ctx, `${movie ? "movie" : "tv"}-${d.id}`, profilePrompt(d, movie, keywords, cert))),
-      // TMDB dit « pas terminée » sans saison annoncée : les actualités tranchent (renouvelée ou non).
-      ask(follow && follow.unsure && renewalOf(env, ctx, d, follow.season, today)),
-    ]);
+    const [recap, profile, renewal] = await Promise.all([ask(prev && aiRecap(env, ctx, prev.id, prev.prompt)), profileJob, renewalJob]);
     // Pas encore prêt, ou Gemini indisponible : la fiche n'est pas gardée, pour l'avoir plus tard.
     if ([recap, profile, renewal].some((r) => r === "attente" || (r && r.error))) m._partial = true;
     if (renewal && renewal !== "attente" && renewal.status) extras[0] = renewalNote(renewal, follow.season);

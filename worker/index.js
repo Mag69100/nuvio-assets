@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.18.0";
+const VERSION = "5.18.1";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -1173,6 +1173,16 @@ export default {
       }, trace);
       trace.final = out.map((it) => `${it.title || it.name} (${(it.release_date || it.first_air_date || "").slice(0, 4)})`);
       return json(trace, 0);
+    }
+    // Saison suivante d'une série d'après les actualités (réponse de Gemini, erreurs) : /debug/renewal/<id TMDB>
+    const dr = path.match(/^\/debug\/renewal\/(\d+)$/);
+    if (dr && env.GEMINI_API_KEY) {
+      const d = await tmdb(env, `/tv/${dr[1]}`, {}, langOf(cfg));
+      const follow = d && d.id ? seriesFollow(d, today) : null;
+      if (!follow || !follow.unsure) return json({ tmdb: follow && follow.text }, 0);
+      const prompt = renewalPrompt(d, follow.season, today);
+      const r = await aiRenewal(env, ctx, `tv-${d.id}-s${follow.season}`, prompt);
+      return json({ prompt, ...r, note: r.status ? renewalNote(r, follow.season) : follow.text }, 0);
     }
     const tm = path.match(/^\/trailer\/(movie|series)\/([^/]+)\.json$/);
     if (tm) return json(await trailer(env, tm[1], decodeURIComponent(tm[2])), 7 * 86400);

@@ -40,9 +40,12 @@ sortie numérique (ou une estimation : sortie en salle + 45 jours), et le résum
 Ce rappel ne s'affiche que si « Infos » est désactivé dans l'enrichissement TMDB de Nuvio.
 
 Recherche : deux catalogues `recherche-films` et `recherche-series` (« Films », « Séries »), titres en français,
-du plus connu au moins connu, sans les fiches sans affiche ni vote. La recherche (`worker/search.js`) comprend
-les sigles (« got »), les fautes de frappe, l'année (« dune 2021 »), les numéros de suite (« harry potter 3 »)
-et les noms d'acteurs ou de réalisateurs (« nolan »), avec le titre exact en premier. Fiches (`/meta/<type>/<id>.json`) : résumé,
+du plus connu au moins connu, sans les fiches sans affiche ni vote. La recherche (`worker/search.js`) classe
+tous les résultats ensemble (ressemblance du titre français, original ou anglais + notoriété) et comprend les sigles
+(« got »), les fautes de frappe (vocabulaire des titres connus `data/search-words.json`, refait chaque nuit par
+`scripts/build_search_words.py`), les mots en trop (« film barbie », « the boys saison 4 »), l'année (« dune 2021 »),
+les numéros de suite (« harry potter 3 »), les acteurs et réalisateurs (« nolan ») et les studios et plateformes
+(« pixar », « netflix »). Détail d'une recherche : `/debug/search/<movie|series>/<requête>`. Fiches (`/meta/<type>/<id>.json`) : résumé,
 casting, saisons et épisodes en français. TMDB Discover Plus n'est plus nécessaire (`config/recherche-fr-tmdb.json`
 reste pour les anciennes installations).
 

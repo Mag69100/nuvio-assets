@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.18.2";
+const VERSION = "5.18.3";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -824,7 +824,7 @@ async function meta(env, kind, id, cfg, today, ctx) {
       ask(prev && aiRecap(env, ctx, prev.id, prev.prompt)),
       ask(aiProfile(env, ctx, `${movie ? "movie" : "tv"}-${d.id}`, profilePrompt(d, movie, keywords, cert))),
       // TMDB dit « pas terminée » sans saison annoncée : les actualités tranchent (renouvelée ou non).
-      ask(follow && follow.unsure && aiRenewal(env, ctx, `tv-${d.id}-s${follow.season}`, renewalPrompt(d, follow.season, today))),
+      ask(follow && follow.unsure && renewalOf(env, ctx, d, follow.season, today)),
     ]);
     // Pas encore prêt, ou Gemini indisponible : la fiche n'est pas gardée, pour l'avoir plus tard.
     if ([recap, profile, renewal].some((r) => r === "attente" || (r && r.error))) m._partial = true;
@@ -886,15 +886,42 @@ function seriesFollow(d, today) {
   return { text: `🔜 Pas encore terminée : aucune date pour la saison ${lastSeason + 1}.`, unsure: true, season: lastSeason + 1 };
 }
 
-/** La série et la date du jour, pour chercher si la saison suivante est commandée. */
-function renewalPrompt(d, season, today) {
-  const networks = (d.networks || []).map((n) => n.name).join(", ");
+const WIKI_HEADERS = { "User-Agent": "CatalogueFR/1.0 (https://nuvio-assets.xnzxflix.workers.dev)" };
+const WIKI_CACHE = { cacheTtl: 86400, cacheEverything: true };
+// Phrases de l'article qui parlent de la suite : renouvellement, annulation, dernière saison.
+const WIKI_NEWS = /renew|cancel|final season|last season|conclud|will end|ended|season (premiere|finale)|upcoming|in production|filming|ordered/i;
+
+/**
+ * Extraits de l'article Wikipédia anglais d'une série (mis à jour vite après chaque annonce) :
+ * le début de l'article et les phrases sur la suite. Titre trouvé par l'identifiant Wikidata de TMDB.
+ */
+async function wikiNews(wikidataId) {
+  if (!/^Q\d+$/.test(wikidataId || "")) return "";
+  const wd = await fetch(`https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${wikidataId}&props=sitelinks&sitefilter=enwiki&format=json`,
+    { headers: WIKI_HEADERS, cf: WIKI_CACHE }).then((r) => (r.ok ? r.json() : null), () => null);
+  const title = (((((wd || {}).entities || {})[wikidataId] || {}).sitelinks || {}).enwiki || {}).title;
+  if (!title) return "";
+  const wp = await fetch(`https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&titles=${encodeURIComponent(title)}`,
+    { headers: WIKI_HEADERS, cf: WIKI_CACHE }).then((r) => (r.ok ? r.json() : null), () => null);
+  const page = Object.values(((wp || {}).query || {}).pages || {})[0] || {};
+  const text = String(page.extract || "");
+  if (!text) return "";
+  const intro = text.split(/\n\s*\n/)[0].slice(0, 1500);
+  const news = text.split(/(?<=[.!?])\s+/).filter((x) => WIKI_NEWS.test(x) && !intro.includes(x));
+  return [intro, ...news].join("\n").slice(0, 5000);
+}
+
+/** Saison suivante commandée ou non, d'après Wikipédia lu par Gemini (null sans article). */
+async function renewalOf(env, ctx, d, season, today) {
+  const news = await wikiNews(d.external_ids && d.external_ids.wikidata_id);
+  if (!news) return null;
   const last = d.last_episode_to_air;
-  return [
-    `Série : « ${d.name} » (titre original : ${d.original_name}${networks ? `, ${networks}` : ""}, depuis ${(d.first_air_date || "").slice(0, 4)}).`,
-    `Dernière saison diffusée : saison ${season - 1}${last && last.air_date ? `, dernier épisode le ${last.air_date}` : ""}.`,
-    `Question : la saison ${season} a-t-elle été commandée ? Date du jour : ${today}.`,
+  const prompt = [
+    `Série : « ${d.name} » (titre original : ${d.original_name}, depuis ${(d.first_air_date || "").slice(0, 4)}).`,
+    `Dernière saison diffusée : saison ${season - 1}${last && last.air_date ? `, dernier épisode le ${last.air_date}` : ""}. Question : qu'en est-il de la saison ${season} ? Date du jour : ${today}.`,
+    `Extraits de Wikipédia :\n${news}`,
   ].join("\n");
+  return aiRenewal(env, ctx, `tv-${d.id}-s${season}`, prompt);
 }
 
 /** Ligne « suite » d'après les actualités : commandée, annulée, terminée ou en attente. */
@@ -1180,9 +1207,9 @@ export default {
       const d = await tmdb(env, `/tv/${dr[1]}`, {}, langOf(cfg));
       const follow = d && d.id ? seriesFollow(d, today) : null;
       if (!follow || !follow.unsure) return json({ tmdb: follow && follow.text }, 0);
-      const prompt = renewalPrompt(d, follow.season, today);
-      const r = await aiRenewal(env, ctx, `tv-${d.id}-s${follow.season}`, prompt);
-      return json({ prompt, ...r, note: r.status ? renewalNote(r, follow.season) : follow.text }, 0);
+      d.external_ids = await tmdb(env, `/tv/${dr[1]}/external_ids`);
+      const r = (await renewalOf(env, ctx, d, follow.season, today)) || { error: "pas d'article Wikipédia" };
+      return json({ wikipedia: await wikiNews(d.external_ids.wikidata_id), ...r, note: r.status ? renewalNote(r, follow.season) : follow.text }, 0);
     }
     const tm = path.match(/^\/trailer\/(movie|series)\/([^/]+)\.json$/);
     if (tm) return json(await trailer(env, tm[1], decodeURIComponent(tm[2])), 7 * 86400);

@@ -95,8 +95,7 @@ async function askGemini(env, query, model, thinking) {
 
 /**
  * Une question à un modèle Gemini → texte de la réponse (erreur avec .status sinon).
- * opts.schema → réponse JSON selon ce schéma ; opts.search → Gemini cherche sur Google avant de
- * répondre (actualités) ; opts.thinking → niveau de réflexion ; opts.timeout → attente maximale.
+ * opts.schema → réponse JSON selon ce schéma ; opts.thinking → niveau de réflexion.
  */
 async function geminiText(env, model, system, user, opts = {}) {
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -105,14 +104,13 @@ async function geminiText(env, model, system, user, opts = {}) {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: "user", parts: [{ text: user }] }],
-      ...(opts.search ? { tools: [{ google_search: {} }] } : {}),
       generationConfig: {
         temperature: 0.2,
         ...(opts.schema ? { responseMimeType: "application/json", responseSchema: opts.schema } : {}),
         thinkingConfig: { thinkingLevel: opts.thinking || thinkingOf(model) },
       },
     }),
-    signal: AbortSignal.timeout(opts.timeout || ATTEMPT_MS),
+    signal: AbortSignal.timeout(ATTEMPT_MS),
   });
   if (!res.ok) {
     const j = await res.json().catch(() => ({}));
@@ -138,13 +136,11 @@ const restFor = (status) => (status === 429 ? 10 * 60e3 : status >= 500 || !stat
 /**
  * Modèles à essayer, dans l'ordre ; ceux au repos sont sautés. S'ils le sont tous : tous quand
  * même pour une recherche, aucun pour un bonus de fiche (rappel, « pour qui ») qui attendra.
- * opts.only → seulement ces modèles ; opts.tag → repos compté à part (quota de recherche Google).
  */
 function modelsFor(env, opts) {
   if (opts.model) return [opts.model];
-  let all = env.GEMINI_MODEL ? [env.GEMINI_MODEL, ...MODELS.filter((m) => m !== env.GEMINI_MODEL)] : MODELS;
-  if (opts.only) all = all.filter((m) => opts.only.includes(m));
-  const ready = all.filter((m) => !(RESTING.get(m + (opts.tag || "")) > Date.now()));
+  const all = env.GEMINI_MODEL ? [env.GEMINI_MODEL, ...MODELS.filter((m) => m !== env.GEMINI_MODEL)] : MODELS;
+  const ready = all.filter((m) => !(RESTING.get(m) > Date.now()));
   return ready.length || opts.optional ? ready : all;
 }
 
@@ -172,7 +168,7 @@ function cachedAsk(env, ctx, cacheUrl, ttl, ask, opts = {}) {
       } catch (e) {
         tried.push(`${model} : ${e.name === "TimeoutError" ? "pas de réponse en 5 s" : e.message}`);
         const rest = restFor(e.status);
-        if (rest) RESTING.set(model + (opts.tag || ""), Date.now() + rest);
+        if (rest) RESTING.set(model, Date.now() + rest);
       }
     }
     if (tried.length) console.warn("Gemini :", tried.join(" / "));
@@ -339,30 +335,30 @@ export async function resolveTitles(titles, kind, search, api) {
   }));
 }
 
-// ---------- Série renouvelée ? (recherche Google) ----------
-const RENEWAL_PROMPT = `Tu suis l'actualité des séries pour des spectateurs français. On te donne une série et la date du jour. Cherche les dernières nouvelles officielles (chaîne, plateforme, presse spécialisée) pour savoir ce qu'il en est de sa saison suivante.
-Réponds sur une seule ligne, au format STATUT|précision, sans rien d'autre :
-- STATUT : RENOUVELEE (saison suivante officiellement commandée ou annoncée), ANNULEE (la chaîne ou la plateforme a arrêté la série), TERMINEE (la dernière saison diffusée était prévue comme la dernière) ou EN_ATTENTE (rien d'officiel pour l'instant) ;
-- précision : quelques mots en français, sans point final : la date ou l'année de sortie prévue si elle est connue (« prévue en 2027 », « tournage en cours »), sinon ce qui est connu (« la chaîne n'a rien annoncé »). Vide si tu n'as rien à ajouter.
-Ne réponds RENOUVELEE ou ANNULEE que si une annonce officielle existe ; dans le doute, EN_ATTENTE.`;
-const RENEWAL_MODELS = ["gemini-3.5-flash-lite", "gemini-3.6-flash"];   // ceux qui ont droit à la recherche Google
+// ---------- Série renouvelée ? (d'après Wikipédia) ----------
+const RENEWAL_PROMPT = `Tu suis l'actualité des séries pour des spectateurs français. On te donne une série, la date du jour et des extraits de son article Wikipédia (en anglais). D'après ces extraits SEULEMENT, dis ce qu'il en est de la saison suivante :
+- statut : RENOUVELEE (saison suivante officiellement commandée ou annoncée), ANNULEE (la chaîne ou la plateforme a arrêté la série), TERMINEE (la dernière saison diffusée était prévue comme la dernière) ou EN_ATTENTE (rien d'officiel dans les extraits) ;
+- precision : quelques mots en français, sans point final : la date ou l'année de sortie prévue si les extraits la donnent (« prévue en 2027 », « tournage en cours »), sinon vide.
+Ne réponds RENOUVELEE, ANNULEE ou TERMINEE que si les extraits le disent clairement ; dans le doute, EN_ATTENTE.`;
+const RENEWAL_SCHEMA = {
+  type: "OBJECT",
+  properties: { statut: { type: "STRING", enum: ["RENOUVELEE", "ANNULEE", "TERMINEE", "EN_ATTENTE"] }, precision: { type: "STRING" } },
+  required: ["statut", "precision"],
+};
 const RENEWAL_CACHE_S = 7 * 86400;
 
 /**
  * Saison suivante d'une série que TMDB dit « pas terminée » sans saison annoncée, d'après les
- * actualités (Gemini + recherche Google), gardée 7 jours → { status, detail, … } ; status vide si
- * Gemini n'a pas pu répondre. id → clé de cache (« tv-100088-s3 ») ; prompt → la série et la date.
+ * extraits de son article Wikipédia, gardée 7 jours → { status, detail, … } ; status vide si
+ * Gemini n'a pas pu répondre. id → clé de cache (« tv-100088-s3 ») ; prompt → série, date, extraits.
  */
 export async function aiRenewal(env, ctx, id, prompt) {
   const ask = async (model) => {
-    const text = await geminiText(env, model, RENEWAL_PROMPT, prompt, { search: true, thinking: "low", timeout: 15000 });
-    const m = /(RENOUVELEE|ANNULEE|TERMINEE|EN_ATTENTE)\s*\|?\s*([^\n]*)/.exec(text || "");
-    if (!m) throw Object.assign(new Error(`réponse illisible : ${String(text).slice(0, 80)}`), { status: -1 });
-    const detail = m[2].replace(/[.\s]+$/, "").trim().slice(0, 90);
+    const r = await geminiJSON(env, model, RENEWAL_PROMPT, prompt, RENEWAL_SCHEMA);
+    const detail = String(r.precision || "").replace(/[.\s]+$/, "").trim().slice(0, 90);
     if (BROKEN.test(detail)) throw Object.assign(new Error("texte abîmé"), { status: -1 });
-    return { status: m[1], detail };
+    return { status: r.statut || "EN_ATTENTE", detail };
   };
-  const r = await cachedAsk(env, ctx, `https://cache.local/renewal/v1/${id}`, RENEWAL_CACHE_S, ask,
-    { optional: true, only: RENEWAL_MODELS, tag: "+google" });
+  const r = await cachedAsk(env, ctx, `https://cache.local/renewal/v2/${id}`, RENEWAL_CACHE_S, ask, { optional: true });
   return { ...r, ...(r.value || { status: "", detail: "" }) };
 }

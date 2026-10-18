@@ -27,9 +27,10 @@ import { configurePage } from "./page.js";
 import { guidePage, NUVIO_TV_APK } from "./guide.js";
 import { lienPage } from "./lien.js";
 import { hallPage } from "./hall.js";
+import { smartSearch } from "./search.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.8.0";
+const VERSION = "5.9.0";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const ASSETS = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main";
 const NOISE_TV = ["10763", "10764", "10766", "10767"]; // actualité, téléréalité, soap, talk-show
@@ -499,13 +500,11 @@ async function catalog(env, ctx, type, id, extra, today, cfg) {
     const query = (extra.search || "").trim();
     if (!query) return [];
     const page = Math.floor(skip / PAGE) + 1;
-    const data = await tmdb(env, `/search/${type === "series" ? "tv" : "movie"}`,
-      { query, page, include_adult: "false", region: opts.region }, opts.lang);
-    if (!data.results || page > (data.total_pages || 0)) return [];
-    // Les plus connus d'abord, sans les fiches vides (sans affiche ou sans aucun vote).
-    const results = data.results
-      .filter((it) => it.poster_path && it.vote_count > 0)
-      .sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+    // Recherche tolérante (sigles, fautes de frappe, année) : voir search.js.
+    const endpoint = `/search/${type === "series" ? "tv" : "movie"}`;
+    const results = await smartSearch(query, page, (q, p, extra = {}) =>
+      tmdb(env, endpoint, { query: q, page: p, include_adult: "false", region: opts.region, ...extra }, opts.lang), type);
+    if (!results.length) return [];
     const metas = await toMetas(env, ctx, results, type, opts, today);
     return metas.map(({ _digital, _guess, _vf, ...m }) => m);
   }

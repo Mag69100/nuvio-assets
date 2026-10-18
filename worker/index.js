@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.17.0";
+const VERSION = "5.17.1";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -839,6 +839,8 @@ const FICHE_AI_WAIT_MS = 3500;   // attente maximale du rappel et du « pour qui
 
 /** « 7 nov. », ou « 7 nov. 2027 » hors de l'année en cours. */
 const dateFr = (iso, today) => `${shortDate(iso)}${iso.slice(0, 4) !== today.slice(0, 4) ? ` ${iso.slice(0, 4)}` : ""}`;
+// Point final, sauf après un mois abrégé (« le 15 déc. », pas « le 15 déc.. »).
+const dot = (text) => (text.endsWith(".") ? text : `${text}.`);
 
 /**
  * Film d'une saga : le film suivant (sorti, daté ou seulement annoncé), ou « pas de suite annoncée »
@@ -853,7 +855,7 @@ function sagaFollow(parts, d, today) {
   if (!next) return "🏁 Pas de suite annoncée pour l'instant.";
   const title = `« ${next.title || next.original_title} »`;
   if (!next.release_date) return `🔜 Une suite est annoncée : ${title}, pas encore de date.`;
-  if (next.release_date > today) return `🔜 La suite : ${title}, sortie prévue le ${dateFr(next.release_date, today)}.`;
+  if (next.release_date > today) return dot(`🔜 La suite : ${title}, sortie prévue le ${dateFr(next.release_date, today)}`);
   return `➡️ La suite : ${title} (${next.release_date.slice(0, 4)}).`;
 }
 
@@ -867,12 +869,12 @@ function seriesFollow(d, today) {
   if (d.status !== "Returning Series") return "";
   const last = d.last_episode_to_air, next = d.next_episode_to_air;
   const lastSeason = last ? last.season_number : 0;
-  if (next && next.season_number > lastSeason && next.air_date) return `🔜 Saison ${next.season_number} : à partir du ${dateFr(next.air_date, today)}.`;
+  if (next && next.season_number > lastSeason && next.air_date) return dot(`🔜 Saison ${next.season_number} : à partir du ${dateFr(next.air_date, today)}`);
   if (next) return "";
   const coming = (d.seasons || []).find((x) => x.season_number > lastSeason);
   if (coming) {
     return coming.air_date && coming.air_date > today
-      ? `🔜 Saison ${coming.season_number} : à partir du ${dateFr(coming.air_date, today)}.`
+      ? dot(`🔜 Saison ${coming.season_number} : à partir du ${dateFr(coming.air_date, today)}`)
       : `🔜 Saison ${coming.season_number} annoncée, pas encore de date.`;
   }
   return `🔜 Pas encore terminée : aucune date pour la saison ${lastSeason + 1}.`;

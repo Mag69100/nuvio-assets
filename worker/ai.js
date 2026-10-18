@@ -17,7 +17,7 @@
  * Secret facultatif : GEMINI_API_KEY (sans lui, rien ne change). Variable facultative : GEMINI_MODEL
  * (modèle à essayer en premier).
  */
-import { norm, scoreOf } from "./search.js";
+import { norm, scoreOf, isExact } from "./search.js";
 
 // Dans l'ordre : Flash-Lite répond en 1 à 2 s avec de bons titres ; 3.6 Flash en 3 s. 3.8 Flash,
 // un peu meilleur, met jusqu'à 6 s et sature souvent : pas retenu.
@@ -149,11 +149,16 @@ const yearOf = (it) => Number((it.release_date || it.first_air_date || "").slice
 async function findOne(pick, kind, search) {
   const yearKey = kind === "series" ? "first_air_date_year" : "year";
   const names = [...new Set([pick.title, pick.title_fr].filter(Boolean))];
-  const ok = (it) => it && it.poster_path && it.vote_count > 0 && names.some((n) => scoreOf(n, it) >= MATCH);
-  // L'année à un an près (TMDB donne la date de sortie du pays : Aladdin de Disney, 1992, sort en
-  // France en 1993), puis le plus connu : pas un Aladdin obscur de la même année.
-  const near = (it) => !pick.year || Math.abs(yearOf(it) - pick.year) <= 1;
-  const best = (list) => list.filter((it) => ok(it) && near(it)).sort((a, b) => (b.vote_count || 0) - (a.vote_count || 0))[0] || null;
+  const sim = (it) => Math.max(...names.map((n) => scoreOf(n, it)));
+  const gap = (it) => (pick.year ? Math.abs(yearOf(it) - pick.year) : 0);
+  // Titre identique (année à 3 ans près : dates de sortie qui varient selon les pays et les
+  // festivals, « The Upside » 2017 ou 2019) ou titre ressemblant à un an près. Puis : identique
+  // d'abord (pas « The Upside-down Triangle »), bonne année, et le plus connu (Aladdin de Disney,
+  // pas un Aladdin obscur de la même année).
+  const exactOf = (it) => names.some((n) => isExact(n, it));
+  const fits = (it) => it && it.poster_path && it.vote_count > 0 && (exactOf(it) ? gap(it) <= 3 : sim(it) >= MATCH && gap(it) <= 1);
+  const rank = (it) => 2 * exactOf(it) + (gap(it) <= 1);
+  const best = (list) => list.filter(fits).sort((a, b) => rank(b) - rank(a) || (b.vote_count || 0) - (a.vote_count || 0))[0] || null;
   // Titre + année d'abord ; sinon le titre français sans l'année.
   const exact = best(results(await search(pick.title, 1, pick.year ? { [yearKey]: pick.year } : {})));
   if (exact) return exact;

@@ -30,7 +30,7 @@ import { hallPage } from "./hall.js";
 import { smartSearch, prepareWords } from "./search.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.11.0";
+const VERSION = "5.11.1";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const ASSETS = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main";
 const NOISE_TV = ["10763", "10764", "10766", "10767"]; // actualité, téléréalité, soap, talk-show

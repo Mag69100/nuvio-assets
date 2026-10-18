@@ -178,11 +178,16 @@ export function titleMatch(query, it) {
   });
 }
 
-/** Un seul mot : sa forme au pluriel (ou au singulier), que TMDB ne fait pas correspondre. */
+/**
+ * La requête avec son premier mot long au pluriel (ou au singulier), que TMDB ne fait pas
+ * correspondre : « monstre » → monstres, « pirate des caraibes » → pirates des caraibes.
+ */
 export function pluralVariant(query) {
-  const q = query.trim().toLowerCase();
-  if (!/^[a-zà-ÿ]{4,}$/.test(q)) return null;
-  return q.endsWith("s") ? q.slice(0, -1) : `${q}s`;
+  const words = query.trim().toLowerCase().split(/\s+/);
+  const i = words.findIndex((w) => /^[a-zà-ÿ]{4,}$/.test(w));
+  if (i < 0) return null;
+  words[i] = words[i].endsWith("s") ? words[i].slice(0, -1) : `${words[i]}s`;
+  return words.join(" ");
 }
 
 // Mots en trop autour du titre : « film barbie », « barbie le film », « les films de nolan ».
@@ -374,7 +379,7 @@ const FIRST_PAGE = 20;
 const PERSON_POP = 2;     // popularité TMDB d'une personne connue…
 const PERSON_VOTES = 1000; // …ou un de ses titres phares avec au moins autant de votes
 const PERSON_MAX = 15;    // films de la personne en tête, puis les titres qui correspondent
-const FAMOUS = 300;       // un titre exact avec autant de votes l'emporte sur une personne ou un studio
+const FAMOUS = 300;       // un titre exact avec autant de votes l'emporte sur un studio (ou une personne peu connue)
 const HEAD_MAX = 15;
 
 const usable = (list) => (list || []).filter((it) => it && it.poster_path && it.vote_count > 0);
@@ -398,7 +403,7 @@ function textScore(forms, it) {
  * Parmi celles qui ont un n-ième film : celle dont le film porte le numéro dans son titre
  * (« spider man 2 » → Spider-Man 2 de Sam Raimi), sinon la plus vue.
  */
-async function sagaFilms({ sagas, base, n, api, pool }) {
+async function sagaFilms({ sagas, base, n, api, pool, trace }) {
   const picks = (sagas.results || [])
     .map((c) => ({ c, s: Math.max(similarity(base, sagaName(c.name)), similarity(base, sagaName(c.original_name))) }))
     .filter((x) => x.s >= GOOD)
@@ -422,9 +427,14 @@ async function sagaFilms({ sagas, base, n, api, pool }) {
       const list = sub.length >= n ? sub : parts;
       return { name: c.name, ...nthPart(list, n, `${sagaName(c.name)} ${sagaName(c.original_name)}`), votes: list.reduce((t, p) => t + (p.vote_count || 0), 0) };
     })
-    .filter((x) => usable([x.hit]).length)
-    .sort((a, b) => b.explicit - a.explicit || b.votes - a.votes)[0];
-  return found ? { films: [found.hit, ...usable(found.dated)], name: found.name } : null;
+    .filter((x) => usable([x.hit]).length);
+  // Le numéro dans le titre ne départage que des sagas de notoriété comparable : pas la saga
+  // indienne « Avatara Purusha » (son film « 2 ») devant Avatar.
+  const top = Math.max(0, ...found.map((x) => x.votes));
+  const strong = (x) => x.explicit && x.votes >= 0.2 * top;
+  found.sort((a, b) => strong(b) - strong(a) || b.votes - a.votes);
+  if (trace) trace.sagas = found.map((x) => ({ name: x.name, hit: x.hit.title, explicit: x.explicit, votes: x.votes, films: x.dated.map((p) => p.title) }));
+  return found[0] ? { films: [found[0].hit, ...usable(found[0].dated)], name: found[0].name } : null;
 }
 
 /**
@@ -473,13 +483,13 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
     fixed ? search(fixed, 1) : none,
     variant ? search(variant, 1) : none,
     // Titres anglais des résultats (« spirited away » → Le Voyage de Chihiro) ; pas affichés.
-    search(fixed || main, 1, { language: "en-US" }),
+    search(main, 1, { language: "en-US" }),
     api && !alias && !ym && !sq && !studio ? api("/search/person", { query: main, include_adult: "false" }) : none,
     api && sq ? api("/search/collection", { query: sagaBase }) : none,
     api && studio ? api(`/discover/${kind === "series" ? "tv" : "movie"}`, {
-      ...studio, sort_by: "popularity.desc", "vote_count.gte": kind === "series" ? 50 : 200,
+      ...studio, sort_by: "popularity.desc", "vote_count.gte": kind === "series" ? 300 : 200,
       include_adult: "false", watch_region: opts.region || "FR",
-      ...(kind === "series" ? { without_genres: "10763,10764,10767" } : {}),
+      ...(kind === "series" ? { without_genres: "10762,10763,10764,10767" } : {}),
     }) : none,
   ]);
   const results = (d) => (d && d.results) || [];
@@ -512,7 +522,8 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   let ranked = [...pool].sort((a, b) => rank(b) - rank(a));
   // Les titres sans rapport avec la requête (trouvés par TMDB via un titre étranger) ne
   // restent que s'il n'y a pas assez de vrais résultats.
-  if (ranked.filter((it) => text.get(it.id) >= KEEP).length >= 5) ranked = ranked.filter((it) => text.get(it.id) >= KEEP);
+  const tmdbTop = new Set(usable(results(rawRes)).slice(0, 5).map((it) => it.id));
+  if (ranked.filter((it) => text.get(it.id) >= KEEP).length >= 5) ranked = ranked.filter((it) => text.get(it.id) >= KEEP || tmdbTop.has(it.id));
 
   const famousExact = pool.some((it) => titleMatch(main, it) && it.vote_count >= FAMOUS);
   let head = [], headKind = null;
@@ -520,7 +531,7 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   // « dune 2 » : le bon film de la saga, puis toute la saga. Un titre identique et assez connu
   // reste devant (« ocean's 8 ») ; pas un nanar au titre d'origine « Terminator 2 ».
   if (sagas) {
-    const saga = await sagaFilms({ sagas, base: sagaBase, n: sq.n, api, pool });
+    const saga = await sagaFilms({ sagas, base: sagaBase, n: sq.n, api, pool, trace });
     if (saga) {
       const hit = saga.films[0];
       const exact = pool.filter((it) => it.id !== hit.id && isExact(raw, it) && it.vote_count >= 0.3 * hit.vote_count);
@@ -538,10 +549,15 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
 
   // Un acteur ou un réalisateur (« nolan », « omar sy ») : ses films d'abord, puis les titres.
   // Pas quand un titre connu porte exactement ce nom (« lupin », « dune »).
-  if (people && !famousExact) {
+  // Un titre exact ne l'emporte que s'il est connu au regard de la personne : le documentaire
+  // « Spielberg » (300 votes) ne cache pas les films de Spielberg.
+  const exactVotes = Math.max(0, ...pool.filter((it) => titleMatch(main, it)).map((it) => it.vote_count || 0));
+  const topVotes = (p) => Math.max(0, ...(p.known_for || []).map((k) => k.vote_count || 0));
+  if (people) {
     const person = results(people).slice(0, 5).find((p) => ["Acting", "Directing", "Writing"].includes(p.known_for_department)
       && personMatch(main, p.name)
-      && ((p.popularity || 0) >= PERSON_POP || Math.max(0, ...(p.known_for || []).map((k) => k.vote_count || 0)) >= PERSON_VOTES));
+      && ((p.popularity || 0) >= PERSON_POP || topVotes(p) >= PERSON_VOTES)
+      && exactVotes < Math.max(FAMOUS, 0.1 * topVotes(p)));
     if (person) {
       const credits = await api(`/person/${person.id}/${kind === "series" ? "tv" : "movie"}_credits`);
       const films = dedupe(usable(filmography(person, credits, kind))).slice(0, PERSON_MAX);

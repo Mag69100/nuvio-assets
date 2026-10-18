@@ -36,7 +36,7 @@ Secret à définir côté Cloudflare : `TMDB_API_KEY`.
 Adresse à installer dans Nuvio : `https://nuvio-assets.xnzxflix.workers.dev/manifest.json`
 
 Film pas encore regardable : la date envoyée à Nuvio (`released`, celle du grand carrousel) est sa date de
-sortie numérique (ou une estimation : sortie en salle + 45 jours), et le résumé commence par « 📅 Dispo le… ».
+sortie numérique (ou une estimation : sortie en salle + 45 jours), et le résumé commence par « DISPO · le… ».
 Ce rappel ne s'affiche que si « Infos » est désactivé dans l'enrichissement TMDB de Nuvio.
 
 Recherche : deux catalogues `recherche-films` et `recherche-series` (« Films », « Séries »), titres en français,
@@ -53,8 +53,9 @@ reste pour les anciennes installations). Après le résumé : y aura-t-il une su
 terminée ou annulée d'après TMDB ; saison suivante commandée ou non d'après l'article Wikipédia anglais, lu par Gemini,
 diagnostic `/debug/renewal/<id TMDB>`), scène après le générique, œuvre adaptée, temps pour tout
 voir (série ou saga), et avec `GEMINI_API_KEY` « pour qui », « à savoir » et le rappel de l'œuvre précédente (gardés 6 mois).
-Épisodes : ⭐ sur les 3 mieux notés de chaque saison, « (remplissage) » sur les anime (animefillerlist.com). Séries en
-cours : « 📺 Nouvel épisode jeudi… » en tête du résumé. La recherche IA comprend aussi les répliques (« je suis ton
+Épisodes : ★ sur les 3 mieux notés de chaque saison, « (remplissage) » sur les anime (animefillerlist.com). Séries en
+cours : « NOUVEL ÉPISODE · jeudi… » en tête du résumé. Infos en mots-clés (SUITE ·, DURÉE ·, POUR QUI ·…), sans
+émojis : la police du Fire TV les dessine mal. La recherche IA comprend aussi les répliques (« je suis ton
 père ») et les mélanges (« entre Amélie et Fight Club »).
 
 Notes : vraies notes IMDb, d'après les fichiers publics d'IMDb (`data/imdb-ratings.bin`, refait chaque lundi par

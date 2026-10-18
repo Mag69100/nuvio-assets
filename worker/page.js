@@ -962,9 +962,9 @@ const calmMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 // Fonds envoyés en w1920 (ou original, w1280 selon la version de l'addon) : on demande la taille utile.
 const imgW = (u, w) => (u || "").replace(/[/](original|w1920|w1280)[/]/, "/" + w + "/");
 const cssUrl = (u) => "url('" + u.replace(/'/g, "%27") + "')";
-// Film pas encore regardable : l'addon met « 📅 Dispo le… » en tête du résumé ; comme sur la TV,
+// Film pas encore regardable : l'addon met « DISPO · le… » en tête du résumé ; comme sur la TV,
 // la ligne du dessous ne garde alors que l'année.
-const aDispo = (m) => String(m.description || "").indexOf("📅") === 0;
+const aDispo = (m) => String(m.description || "").indexOf("DISPO · ") === 0;
 const metaLine = (m) => [aDispo(m) ? String(m.releaseInfo || "").split(" · ")[0] : m.releaseInfo, (m.genres || []).slice(0, 2).join(", "), m.imdbRating ? "★ " + m.imdbRating : ""].filter(Boolean).join("  ·  ");
 
 // Bandes-annonces (YouTube, via l'addon : en français si elle existe, sinon en VO).

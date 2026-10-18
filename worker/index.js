@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.18.14";
+const VERSION = "5.19.0";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -263,8 +263,8 @@ function episodeNote(ep, today) {
   if (!ep) return "";
   const when = (e) => (e.air_date === today ? "aujourd'hui" : `${dayName(e.air_date)} ${shortDate(e.air_date)}`);
   const say = (e, past) => (e.episode_number === 1
-    ? `Saison ${e.season_number} : 1er épisode ${past ? "sorti " : ""}${when(e)}`
-    : `Nouvel épisode ${past ? "sorti " : ""}${when(e)} (S${e.season_number} É${e.episode_number})`);
+    ? `NOUVELLE SAISON · saison ${e.season_number}, 1er épisode ${past ? "sorti " : ""}${when(e)}`
+    : `NOUVEL ÉPISODE · ${past ? "sorti " : ""}${when(e)} (S${e.season_number} É${e.episode_number})`);
   const { next, last } = ep;
   if (last && last.air_date && last.air_date <= today && last.air_date >= addDays(today, -3)) return say(last, true);
   if (next && next.air_date && next.air_date >= today && next.air_date <= addDays(today, 7)) return say(next, false);
@@ -375,7 +375,7 @@ async function toMetas(env, ctx, results, kind, opts, today) {
       // (l'original est souvent en 4K, plusieurs Mo par image). Le w1280 paraît flou en plein écran.
       background: infos[i].backdrop || it.backdrop_path ? `${IMG}w1920${infos[i].backdrop || it.backdrop_path}` : undefined,
       logo: infos[i].logo,
-      description: [note ? `${kind === "movie" ? "📅" : "📺"} ${note}${note.endsWith(".") ? "" : "."}` : "", it.overview || ""].filter(Boolean).join("\n") || undefined,
+      description: [noteLine(note, kind === "movie"), it.overview || ""].filter(Boolean).join("\n") || undefined,
       // Séries : l'épisode de la semaine seulement dans le résumé (le hero affiche aussi cette ligne :
       // il apparaissait deux fois, et coupé ici).
       releaseInfo: [date.slice(0, 4), kind === "movie" ? note : ""].filter(Boolean).join(" · ") || undefined,
@@ -856,7 +856,7 @@ async function meta(env, kind, id, cfg, today, ctx) {
     poster: d.poster_path ? `${IMG}w500${d.poster_path}` : undefined,
     background: backdrop ? `${IMG}w1920${backdrop.file_path}` : d.backdrop_path ? `${IMG}w1920${d.backdrop_path}` : undefined,
     logo: logo ? `${IMG}w500${logo.file_path.replace(/\.svg$/, ".png")}` : undefined,
-    description: [note ? `${movie ? "📅" : "📺"} ${note}.` : "", d.overview || ""].filter(Boolean).join("\n") || undefined,
+    description: [noteLine(note, movie), d.overview || ""].filter(Boolean).join("\n") || undefined,
     releaseInfo: movie ? [date.slice(0, 4), note].filter(Boolean).join(" · ") || undefined
       : date ? `${date.slice(0, 4)}-${endYear}` : undefined,
     released: shownDate ? `${shownDate}T00:00:00.000Z` : undefined,
@@ -926,7 +926,7 @@ async function meta(env, kind, id, cfg, today, ctx) {
         if (!s || !s.episodes) continue;
         const best = n > 0 ? bestEpisodes(s.episodes, today) : new Set();
         for (const e of s.episodes) {
-          const title = `${best.has(e.episode_number) ? "⭐ " : ""}${e.name || `Épisode ${e.episode_number}`}`;
+          const title = `${best.has(e.episode_number) ? "★ " : ""}${e.name || `Épisode ${e.episode_number}`}`;
           videos.push({
             id: `${base}:${n}:${e.episode_number}`,
             title,
@@ -964,10 +964,11 @@ async function meta(env, kind, id, cfg, today, ctx) {
     if ([recap, profile, renewal].some((r) => r === "attente" || (r && r.error))) m._partial = true;
     if (renewal && renewal !== "attente" && renewal.status) extras[0] = renewalNote(renewal, follow.season);
     if (profile && profile !== "attente") {
-      if (profile.pourQui) extras.push(`🎯 ${profile.pourQui}`);
-      if (profile.aSavoir) extras.push(`⚠️ À savoir : ${profile.aSavoir}`);
+      // « Pour les fans de… » → « POUR QUI · Les fans de… ».
+      if (profile.pourQui) extras.push(`POUR QUI · ${upperFirst(profile.pourQui.replace(/^pour\s+/i, ""))}`.replace(/\.$/, ""));
+      if (profile.aSavoir) extras.push(`À SAVOIR · ${profile.aSavoir}`.replace(/\.$/, ""));
     }
-    if (recap && recap !== "attente" && recap.recap) recapLine = `🔁 ${prev.label}, attention ça raconte la fin : ${recap.recap}`;
+    if (recap && recap !== "attente" && recap.recap) recapLine = `RAPPEL (ça raconte la fin) · ${prev.label} : ${recap.recap}`;
   }
   m.description = [m.description, extras.filter(Boolean).join("\n"), recapLine].filter(Boolean).join("\n\n") || undefined;
   if (vfJob) {
@@ -990,10 +991,20 @@ async function meta(env, kind, id, cfg, today, ctx) {
 // ouverture d'une fiche : elles arrivent presque toujours d'un coup. Ensuite tout est en cache (6 mois).
 const FICHE_AI_WAIT_MS = 7000;
 
+const upperFirst = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+
+/**
+ * 1re ligne du résumé, en mots-clés (pas d'émojis : la police du Fire TV les dessine mal) :
+ * « DISPO · le 17 nov. » pour un film, « NOUVEL ÉPISODE · jeudi 23 oct. (S2 É5) » pour une série.
+ * Le site (aperçu Nuvio) reconnaît « DISPO · » pour mettre la date en valeur.
+ */
+function noteLine(note, movie) {
+  if (!note) return "";
+  return movie ? `DISPO · ${note.replace(/^Dispo /, "")}` : note;
+}
+
 /** « 7 nov. », ou « 7 nov. 2027 » hors de l'année en cours. */
 const dateFr = (iso, today) => `${shortDate(iso)}${iso.slice(0, 4) !== today.slice(0, 4) ? ` ${iso.slice(0, 4)}` : ""}`;
-// Point final, sauf après un mois abrégé (« le 15 déc. », pas « le 15 déc.. »).
-const dot = (text) => (text.endsWith(".") ? text : `${text}.`);
 
 /**
  * Film d'une saga : le film suivant (sorti, daté ou seulement annoncé), ou « pas de suite annoncée »
@@ -1005,11 +1016,11 @@ function sagaFollow(parts, d, today) {
   const i = order.findIndex((p) => p.id === d.id);
   if (i < 0) return "";
   const next = order[i + 1];
-  if (!next) return "🏁 Pas de suite annoncée pour l'instant.";
+  if (!next) return "SUITE · Pas de suite annoncée pour l'instant";
   const title = `« ${next.title || next.original_title} »`;
-  if (!next.release_date) return `🔜 Une suite est annoncée : ${title}, pas encore de date.`;
-  if (next.release_date > today) return dot(`🔜 La suite : ${title}, sortie prévue le ${dateFr(next.release_date, today)}`);
-  return `➡️ La suite : ${title} (${next.release_date.slice(0, 4)}).`;
+  if (!next.release_date) return `SUITE · ${title}, annoncée, pas encore de date`;
+  if (next.release_date > today) return `SUITE · ${title}, sortie prévue le ${dateFr(next.release_date, today)}`;
+  return `SUITE · ${title} (${next.release_date.slice(0, 4)})`;
 }
 
 /**
@@ -1018,21 +1029,21 @@ function sagaFollow(parts, d, today) {
  */
 function seriesFollow(d, today) {
   const say = (text) => ({ text });
-  if (d.status === "Ended") return say("🏁 Série terminée : il n'y aura pas de suite.");
-  if (d.status === "Canceled") return say("❌ Série annulée : il n'y aura pas de suite.");
+  if (d.status === "Ended") return say("SUITE · Série terminée, il n'y aura pas de suite");
+  if (d.status === "Canceled") return say("SUITE · Série annulée, il n'y aura pas de suite");
   if (d.status !== "Returning Series") return null;
   const last = d.last_episode_to_air, next = d.next_episode_to_air;
   const lastSeason = last ? last.season_number : 0;
-  if (next && next.season_number > lastSeason && next.air_date) return say(dot(`🔜 Saison ${next.season_number} : à partir du ${dateFr(next.air_date, today)}`));
+  if (next && next.season_number > lastSeason && next.air_date) return say(`SUITE · Saison ${next.season_number} à partir du ${dateFr(next.air_date, today)}`);
   if (next) return null;
   const coming = (d.seasons || []).find((x) => x.season_number > lastSeason);
   if (coming) {
     return say(coming.air_date && coming.air_date > today
-      ? dot(`🔜 Saison ${coming.season_number} : à partir du ${dateFr(coming.air_date, today)}`)
-      : `🔜 Saison ${coming.season_number} annoncée, pas encore de date.`);
+      ? `SUITE · Saison ${coming.season_number} à partir du ${dateFr(coming.air_date, today)}`
+      : `SUITE · Saison ${coming.season_number} annoncée, pas encore de date`);
   }
   // TMDB ne sait pas si la saison suivante est commandée : les actualités trancheront (aiRenewal).
-  return { text: `🔜 Pas encore terminée : aucune date pour la saison ${lastSeason + 1}.`, unsure: true, season: lastSeason + 1 };
+  return { text: `SUITE · Pas encore terminée, aucune date pour la saison ${lastSeason + 1}`, unsure: true, season: lastSeason + 1 };
 }
 
 const WIKI_HEADERS = { "User-Agent": "CatalogueFR/1.0 (https://nuvio-assets.xnzxflix.workers.dev)" };
@@ -1075,32 +1086,32 @@ async function renewalOf(env, ctx, d, season, today) {
 
 /** Ligne « suite » d'après les actualités : commandée, annulée, terminée ou en attente. */
 function renewalNote(r, season) {
-  const more = r.detail ? ` : ${r.detail}` : "";
-  if (r.status === "RENOUVELEE") return `🔜 Saison ${season} commandée${more}.`;
-  if (r.status === "ANNULEE") return `❌ Série annulée : il n'y aura pas de saison ${season}.`;
-  if (r.status === "TERMINEE") return "🏁 Série terminée : il n'y aura pas de suite.";
-  return `⏸️ Saison ${season} pas encore commandée${more}.`;
+  const more = r.detail ? `, ${r.detail}` : "";
+  if (r.status === "RENOUVELEE") return `SUITE · Saison ${season} commandée${more}`;
+  if (r.status === "ANNULEE") return `SUITE · Série annulée, il n'y aura pas de saison ${season}`;
+  if (r.status === "TERMINEE") return "SUITE · Série terminée, il n'y aura pas de suite";
+  return `SUITE · Saison ${season} pas encore commandée${more}`;
 }
 
 /** Scène pendant ou après le générique, d'après les mots-clés TMDB. */
 function creditsScene(keywords) {
   const during = keywords.includes("duringcreditsstinger"), after = keywords.includes("aftercreditsstinger");
-  if (during && after) return "🎬 Reste jusqu'au bout : il y a des scènes pendant et après le générique.";
-  if (after) return "🎬 Reste après le générique : il y a une scène.";
-  if (during) return "🎬 Il y a une scène pendant le générique.";
+  if (during && after) return "GÉNÉRIQUE · Reste jusqu'au bout, scènes pendant et après le générique";
+  if (after) return "GÉNÉRIQUE · Reste après le générique, il y a une scène";
+  if (during) return "GÉNÉRIQUE · Une scène pendant le générique";
   return "";
 }
 
 // Œuvre adaptée (mots-clés TMDB) et métiers TMDB de son auteur.
 const SOURCES = [
-  [/based on (novel or book|young adult novel)/, "du roman"], [/based on short story/, "de la nouvelle"],
-  [/based on manga/, "du manga"], [/based on (comic|graphic novel)/, "de la bande dessinée"],
-  [/based on video game/, "du jeu vidéo"], [/based on play or musical/, "de la pièce"],
+  [/based on (novel or book|young adult novel)/, "Roman"], [/based on short story/, "Nouvelle"],
+  [/based on manga/, "Manga"], [/based on (comic|graphic novel)/, "Bande dessinée"],
+  [/based on video game/, "Jeu vidéo"], [/based on play or musical/, "Pièce de théâtre"],
 ];
 const AUTHOR_JOBS = new Set(["Novel", "Book", "Author", "Short Story", "Comic Book", "Graphic Novel"]);
 const de = (name) => (/^[aeiouyhâàéèêîïôûAEIOUYHÂÀÉÈÊÎÏÔÛ]/.test(name) ? `d'${name}` : `de ${name}`);
 
-/** « Adapté du roman de Stephen King », « Tiré d'une histoire vraie »… */
+/** « ADAPTATION · Roman de Stephen King », « ADAPTATION · Histoire vraie »… */
 function sourceNote(keywords, crew) {
   const kw = keywords.join("|");
   const src = SOURCES.find(([re]) => re.test(kw));
@@ -1111,9 +1122,9 @@ function sourceNote(keywords, crew) {
   const authors = crew.filter((c) => AUTHOR_JOBS.has(c.job) && /^[A-Za-zÀ-ÿ]/.test(c.name || ""))
     .sort((a, b) => (b.popularity || 0) - (a.popularity || 0)).slice(0, 1).map((c) => c.name);
   const parts = [];
-  if (src) parts.push(`Adapté ${src[1]}${authors.length ? ` ${de(authors.join(" et "))}` : ""}`);
-  if (real) parts.push(parts.length ? "tiré d'une histoire vraie" : "Tiré d'une histoire vraie");
-  return parts.length ? `📖 ${parts.join(", ")}.` : "";
+  if (src) parts.push(`${src[1]}${authors.length ? ` ${de(authors.join(" et "))}` : ""}`);
+  if (real) parts.push(parts.length ? "histoire vraie" : "Histoire vraie");
+  return parts.length ? `ADAPTATION · ${parts.join(", ")}` : "";
 }
 
 const duration = (min) => (min >= 600 ? `${Math.round(min / 60)} h`
@@ -1127,7 +1138,7 @@ function seriesTime(videos, d) {
   const minutes = aired.reduce((t, v) => t + (v._minutes || usual), 0);
   if (!minutes) return "";
   const seasons = new Set(aired.map((v) => v.season)).size;
-  return `⏳ Tout voir : ${duration(minutes)} (${seasons} saison${seasons > 1 ? "s" : ""}, ${aired.length} épisodes).`;
+  return `DURÉE · ${duration(minutes)} pour tout voir (${seasons} saison${seasons > 1 ? "s" : ""}, ${aired.length} épisodes)`;
 }
 
 /** « La saga entière : 21 h (8 films) », films déjà sortis (une fiche TMDB par film, en cache). */
@@ -1136,7 +1147,7 @@ async function sagaTime(env, saga, d, lang) {
   const runtimes = await Promise.all(saga.map((p) => (p.id === d.id ? d.runtime
     : tmdb(env, `/movie/${p.id}`, {}, lang).then((x) => x.runtime))));
   if (runtimes.some((r) => !r)) return "";
-  return `⏳ La saga entière : ${duration(runtimes.reduce((t, r) => t + r, 0))} (${saga.length} films).`;
+  return `DURÉE · ${duration(runtimes.reduce((t, r) => t + r, 0))} pour toute la saga (${saga.length} films)`;
 }
 
 /** Les 3 épisodes les mieux notés d'une saison (au moins 6 épisodes sortis et notés), pour l'étoile. */
@@ -1191,7 +1202,7 @@ function previousWork(d, movie, saga, videos) {
     const year = p.release_date.slice(0, 4);
     return {
       id: `movie-${p.id}`,
-      label: `Rappel de « ${p.title} » (${year})`,
+      label: `« ${p.title} » (${year})`,
       prompt: `Film à raconter : « ${p.title} » (titre original : ${p.original_title}, ${year}).\nSynopsis : ${p.overview || "?"}\nLa suite qu'on va regarder : « ${d.title} ».`,
     };
   }
@@ -1202,10 +1213,10 @@ function previousWork(d, movie, saga, videos) {
   const eps = (videos || []).filter((v) => v.season === season && v.overview);
   // Sans résumés d'épisodes, seulement une série assez connue pour que Gemini la connaisse.
   if (eps.length < 2 && (d.vote_count || 0) < 300) return null;
-  const clean = (t) => t.replace(/^⭐ /, "").replace(/ \(remplissage\)$/, "");
+  const clean = (t) => t.replace(/^★ /, "").replace(/ \(remplissage\)$/, "");
   return {
     id: `tv-${d.id}-s${season}`,
-    label: `Rappel de la saison ${season}`,
+    label: `saison ${season}`,
     prompt: [`Série : « ${d.name} » (titre original : ${d.original_name}), saison ${season} à raconter.`,
       eps.length >= 2 ? `Résumés des épisodes :\n${eps.map((e) => `${e.episode}. ${clean(e.title)} : ${e.overview}`).join("\n")}` : ""]
       .filter(Boolean).join("\n").slice(0, 12000),

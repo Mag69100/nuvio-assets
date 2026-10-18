@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.18.10";
+const VERSION = "5.18.11";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -741,7 +741,7 @@ async function youtubeVf(query, name, season) {
 
 /** Bande-annonce VF d'un titre ({ key: identifiant YouTube, title }, ou { key: null }), gardée en cache. */
 async function vfTrailer(kind, imdb, name, year) {
-  const cacheKey = new Request(`https://cache.local/vf-trailer/${kind}/${imdb}`);
+  const cacheKey = new Request(`https://cache.local/vf-trailer/v2/${kind}/${imdb}`);
   const hit = await caches.default.match(cacheKey);
   if (hit) return hit.json();
   const allo = await allocineVf(kind, imdb);
@@ -932,11 +932,11 @@ async function meta(env, kind, id, cfg, today, ctx) {
     // Pas encore trouvée : la fiche n'est pas gardée, la VF sera là à la prochaine ouverture.
     if (vf === "attente") m._partial = true;
     else if (vf && vf.key) {
-      const vfTrailer = { source: vf.key, ytId: vf.key, type: "Trailer", name: vf.title, lang: "fr" };
+      const vfItem = { source: vf.key, ytId: vf.key, type: "Trailer", name: vf.title, lang: "fr" };
       // VF pas en HD sur YouTube : la bande-annonce HD de TMDB reste en premier (celle du hero), la VF
       // juste après dans la liste de la fiche.
       const first = trailers[0] && ((d.videos && d.videos.results) || []).find((v) => v.key === trailers[0].source);
-      m.trailers = vf.hd === false && first && first.size >= 720 ? [trailers[0], vfTrailer, ...trailers.slice(1)] : [vfTrailer, ...trailers];
+      m.trailers = vf.hd === false && first && first.size >= 720 ? [trailers[0], vfItem, ...trailers.slice(1)] : [vfItem, ...trailers];
       m.trailerStreams = m.trailers.map((t) => ({ ytId: t.ytId }));
     }
   }

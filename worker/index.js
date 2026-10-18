@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.18.13";
+const VERSION = "5.18.14";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -682,12 +682,16 @@ function bestImage(list, lang) {
     (order.indexOf(a.iso_639_1) + 1 || 9) - (order.indexOf(b.iso_639_1) + 1 || 9) || (b.vote_average || 0) - (a.vote_average || 0))[0];
 }
 
+// Vraie VF : TMDB classe aussi en « fr » les VOSTFR (son original, sous-titres français).
+const isVf = (lang, name) => lang === "fr" && !/\bVOST/i.test(name || "");
+
 function trailersOf(videos) {
   return (videos || [])
     .filter((v) => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"))
-    // Français d'abord, puis la meilleure définition (4K, 1080p, 720p…) : Nuvio lit la première dans le
-    // hero, et une vidéo pas en HD y devient floue (le hero zoome l'image).
-    .sort((a, b) => (b.iso_639_1 === "fr") - (a.iso_639_1 === "fr") || (b.size || 0) - (a.size || 0) || (b.type === "Trailer") - (a.type === "Trailer")
+    // VF d'abord, puis VOSTFR, puis la meilleure définition (4K, 1080p, 720p…) : Nuvio lit la première dans
+    // le hero, et une vidéo pas en HD y devient floue (le hero zoome l'image).
+    .sort((a, b) => isVf(b.iso_639_1, b.name) - isVf(a.iso_639_1, a.name) || (b.iso_639_1 === "fr") - (a.iso_639_1 === "fr")
+      || (b.size || 0) - (a.size || 0) || (b.type === "Trailer") - (a.type === "Trailer")
       || (b.official === true) - (a.official === true))
     .slice(0, 4)
     .map((v) => ({ source: v.key, ytId: v.key, type: v.type, name: v.name, lang: v.iso_639_1 }));
@@ -794,7 +798,7 @@ async function addToVfIndex(id, vf) {
 /** Bandes-annonces d'un titre de rangée : celles de TMDB, avec la VF de l'index si TMDB n'en a pas. */
 function catalogTrailers(trailers, vf) {
   let list = trailers;
-  if (vf && vf.key && !trailers.some((t) => t.lang === "fr")) {
+  if (vf && vf.key && !trailers.some((t) => isVf(t.lang, t.name))) {
     const vfItem = { source: vf.key, ytId: vf.key, type: "Trailer", lang: "fr" };
     // Même règle que la fiche : une VF pas en HD passe après la bande-annonce de TMDB.
     list = vf.hd === false && trailers.length ? [trailers[0], vfItem, ...trailers.slice(1)] : [vfItem, ...trailers];
@@ -837,7 +841,7 @@ async function meta(env, kind, id, cfg, today, ctx) {
   const trailers = trailersOf(d.videos && d.videos.results);
   // Pas de VF sur TMDB : recherche Allociné + YouTube, lancée tout de suite et attendue en fin de fiche.
   let vfJob = null;
-  if (short === "fr" && imdb && !trailers.some((t) => t.lang === "fr")) {
+  if (short === "fr" && imdb && !trailers.some((t) => isVf(t.lang, t.name))) {
     const job = vfTrailer(kind, imdb, (d.title || d.name || "").trim(), date.slice(0, 4)).catch(() => null);
     ctx.waitUntil(job);
     vfJob = Promise.race([job, new Promise((res) => setTimeout(() => res("attente"), VF_WAIT_MS))]);
@@ -1231,14 +1235,16 @@ async function trailer(env, kind, id) {
   const path = `/${kind === "series" ? "tv" : "movie"}/${tmdbId}/videos`;
   const pick = (r) => (r.results || [])
     .filter((v) => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"))
-    .sort((a, b) => (b.size >= 1080) - (a.size >= 1080) || (b.type === "Trailer") - (a.type === "Trailer") || (b.official === true) - (a.official === true))[0];
+    .sort((a, b) => isVf(b.iso_639_1, b.name) - isVf(a.iso_639_1, a.name) || (b.size >= 1080) - (a.size >= 1080)
+      || (b.type === "Trailer") - (a.type === "Trailer") || (b.official === true) - (a.official === true))[0];
   const fr = pick(await tmdb(env, path, {}, "fr-FR"));
-  if (fr) return { key: fr.key, lang: fr.iso_639_1 };
-  // Pas de VF sur TMDB : Allociné + YouTube, sinon la VO.
+  if (fr && isVf(fr.iso_639_1, fr.name)) return { key: fr.key, lang: fr.iso_639_1 };
+  // Pas de VF sur TMDB : Allociné + YouTube, sinon la VOSTFR, sinon la VO.
   const d = await tmdb(env, `/${kind === "series" ? "tv" : "movie"}/${tmdbId}`, { append_to_response: "external_ids" });
   const imdb = (d.imdb_id || (d.external_ids && d.external_ids.imdb_id)) || null;
   const vf = imdb ? await vfTrailer(kind, imdb, (d.title || d.name || "").trim(), (d.release_date || d.first_air_date || "").slice(0, 4)).catch(() => null) : null;
   if (vf && vf.key) return { key: vf.key, lang: "fr" };
+  if (fr) return { key: fr.key, lang: fr.iso_639_1 };
   const v = pick(await tmdb(env, path, {}, "en-US"));
   return { key: v ? v.key : null, lang: v ? v.iso_639_1 : null };
 }

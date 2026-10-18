@@ -49,7 +49,14 @@ les numéros de suite (« harry potter 3 »), les acteurs et réalisateurs (« n
 descriptions (« le film où un mec revit la même journée ») et les requêtes sans résultat proche : Gemini propose des titres,
 chacun vérifié dans TMDB, réponse gardée 30 jours en cache. Détail d'une recherche : `/debug/search/<movie|series>/<requête>`. Fiches (`/meta/<type>/<id>.json`) : résumé,
 casting, saisons et épisodes en français. TMDB Discover Plus n'est plus nécessaire (`config/recherche-fr-tmdb.json`
-reste pour les anciennes installations).
+reste pour les anciennes installations). Après le résumé : scène après le générique, œuvre adaptée, temps pour tout
+voir (série ou saga), et avec `GEMINI_API_KEY` « pour qui », « à savoir » et le rappel de l'œuvre précédente (gardés 6 mois).
+Épisodes : ⭐ sur les 3 mieux notés de chaque saison, « (remplissage) » sur les anime (animefillerlist.com). Séries en
+cours : « 📺 Nouvel épisode jeudi… » en tête du résumé. La recherche IA comprend aussi les répliques (« je suis ton
+père ») et les mélanges (« entre Amélie et Fight Club »).
+
+Notes : vraies notes IMDb, d'après les fichiers publics d'IMDb (`data/imdb-ratings.bin`, refait chaque lundi par
+`scripts/build_imdb_ratings.py`, workflow « Notes IMDb »), intégrées à l'addon (aucun appel réseau).
 
 ## Le site (même Worker, thème « salle de cinéma »)
 

@@ -184,7 +184,8 @@ export async function aiTitles(env, ctx, query, opts = {}) {
 // ---------- rappel avant la suite ----------
 const RECAP_PROMPT = `Tu écris des rappels pour des spectateurs français qui vont regarder la suite d'un film ou la saison suivante d'une série, et qui ont oublié l'histoire.
 Écris en français, au présent, en 4 à 6 phrases, sans titre, sans liste et sans phrase d'introduction (pas de « Dans ce film… »).
-Raconte toute l'histoire, fin comprise : les événements clés, ce que deviennent les personnages principaux (avec leurs noms), et où en est l'intrigue à la toute fin, puisque la suite part de là.
+Raconte toute l'histoire, fin comprise, avec des faits précis : les événements clés, les révélations (qui est vraiment le méchant, quel est le secret), qui meurt, ce que deviennent les personnages principaux (avec leurs noms), et où en est l'intrigue à la toute fin, puisque la suite part de là.
+Ne paraphrase pas le synopsis et n'écris aucune phrase vague (« une victoire éclatante », « de nouvelles aventures ») : chaque phrase doit apprendre quelque chose de concret.
 N'invente rien. Si des résumés d'épisodes sont fournis, appuie-toi uniquement sur eux. Si tu ne connais pas bien l'œuvre, renvoie un texte vide.`;
 const RECAP_SCHEMA = { type: "OBJECT", properties: { recap: { type: "STRING" } }, required: ["recap"] };
 const RECAP_CACHE_S = 180 * 86400;
@@ -196,18 +197,20 @@ const RECAP_CACHE_S = 180 * 86400;
  */
 export async function aiRecap(env, ctx, id, prompt) {
   const ask = async (model) => {
-    const recap = String((await geminiJSON(env, model, RECAP_PROMPT, prompt, RECAP_SCHEMA)).recap || "").trim();
+    // Un peu plus de réflexion qu'une recherche : de meilleurs souvenirs de l'histoire, et le rappel
+    // n'est écrit qu'une fois (gardé 6 mois).
+    const recap = String((await geminiJSON(env, model, RECAP_PROMPT, prompt, RECAP_SCHEMA, "low")).recap || "").trim();
     // Texte abîmé (retours à la ligne permis) : le modèle suivant, sans mettre celui-ci au repos.
     if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffd]|#00/.test(recap)) throw Object.assign(new Error("texte abîmé"), { status: -1 });
     return recap;
   };
-  const r = await cachedAsk(env, ctx, `https://cache.local/recap/v1/${id}`, RECAP_CACHE_S, ask, { optional: true });
+  const r = await cachedAsk(env, ctx, `https://cache.local/recap/v2/${id}`, RECAP_CACHE_S, ask, { optional: true });
   return { ...r, recap: r.value || "" };
 }
 
 // ---------- « Pour qui ? » et « À savoir » ----------
 const PROFILE_PROMPT = `Tu aides des spectateurs français à choisir un film ou une série. Pour l'œuvre décrite, réponds :
-- pour_qui : une seule phrase de 25 mots au plus, qui dit à qui l'œuvre va plaire et, si c'est utile, à qui elle ne plaira pas (« Pour les fans de thrillers lents et d'ambiances pesantes ; à éviter si tu cherches de l'action. »). Tutoie, sans rien dévoiler de l'histoire.
+- pour_qui : une seule phrase de 25 mots au plus, qui commence par « Pour » et dit à qui l'œuvre va plaire et, si c'est utile, à qui elle ne plaira pas (« Pour les fans de thrillers lents et d'ambiances pesantes ; à éviter si tu cherches de l'action. »). Tutoie, sans rien dévoiler de l'histoire.
 - a_savoir : ce qui peut choquer ou gêner, en une phrase courte et factuelle : violence, gore, sexe ou nudité, langage cru, drogue, peur (jump scares), thèmes durs (suicide, maltraitance…). Seulement ce qui est vraiment présent ; s'il n'y a rien de notable, « Rien de choquant ».
 N'invente rien. Si tu ne connais pas l'œuvre, appuie-toi sur le résumé, les genres, les mots-clés et la classification ; si tu ne peux pas savoir ce qu'elle montre, renvoie un texte vide pour a_savoir.`;
 const PROFILE_SCHEMA = {
@@ -228,7 +231,7 @@ export async function aiProfile(env, ctx, id, prompt) {
     if (BROKEN.test(value.pourQui + value.aSavoir)) throw Object.assign(new Error("texte abîmé"), { status: -1 });
     return value;
   };
-  const r = await cachedAsk(env, ctx, `https://cache.local/profile/v1/${id}`, RECAP_CACHE_S, ask, { optional: true });
+  const r = await cachedAsk(env, ctx, `https://cache.local/profile/v2/${id}`, RECAP_CACHE_S, ask, { optional: true });
   return { ...r, ...(r.value || { pourQui: "", aSavoir: "" }) };
 }
 

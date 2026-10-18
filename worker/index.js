@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.16.0";
+const VERSION = "5.16.1";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -858,7 +858,8 @@ function sourceNote(keywords, crew) {
   const kw = keywords.join("|");
   const src = SOURCES.find(([re]) => re.test(kw));
   const real = /based on (true story|real events|memoir or autobiography)|biography/.test(kw);
-  const authors = [...new Set(crew.filter((c) => AUTHOR_JOBS.has(c.job)).map((c) => c.name))].slice(0, 2);
+  // Auteurs écrits en alphabet latin seulement (TMDB n'a parfois que « 岸本斉史 » pour Masashi Kishimoto).
+  const authors = [...new Set(crew.filter((c) => AUTHOR_JOBS.has(c.job) && /^[A-Za-zÀ-ÿ]/.test(c.name || "")).map((c) => c.name))].slice(0, 2);
   const parts = [];
   if (src) parts.push(`Adapté ${src[1]}${authors.length ? ` ${de(authors.join(" et "))}` : ""}`);
   if (real) parts.push(parts.length ? "tiré d'une histoire vraie" : "Tiré d'une histoire vraie");

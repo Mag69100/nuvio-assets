@@ -30,7 +30,7 @@ import { hallPage } from "./hall.js";
 import { smartSearch } from "./search.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.9.2";
+const VERSION = "5.10.0";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const ASSETS = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main";
 const NOISE_TV = ["10763", "10764", "10766", "10767"]; // actualité, téléréalité, soap, talk-show
@@ -500,10 +500,11 @@ async function catalog(env, ctx, type, id, extra, today, cfg) {
     const query = (extra.search || "").trim();
     if (!query) return [];
     const page = Math.floor(skip / PAGE) + 1;
-    // Recherche tolérante (sigles, fautes de frappe, année) : voir search.js.
+    // Recherche tolérante (sigles, fautes de frappe, année, suites, acteurs) : voir search.js.
     const endpoint = `/search/${type === "series" ? "tv" : "movie"}`;
     const results = await smartSearch(query, page, (q, p, extra = {}) =>
-      tmdb(env, endpoint, { query: q, page: p, include_adult: "false", region: opts.region, ...extra }, opts.lang), type);
+      tmdb(env, endpoint, { query: q, page: p, include_adult: "false", region: opts.region, ...extra }, opts.lang), type,
+      (path, params = {}) => tmdb(env, path, params, opts.lang));
     if (!results.length) return [];
     const metas = await toMetas(env, ctx, results, type, opts, today);
     return metas.map(({ _digital, _guess, _vf, ...m }) => m);

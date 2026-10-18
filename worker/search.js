@@ -5,7 +5,13 @@
  *     reconnaît les débuts de mots (« bre », « inters ») et les mots seuls (« things »). Quand la
  *     recherche normale ne donne rien de proche, on relance avec ces morceaux puis on trie les
  *     résultats par ressemblance avec ce qui a été tapé.
+ *     On le fait aussi quand TMDB ne renvoie que quelques titres approchants (« interstelar » ne
+ *     donne que « Interstellar Wars »).
  *   - année en fin de requête : « dune 2021 » cherche « dune » sorti en 2021.
+ *   - numéro de suite : « dune 2 », « harry potter 3 », « star wars 4 » vont chercher la saga
+ *     TMDB et mettent le bon film en premier (numéro du titre, sinon ordre de sortie).
+ *   - acteurs et réalisateurs : « nolan », « omar sy » donnent leurs films, les plus connus d'abord.
+ *   - tri : le titre exact d'abord (« dark » → Dark avant Dark Matter), puis le plus connu.
  */
 
 // Sigles et surnoms courants → titre à chercher. Clés en minuscules, sans accents ni ponctuation.
@@ -26,6 +32,9 @@ export const ALIASES = {
   bttf: "Retour vers le futur", rvlf: "Retour vers le futur", ij: "Indiana Jones",
   jp: "Jurassic Park", tdk: "The Dark Knight", gotg: "Les Gardiens de la Galaxie",
   ff: "Fast & Furious", "fast and furious": "Fast & Furious",
+  // Titres connus en France sous un autre nom que celui de TMDB.
+  "jeu du calmar": "Squid Game", "le jeu du calmar": "Squid Game",
+  "money heist": "La casa de papel", "la maison de papier": "La casa de papel",
 };
 
 /** Minuscules, sans accents ni ponctuation, espaces simples. */
@@ -104,22 +113,103 @@ export function fallbackQueries(query) {
   return out.slice(0, 4);
 }
 
+/** Titre identique à la requête, article de tête mis à part (« office » → The Office). */
+export function isExact(query, it) {
+  const bare = (s) => norm(s).replace(/^(the|a|an|le|la|les|l|un|une) /, "");
+  const q = bare(query);
+  return !!q && (bare(it.title || it.name) === q || bare(it.original_title || it.original_name) === q);
+}
+
+const ROMAN = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix"];
+
+/** « dune 2 », « rocky iv », « john wick chapitre 4 » → { base, n }. Seulement de 1 à 9. */
+export function sequelOf(query) {
+  const m = query.trim().toLowerCase()
+    .match(/^(.+?)[\s:,-]+(?:(?:partie|part|[ée]pisode|chapitre|chapter|vol(?:ume)?\.?)\s*)?([1-9]|i{1,3}|iv|vi{0,3}|ix)$/);
+  if (!m) return null;
+  return { base: m[1].trim(), n: /\d/.test(m[2]) ? Number(m[2]) : ROMAN.indexOf(m[2]) + 1 };
+}
+
+/** Nom d'une saga TMDB sans « - Saga », « Collection »… */
+const sagaName = (s) => String(s || "").replace(/\s*[-–:]?\s*(la )?(saga|collection|trilogie|trilogy)\s*$/i, "");
+
+/**
+ * Le n-ième film d'une saga. Un numéro écrit dans le titre gagne (« épisode IV », « Toy Story 4 »),
+ * sauf « 2e partie » / « Part 2 », qui n'est pas le numéro de la suite (Harry Potter 7 et 8) ;
+ * sinon l'ordre de sortie.
+ */
+export function nthPart(parts, n) {
+  const dated = parts.filter((p) => p.release_date).sort((a, b) => a.release_date.localeCompare(b.release_date));
+  const numbered = (p) => [p.title, p.original_title].some((t) => {
+    const w = norm(t).split(" ");
+    return w.some((x, i) => (x === String(n) || x === ROMAN[n - 1])
+      && !["part", "partie"].includes(w[i - 1]) && w[i + 1] !== "partie");
+  });
+  return { hit: dated.find(numbered) || dated[n - 1] || null, dated };
+}
+
+/** Le nom de la personne correspond à la requête (« nolan » → Christopher Nolan, pas Nolan Gould). */
+export function personMatch(query, name) {
+  const qw = norm(query).split(" ").filter(Boolean);
+  const nw = norm(name).split(" ").filter(Boolean);
+  if (!qw.length || !nw.length) return false;
+  const close = (a, b) => 1 - levenshtein(a, b) / Math.max(a.length, b.length) >= 0.8;
+  // Un seul mot : c'est le nom de famille (« tom » ne doit pas donner Tom Hanks).
+  if (qw.length === 1) return close(qw[0], nw[nw.length - 1]);
+  return qw.every((w) => nw.some((x) => close(w, x)));
+}
+
+// Apparitions en tant que soi-même, émissions et documentaires : pas une filmographie.
+const SELF = /\b(self|himself|herself|themselves|lui[- ]m[eê]me|elle[- ]m[eê]me)\b/i;
+const NOT_FICTION = new Set([99, 10763, 10764, 10767]);   // documentaire, actualités, télé-réalité, talk-show
+
+/** Films (ou séries) d'une personne : réalisés pour un réalisateur, joués pour un acteur. */
+export function filmography(person, credits) {
+  const list = person.known_for_department === "Directing"
+    ? (credits.crew || []).filter((c) => c.job === "Director")
+    : (credits.cast || []).filter((c) => !SELF.test(c.character || ""));
+  return list.filter((c) => !(c.genre_ids || []).some((g) => NOT_FICTION.has(g)));
+}
+
 const GOOD = 0.75;   // à partir de là, la recherche normale a trouvé ce qu'on cherchait
 const KEEP = 0.5;    // ressemblance minimale d'un résultat de secours
+const EXACT = 0.95;  // ressemblance d'un titre quasi identique à la requête
+const FEW = 5;       // en dessous, TMDB n'a pas vraiment trouvé : on cherche aussi autrement
+const FIRST_PAGE = 20;
+const PERSON_POP = 2; // popularité TMDB minimale d'une personne (écarte les homonymes inconnus)
+const PERSON_MAX = 15; // films de la personne en tête, puis les titres qui correspondent
+
+const usable = (list) => (list || []).filter((it) => it && it.poster_path && it.vote_count > 0);
+const byPop = (a, b) => (b.popularity || 0) - (a.popularity || 0);
+const dedupe = (list) => { const seen = new Set(); return list.filter((it) => !seen.has(it.id) && seen.add(it.id)); };
+// Titre exact, puis titre proche, puis le reste ; à égalité, le plus connu.
+const tier = (text, it) => (isExact(text, it) ? 2 : scoreOf(text, it) >= GOOD ? 1 : 0);
+const byTier = (text) => (a, b) => tier(text, b) - tier(text, a) || byPop(a, b);
+
+/** Saga TMDB qui correspond à la requête → [le n-ième film, puis toute la saga dans l'ordre]. */
+async function sagaFilms(sagas, base, n, api) {
+  const pick = (sagas.results || [])
+    .map((c) => ({ c, s: Math.max(similarity(base, sagaName(c.name)), similarity(base, sagaName(c.original_name))) }))
+    .filter((x) => x.s >= GOOD)
+    .sort((a, b) => b.s - a.s)[0];
+  if (!pick) return null;
+  const saga = await api(`/collection/${pick.c.id}`);
+  const { hit, dated } = nthPart(saga.parts || [], n);
+  if (!usable([hit]).length) return null;
+  return [hit, ...usable(dated)];
+}
 
 /**
  * Résultats TMDB bruts d'une page de recherche.
  * search(q, page, extra) → réponse TMDB de /search/movie ou /search/tv.
+ * api(path, params) → autre appel TMDB (sagas, personnes) ; sans lui, ces recherches sont sautées.
  */
-export async function smartSearch(query, page, search, kind) {
+export async function smartSearch(query, page, search, kind, api) {
   const q = query.trim();
   const key = norm(q);
   const alias = ALIASES[key];
   const yearKey = kind === "series" ? "first_air_date_year" : "year";
   const ym = q.match(/^(.+?)\s+((?:19|20)\d{2})$/);
-
-  const usable = (list) => (list || []).filter((it) => it.poster_path && it.vote_count > 0);
-  const byPop = (a, b) => (b.popularity || 0) - (a.popularity || 0);
 
   // Pages suivantes : on continue simplement la recherche principale.
   if (page > 1) {
@@ -129,33 +219,65 @@ export async function smartSearch(query, page, search, kind) {
     return usable(d.results).sort(byPop);
   }
 
+  // Numéro de suite (films seulement : pour une série, « 2 » serait une saison).
+  const sq = !alias && !ym && kind !== "series" ? sequelOf(q) : null;
+  const sagaQuery = sq && (ALIASES[norm(sq.base)] || sq.base);   // « hp 3 » → saga Harry Potter
   const reqs = [search(q, 1)];
   if (alias) reqs.push(search(alias, 1));
   if (ym) reqs.push(search(ym[1], 1, { [yearKey]: ym[2] }));
-  const [plain, ...extra] = await Promise.all(reqs);
-  const seen = new Set();
-  const uniq = (list) => list.filter((it) => !seen.has(it.id) && seen.add(it.id));
+  const [[plain, ...extra], sagas, people] = await Promise.all([
+    Promise.all(reqs),
+    sq && api ? api("/search/collection", { query: sagaQuery }) : null,
+    !alias && !ym && !sq && api ? api("/search/person", { query: q, include_adult: "false" }) : null,
+  ]);
+  const main = usable(plain.results);
+
+  // « dune 2 » : le bon film de la saga, puis toute la saga, puis les autres titres proches.
+  // Un titre identique reste devant (« ocean's 8 », « district 9 »).
+  if (sagas) {
+    const films = await sagaFilms(sagas, sagaQuery, sq.n, api);
+    if (films) {
+      const near = main.filter((it) => scoreOf(sq.base, it) >= GOOD).sort(byTier(sq.base));
+      return dedupe([...main.filter((it) => isExact(q, it)), ...films, ...near]).slice(0, FIRST_PAGE);
+    }
+  }
 
   // Le sigle ou l'année d'abord, puis le reste. Avec une année, TMDB lit aussi « dune » comme
   // « d'une » : on ne garde que les titres vraiment proches de ce qui a été tapé.
+  const ref = ym ? ym[1] : q;
   const close = (it) => !ym || scoreOf(ym[1], it) >= GOOD;
-  const first = uniq(usable(extra.flatMap((d) => d.results || [])).filter((it) => alias || close(it)).sort(byPop));
-  const main = usable(plain.results);
-  const best = Math.max(0, ...[...first, ...main].map((it) => scoreOf(ym ? ym[1] : q, it)), ...(alias ? [1] : []));
-  if (best >= GOOD || first.length) {
-    // Le plus ressemblant d'abord, puis par popularité.
-    const rest = uniq(main).filter(close).sort((a, b) => (scoreOf(q, b) >= GOOD) - (scoreOf(q, a) >= GOOD) || byPop(a, b));
-    return [...first, ...rest];
+  const first = usable(extra.flatMap((d) => d.results || [])).filter((it) => alias || close(it)).sort(byTier(alias || ref));
+  const best = Math.max(0, ...[...first, ...main].map((it) => scoreOf(ref, it)), ...(alias ? [1] : []));
+  const exact = [...first, ...main].some((it) => isExact(ref, it));
+  // Quelques titres seulement, aucun identique : TMDB s'est peut-être arrêté sur un titre voisin
+  // (« interstelar » → Interstellar Wars) ; on cherche aussi autrement.
+  const few = !first.length && main.length < FEW && !exact && best < EXACT;
+
+  let titles;
+  if ((best >= GOOD || first.length) && !few) {
+    titles = dedupe([...first, ...main.filter(close).sort(byTier(ref))]);
+  } else {
+    // Rien de proche : requêtes de secours, puis tri par ressemblance.
+    const more = await Promise.all(fallbackQueries(q).map((s) => search(s, 1)));
+    titles = dedupe(usable([...main, ...more.flatMap((d) => d.results || [])]))
+      .map((it) => ({ it, s: scoreOf(q, it) }))
+      .filter((x) => x.s >= KEEP)
+      // Ressemblance d'abord ; à ressemblance proche, le plus connu.
+      .sort((a, b) => (b.s + 0.04 * Math.log10(1 + (b.it.popularity || 0))) - (a.s + 0.04 * Math.log10(1 + (a.it.popularity || 0))))
+      .map((x) => x.it);
   }
 
-  // Rien de proche : requêtes de secours, puis tri par ressemblance.
-  const more = await Promise.all(fallbackQueries(q).map((s) => search(s, 1)));
-  const pool = uniq(usable([...main, ...more.flatMap((d) => d.results || [])]));
-  return pool
-    .map((it) => ({ it, s: scoreOf(q, it) }))
-    .filter((x) => x.s >= KEEP)
-    // Ressemblance d'abord ; à ressemblance proche, le plus connu.
-    .sort((a, b) => (b.s + 0.04 * Math.log10(1 + (b.it.popularity || 0))) - (a.s + 0.04 * Math.log10(1 + (a.it.popularity || 0))))
-    .slice(0, 20)
-    .map((x) => x.it);
+  // Un acteur ou un réalisateur (« nolan », « omar sy ») : ses films d'abord, puis les titres.
+  // Pas quand un titre porte exactement ce nom (« lupin », « dune »).
+  if (people && !exact) {
+    const person = (people.results || []).slice(0, 5).find((p) => (p.popularity || 0) >= PERSON_POP
+      && ["Acting", "Directing"].includes(p.known_for_department) && personMatch(q, p.name));
+    if (person) {
+      const credits = await api(`/person/${person.id}/${kind === "series" ? "tv" : "movie"}_credits`);
+      const films = dedupe(usable(filmography(person, credits))).sort(byPop).slice(0, PERSON_MAX);
+      if (films.length) titles = dedupe([...films, ...titles]);
+    }
+  }
+  // Une page à la fois : chaque titre coûte un appel TMDB de plus (fiche, logo, dates).
+  return titles.slice(0, FIRST_PAGE);
 }

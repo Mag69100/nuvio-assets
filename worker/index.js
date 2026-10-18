@@ -30,7 +30,7 @@ import { hallPage } from "./hall.js";
 import { smartSearch } from "./search.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.10.3";
+const VERSION = "5.10.4";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const ASSETS = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main";
 const NOISE_TV = ["10763", "10764", "10766", "10767"]; // actualité, téléréalité, soap, talk-show
@@ -333,8 +333,9 @@ async function toMetas(env, ctx, results, kind, opts, today) {
       type: kind,
       name: (it.title || it.name || "").replace(/^[‎‏\s]+|[‎‏\s]+$/g, ""),
       poster: it.poster_path ? `${IMG}w500${it.poster_path}` : undefined,
-      // Fond en définition d'origine (le w1280 de TMDB paraît flou en plein écran).
-      background: infos[i].backdrop || it.backdrop_path ? `${IMG}original${infos[i].backdrop || it.backdrop_path}` : undefined,
+      // Fond en Full HD (w1920) : aussi net que l'original sur une TV 1080p, mais 2 à 5 fois plus léger
+      // (l'original est souvent en 4K, plusieurs Mo par image). Le w1280 paraît flou en plein écran.
+      background: infos[i].backdrop || it.backdrop_path ? `${IMG}w1920${infos[i].backdrop || it.backdrop_path}` : undefined,
       logo: infos[i].logo,
       description: [note ? `📅 ${note}${note.endsWith(".") ? "" : "."}` : "", it.overview || ""].filter(Boolean).join("\n") || undefined,
       releaseInfo: [date.slice(0, 4), note].filter(Boolean).join(" · ") || undefined,
@@ -607,7 +608,7 @@ async function meta(env, kind, id, cfg, today) {
     type: kind,
     name: (d.title || d.name || "").trim(),
     poster: d.poster_path ? `${IMG}w500${d.poster_path}` : undefined,
-    background: backdrop ? `${IMG}original${backdrop.file_path}` : d.backdrop_path ? `${IMG}original${d.backdrop_path}` : undefined,
+    background: backdrop ? `${IMG}w1920${backdrop.file_path}` : d.backdrop_path ? `${IMG}w1920${d.backdrop_path}` : undefined,
     logo: logo ? `${IMG}w500${logo.file_path.replace(/\.svg$/, ".png")}` : undefined,
     description: [note ? `📅 ${note}.` : "", d.overview || ""].filter(Boolean).join("\n") || undefined,
     releaseInfo: movie ? [date.slice(0, 4), note].filter(Boolean).join(" · ") || undefined

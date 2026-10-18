@@ -11,7 +11,9 @@
  *   - numéro de suite : « dune 2 », « harry potter 3 », « star wars 4 » vont chercher la saga
  *     TMDB et mettent le bon film en premier (numéro du titre, sinon ordre de sortie).
  *   - acteurs et réalisateurs : « nolan », « omar sy » donnent leurs films, les plus connus d'abord.
- *   - tri : le titre exact d'abord (« dark » → Dark avant Dark Matter), puis le plus connu.
+ *   - tri : le titre exact d'abord (« dark » → Dark avant Dark Matter), puis le plus connu. Une
+ *     partie d'un titre composé compte comme exacte, au singulier comme au pluriel : « monstre »
+ *     trouve les 4 séries Netflix (« DAHMER - Monstre : … », « Monstres : L'Histoire de… »).
  */
 
 // Sigles et surnoms courants → titre à chercher. Clés en minuscules, sans accents ni ponctuation.
@@ -120,6 +122,28 @@ export function isExact(query, it) {
   return !!q && (bare(it.title || it.name) === q || bare(it.original_title || it.original_name) === q);
 }
 
+/** Sans article de tête ni « s » final aux mots : « Les Monstres » vaut « monstre ». */
+const bareSingular = (s) => norm(s).split(" ").map((w) => (w.length > 3 ? w.replace(/s$/, "") : w)).join(" ")
+  .replace(/^(the|a|an|le|la|les|l|un|une) /, "");
+
+/**
+ * Le titre, ou une partie d'un titre composé, est la requête, au singulier comme au pluriel :
+ * « monstre » → « Monstre : L'Histoire d'Ed Gein », « DAHMER - Monstre : … », « Monstres : … ».
+ */
+export function titleMatch(query, it) {
+  if (isExact(query, it)) return true;
+  const q = bareSingular(query);
+  return !!q && [it.title || it.name, it.original_title || it.original_name].some((t) =>
+    String(t || "").split(/\s*[:–—]\s+|\s+-\s+/).some((part) => bareSingular(part) === q));
+}
+
+/** Un seul mot : sa forme au pluriel (ou au singulier), que TMDB ne fait pas correspondre. */
+export function pluralVariant(query) {
+  const q = query.trim().toLowerCase();
+  if (!/^[a-zà-ÿ]{4,}$/.test(q)) return null;
+  return q.endsWith("s") ? q.slice(0, -1) : `${q}s`;
+}
+
 const ROMAN = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix"];
 
 /** « dune 2 », « rocky iv », « john wick chapitre 4 » → { base, n }. De 1 à 20 (I à IX en chiffres romains). */
@@ -219,7 +243,7 @@ const usable = (list) => (list || []).filter((it) => it && it.poster_path && it.
 const byPop = (a, b) => (b.popularity || 0) - (a.popularity || 0);
 const dedupe = (list) => { const seen = new Set(); return list.filter((it) => !seen.has(it.id) && seen.add(it.id)); };
 // Titre exact, puis titre proche, puis le reste ; à égalité, le plus connu.
-const tier = (text, it) => (isExact(text, it) ? 2 : scoreOf(text, it) >= GOOD ? 1 : 0);
+const tier = (text, it) => (titleMatch(text, it) ? 2 : scoreOf(text, it) >= GOOD ? 1 : 0);
 const byTier = (text) => (a, b) => tier(text, b) - tier(text, a) || byPop(a, b);
 
 /**
@@ -269,15 +293,18 @@ export async function smartSearch(query, page, search, kind, api) {
   // Numéro de suite (films seulement : pour une série, « 2 » serait une saison).
   const sq = !alias && !ym && kind !== "series" ? sequelOf(q) : null;
   const sagaQuery = sq && (ALIASES[norm(sq.base)] || sq.base);   // « hp 3 » → saga Harry Potter
+  // « monstre » cherche aussi « monstres » (Monstres : L'Histoire de Lyle et Erik Menendez).
+  const variant = !alias && !ym && !sq ? pluralVariant(q) : null;
   const reqs = [search(q, 1)];
   if (alias) reqs.push(search(alias, 1));
   if (ym) reqs.push(search(ym[1], 1, { [yearKey]: ym[2] }));
-  const [[plain, ...extra], sagas, people] = await Promise.all([
+  const [[plain, ...extra], sagas, people, plural] = await Promise.all([
     Promise.all(reqs),
     sq && api ? api("/search/collection", { query: sagaQuery }) : null,
     !alias && !ym && !sq && api ? api("/search/person", { query: q, include_adult: "false" }) : null,
+    variant ? search(variant, 1) : null,
   ]);
-  const main = usable(plain.results);
+  const main = dedupe(usable([...(plain.results || []), ...((plural && plural.results) || []).filter((it) => titleMatch(q, it))]));
 
   // « dune 2 » : le bon film de la saga, puis toute la saga, puis les autres titres proches.
   // Un titre identique reste devant (« ocean's 8 », « district 9 »).

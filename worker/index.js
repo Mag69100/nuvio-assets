@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.18.12";
+const VERSION = "5.18.13";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -376,7 +376,9 @@ async function toMetas(env, ctx, results, kind, opts, today) {
       background: infos[i].backdrop || it.backdrop_path ? `${IMG}w1920${infos[i].backdrop || it.backdrop_path}` : undefined,
       logo: infos[i].logo,
       description: [note ? `${kind === "movie" ? "📅" : "📺"} ${note}${note.endsWith(".") ? "" : "."}` : "", it.overview || ""].filter(Boolean).join("\n") || undefined,
-      releaseInfo: [date.slice(0, 4), note].filter(Boolean).join(" · ") || undefined,
+      // Séries : l'épisode de la semaine seulement dans le résumé (le hero affiche aussi cette ligne :
+      // il apparaissait deux fois, et coupé ici).
+      releaseInfo: [date.slice(0, 4), kind === "movie" ? note : ""].filter(Boolean).join(" · ") || undefined,
       released: shownDate ? `${shownDate}T00:00:00.000Z` : undefined,
       genres: (it.genre_ids || []).map((g) => GENRE_NAMES[g]).filter(Boolean).slice(0, 3),
       imdbRating: imdbRating(ids[i]),   // vraie note IMDb (rien si IMDb n'en a pas assez)

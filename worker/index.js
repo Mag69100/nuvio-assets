@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.19.0";
+const VERSION = "5.19.1";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -711,13 +711,15 @@ const shortName = (name) => name.split(/ [:–-] /)[0].trim();
 
 /**
  * Titre de la bande-annonce VF sur Allociné (« Black Mirror - saison 7 Bande-annonce VF ») ; null si
- * Allociné n'a pas de VF, undefined si le titre n'y est pas. Fiche Allociné trouvée par l'IMDb, via Wikidata.
+ * Allociné n'a pas de VF, undefined si le titre n'y est pas, false si Wikidata n'a pas répondu. Fiche
+ * Allociné trouvée par l'IMDb, via Wikidata.
  */
 async function allocineVf(kind, imdb) {
   const q = `SELECT ?a WHERE { ?f wdt:P345 "${imdb}"; wdt:${kind === "series" ? "P1267" : "P1265"} ?a }`;
   const wd = await fetch(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(q)}`, { headers: WIKI_HEADERS, cf: WIKI_CACHE })
     .then((r) => (r.ok ? r.json() : null), () => null);
-  const id = (((((wd || {}).results || {}).bindings || [])[0] || {}).a || {}).value;
+  if (!wd) return false;
+  const id = ((((wd.results || {}).bindings || [])[0] || {}).a || {}).value;
   if (!/^\d+$/.test(id || "")) return undefined;
   // Films : la fiche liste les vidéos. Séries : page des vidéos, la plus récente saison d'abord.
   const url = kind === "series" ? `https://www.allocine.fr/series/ficheserie-${id}/videos/` : `https://www.allocine.fr/film/fichefilm_gen_cfilm=${id}.html`;
@@ -732,11 +734,17 @@ async function allocineVf(kind, imdb) {
   return titles.find((t) => /Bande-annonce/.test(t) && season(t) === season(titles[0])) || titles[0] || null;
 }
 
+// Mots admis devant le nom dans le titre d'une vidéo trouvée par recherche directe (« Bande-annonce VF Below »,
+// « FX The Bear… ») : tout autre mot désigne une autre œuvre (« Above and Below »).
+const TRAILER_WORDS = new Set("bande annonce d trailer teaser vf officielle officiel nouvelle new la le les l fx netflix disney prime video apple tv hbo max canal paramount".split(" "));
+
 /**
  * Bande-annonce VF trouvée sur YouTube pour une recherche, si son titre nomme l'œuvre (et la saison) ;
- * null sinon, undefined si YouTube n'a pas répondu.
+ * null sinon, undefined si YouTube n'a pas répondu. Avec « year » (recherche directe, sans titre
+ * Allociné) : le nom doit ouvrir le titre, et une année cohérente y figurer (celle du film à un an près,
+ * celle de la première saison d'une série).
  */
-async function youtubeVf(query, name, season) {
+async function youtubeVf(query, name, season, year, series) {
   const html = await fetch(`https://www.youtube.com/results?hl=fr&gl=FR&search_query=${encodeURIComponent(query)}`, { headers: BROWSER_HEADERS })
     .then((r) => (r.ok ? r.text() : ""), () => "");
   if (!html.includes('"videoRenderer"')) return undefined;
@@ -747,25 +755,43 @@ async function youtubeVf(query, name, season) {
     let title;
     try { title = JSON.parse(`"${m[2]}"`); } catch (e) { continue; }
     const t = norm(title);
-    if (/\bvf\b|version francaise/.test(t) && !/\bvost/.test(t) && ` ${t} `.includes(want) && (!seasonRe || seasonRe.test(t))) return { key: m[1], title };
+    // Une bande-annonce en VF (pas un épisode ni un extrait), qui nomme l'œuvre (et la saison).
+    if (!/\bvf\b|version francaise/.test(t) || /\bvost/.test(t) || !/\b(bande d? ?annonce|ba|trailer|teaser)\b/.test(t)
+      || !` ${t} `.includes(want) || (seasonRe && !seasonRe.test(t))) continue;
+    if (year) {
+      const before = ` ${t} `.slice(0, ` ${t} `.indexOf(want)).trim().split(" ").filter(Boolean);
+      const y = Number(year), years = [...t.matchAll(/\b(?:19|20)\d\d\b/g)].map((x) => Number(x[0]));
+      // Une série et un film du même nom (Bleach, Friday Night Lights) : la vidéo doit être du bon côté.
+      const seriesWords = /\b(saison|season|serie|series|episode)\b/.test(t);
+      if (series ? /\bfilm\b/.test(t) : seriesWords) continue;
+      // Série : l'année de la première saison, ou une plus récente si la vidéo dit de quelle saison il s'agit.
+      const okYear = (n) => (series ? n === y || (seriesWords && n > y && n <= new Date().getFullYear() + 1) : Math.abs(n - y) <= 1);
+      if (before.some((w) => !TRAILER_WORDS.has(w)) || !years.some(okYear)) continue;
+    }
+    return { key: m[1], title };
   }
   return null;
 }
 
 /** Bande-annonce VF d'un titre ({ key: identifiant YouTube, title }, ou { key: null }), gardée en cache. */
 async function vfTrailer(kind, imdb, name, year) {
-  const cacheKey = new Request(`https://cache.local/vf-trailer/v3/${kind}/${imdb}`);
+  const cacheKey = new Request(`https://cache.local/vf-trailer/v4/${kind}/${imdb}`);
   const hit = await caches.default.match(cacheKey);
   if (hit) return hit.json();
   const allo = await allocineVf(kind, imdb);
-  let found = null;
-  if (allo) {
-    // « The Bear : sur place ou à emporter - saison 5 Bande-annonce VF » : le sous-titre gêne la recherche.
-    found = await youtubeVf(allo.replace(/ : [^-]+(?= - )/, ""), shortName(name), (allo.match(/saison (\d+)/i) || [])[1]);
-  } else if (allo === undefined && norm(name).length >= 6) {
-    // Titre absent d'Allociné : recherche directe, seulement pour un nom assez précis.
-    found = await youtubeVf(`${name} ${year} bande annonce VF`, shortName(name), null);
-  }
+  let found = null, failed = false;
+  const search = async (...args) => {
+    const r = await youtubeVf(...args);
+    if (r === undefined) failed = true;
+    return r || null;
+  };
+  // « The Bear : sur place ou à emporter - saison 5 Bande-annonce VF » : le sous-titre gêne la recherche.
+  if (allo) found = await search(allo.replace(/ : [^-]+(?= - )/, ""), shortName(name), (allo.match(/saison (\d+)/i) || [])[1]);
+  // Pas de VF sur Allociné (elle y manque souvent), titre absent d'Allociné, ou VF introuvable sur YouTube
+  // sous son titre Allociné : recherche directe, plus stricte.
+  if (!found && year) found = await search(`${name} ${kind === "series" ? "série " : ""}bande annonce VF ${year}`, shortName(name), null, year, kind === "series");
+  // Wikidata ou YouTube muet : rien n'est gardé, on réessaiera.
+  if (!found && (failed || allo === false)) found = undefined;
   // HD ou pas : YouTube n'a l'image « maxresdefault » que pour les vidéos d'au moins 720p.
   const hd = found ? await fetch(`https://i.ytimg.com/vi/${found.key}/maxresdefault.jpg`, { method: "HEAD" }).then((r) => r.ok, () => true) : false;
   const out = found ? { key: found.key, title: found.title, hd } : { key: null };

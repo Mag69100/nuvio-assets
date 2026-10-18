@@ -31,7 +31,7 @@ import { smartSearch, prepareWords, isExact } from "./search.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.14.0";
+const VERSION = "5.14.1";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -419,8 +419,6 @@ function discoverParams(def, kind, today, opts) {
     p["primary_release_date.gte"] = addDays(today, -365);
   }
   if (def.airDays !== undefined) { p["air_date.gte"] = addDays(today, -def.airDays); p["air_date.lte"] = addDays(today, def.airDays); }
-  // Séries avec un épisode dans la fenêtre (« Nouveaux épisodes cette semaine » : 3 jours avant, 7 après).
-  if (def.airWindow) { p["air_date.gte"] = addDays(today, def.airWindow[0]); p["air_date.lte"] = addDays(today, def.airWindow[1]); }
   if (cfg.a) {
     p[gte] = maxDate(p[gte], `${cfg.a}-01-01`);
     const yearKey = kind === "series" ? "first_air_date_year" : "primary_release_year";

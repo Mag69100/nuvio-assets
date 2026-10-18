@@ -23,7 +23,6 @@ const ROW_HINTS = {
   "accueil-documentaires": "Documentaires bien notés",
   "accueil-vod-semaine": "Films sortis en numérique ces deux dernières semaines : regardables maintenant",
   "accueil-vod-bientot": "Films qui deviennent regardables dans les six prochaines semaines, avec la date",
-  "accueil-episodes-semaine": "Séries avec un épisode sorti ces 3 derniers jours ou prévu dans la semaine, avec le jour",
 };
 
 /** Affiches PostersPlus conseillées pour l'aperçu, SANS clé : « TA_CLE_TMDB » est remplacé dans

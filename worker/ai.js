@@ -254,12 +254,13 @@ function matcher(pick) {
     .filter((t) => norm(t).split(" ").length >= 2).flatMap((t) => long.map((n) => similarity(t, n))));
   const sim = (it) => Math.max(0, ...long.map((n) => scoreOf(n, it)), inside(it));
   const gap = (it) => (pick.year ? Math.abs(yearOf(it) - pick.year) : 0);
-  // Titre identique (année à 3 ans près : dates de sortie qui varient selon les pays et les
-  // festivals, « The Upside » 2017 ou 2019) ou titre ressemblant à un an près. Puis : identique
+  // Titre identique (année à 5 ans près : TMDB donne la date de sortie en France, parfois bien
+  // après la sortie d'origine, Coherence 2013 sorti en 2017 ; « The Upside » 2017 ou 2019) ou titre
+  // ressemblant à un an près. Les remakes au même titre sont presque toujours plus éloignés. Puis : identique
   // d'abord (pas « The Upside-down Triangle »), bonne année, et le plus connu (Aladdin de Disney,
   // pas un Aladdin obscur de la même année).
   const exactOf = (it) => names.some((n) => isExact(n, it));
-  const fits = (it) => it && it.poster_path && it.vote_count > 0 && (exactOf(it) ? gap(it) <= 3 : sim(it) >= MATCH && gap(it) <= 1);
+  const fits = (it) => it && it.poster_path && it.vote_count > 0 && (exactOf(it) ? gap(it) <= 5 : sim(it) >= MATCH && gap(it) <= 1);
   const rank = (it) => 2 * exactOf(it) + (gap(it) <= 1);
   return (list) => list.filter(fits).sort((a, b) => rank(b) - rank(a) || (b.vote_count || 0) - (a.vote_count || 0))[0] || null;
 }

@@ -12,12 +12,17 @@
  *   - Gemini trop lent : la recherche classique seule cette fois-ci, mais Gemini finit en arrière-plan
  *     et la même recherche, refaite, a sa réponse tout de suite. En panne ou à court de quota : la
  *     recherche classique seule, comme avant.
- * Secret facultatif : GEMINI_API_KEY (sans lui, rien ne change). Variable facultative : GEMINI_MODEL.
+ *   - plusieurs modèles : chacun a son propre quota gratuit ; un modèle à court de quota ou
+ *     surchargé passe la main au suivant (et reste au repos quelques minutes).
+ * Secret facultatif : GEMINI_API_KEY (sans lui, rien ne change). Variable facultative : GEMINI_MODEL
+ * (modèle à essayer en premier).
  */
 import { norm, scoreOf } from "./search.js";
 
-const MODEL = "gemini-3.6-flash";   // rapide et bonne culture ciné ; réflexion réduite au minimum
-const TIMEOUT_MS = 15000;           // Gemini abandonné (la recherche, elle, n'attend que AI_WAIT_MS)
+// Dans l'ordre : Flash-Lite répond en 1 à 2 s avec de bons titres ; 3.6 Flash en 3 s. 3.8 Flash,
+// un peu meilleur, met jusqu'à 6 s et sature souvent : pas retenu.
+const MODELS = ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.1-flash-lite"];
+const ATTEMPT_MS = 5000;            // un modèle qui ne répond pas en 5 s passe la main au suivant
 export const AI_WAIT_MS = 6000;     // attente maximale d'une réponse de Gemini pendant une recherche
 const CACHE_S = 30 * 86400;
 const MATCH = 0.75;                 // ressemblance minimale entre le titre proposé et la fiche TMDB
@@ -37,7 +42,7 @@ Réponds avec les titres qui correspondent le mieux, du plus probable au moins p
 - title_fr : le titre français s'il existe, sinon le même que title ;
 - year : l'année de sortie (pour une série : l'année de la première saison) ;
 - type : "film" ou "serie".
-Si la requête désigne une œuvre précise, mets-la en premier. Si elle décrit une envie (« un thriller coréen glauque »), propose les titres les plus réputés qui correspondent.
+Si la requête désigne une œuvre précise, mets-la en premier, puis ajoute des œuvres proches (même sujet, même genre) : donne toujours au moins 8 titres quand c'est possible. Si elle décrit une envie (« un thriller coréen glauque »), propose les titres les plus réputés qui correspondent.
 Pour une saga, ne cite qu'un film : celui qui correspond le mieux, sinon le premier. Les autres films de la saga sont ajoutés automatiquement : garde tes places pour d'autres œuvres.
 Pense aux films comme aux séries : un même sujet peut avoir les deux (dessins animés, adaptations, séries dérivées).
 Ne propose que des œuvres qui existent vraiment. Si rien ne correspond, renvoie une liste vide.`;
@@ -75,9 +80,12 @@ async function askGemini(env, query, model) {
         thinkingConfig: { thinkingLevel: thinkingOf(model) },
       },
     }),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: AbortSignal.timeout(ATTEMPT_MS),
   });
-  if (!res.ok) throw new Error(`Gemini ${res.status} : ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({}));
+    throw Object.assign(new Error(`${res.status} ${((j.error || {}).message || "").slice(0, 200)}`), { status: res.status });
+  }
   const j = await res.json();
   const parts = (((j.candidates || [])[0] || {}).content || {}).parts || [];
   const text = parts.filter((p) => !p.thought).map((p) => p.text || "").join("");
@@ -87,32 +95,48 @@ async function askGemini(env, query, model) {
 
 // Les deux catalogues (Films, Séries) posent la même question en même temps : une seule part.
 const PENDING = new Map();
+// Modèle → moment où on peut le solliciter de nouveau (quota épuisé : 10 min ; surchargé : 1 min).
+const RESTING = new Map();
+const restFor = (status) => (status === 429 ? 10 * 60e3 : status >= 500 || !status ? 60e3 : 0);
+
+/** Modèles à essayer, dans l'ordre ; ceux au repos sont sautés (sauf s'ils le sont tous). */
+function modelsFor(env, forced) {
+  if (forced) return [forced];
+  const all = env.GEMINI_MODEL ? [env.GEMINI_MODEL, ...MODELS.filter((m) => m !== env.GEMINI_MODEL)] : MODELS;
+  const ready = all.filter((m) => !(RESTING.get(m) > Date.now()));
+  return ready.length ? ready : all;
+}
 
 /**
- * Titres proposés par Gemini pour une requête → { titles, cached, ms, model, error }.
+ * Titres proposés par Gemini pour une requête → { titles, cached, ms, model, tried, error }.
  * Ne lève jamais d'erreur : en cas de souci, titles est vide et error dit pourquoi.
+ * opts.model → un seul modèle, imposé ; opts.fresh → sans le cache (diagnostic).
  */
 export function aiTitles(env, ctx, query, opts = {}) {
-  const model = opts.model || env.GEMINI_MODEL || MODEL;
-  const key = new Request(`https://cache.local/ai/v2/${model}/${encodeURIComponent(norm(query))}`);
-  if (PENDING.has(key.url)) return PENDING.get(key.url);
+  const key = new Request(`https://cache.local/ai/v3/${encodeURIComponent(norm(query))}`);
+  if (PENDING.has(key.url) && !opts.model) return PENDING.get(key.url);
   const start = Date.now();
   const job = (async () => {
     const hit = opts.fresh ? null : await caches.default.match(key);
-    if (hit) return { titles: await hit.json(), cached: true, ms: Date.now() - start, model };
-    try {
-      const titles = await askGemini(env, query, model);
-      const save = caches.default.put(key, new Response(JSON.stringify(titles), {
-        headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${CACHE_S}` },
-      }));
-      await save;
-      return { titles, cached: false, ms: Date.now() - start, model };
-    } catch (e) {
-      console.warn("Recherche IA :", String(e));
-      return { titles: [], cached: false, ms: Date.now() - start, model, error: String(e) };
+    if (hit) return { titles: await hit.json(), cached: true, ms: Date.now() - start };
+    const tried = [];
+    for (const model of modelsFor(env, opts.model)) {
+      try {
+        const titles = await askGemini(env, query, model);
+        await caches.default.put(key, new Response(JSON.stringify(titles), {
+          headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${CACHE_S}` },
+        }));
+        return { titles, cached: false, ms: Date.now() - start, model, tried };
+      } catch (e) {
+        tried.push(`${model} : ${e.name === "TimeoutError" ? "pas de réponse en 5 s" : e.message}`);
+        const rest = restFor(e.status);
+        if (rest) RESTING.set(model, Date.now() + rest);
+      }
     }
-  })().finally(() => PENDING.delete(key.url));
-  PENDING.set(key.url, job);
+    console.warn("Recherche IA :", tried.join(" / "));
+    return { titles: [], cached: false, ms: Date.now() - start, tried, error: tried.join(" / ") };
+  })().finally(() => { if (PENDING.get(key.url) === job) PENDING.delete(key.url); });
+  if (!opts.model) PENDING.set(key.url, job);
   // La réponse finit d'arriver et part en cache même si la recherche a cessé de l'attendre.
   if (ctx) ctx.waitUntil(job);
   return job;

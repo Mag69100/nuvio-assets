@@ -31,7 +31,7 @@ import { smartSearch, prepareWords } from "./search.js";
 import { looksDescriptive, aiTitles, resolveTitles, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.13.0";
+const VERSION = "5.13.1";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 40;                  // 1re page d'une recherche par IA (sagas entières comprises)
 const ASSETS = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main";
@@ -548,7 +548,7 @@ async function runSearch(env, type, query, page, opts, trace) {
   const found = await resolveTitles(answer.titles, type, search, api);
   if (trace) {
     Object.assign(trace.ai, {
-      model: answer.model, ms: answer.ms, cached: answer.cached, error: answer.error,
+      model: answer.model, ms: answer.ms, cached: answer.cached, tried: answer.tried,
       picks: answer.titles, found: found.map((it) => ({ name: it.title || it.name, date: it.release_date || it.first_air_date, votes: it.vote_count })),
     });
   }

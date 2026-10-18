@@ -28,10 +28,11 @@ import { guidePage, NUVIO_TV_APK } from "./guide.js";
 import { lienPage } from "./lien.js";
 import { hallPage } from "./hall.js";
 import { smartSearch, prepareWords, isExact } from "./search.js";
+import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.14.1";
+const VERSION = "5.15.0";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -373,7 +374,7 @@ async function toMetas(env, ctx, results, kind, opts, today) {
       releaseInfo: [date.slice(0, 4), note].filter(Boolean).join(" · ") || undefined,
       released: shownDate ? `${shownDate}T00:00:00.000Z` : undefined,
       genres: (it.genre_ids || []).map((g) => GENRE_NAMES[g]).filter(Boolean).slice(0, 3),
-      imdbRating: it.vote_average ? it.vote_average.toFixed(1) : undefined,
+      imdbRating: imdbRating(ids[i]),   // vraie note IMDb (rien si IMDb n'en a pas assez)
       _digital: firstDigital(infos[i].releases),
       _guess: digitalGuess(infos[i].releases),
       _vf: likelyVf(infos[i].releases, it.original_language, today),
@@ -729,7 +730,7 @@ async function meta(env, kind, id, cfg, today, ctx) {
       : date ? `${date.slice(0, 4)}-${endYear}` : undefined,
     released: shownDate ? `${shownDate}T00:00:00.000Z` : undefined,
     status: STATUS_FR[d.status] || d.status || undefined,
-    imdbRating: d.vote_average ? d.vote_average.toFixed(1) : undefined,
+    imdbRating: imdbRating(imdb),
     genres: (d.genres || []).map((g) => GENRE_NAMES[g.id] || g.name),
     runtime: runtime ? `${runtime} min` : undefined,
     director: directors.map((p) => p.name),

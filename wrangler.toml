@@ -7,5 +7,11 @@ main = "worker/index.js"
 compatibility_date = "2026-10-01"
 workers_dev = true
 
+# Notes IMDb (data/imdb-ratings.bin, voir worker/ratings.js) : fichier binaire intégré à l'addon.
+[[rules]]
+type = "Data"
+globs = ["**/*.bin"]
+fallthrough = true
+
 [observability]
 enabled = true

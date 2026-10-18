@@ -1,0 +1,37 @@
+name: Notes IMDb (chaque semaine)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/build_imdb_ratings.py"
+  schedule:
+    - cron: "41 4 * * 1"   # chaque lundi vers 6 h (heure de Paris en été)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: assets
+  cancel-in-progress: false
+
+jobs:
+  ratings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Construire les notes
+        run: python scripts/build_imdb_ratings.py
+      - name: Enregistrer
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/imdb-ratings.bin
+          git diff --cached --quiet || git commit -m "Notes IMDb du $(date +%F)"
+          git pull --rebase
+          git push

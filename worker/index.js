@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.20.1";
+const VERSION = "5.20.2";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -1322,13 +1322,17 @@ function filterSource(src, cfg) {
 
 /**
  * Ordre d'affichage des tuiles. Les tuiles masquées sont repérées par leur position dans le
- * fichier : une nouvelle plateforme y est donc ajoutée en fin de collection (Crunchyroll),
- * puis remontée ici avec les autres plateformes, avant les studios.
+ * fichier : une nouvelle tuile y est donc ajoutée en fin de collection (Crunchyroll),
+ * et placée ici. Les tuiles absentes de la liste gardent l'ordre du fichier, à la fin.
  */
-function displayOrder(c, folders, id = (f) => f.id) {
+const PLATFORM_ORDER = [
+  "netflix", "prime-video", "paramount-plus", "disney-plus", "hbo-max", "apple-tv-plus", "canal-plus",
+  "warner-bros", "crunchyroll", "marvel-studios", "dc-comics",
+];
+function displayOrder(c, folders) {
   if (c.id !== "plateformes-streaming") return folders;
-  const platformFolders = new Set(PROVIDERS.map((p) => p.folder).filter(Boolean));
-  return [...folders].sort((a, b) => !platformFolders.has(id(a)) - !platformFolders.has(id(b)));
+  const rank = (f) => { const i = PLATFORM_ORDER.indexOf(f.id); return i < 0 ? PLATFORM_ORDER.length : i; };
+  return [...folders].sort((a, b) => rank(a) - rank(b));
 }
 
 /** Collections Nuvio filtrées : collections, plateformes et tuiles choisies, filtres appliqués. */

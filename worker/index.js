@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.18.6";
+const VERSION = "5.18.7";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -682,6 +682,83 @@ function trailersOf(videos) {
     .map((v) => ({ source: v.key, ytId: v.key, type: v.type, name: v.name, lang: v.iso_639_1 }));
 }
 
+// Bande-annonce en VF quand TMDB n'en a pas (séries, films moins connus) : Allociné dit si une VF
+// existe et donne son titre exact, YouTube la fournit (Nuvio ne lit que YouTube).
+const VF_CACHE_S = 7 * 86400;  // VF trouvée : 7 jours
+const VF_MISS_S = 2 * 86400;   // pas de VF : on réessaie dans 2 jours (elle sort souvent peu avant le titre)
+const VF_WAIT_MS = 3000;       // attente maximale à l'ouverture d'une fiche
+const BROWSER_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36",
+  "Accept-Language": "fr-FR,fr;q=0.9",
+};
+const decodeHtml = (s) => s.replace(/&#0*39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
+const shortName = (name) => name.split(/ [:–-] /)[0].trim();
+
+/**
+ * Titre de la bande-annonce VF sur Allociné (« Black Mirror - saison 7 Bande-annonce VF ») ; null si
+ * Allociné n'a pas de VF, undefined si le titre n'y est pas. Fiche Allociné trouvée par l'IMDb, via Wikidata.
+ */
+async function allocineVf(kind, imdb) {
+  const q = `SELECT ?a WHERE { ?f wdt:P345 "${imdb}"; wdt:${kind === "series" ? "P1267" : "P1265"} ?a }`;
+  const wd = await fetch(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(q)}`, { headers: WIKI_HEADERS, cf: WIKI_CACHE })
+    .then((r) => (r.ok ? r.json() : null), () => null);
+  const id = (((((wd || {}).results || {}).bindings || [])[0] || {}).a || {}).value;
+  if (!/^\d+$/.test(id || "")) return undefined;
+  // Films : la fiche liste les vidéos. Séries : page des vidéos, la plus récente saison d'abord.
+  const url = kind === "series" ? `https://www.allocine.fr/series/ficheserie-${id}/videos/` : `https://www.allocine.fr/film/fichefilm_gen_cfilm=${id}.html`;
+  const html = await fetch(url, { headers: BROWSER_HEADERS }).then((r) => (r.ok ? r.text() : ""), () => "");
+  const name = decodeHtml((html.match(/<title>([^<]*)/) || [])[1] || "").replace(/^Trailers & Teasers de /, "").split(/ - (?:Film|Série|AlloCiné)/)[0].trim();
+  if (!name) return undefined;
+  // La page montre aussi les vidéos d'autres titres : seules celles qui commencent par le nom comptent.
+  const titles = [...html.matchAll(/>([^<>]*\b(?:Bande-annonce|Teaser)\b[^<>]*\bVF\b[^<>]*)</g)]
+    .map((x) => decodeHtml(x[1]).trim()).filter((t) => norm(t).startsWith(norm(name)));
+  const season = (t) => (t.match(/saison \d+/i) || [""])[0].toLowerCase();
+  // Une bande-annonce passe avant un teaser de la même saison.
+  return titles.find((t) => /Bande-annonce/.test(t) && season(t) === season(titles[0])) || titles[0] || null;
+}
+
+/**
+ * Bande-annonce VF trouvée sur YouTube pour une recherche, si son titre nomme l'œuvre (et la saison) ;
+ * null sinon, undefined si YouTube n'a pas répondu.
+ */
+async function youtubeVf(query, name, season) {
+  const html = await fetch(`https://www.youtube.com/results?hl=fr&gl=FR&search_query=${encodeURIComponent(query)}`, { headers: BROWSER_HEADERS })
+    .then((r) => (r.ok ? r.text() : ""), () => "");
+  if (!html.includes('"videoRenderer"')) return undefined;
+  const want = ` ${norm(name)} `;
+  const seasonRe = season ? new RegExp(`\\b(saison|season|s) ?0?${season}\\b`) : null;
+  const re = /"videoRenderer":\{"videoId":"([\w-]{11})"[\s\S]{0,3000}?"title":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"/g;
+  for (const m of html.matchAll(re)) {
+    let title;
+    try { title = JSON.parse(`"${m[2]}"`); } catch (e) { continue; }
+    const t = norm(title);
+    if (/\bvf\b|version francaise/.test(t) && !/\bvost/.test(t) && ` ${t} `.includes(want) && (!seasonRe || seasonRe.test(t))) return { key: m[1], title };
+  }
+  return null;
+}
+
+/** Bande-annonce VF d'un titre ({ key: identifiant YouTube, title }, ou { key: null }), gardée en cache. */
+async function vfTrailer(kind, imdb, name, year) {
+  const cacheKey = new Request(`https://cache.local/vf-trailer/${kind}/${imdb}`);
+  const hit = await caches.default.match(cacheKey);
+  if (hit) return hit.json();
+  const allo = await allocineVf(kind, imdb);
+  let found = null;
+  if (allo) {
+    // « The Bear : sur place ou à emporter - saison 5 Bande-annonce VF » : le sous-titre gêne la recherche.
+    found = await youtubeVf(allo.replace(/ : [^-]+(?= - )/, ""), shortName(name), (allo.match(/saison (\d+)/i) || [])[1]);
+  } else if (allo === undefined && norm(name).length >= 6) {
+    // Titre absent d'Allociné : recherche directe, seulement pour un nom assez précis.
+    found = await youtubeVf(`${name} ${year} bande annonce VF`, shortName(name), null);
+  }
+  const out = found ? { key: found.key, title: found.title } : { key: null };
+  // YouTube n'a pas répondu : rien n'est gardé, on réessaiera à la prochaine ouverture.
+  if (found !== undefined) {
+    await caches.default.put(cacheKey, new Response(JSON.stringify(out), { headers: { "Cache-Control": `public, max-age=${found ? VF_CACHE_S : VF_MISS_S}` } }));
+  }
+  return out;
+}
+
 const person = (p) => ({ name: p.name, character: p.character || p.job || undefined, photo: p.profile_path ? `${IMG}w185${p.profile_path}` : undefined, tmdbId: p.id });
 
 async function meta(env, kind, id, cfg, today, ctx) {
@@ -715,6 +792,13 @@ async function meta(env, kind, id, cfg, today, ctx) {
     ? ((releases.find((r) => r.iso_3166_1 === cfg.g) || {}).release_dates || []).map((r) => r.certification).find(Boolean)
     : ((d.content_ratings && d.content_ratings.results || []).find((r) => r.iso_3166_1 === cfg.g) || {}).rating;
   const trailers = trailersOf(d.videos && d.videos.results);
+  // Pas de VF sur TMDB : recherche Allociné + YouTube, lancée tout de suite et attendue en fin de fiche.
+  let vfJob = null;
+  if (short === "fr" && imdb && !trailers.some((t) => t.lang === "fr")) {
+    const job = vfTrailer(kind, imdb, (d.title || d.name || "").trim(), date.slice(0, 4)).catch(() => null);
+    ctx.waitUntil(job);
+    vfJob = Promise.race([job, new Promise((res) => setTimeout(() => res("attente"), VF_WAIT_MS))]);
+  }
   const endYear = !movie && d.status !== "Returning Series" && d.last_air_date ? d.last_air_date.slice(0, 4) : "";
 
   const m = {
@@ -836,6 +920,15 @@ async function meta(env, kind, id, cfg, today, ctx) {
     if (recap && recap !== "attente" && recap.recap) recapLine = `🔁 ${prev.label}, attention ça raconte la fin : ${recap.recap}`;
   }
   m.description = [m.description, extras.filter(Boolean).join("\n"), recapLine].filter(Boolean).join("\n\n") || undefined;
+  if (vfJob) {
+    const vf = await vfJob;
+    // Pas encore trouvée : la fiche n'est pas gardée, la VF sera là à la prochaine ouverture.
+    if (vf === "attente") m._partial = true;
+    else if (vf && vf.key) {
+      m.trailers = [{ source: vf.key, ytId: vf.key, type: "Trailer", name: vf.title, lang: "fr" }, ...trailers];
+      m.trailerStreams = m.trailers.map((t) => ({ ytId: t.ytId }));
+    }
+  }
   return m;
 }
 
@@ -1087,7 +1180,14 @@ async function trailer(env, kind, id) {
   const pick = (r) => (r.results || [])
     .filter((v) => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"))
     .sort((a, b) => (b.size >= 1080) - (a.size >= 1080) || (b.type === "Trailer") - (a.type === "Trailer") || (b.official === true) - (a.official === true))[0];
-  const v = pick(await tmdb(env, path, {}, "fr-FR")) || pick(await tmdb(env, path, {}, "en-US"));
+  const fr = pick(await tmdb(env, path, {}, "fr-FR"));
+  if (fr) return { key: fr.key, lang: fr.iso_639_1 };
+  // Pas de VF sur TMDB : Allociné + YouTube, sinon la VO.
+  const d = await tmdb(env, `/${kind === "series" ? "tv" : "movie"}/${tmdbId}`, { append_to_response: "external_ids" });
+  const imdb = (d.imdb_id || (d.external_ids && d.external_ids.imdb_id)) || null;
+  const vf = imdb ? await vfTrailer(kind, imdb, (d.title || d.name || "").trim(), (d.release_date || d.first_air_date || "").slice(0, 4)).catch(() => null) : null;
+  if (vf && vf.key) return { key: vf.key, lang: "fr" };
+  const v = pick(await tmdb(env, path, {}, "en-US"));
   return { key: v ? v.key : null, lang: v ? v.iso_639_1 : null };
 }
 

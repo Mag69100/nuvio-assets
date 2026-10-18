@@ -191,7 +191,7 @@ export function pluralVariant(query) {
 }
 
 // Mots en trop autour du titre : « film barbie », « barbie le film », « les films de nolan ».
-const NOISE_HEAD = /^(?:(?:le|la|les|un|une|des|the)\s+)?(?:films?|movies?|s[ée]ries?|animes?|anim[ée]s?|dessins? anim[ée]s?|documentaires?)\s+(?:(?:de|du|des)\s+|d['’]\s*)?/i;
+const NOISE_HEAD = /^(?:(?:le|la|les|un|une|des|the)\s+)?(?:films?|movies?|s[ée]ries?|animes?|anim[ée]s?|dessins? anim[ée]s?|documentaires?)\s+(?:(?:de|du|des|avec)\s+|d['’]\s*)?/i;
 const NOISE_TAIL = /\s+(?:(?:le|la|the)\s+)?(?:film|movie|s[ée]rie|series|anime)$/i;
 // Séries : la saison ou l'épisode n'aide pas TMDB (« the boys saison 4 », « lupin partie 3 », « the witcher s3 »).
 const SEASON_TAIL = /\s+(?:(?:saison|season|partie|part|livre|book|s)\s*\d{1,2}(?:\s*(?:e|ep|[ée]pisode)\s*\d{1,3})?|s\d{1,2}\s*e\d{1,3}|\d{1,2})$/i;

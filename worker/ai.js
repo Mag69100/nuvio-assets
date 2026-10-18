@@ -26,6 +26,7 @@ const ATTEMPT_MS = 5000;            // un modèle qui ne répond pas en 5 s pass
 export const AI_WAIT_MS = 6000;     // attente maximale d'une réponse de Gemini pendant une recherche
 const CACHE_S = 30 * 86400;
 const MATCH = 0.75;                 // ressemblance minimale entre le titre proposé et la fiche TMDB
+const MAX_PICKS = 12;               // titres proposés retrouvés dans TMDB, par type (budget d'appels)
 
 // Mots qui racontent un titre ou une envie au lieu de le nommer (« où », « qui », « un mec », « glauque »…).
 const CUES = /\b(ou|qui|que|quand|avec|dans|pendant|apres|contre|mec|gars|type|meuf|fille|femme|homme|enfant|gamin|famille|histoire|parle|raconte|ressemble|comme|genre|style|ambiance|similaire|bien|tres|trop|thriller|comedie|horreur|drame|romantique|coreen|japonais|triste|drole|flippant|glauque|where|who|about|with|like)\b/;
@@ -42,7 +43,8 @@ Réponds avec les titres qui correspondent le mieux, du plus probable au moins p
 - title_fr : le titre français s'il existe, sinon le même que title ;
 - title_en : le titre anglais international, sinon le même que title ;
 - year : l'année de sortie (pour une série : l'année de la première saison) ;
-- type : "film" ou "serie".
+- type : "film" ou "serie" ;
+- saga : true si l'œuvre a des suites ou des préquelles, sinon false.
 Chaque détail de la requête compte : nationalité des personnages ou du film, pays, lieu, époque, métier, objet, situation. L'œuvre recherchée est celle qui réunit TOUS ces détails, même si elle est peu connue ou indépendante : elle passe avant une œuvre célèbre qui n'en réunit qu'une partie (« une japonaise part chercher un trésor aux états-unis » → Kumiko, the Treasure Hunter, pas Indiana Jones).
 Si la requête désigne une œuvre précise, mets-la en premier, puis ajoute des œuvres proches (même sujet, même genre) : donne toujours au moins 8 titres quand c'est possible. Si elle décrit une envie (« un thriller coréen glauque »), propose les titres les plus réputés qui correspondent.
 Pour une saga, ne cite qu'un film : celui qui correspond le mieux, sinon le premier. Les autres films de la saga sont ajoutés automatiquement : garde tes places pour d'autres œuvres.
@@ -58,9 +60,9 @@ const SCHEMA = {
         type: "OBJECT",
         properties: {
           title: { type: "STRING" }, title_fr: { type: "STRING" }, title_en: { type: "STRING" },
-          year: { type: "INTEGER" }, type: { type: "STRING", enum: ["film", "serie"] },
+          year: { type: "INTEGER" }, type: { type: "STRING", enum: ["film", "serie"] }, saga: { type: "BOOLEAN" },
         },
-        required: ["title", "title_fr", "title_en", "year", "type"],
+        required: ["title", "title_fr", "title_en", "year", "type", "saga"],
       },
     },
   },
@@ -130,7 +132,7 @@ function modelsFor(env, forced) {
  * cache (diagnostic).
  */
 export function aiTitles(env, ctx, query, opts = {}) {
-  const key = new Request(`https://cache.local/ai/v4/${encodeURIComponent(norm(query))}`);
+  const key = new Request(`https://cache.local/ai/v5/${encodeURIComponent(norm(query))}`);
   if (PENDING.has(key.url) && !opts.model) return PENDING.get(key.url);
   const start = Date.now();
   const job = (async () => {
@@ -203,10 +205,15 @@ const sagaOrder = (parts) => (parts || []).filter((p) => p.poster_path && p.rele
  * api(path) → appel TMDB : avec lui, chaque film amène le reste de sa saga juste après lui.
  */
 export async function resolveTitles(titles, kind, search, api) {
-  const wanted = titles.filter((t) => (t.type === "serie") === (kind === "series"));
-  const found = dedupe(await Promise.all(wanted.map((t) => findOne(t, kind, search).catch(() => null))));
+  const wanted = titles.filter((t) => (t.type === "serie") === (kind === "series")).slice(0, MAX_PICKS);
+  const hits = await Promise.all(wanted.map((t) => findOne(t, kind, search).catch(() => null)));
+  const seen = new Set();
+  const pairs = wanted.map((t, i) => ({ t, it: hits[i] })).filter(({ it }) => it && !seen.has(it.id) && seen.add(it.id));
+  const found = pairs.map((p) => p.it);
   if (kind === "series" || !api || !found.length) return found;
-  const sagaOf = await Promise.all(found.map((it) => api(`/movie/${it.id}`).then((d) => d && d.belongs_to_collection, () => null)));
+  // Seulement les films que Gemini dit de saga : un appel TMDB de plus chacun.
+  const sagaOf = await Promise.all(pairs.map(({ t, it }) => (t.saga === false ? null
+    : api(`/movie/${it.id}`).then((d) => d && d.belongs_to_collection, () => null))));
   const ids = [...new Set(sagaOf.filter(Boolean).map((c) => c.id))];
   const parts = new Map(await Promise.all(ids.map((id) => api(`/collection/${id}`).then((c) => [id, sagaOrder(c && c.parts)], () => [id, []]))));
   return dedupe(found.flatMap((it, i) => {

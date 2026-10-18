@@ -27,13 +27,17 @@ import { configurePage } from "./page.js";
 import { guidePage, NUVIO_TV_APK } from "./guide.js";
 import { lienPage } from "./lien.js";
 import { hallPage } from "./hall.js";
-import { smartSearch, prepareWords } from "./search.js";
+import { smartSearch, prepareWords, isExact } from "./search.js";
 import { looksDescriptive, aiTitles, resolveTitles, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.13.5";
+const VERSION = "5.13.6";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
-const AI_MAX = 40;                  // 1re page d'une recherche par IA (sagas entières comprises)
+const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
+// Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
+// recherche en garde 20 pour les fiches (un appel par titre affiché), quelques-uns pour le cache et
+// Gemini, et SEARCH_BUDGET pour chercher dans TMDB : au-delà, ses appels renvoient vide.
+const SEARCH_BUDGET = 22;
 const ASSETS = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main";
 const NOISE_TV = ["10763", "10764", "10766", "10767"]; // actualité, téléréalité, soap, talk-show
 
@@ -204,9 +208,13 @@ function manifest(today, cfg, cfgSeg) {
 async function tmdb(env, path, params = {}, lang = "fr-FR") {
   const url = new URL(`https://api.themoviedb.org/3${path}`);
   url.search = new URLSearchParams({ api_key: env.TMDB_API_KEY, language: lang, ...params });
-  const res = await fetch(url, { cf: { cacheTtl: CACHE_CATALOG_S, cacheEverything: true } });
-  if (!res.ok) return {};
-  return res.json();
+  // Erreur réseau ou limite d'appels de Cloudflare atteinte : une réponse vide, pas une page en erreur.
+  try {
+    const res = await fetch(url, { cf: { cacheTtl: CACHE_CATALOG_S, cacheEverything: true } });
+    return res.ok ? await res.json() : {};
+  } catch (e) {
+    return {};
+  }
 }
 
 /**
@@ -223,9 +231,10 @@ async function extraInfo(env, kind, tmdbId) {
     api_key: env.TMDB_API_KEY, language: "fr-FR", include_image_language: "fr,en,null",
     append_to_response: movie ? "release_dates,images" : "external_ids,images",
   });
-  const res = await fetch(url, { cf: { cacheTtl: movie ? 86400 : 7 * 86400, cacheEverything: true } });
-  if (!res.ok) return { imdb: null };
-  const j = await res.json();
+  // Sans réponse (limite d'appels de Cloudflare…) : le titre s'affiche quand même, sans ces infos.
+  const j = await fetch(url, { cf: { cacheTtl: movie ? 86400 : 7 * 86400, cacheEverything: true } })
+    .then((res) => (res.ok ? res.json() : null), () => null);
+  if (!j) return { imdb: null };
   const logo = bestImage(j.images && j.images.logos, "fr");
   const backdrop = bestImage((j.images && j.images.backdrops || []).filter((b) => !b.iso_639_1), "fr");
   return {
@@ -515,26 +524,42 @@ function searchWords() {
  */
 async function runSearch(env, type, query, page, opts, trace) {
   const endpoint = `/search/${type === "series" ? "tv" : "movie"}`;
+  let left = SEARCH_BUDGET;
+  const none = Promise.resolve({});
   const search = (q, p, extra = {}) => {
+    if (left-- <= 0) return none;
     const { language, ...rest } = extra;
     return tmdb(env, endpoint, { query: q, page: p, include_adult: "false", region: opts.region, ...rest }, language || opts.lang);
   };
-  const api = (path, params = {}) => tmdb(env, path, params, opts.lang);
-  const useAI = !!env.GEMINI_API_KEY && page === 1;
-  // Une description : Gemini part tout de suite, en même temps que la recherche classique.
-  const descriptive = useAI && looksDescriptive(query);
-  const aiOpts = { model: opts.aiModel, thinking: opts.aiThinking, fresh: opts.aiFresh };   // réglages de /debug/search
-  const ai = descriptive ? aiTitles(env, opts.ctx, query, aiOpts) : null;
+  const api = (path, params = {}) => (left-- > 0 ? tmdb(env, path, params, opts.lang) : none);
   const stats = {};
-  const classic = await smartSearch(query, page, search, type, api, { words: searchWords, region: opts.region, trace, stats });
+  const classicSearch = () => smartSearch(query, page, search, type, api, { words: searchWords, region: opts.region, trace, stats });
+  const useAI = !!env.GEMINI_API_KEY && page === 1;
   if (!useAI) {
     if (trace) trace.ai = env.GEMINI_API_KEY ? "page suivante : recherche classique" : "pas de secret GEMINI_API_KEY";
-    return classic;
+    return classicSearch();
+  }
+  // Une description : Gemini part tout de suite. Pas toute la recherche classique (une dizaine
+  // d'appels TMDB pour rien) : seulement de quoi reconnaître un titre connu fait de ces mots
+  // (« danse avec les loups »), qui garde alors la recherche classique.
+  const descriptive = looksDescriptive(query);
+  const aiOpts = { model: opts.aiModel, thinking: opts.aiThinking, fresh: opts.aiFresh };   // réglages de /debug/search
+  const ai = descriptive ? aiTitles(env, opts.ctx, query, aiOpts) : null;
+  let classic = [];
+  if (descriptive) {
+    const quick = await search(query, 1);
+    if ((quick.results || []).some((it) => isExact(query, it) && it.vote_count >= 300)) {
+      if (trace) trace.ai = { descriptive, why: null, titreConnu: true };
+      return classicSearch();
+    }
+  } else {
+    classic = await classicSearch();
   }
   // Titre connu, personne, saga ou studio : la recherche classique suffit, sans attendre Gemini
   // (s'il est déjà parti, il finit en arrière-plan et remplit son cache).
-  const why = stats.sure ? null : descriptive ? "description" : !stats.strong.size ? "rien de proche" : null;
-  if (trace) trace.ai = { descriptive, sure: !!stats.sure, strong: stats.strong.size, why };
+  const strong = stats.strong || new Set();
+  const why = descriptive ? "description" : stats.sure ? null : !strong.size ? "rien de proche" : null;
+  if (trace) trace.ai = { descriptive, sure: !!stats.sure, strong: strong.size, why };
   if (!why) return classic;
   const job = ai || aiTitles(env, opts.ctx, query, aiOpts);
   const answer = await Promise.race([job, new Promise((r) => setTimeout(() => r(null), AI_WAIT_MS))]);
@@ -543,13 +568,14 @@ async function runSearch(env, type, query, page, opts, trace) {
   if (!answer || answer.error) {
     opts.partial = true;
     if (trace) trace.ai.error = answer ? answer.error : `pas de réponse en ${AI_WAIT_MS} ms`;
-    return classic;
+    return descriptive ? classicSearch() : classic;
   }
   const found = await resolveTitles(answer.titles, type, search, api);
   if (trace) {
     Object.assign(trace.ai, {
       model: answer.model, ms: answer.ms, cached: answer.cached, tried: answer.tried,
       picks: answer.titles, found: found.map((it) => ({ name: it.title || it.name, date: it.release_date || it.first_air_date, votes: it.vote_count })),
+      tmdbCalls: SEARCH_BUDGET - Math.max(0, left),
     });
   }
   // Rien pour ce type à partir d'un titre mal écrit : la recherche classique telle quelle. Une
@@ -559,7 +585,7 @@ async function runSearch(env, type, query, page, opts, trace) {
   // Les titres retrouvés par l'IA d'abord, puis seulement les titres de la recherche classique
   // qui ressemblent à la requête (pas « Fils de personne » pour « des personnages bleus »).
   const seen = new Set();
-  return [...found, ...classic.filter((it) => stats.strong.has(it.id))]
+  return [...found, ...classic.filter((it) => strong.has(it.id))]
     .filter((it) => !seen.has(it.id) && seen.add(it.id)).slice(0, AI_MAX);
 }
 

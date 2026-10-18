@@ -42,6 +42,7 @@ Réponds avec les titres qui correspondent le mieux, du plus probable au moins p
 - title_fr : le titre français s'il existe, sinon le même que title ;
 - year : l'année de sortie (pour une série : l'année de la première saison) ;
 - type : "film" ou "serie".
+Chaque détail de la requête compte : nationalité des personnages ou du film, pays, lieu, époque, métier, objet, situation. L'œuvre recherchée est celle qui réunit TOUS ces détails, même si elle est peu connue ou indépendante : elle passe avant une œuvre célèbre qui n'en réunit qu'une partie (« une japonaise part chercher un trésor aux états-unis » → Kumiko, the Treasure Hunter, pas Indiana Jones).
 Si la requête désigne une œuvre précise, mets-la en premier, puis ajoute des œuvres proches (même sujet, même genre) : donne toujours au moins 8 titres quand c'est possible. Si elle décrit une envie (« un thriller coréen glauque »), propose les titres les plus réputés qui correspondent.
 Pour une saga, ne cite qu'un film : celui qui correspond le mieux, sinon le premier. Les autres films de la saga sont ajoutés automatiquement : garde tes places pour d'autres œuvres.
 Pense aux films comme aux séries : un même sujet peut avoir les deux (dessins animés, adaptations, séries dérivées).
@@ -68,7 +69,7 @@ const SCHEMA = {
 // Niveau de réflexion le plus bas accepté par le modèle (« minimal » n'existe pas sur 3.8 Flash).
 const thinkingOf = (model) => (/3\.8-flash/.test(model) ? "low" : "minimal");
 
-async function askGemini(env, query, model) {
+async function askGemini(env, query, model, thinking) {
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
@@ -77,7 +78,7 @@ async function askGemini(env, query, model) {
       contents: [{ role: "user", parts: [{ text: query }] }],
       generationConfig: {
         temperature: 0.2, responseMimeType: "application/json", responseSchema: SCHEMA,
-        thinkingConfig: { thinkingLevel: thinkingOf(model) },
+        thinkingConfig: { thinkingLevel: thinking || thinkingOf(model) },
       },
     }),
     signal: AbortSignal.timeout(ATTEMPT_MS),
@@ -110,7 +111,8 @@ function modelsFor(env, forced) {
 /**
  * Titres proposés par Gemini pour une requête → { titles, cached, ms, model, tried, error }.
  * Ne lève jamais d'erreur : en cas de souci, titles est vide et error dit pourquoi.
- * opts.model → un seul modèle, imposé ; opts.fresh → sans le cache (diagnostic).
+ * opts.model → un seul modèle, imposé ; opts.thinking → niveau de réflexion ; opts.fresh → sans le
+ * cache (diagnostic).
  */
 export function aiTitles(env, ctx, query, opts = {}) {
   const key = new Request(`https://cache.local/ai/v3/${encodeURIComponent(norm(query))}`);
@@ -122,7 +124,7 @@ export function aiTitles(env, ctx, query, opts = {}) {
     const tried = [];
     for (const model of modelsFor(env, opts.model)) {
       try {
-        const titles = await askGemini(env, query, model);
+        const titles = await askGemini(env, query, model, opts.thinking);
         await caches.default.put(key, new Response(JSON.stringify(titles), {
           headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${CACHE_S}` },
         }));

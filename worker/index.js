@@ -31,7 +31,7 @@ import { smartSearch, prepareWords } from "./search.js";
 import { looksDescriptive, aiTitles, resolveTitles, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.13.2";
+const VERSION = "5.13.3";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 40;                  // 1re page d'une recherche par IA (sagas entières comprises)
 const ASSETS = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main";
@@ -523,7 +523,7 @@ async function runSearch(env, type, query, page, opts, trace) {
   const useAI = !!env.GEMINI_API_KEY && page === 1;
   // Une description : Gemini part tout de suite, en même temps que la recherche classique.
   const descriptive = useAI && looksDescriptive(query);
-  const aiOpts = { model: opts.aiModel, fresh: opts.aiFresh };   // réglages de /debug/search
+  const aiOpts = { model: opts.aiModel, thinking: opts.aiThinking, fresh: opts.aiFresh };   // réglages de /debug/search
   const ai = descriptive ? aiTitles(env, opts.ctx, query, aiOpts) : null;
   const stats = {};
   const classic = await smartSearch(query, page, search, type, api, { words: searchWords, region: opts.region, trace, stats });
@@ -866,12 +866,14 @@ export default {
     }
     if (!env.TMDB_API_KEY) return json({ error: "Secret TMDB_API_KEY manquant" }, 0);
     // Détail d'une recherche (formes essayées, correction, classement) : /debug/search/<movie|series>/<requête>
-    // ?model=gemini-… pour essayer un autre modèle, ?fresh=1 pour reposer la question à Gemini.
+    // ?model=gemini-… pour essayer un autre modèle, ?thinking=low… pour un autre niveau de réflexion,
+    // ?fresh=1 pour reposer la question à Gemini.
     const dbg = path.match(/^\/debug\/search\/(movie|series)\/(.+)$/);
     if (dbg) {
       const trace = {};
       const out = await runSearch(env, dbg[1], decodeURIComponent(dbg[2]), 1, {
         ctx, lang: langOf(cfg), region: cfg.g, aiModel: url.searchParams.get("model") || undefined, aiFresh: url.searchParams.has("fresh"),
+        aiThinking: url.searchParams.get("thinking") || undefined,
       }, trace);
       trace.final = out.map((it) => `${it.title || it.name} (${(it.release_date || it.first_air_date || "").slice(0, 4)})`);
       return json(trace, 0);

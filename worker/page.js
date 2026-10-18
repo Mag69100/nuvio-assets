@@ -959,7 +959,8 @@ let fmt = "p";
 try { fmt = localStorage.getItem("apercu-format") === "l" ? "l" : "p"; } catch (e) {}
 let heroList = [], heroIdx = 0, heroTimer = 0, heroHold = 0, hoverT = 0, ficheFrom = null;
 const calmMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
-const imgW = (u, w) => (u || "").replace("/w1280/", "/" + w + "/");
+// Fonds envoyés en w1920 (ou original, w1280 selon la version de l'addon) : on demande la taille utile.
+const imgW = (u, w) => (u || "").replace(/[/](original|w1920|w1280)[/]/, "/" + w + "/");
 const cssUrl = (u) => "url('" + u.replace(/'/g, "%27") + "')";
 // Film pas encore regardable : l'addon met « 📅 Dispo le… » en tête du résumé ; comme sur la TV,
 // la ligne du dessous ne garde alors que l'année.

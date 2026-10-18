@@ -1123,7 +1123,7 @@ export const STAGE_JS = String.raw`
         const metas = (d.metas || []).filter((m) => m.background && !album.some((b) => b.id === m.id));
         if (!metas.length) return;
         const m = metas[Math.floor(Math.random() * metas.length)];
-        const b = { id: m.id, type: m.type || "movie", n: m.name, img: m.background.replace("/w1280/", "/w300/"), bg: m.background.replace("/w1280/", "/w780/"), poster: m.poster, desc: m.description || "",
+        const b = { id: m.id, type: m.type || "movie", n: m.name, img: m.background.replace(/[/](original|w1920|w1280)[/]/, "/w300/"), bg: m.background.replace(/[/](original|w1920|w1280)[/]/, "/w780/"), poster: m.poster, desc: m.description || "",
           an: m.releaseInfo || "", genres: (m.genres || []).slice(0, 3), note: m.imdbRating || "", d: new Date().toISOString().slice(0, 10) };
         album.unshift(b);
         album = album.slice(0, 60); store.set("billets", JSON.stringify(album)); drawSecrets();
@@ -1171,7 +1171,7 @@ export const STAGE_JS = String.raw`
     liste.addEventListener("click", () => {
       let l = lireListe();
       if (dans()) l = l.filter((x) => x.id !== b.id);
-      else { l.unshift({ id: b.id, type: b.type, name: b.n, poster: b.poster, background: b.bg ? b.bg.replace("/w780/", "/w1280/") : "", description: b.desc, releaseInfo: b.an, genres: b.genres, imdbRating: b.note }); popcorn(liste); }
+      else { l.unshift({ id: b.id, type: b.type, name: b.n, poster: b.poster, background: b.bg ? b.bg.replace("/w780/", "/w1920/") : "", description: b.desc, releaseInfo: b.an, genres: b.genres, imdbRating: b.note }); popcorn(liste); }
       store.set("ma-liste", JSON.stringify(l.slice(0, 50))); dessine(); sfx.click();
       dispatchEvent(new Event("ma-liste"));
     });

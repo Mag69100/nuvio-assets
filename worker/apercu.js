@@ -149,7 +149,7 @@ export const apercuJS = (origin, posterUrl) => "const ORIG_AP = " + JSON.stringi
     };
     const peint = (a) => {
       const m = a._m; if (!m) return;
-      const simple = format === "l" ? String(m.background || m.poster || "").replace("/w1280/", "/w300/") : m.poster;
+      const simple = format === "l" ? String(m.background || m.poster || "").replace(/[/](original|w1920|w1280)[/]/, "/w300/") : m.poster;
       const p2 = ppSrc(m, format === "l" ? "landscape" : "poster");
       const montre = (src, repli) => { if (!src) return; const im = new Image(); im.onload = () => { a.style.backgroundImage = url(src); }; if (repli) im.onerror = () => montre(repli); im.src = src; };
       a.style.backgroundImage = ""; montre(p2 || simple, p2 ? simple : null);
@@ -207,7 +207,7 @@ export const apercuJS = (origin, posterUrl) => "const ORIG_AP = " + JSON.stringi
     const ouvrirFiche = (m) => {
       fermeFiche();
       const f = mkd("div", "r-fiche"); f.setAttribute("role", "dialog"); f.setAttribute("aria-label", m.name);
-      const fond = mkd("div", "rf-fond"); if (m.background || m.poster) fond.style.backgroundImage = url(String(m.background || m.poster).replace("/w1280/", "/w780/"));
+      const fond = mkd("div", "rf-fond"); if (m.background || m.poster) fond.style.backgroundImage = url(String(m.background || m.poster).replace(/[/](original|w1920|w1280)[/]/, "/w780/"));
       const aff = mkd("div", "rf-affiche"); const src = ppSrc(m, "poster") || m.poster; if (src) aff.style.backgroundImage = url(src);
       const ba = mkd("button", null, "Bande-annonce"), bi = mkd("button", null, ""); ba.type = bi.type = "button";
       const dessineBi = () => { bi.textContent = dansListe(m) ? "Retirer de la bibliothèque" : "+ Ajouter à la bibliothèque"; };
@@ -322,7 +322,7 @@ export const apercuJS = (origin, posterUrl) => "const ORIG_AP = " + JSON.stringi
             const une = metas.filter((m) => m.background).slice(0, 5); let n = 0;
             const montre = () => {
               const m = une[n % une.length]; if (!m || !ov.isConnected) return;
-              hero.style.backgroundImage = url(m.background.replace("/w1280/", "/w780/"));
+              hero.style.backgroundImage = url(m.background.replace(/[/](original|w1920|w1280)[/]/, "/w780/"));
               info.textContent = "";
               info.append(mkd("b", null, m.name), mkd("span", null, [ri(m), (m.genres || []).slice(0, 2).join(", "), m.imdbRating ? "★ " + m.imdbRating : ""].filter(Boolean).join("  ·  ")), mkd("p", aDispo(m) ? "a-dispo" : null, m.description || ""), mkd("i", null, "▶ Lecture"));
               n++;

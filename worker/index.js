@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.20.2";
+const VERSION = "5.20.3";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -242,7 +242,7 @@ async function extraInfo(env, kind, tmdbId) {
   return {
     imdb: (movie ? j.imdb_id : j.external_ids && j.external_ids.imdb_id) || null,
     releases: movie ? (j.release_dates && j.release_dates.results) || [] : null,
-    episode: movie ? null : { next: j.next_episode_to_air, last: j.last_episode_to_air, counts: seasonCounts(j.seasons) },
+    episode: movie ? null : { next: j.next_episode_to_air, last: j.last_episode_to_air, counts: seasonCounts(j.seasons), status: j.status },
     logo: logo ? `${IMG}w500${logo.file_path.replace(/\.svg$/, ".png")}` : undefined,
     backdrop: backdrop ? backdrop.file_path : null,
     trailers: trailersOf(j.videos && j.videos.results).slice(0, 2),
@@ -251,40 +251,52 @@ async function extraInfo(env, kind, tmdbId) {
 
 const MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
 const shortDate = (iso) => `${Number(iso.slice(8, 10))} ${MONTHS[Number(iso.slice(5, 7)) - 1]}`;
+/** Ce qu'il faut savoir des épisodes d'une série TMDB, pour episodeNote et betweenSeasons. */
+const episodeOf = (d) => ({ next: d.next_episode_to_air, last: d.last_episode_to_air, counts: seasonCounts(d.seasons), status: d.status });
 /** { numéro de saison: nombre d'épisodes } d'après la liste des saisons TMDB. */
 const seasonCounts = (seasons) => Object.fromEntries((seasons || []).map((x) => [x.season_number, x.episode_count]));
 const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
 const dayName = (iso) => DAYS[new Date(`${iso}T12:00:00Z`).getUTCDay()];
 
 /**
- * Épisode d'une série en cours à signaler, sorti ces 3 derniers jours (regardable), sinon prévu dans
- * les 7 prochains, avec la fin ou le début de saison quand c'en est un :
- *   « Nouvel épisode sorti jeudi 15 oct. (S1 É8) », « Prochain épisode mardi 20 oct. (S1 É3) »,
- *   « Fin de la saison 1 : dernier épisode sorti… », « Dernier épisode de la saison 1 mardi… »,
- *   « Saison 3 : 1er épisode vendredi 7 nov. », « Saison 1 terminée le 15 oct. » (fin récente).
- * ep = { next, last } de TMDB, et counts = { saison: nombre d'épisodes } pour reconnaître une fin.
+ * Épisode d'une série à signaler :
+ *   - saison finie (son dernier épisode est sorti, il y a moins d'un mois) : « Saison 1 terminée le
+ *     15 oct. », ou « Série terminée le 7 oct. (dernier épisode) » si TMDB dit la série finie ;
+ *   - épisode sorti ces 3 derniers jours : « Nouvel épisode sorti jeudi 15 oct. (S1 É8) » ;
+ *   - épisode prévu dans les 7 prochains : « Prochain épisode mardi 20 oct. (S1 É3) », « Dernier
+ *     épisode de la saison 1 mardi… », « Saison 3 : 1er épisode vendredi 7 nov. ».
+ * ep = { next, last } de TMDB, counts = { saison: nombre d'épisodes }, status = statut TMDB.
  */
 function episodeNote(ep, today) {
   if (!ep) return "";
-  const { next, last, counts = {} } = ep;
+  const { next, last, status } = ep;
   const when = (e) => (e.air_date === today ? "aujourd'hui" : `${dayName(e.air_date)} ${shortDate(e.air_date)}`);
   const tag = (e) => `(S${e.season_number} É${e.episode_number})`;
-  const finale = (e) => e.episode_type === "finale" || (e.episode_number > 1 && e.episode_number === counts[e.season_number]);
+  if (betweenSeasons(ep, today) && last.air_date >= addDays(today, -30)) {
+    if (status === "Ended") return `Série terminée le ${shortDate(last.air_date)} (dernier épisode)`;
+    if (status === "Canceled") return `Série annulée, dernier épisode le ${shortDate(last.air_date)}`;
+    return `Saison ${last.season_number} terminée le ${shortDate(last.air_date)}`;
+  }
   if (last && last.air_date && last.air_date <= today && last.air_date >= addDays(today, -3)) {
     if (last.episode_number === 1) return `Saison ${last.season_number} : 1er épisode sorti ${when(last)}`;
-    if (finale(last)) return `Fin de la saison ${last.season_number} : dernier épisode sorti ${when(last)} ${tag(last)}`;
     return `Nouvel épisode sorti ${when(last)} ${tag(last)}`;
   }
   if (next && next.air_date && next.air_date >= today && next.air_date <= addDays(today, 7)) {
     if (next.episode_number === 1) return `Saison ${next.season_number} : 1er épisode ${when(next)}`;
-    if (finale(next)) return `Dernier épisode de la saison ${next.season_number} ${when(next)} ${tag(next)}`;
+    if (isFinale(next, ep.counts)) return `Dernier épisode de la saison ${next.season_number} ${when(next)} ${tag(next)}`;
     return `Prochain épisode ${when(next)} ${tag(next)}`;
   }
-  // Saison finie depuis peu, rien de prévu cette semaine : on le dit, plutôt que rien.
-  if (last && last.air_date && last.air_date >= addDays(today, -30) && finale(last) && !(next && next.season_number === last.season_number)) {
-    return `Saison ${last.season_number} terminée le ${shortDate(last.air_date)}`;
-  }
   return "";
+}
+
+/** Dernier épisode de sa saison (TMDB le marque « finale », sinon son numéro = nombre d'épisodes). */
+const isFinale = (e, counts = {}) => e.episode_type === "finale" || (e.episode_number > 1 && e.episode_number === counts[e.season_number]);
+
+/** La saison en cours est finie (son dernier épisode est sorti) et la suivante n'a pas commencé. */
+function betweenSeasons(ep, today) {
+  const { next, last, counts } = ep || {};
+  return !!(last && last.air_date && last.air_date <= today && isFinale(last, counts)
+    && !(next && next.season_number === last.season_number));
 }
 
 /**
@@ -867,7 +879,7 @@ async function meta(env, kind, id, cfg, today, ctx) {
   const metaId = id.startsWith("tt") ? id : imdb || `tmdb:${tmdbId}`;
   const date = (movie ? d.release_date : d.first_air_date) || "";
   const releases = movie ? (d.release_dates && d.release_dates.results) || [] : null;
-  const note = movie ? releaseNote(releases, cfg.g, today) : episodeNote({ next: d.next_episode_to_air, last: d.last_episode_to_air, counts: seasonCounts(d.seasons) }, today);
+  const note = movie ? releaseNote(releases, cfg.g, today) : episodeNote(episodeOf(d), today);
   const dispo = movie ? firstDigital(releases) || digitalGuess(releases) : "";
   const shownDate = dispo && dispo > today ? dispo : date;
   const credits = d.credits || {};
@@ -903,7 +915,9 @@ async function meta(env, kind, id, cfg, today, ctx) {
     releaseInfo: movie ? [date.slice(0, 4), note].filter(Boolean).join(" · ") || undefined
       : date ? `${date.slice(0, 4)}-${endYear}` : undefined,
     released: shownDate ? `${shownDate}T00:00:00.000Z` : undefined,
-    status: STATUS_FR[d.status] || d.status || undefined,
+    // « En cours » entre deux saisons trompait (Crystal Lake, saison 1 finie) : « Entre deux saisons ».
+    status: !movie && d.status === "Returning Series" && betweenSeasons(episodeOf(d), today)
+      ? "Entre deux saisons" : STATUS_FR[d.status] || d.status || undefined,
     imdbRating: imdbRating(imdb),
     genres: (d.genres || []).map((g) => GENRE_NAMES[g.id] || g.name),
     runtime: runtime ? `${runtime} min` : undefined,

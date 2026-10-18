@@ -182,18 +182,21 @@ const NOT_FICTION = new Set([99, 10763, 10764, 10767]);   // documentaire, actua
 
 /**
  * Films (ou séries) d'une personne : réalisés pour un réalisateur, joués pour un acteur.
- * Les premiers rôles d'abord (4 premiers noms au générique, ou 5 épisodes et plus pour une
- * série), puis les seconds rôles et apparitions ; à égalité, le plus connu.
+ * D'abord ses titres phares selon TMDB (« known_for » de la recherche de personnes : The Last
+ * of Us avant Mentalist pour Pedro Pascal), puis les premiers rôles (4 premiers noms au
+ * générique, ou 5 épisodes et plus quand TMDB les compte), puis le reste ; à égalité, le plus connu.
  */
-export function filmography(person, credits) {
+export function filmography(person, credits, kind) {
   const directing = person.known_for_department === "Directing";
   const list = directing
     ? (credits.crew || []).filter((c) => c.job === "Director")
     : (credits.cast || []).filter((c) => !SELF.test(c.character || ""));
+  const media = kind === "series" ? "tv" : "movie";
+  const famous = new Set((person.known_for || []).filter((k) => k.media_type === media).map((k) => k.id));
   const lead = (c) => directing || (c.episode_count !== undefined ? c.episode_count >= 5 : (c.order ?? 99) <= 3);
   return list
     .filter((c) => !(c.genre_ids || []).some((g) => NOT_FICTION.has(g)))
-    .sort((a, b) => lead(b) - lead(a) || byPop(a, b));
+    .sort((a, b) => famous.has(b.id) - famous.has(a.id) || lead(b) - lead(a) || byPop(a, b));
 }
 
 const GOOD = 0.75;   // à partir de là, la recherche normale a trouvé ce qu'on cherchait
@@ -211,17 +214,24 @@ const dedupe = (list) => { const seen = new Set(); return list.filter((it) => !s
 const tier = (text, it) => (isExact(text, it) ? 2 : scoreOf(text, it) >= GOOD ? 1 : 0);
 const byTier = (text) => (a, b) => tier(text, b) - tier(text, a) || byPop(a, b);
 
-/** Saga TMDB qui correspond à la requête → [le n-ième film, puis toute la saga dans l'ordre]. */
+/**
+ * Saga TMDB qui correspond à la requête → [le n-ième film, puis toute la saga dans l'ordre].
+ * Les 3 sagas les plus proches sont ouvertes : pour « fast 3 », la plus proche du mot « fast »
+ * n'est pas forcément Fast & Furious ; on garde la première qui a un n-ième film.
+ */
 async function sagaFilms(sagas, base, n, api) {
-  const pick = (sagas.results || [])
+  const picks = (sagas.results || [])
     .map((c) => ({ c, s: Math.max(similarity(base, sagaName(c.name)), similarity(base, sagaName(c.original_name))) }))
     .filter((x) => x.s >= GOOD)
-    .sort((a, b) => b.s - a.s)[0];
-  if (!pick) return null;
-  const saga = await api(`/collection/${pick.c.id}`);
-  const { hit, dated } = nthPart(saga.parts || [], n, `${sagaName(pick.c.name)} ${sagaName(pick.c.original_name)}`);
-  if (!usable([hit]).length) return null;
-  return [hit, ...usable(dated)];
+    .sort((a, b) => b.s - a.s)
+    .slice(0, 3);
+  const details = await Promise.all(picks.map((x) => api(`/collection/${x.c.id}`)));
+  for (let i = 0; i < picks.length; i++) {
+    const { c } = picks[i];
+    const { hit, dated } = nthPart(details[i].parts || [], n, `${sagaName(c.name)} ${sagaName(c.original_name)}`);
+    if (usable([hit]).length) return [hit, ...usable(dated)];
+  }
+  return null;
 }
 
 /**
@@ -299,7 +309,7 @@ export async function smartSearch(query, page, search, kind, api) {
       && ["Acting", "Directing"].includes(p.known_for_department) && personMatch(q, p.name));
     if (person) {
       const credits = await api(`/person/${person.id}/${kind === "series" ? "tv" : "movie"}_credits`);
-      const films = dedupe(usable(filmography(person, credits))).slice(0, PERSON_MAX);
+      const films = dedupe(usable(filmography(person, credits, kind))).slice(0, PERSON_MAX);
       if (films.length) titles = dedupe([...films, ...titles]);
     }
   }

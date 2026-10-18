@@ -31,7 +31,7 @@ import { smartSearch, prepareWords } from "./search.js";
 import { looksDescriptive, aiTitles, resolveTitles, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.12.1";
+const VERSION = "5.12.2";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const ASSETS = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main";
 const NOISE_TV = ["10763", "10764", "10766", "10767"]; // actualité, téléréalité, soap, talk-show
@@ -550,7 +550,10 @@ async function runSearch(env, type, query, page, opts, trace) {
       picks: answer.titles, found: found.map((it) => ({ name: it.title || it.name, date: it.release_date || it.first_air_date, votes: it.vote_count })),
     });
   }
-  if (!found.length) return classic;
+  // Rien pour ce type à partir d'un titre mal écrit : la recherche classique telle quelle. Une
+  // description, elle, n'a rien à voir avec les titres trouvés mot à mot (« la série avec le prof
+  // de chimie » : Breaking Bad dans Séries, pas « La guerre des drogues » dans Films).
+  if (!found.length && !descriptive) return classic;
   // Les titres retrouvés par l'IA d'abord, puis seulement les titres de la recherche classique
   // qui ressemblent à la requête (pas « Fils de personne » pour « des personnages bleus »).
   const seen = new Set();

@@ -177,6 +177,10 @@ input[type=text] {
 .steps-howto li::before { content: counter(st); font: 400 2.2rem/1 var(--display); color: var(--bulb); text-align: center; border: 1px dashed rgba(255,207,107,.4); border-radius: 10px; padding: 6px 0 2px; }
 .steps-howto b { color: var(--cream); }
 aside { position: sticky; top: 18px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; min-width: 0; }
+/* Trop haut pour la fenêtre : la colonne prend toute la hauteur, l'écran reste collé en haut (en entier)
+   et le billet arrive en bas, à la fin du défilement. */
+aside.long { position: relative; top: auto; align-self: stretch; grid-template-rows: minmax(0, 1fr) auto auto; }
+aside.long .stage:not(.big) { position: sticky; top: var(--stage-top, 18px); }
 
 /* ---------- Le billet ---------- */
 .ticket { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 74px; color: var(--ink); filter: drop-shadow(0 16px 30px rgba(0,0,0,.5)); }
@@ -542,7 +546,7 @@ ${STAGE_CSS}
 /* ---------- Téléphone (après tout le reste, pour passer devant) ---------- */
 @media (max-width: 960px) {
   /* L'aperçu en haut, les réglages, puis le billet tout à la fin (là où on en a besoin). */
-  aside { display: contents; }
+  aside, .rail { display: contents; }
   .stage { order: -2; }
   .caption { order: -1; margin-top: -26px; }
   .ticket { order: 1; scroll-margin: 24px; }
@@ -674,6 +678,7 @@ ${STAGE_CSS}
     </main>
 
     <aside>
+      <div class="rail">
       <div class="stage" id="stage">
         <div class="glow" id="glow" aria-hidden="true"></div>
         <div class="tv"><div class="screen" id="screen" role="region" aria-label="Aperçu interactif de ton accueil Nuvio">
@@ -698,6 +703,7 @@ ${STAGE_CSS}
           <button type="button" class="mini" id="zoom" aria-pressed="false">Agrandir l'écran</button>
         </div>
         <button type="button" class="btn big-close" id="big-close">Fermer le grand écran</button>
+      </div>
       </div>
       <p class="caption"><span class="souris">Clique sur une affiche pour ouvrir sa fiche, ou navigue avec les flèches comme à la télécommande.</span><span class="doigt">Touche une affiche pour ouvrir sa fiche, fais glisser les rangées du doigt.</span></p>
 
@@ -1611,14 +1617,19 @@ if (matchMedia("(hover: hover) and (pointer: fine)").matches && !matchMedia("(pr
 
 renderAll();
 
-// L'écran et le billet suivent le défilement, mais sans jamais sortir de l'écran :
-// s'ils sont plus hauts que la fenêtre, ils restent calés en bas.
-const asideEl = document.querySelector("aside");
+// L'écran et le billet suivent le défilement. S'ils sont trop hauts ensemble pour la fenêtre,
+// seul l'écran suit (toujours en entier) et le billet attend en bas de la colonne.
+const asideEl = document.querySelector("aside"), ticketEl = $("ticket"), captionEl = asideEl.querySelector(".caption");
 function placeAside() {
-  if (matchMedia("(max-width: 960px)").matches) { asideEl.style.top = ""; return; }
-  asideEl.style.top = Math.min(18, innerHeight - asideEl.offsetHeight - 18) + "px";
+  if (matchMedia("(max-width: 960px)").matches) { asideEl.classList.remove("long"); asideEl.style.top = ""; return; }
+  const besoin = stageEl.offsetHeight + captionEl.offsetHeight + ticketEl.offsetHeight + 44 + 36;
+  const long = besoin > innerHeight;
+  asideEl.classList.toggle("long", long);
+  asideEl.style.top = long ? "" : Math.min(18, innerHeight - asideEl.offsetHeight - 18) + "px";
+  asideEl.style.setProperty("--stage-top", Math.min(18, innerHeight - stageEl.offsetHeight - 18) + "px");
 }
-addEventListener("resize", placeAside); new ResizeObserver(placeAside).observe(asideEl); placeAside();
+addEventListener("resize", placeAside);
+const asideRO = new ResizeObserver(placeAside); [asideEl, stageEl, ticketEl].forEach((el) => asideRO.observe(el)); placeAside();
 
 // Sommaire : un clic amène la section juste sous le sommaire (qui reste collé en haut),
 // et la section en cours s'allume : la dernière dont le haut a passé le sommaire.

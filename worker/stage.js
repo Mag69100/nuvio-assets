@@ -1734,17 +1734,18 @@ export const STAGE_JS = String.raw`
     root.addEventListener("mouseleave", () => torch.classList.remove("on"));
   }
 
-  // ---------- La pellicule brûle si on ne touche plus à rien pendant 2 minutes ----------
+  // ---------- La pellicule brûle si on ne touche plus à rien pendant 2 minutes (une seule fois) ----------
   let idleT = 0;
   const brule = () => {
+    if (trouves.includes("brule")) return;
     if (document.hidden || document.querySelector(".brule, .retro, .panne-fx")) { resetIdle(); return; }
     const ov = mk("div", "brule"); ov.setAttribute("aria-hidden", "true");
     [[50, 45, 0], [28, 62, .5], [72, 32, .9]].forEach(([x, y, d]) => { const i = mk("i"); i.style.setProperty("--bx", x + "%"); i.style.setProperty("--by", y + "%"); i.style.setProperty("--dl", d + "s"); ov.append(i); });
     document.body.append(ov); secret("brule");
     setTimeout(() => { ov.classList.add("repart"); sfx.punch(); }, 3600);
-    setTimeout(() => { ov.remove(); toast("La pellicule a brûlé ! Le projectionniste a recollé le film."); resetIdle(); }, 4500);
+    setTimeout(() => { ov.remove(); toast("La pellicule a brûlé ! Le projectionniste a recollé le film."); }, 4500);
   };
-  const resetIdle = () => { clearTimeout(idleT); idleT = setTimeout(brule, 120000); };
+  const resetIdle = () => { clearTimeout(idleT); if (!trouves.includes("brule")) idleT = setTimeout(brule, 120000); };
   ["pointermove", "pointerdown", "keydown", "scroll", "wheel", "touchstart"].forEach((t) => addEventListener(t, resetIdle, { passive: true }));
   resetIdle();
 

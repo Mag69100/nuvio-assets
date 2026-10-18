@@ -786,6 +786,89 @@
         "focusGifUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/gifs/platforms/dc-comics.gif?v=2",
         "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/IYUD7rAIXzBM91TT3Z5fILUS7n.jpg",
         "titleLogoUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/logos/dc-comics.png"
+      },
+      {
+        "id": "crunchyroll",
+        "title": "Crunchyroll",
+        "tileShape": "LANDSCAPE",
+        "hideTitle": true,
+        "focusGifEnabled": true,
+        "sources": [
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Films populaires",
+            "mediaType": "MOVIE",
+            "sortBy": "popularity.desc",
+            "filters": {
+              "watchRegion": "FR",
+              "withWatchProviders": "283"
+            }
+          },
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Séries populaires",
+            "mediaType": "TV",
+            "sortBy": "popularity.desc",
+            "filters": {
+              "watchRegion": "FR",
+              "withWatchProviders": "283"
+            }
+          },
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Nouveaux films",
+            "mediaType": "MOVIE",
+            "sortBy": "primary_release_date.desc",
+            "filters": {
+              "voteCountGte": 10,
+              "watchRegion": "FR",
+              "withWatchProviders": "283"
+            }
+          },
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Nouvelles séries",
+            "mediaType": "TV",
+            "sortBy": "first_air_date.desc",
+            "filters": {
+              "voteCountGte": 10,
+              "watchRegion": "FR",
+              "withWatchProviders": "283"
+            }
+          },
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Films les mieux notés",
+            "mediaType": "MOVIE",
+            "sortBy": "vote_average.desc",
+            "filters": {
+              "voteCountGte": 500,
+              "watchRegion": "FR",
+              "withWatchProviders": "283"
+            }
+          },
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Séries les mieux notées",
+            "mediaType": "TV",
+            "sortBy": "vote_average.desc",
+            "filters": {
+              "voteCountGte": 200,
+              "watchRegion": "FR",
+              "withWatchProviders": "283"
+            }
+          }
+        ],
+        "coverImageUrl": "https://wsrv.nl/?url=wsrv.nl%2F%3Furl%3Draw.githubusercontent.com%2Fxnzx07%2Fnuvio-assets%2Fmain%2Flogo%2Fcrunchyroll.png%26w%3D440%26h%3D190%26fit%3Dinside%26output%3Dpng&w=640&h=360&fit=contain&we&cbg=ffffff&output=png&bg=ffffff",
+        "focusGifUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/gifs/platforms/crunchyroll.gif?v=2",
+        "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/3GQKYh6Trm8pxd2AypovoYQf4Ay.jpg",
+        "titleLogoUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/logos/crunchyroll.png"
       }
     ]
   },

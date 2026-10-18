@@ -34,7 +34,8 @@ FRAME_MS = 80
 def fetch(path: str, size: str = "w1280") -> Image.Image:
     if LOCAL:
         return Image.open(LOCAL / path.lstrip("/")).convert("RGBA")
-    url = f"https://image.tmdb.org/t/p/{size}{path}"
+    # Image TMDB (« /xxx.png »), ou adresse complète pour un logo absent de TMDB (Crunchyroll).
+    url = path if path.startswith("http") else f"https://image.tmdb.org/t/p/{size}{path}"
     req = urllib.request.Request(url, headers={"User-Agent": "nuvio-assets"})
     with urllib.request.urlopen(req, timeout=30) as r:
         return Image.open(io.BytesIO(r.read())).convert("RGBA")

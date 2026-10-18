@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.20.0";
+const VERSION = "5.20.1";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -1320,6 +1320,17 @@ function filterSource(src, cfg) {
   return { ...src, filters: f };
 }
 
+/**
+ * Ordre d'affichage des tuiles. Les tuiles masquées sont repérées par leur position dans le
+ * fichier : une nouvelle plateforme y est donc ajoutée en fin de collection (Crunchyroll),
+ * puis remontée ici avec les autres plateformes, avant les studios.
+ */
+function displayOrder(c, folders, id = (f) => f.id) {
+  if (c.id !== "plateformes-streaming") return folders;
+  const platformFolders = new Set(PROVIDERS.map((p) => p.folder).filter(Boolean));
+  return [...folders].sort((a, b) => !platformFolders.has(id(a)) - !platformFolders.has(id(b)));
+}
+
 /** Collections Nuvio filtrées : collections, plateformes et tuiles choisies, filtres appliqués. */
 async function collections(cfg) {
   const all = await loadCollections();
@@ -1330,8 +1341,8 @@ async function collections(cfg) {
     .filter((c) => cfg.c.includes(c.id))
     .map((c) => {
       const hidden = new Set(cfg.t[c.id] || []);
-      const folders = c.folders
-        .filter((f, i) => !hidden.has(i))
+      const folders = displayOrder(c, c.folders)
+        .filter((f) => !hidden.has(c.folders.indexOf(f)))
         .filter((f) => c.id !== "plateformes-streaming" || !platformFolders.has(f.id) || chosenFolders.has(f.id))
         .map((f) => (filtered && f.sources ? { ...f, sources: f.sources.map((src) => filterSource(src, cfg)) } : f));
       return { ...c, folders };
@@ -1373,7 +1384,7 @@ export default {
       // réelle dans le fichier pour l'affichage.
       const cols = COLLECTIONS.map((c) => ({
         ...c, pos: files.findIndex((f) => f.id === c.id),
-        folders: ((files.find((f) => f.id === c.id) || {}).folders || []).map((f) => ({ id: f.id, title: f.title, cover: f.coverImageUrl || "" })),
+        folders: displayOrder(c, ((files.find((f) => f.id === c.id) || {}).folders || []).map((f, i) => ({ id: f.id, title: f.title, cover: f.coverImageUrl || "", i }))),
       }));
       return html(configurePage({
         origin: url.origin, cfg, rows, discover: DEFS.discover, providers: PROVIDERS, collections: cols,

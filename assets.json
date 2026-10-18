@@ -262,6 +262,11 @@
    "/9aotxauvc9685tq9pTcRJszuT06.png"
   ],
   [
+   "crunchyroll",
+   "Crunchyroll",
+   "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/logo/crunchyroll.png"
+  ],
+  [
    "marvel-studios",
    "Marvel Studios",
    "/hUzeosd33nzE5MCNsZxCGEKTXaQ.png"
@@ -328,7 +333,8 @@
   "netflix",
   "warner-bros",
   "dc-comics",
-  "canal-plus"
+  "canal-plus",
+  "crunchyroll"
  ],
  "lighten_dark_logos": [
   "marvel-studios"

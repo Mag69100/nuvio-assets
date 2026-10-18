@@ -1061,7 +1061,7 @@ function renderScreen() {
   // Comme dans Nuvio : Plateformes (épinglée) en haut, puis les rangées, puis les autres collections.
   const drawCollection = (c) => {
     const hidden = new Set(state.t[c.id] || []);
-    let items = c.folders.map((f, i) => ({ f, i })).filter(({ i }) => !hidden.has(i));
+    let items = c.folders.map((f) => ({ f, i: f.i })).filter(({ i }) => !hidden.has(i));
     if (c.id === "plateformes-streaming") items = items.filter(({ f }) => { const p = D.providers.find(p => p.name === f.title); return !p || state.p.includes(p.id); });
     if (!items.length) return;
     const box = el("div", { class: "nv-track" });
@@ -1429,7 +1429,7 @@ function renderCollections() {
     const wrap = el("div", { class: "coll" + (on ? "" : " off") }, head);
     if (c.folders.length) {
       const chipsBox = el("div", { class: "chips" });
-      c.folders.forEach((f, i) => chip(chipsBox, "tile-" + c.id + "-" + i, f.title, !hidden.has(i), (keep) => {
+      c.folders.forEach(({ title, i }) => chip(chipsBox, "tile-" + c.id + "-" + i, title, !hidden.has(i), (keep) => {
         const set = new Set(state.t[c.id] || []); keep ? set.delete(i) : set.add(i);
         if (set.size) state.t[c.id] = [...set].sort((a, b) => a - b); else delete state.t[c.id];
         const small = head.querySelector("small"); const n = c.folders.length - set.size;

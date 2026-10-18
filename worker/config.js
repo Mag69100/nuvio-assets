@@ -19,7 +19,7 @@ export const PROVIDERS = [
   { id: "1899", name: "HBO Max", folder: "hbo-max" },
   { id: "350", name: "Apple TV+", folder: "apple-tv-plus" },
   { id: "381", name: "Canal+", folder: "canal-plus" },
-  { id: "283", name: "Crunchyroll" },
+  { id: "283", name: "Crunchyroll", folder: "crunchyroll" },
 ];
 
 /** Collections du fichier collections.json (dans l'ordre du fichier). */

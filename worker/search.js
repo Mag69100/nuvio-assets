@@ -421,9 +421,10 @@ async function sagaFilms({ sagas, base, n, api, pool, trace }) {
 
   const found = cands
     .map(({ c, parts }) => {
-      // Saga au nom différent : seulement les films dont le titre correspond (les Jurassic World).
+      // Saga au nom différent : seulement les films dont le titre commence par la requête (les
+      // Jurassic World, pas « The Lost World: Jurassic Park », qui contient pourtant les deux mots).
       const named = Math.max(similarity(base, sagaName(c.name)), similarity(base, sagaName(c.original_name))) >= GOOD;
-      const sub = named ? parts : parts.filter((p) => scoreOf(base, p) >= GOOD);
+      const sub = named ? parts : parts.filter((p) => titlesOf(p).some((t) => bare(t).startsWith(bare(base))));
       const list = sub.length >= n ? sub : parts;
       return { name: c.name, ...nthPart(list, n, `${sagaName(c.name)} ${sagaName(c.original_name)}`), votes: list.reduce((t, p) => t + (p.vote_count || 0), 0) };
     })

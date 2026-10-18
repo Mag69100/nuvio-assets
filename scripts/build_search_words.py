@@ -24,8 +24,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "search-words.json"
 KEY = os.environ.get("TMDB_API_KEY", "").strip()
-TOP_PAGES = 150      # les plus votés : 3 000 films et 3 000 séries
-POPULAR_PAGES = 50   # les plus populaires du moment : 1 000 de plus de chaque
+TOP_PAGES = 250      # les plus votés : 5 000 films et 5 000 séries
+POPULAR_PAGES = 100  # les plus populaires du moment : 2 000 de plus de chaque
 
 
 def tmdb(path: str, **params) -> dict:
@@ -84,7 +84,7 @@ def from_tmdb() -> dict[str, float]:
 
     # Noms des personnes connues : « dujardin », « tarantino » ne sont pas des fautes.
     with ThreadPoolExecutor(8) as pool:
-        people = [p for page in pool.map(lambda p: tmdb("/person/popular", page=p).get("results") or [], range(1, 51))
+        people = [p for page in pool.map(lambda p: tmdb("/person/popular", page=p).get("results") or [], range(1, 201))
                   for p in page]
     for p in people:
         for w in set(words(p.get("name"))):

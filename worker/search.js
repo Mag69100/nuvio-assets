@@ -122,10 +122,10 @@ export function isExact(query, it) {
 
 const ROMAN = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix"];
 
-/** « dune 2 », « rocky iv », « john wick chapitre 4 » → { base, n }. Seulement de 1 à 9. */
+/** « dune 2 », « rocky iv », « john wick chapitre 4 » → { base, n }. De 1 à 20 (I à IX en chiffres romains). */
 export function sequelOf(query) {
   const m = query.trim().toLowerCase()
-    .match(/^(.+?)[\s:,-]+(?:(?:partie|part|[ée]pisode|chapitre|chapter|vol(?:ume)?\.?)\s*)?([1-9]|i{1,3}|iv|vi{0,3}|ix)$/);
+    .match(/^(.+?)[\s:,-]+(?:(?:partie|part|[ée]pisode|chapitre|chapter|vol(?:ume)?\.?)\s*)?([1-9]|1\d|20|i{1,3}|iv|vi{0,3}|ix)$/);
   if (!m) return null;
   return { base: m[1].trim(), n: /\d/.test(m[2]) ? Number(m[2]) : ROMAN.indexOf(m[2]) + 1 };
 }
@@ -134,18 +134,35 @@ export function sequelOf(query) {
 const sagaName = (s) => String(s || "").replace(/\s*[-–:]?\s*(la )?(saga|collection|trilogie|trilogy)\s*$/i, "");
 
 /**
- * Le n-ième film d'une saga. Un numéro écrit dans le titre gagne (« épisode IV », « Toy Story 4 »),
- * sauf « 2e partie » / « Part 2 », qui n'est pas le numéro de la suite (Harry Potter 7 et 8) ;
- * sinon l'ordre de sortie.
+ * Le n-ième film d'une saga. Un film numéroté dans son titre garde son numéro (« Toy Story 4 »,
+ * « épisode I ») ; les autres prennent les places libres dans l'ordre de sortie : Star Wars,
+ * dont seuls les épisodes I à III sont numérotés sur TMDB, donne bien « La Guerre des étoiles »
+ * pour 4. « 2e partie » / « Part 2 » n'est pas un numéro de suite (Harry Potter 7 et 8), ni un
+ * chiffre du nom de la saga (« Les 4 Fantastiques »).
  */
-export function nthPart(parts, n) {
+export function nthPart(parts, n, sagaTitle = "") {
   const dated = parts.filter((p) => p.release_date).sort((a, b) => a.release_date.localeCompare(b.release_date));
-  const numbered = (p) => [p.title, p.original_title].some((t) => {
-    const w = norm(t).split(" ");
-    return w.some((x, i) => (x === String(n) || x === ROMAN[n - 1])
-      && !["part", "partie"].includes(w[i - 1]) && w[i + 1] !== "partie");
-  });
-  return { hit: dated.find(numbered) || dated[n - 1] || null, dated };
+  const inSaga = new Set(norm(sagaTitle).split(" "));
+  const numberOf = (p) => {
+    for (const t of [p.title, p.original_title]) {
+      const w = norm(t).split(" ");
+      for (let i = 0; i < w.length; i++) {
+        const k = /^\d{1,2}$/.test(w[i]) ? Number(w[i]) : ROMAN.indexOf(w[i]) + 1;
+        if (k >= 1 && !inSaga.has(w[i]) && !["part", "partie"].includes(w[i - 1]) && w[i + 1] !== "partie") return k;
+      }
+    }
+    return 0;
+  };
+  const slots = new Map();
+  for (const p of dated) { const k = numberOf(p); if (k && !slots.has(k)) slots.set(k, p); }
+  const numbered = new Set(slots.values());
+  let free = 1;
+  for (const p of dated) {
+    if (numbered.has(p)) continue;
+    while (slots.has(free)) free++;
+    slots.set(free, p);
+  }
+  return { hit: slots.get(n) || null, dated };
 }
 
 /** Le nom de la personne correspond à la requête (« nolan » → Christopher Nolan, pas Nolan Gould). */
@@ -163,12 +180,20 @@ export function personMatch(query, name) {
 const SELF = /\b(self|himself|herself|themselves|lui[- ]m[eê]me|elle[- ]m[eê]me)\b/i;
 const NOT_FICTION = new Set([99, 10763, 10764, 10767]);   // documentaire, actualités, télé-réalité, talk-show
 
-/** Films (ou séries) d'une personne : réalisés pour un réalisateur, joués pour un acteur. */
+/**
+ * Films (ou séries) d'une personne : réalisés pour un réalisateur, joués pour un acteur.
+ * Les premiers rôles d'abord (4 premiers noms au générique, ou 5 épisodes et plus pour une
+ * série), puis les seconds rôles et apparitions ; à égalité, le plus connu.
+ */
 export function filmography(person, credits) {
-  const list = person.known_for_department === "Directing"
+  const directing = person.known_for_department === "Directing";
+  const list = directing
     ? (credits.crew || []).filter((c) => c.job === "Director")
     : (credits.cast || []).filter((c) => !SELF.test(c.character || ""));
-  return list.filter((c) => !(c.genre_ids || []).some((g) => NOT_FICTION.has(g)));
+  const lead = (c) => directing || (c.episode_count !== undefined ? c.episode_count >= 5 : (c.order ?? 99) <= 3);
+  return list
+    .filter((c) => !(c.genre_ids || []).some((g) => NOT_FICTION.has(g)))
+    .sort((a, b) => lead(b) - lead(a) || byPop(a, b));
 }
 
 const GOOD = 0.75;   // à partir de là, la recherche normale a trouvé ce qu'on cherchait
@@ -194,7 +219,7 @@ async function sagaFilms(sagas, base, n, api) {
     .sort((a, b) => b.s - a.s)[0];
   if (!pick) return null;
   const saga = await api(`/collection/${pick.c.id}`);
-  const { hit, dated } = nthPart(saga.parts || [], n);
+  const { hit, dated } = nthPart(saga.parts || [], n, `${sagaName(pick.c.name)} ${sagaName(pick.c.original_name)}`);
   if (!usable([hit]).length) return null;
   return [hit, ...usable(dated)];
 }
@@ -274,7 +299,7 @@ export async function smartSearch(query, page, search, kind, api) {
       && ["Acting", "Directing"].includes(p.known_for_department) && personMatch(q, p.name));
     if (person) {
       const credits = await api(`/person/${person.id}/${kind === "series" ? "tv" : "movie"}_credits`);
-      const films = dedupe(usable(filmography(person, credits))).sort(byPop).slice(0, PERSON_MAX);
+      const films = dedupe(usable(filmography(person, credits))).slice(0, PERSON_MAX);
       if (films.length) titles = dedupe([...films, ...titles]);
     }
   }

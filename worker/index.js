@@ -27,12 +27,12 @@ import { configurePage } from "./page.js";
 import { guidePage, NUVIO_TV_APK } from "./guide.js";
 import { lienPage } from "./lien.js";
 import { hallPage } from "./hall.js";
-import { smartSearch, prepareWords, isExact } from "./search.js";
+import { smartSearch, prepareWords, isExact, norm } from "./search.js";
 import { imdbRating } from "./ratings.js";
-import { looksDescriptive, aiTitles, resolveTitles, aiRecap, AI_WAIT_MS } from "./ai.js";
+import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.15.0";
+const VERSION = "5.16.0";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -691,7 +691,7 @@ async function meta(env, kind, id, cfg, today, ctx) {
   const short = lang.slice(0, 2);
   const movie = kind === "movie";
   const d = await tmdb(env, `/${movie ? "movie" : "tv"}/${tmdbId}`, {
-    append_to_response: movie ? "credits,videos,images,release_dates,external_ids" : "aggregate_credits,credits,videos,images,external_ids,content_ratings",
+    append_to_response: movie ? "credits,videos,images,release_dates,external_ids,keywords" : "aggregate_credits,credits,videos,images,external_ids,content_ratings,keywords",
     include_image_language: `${short},en,null`, include_video_language: `${short},en`,
   }, lang);
   if (!d || !d.id) return null;
@@ -750,24 +750,43 @@ async function meta(env, kind, id, cfg, today, ctx) {
     behaviorHints: movie ? { defaultVideoId: metaId } : { hasScheduledVideos: d.status === "Returning Series" },
   };
 
+  // Infos en plus, après le résumé : scène après le générique, œuvre adaptée, temps pour tout voir,
+  // « pour qui » et « à savoir » (IA), puis le rappel de l'œuvre précédente (IA).
+  const keywords = ((movie ? d.keywords && d.keywords.keywords : d.keywords && d.keywords.results) || []).map((k) => k.name);
+  const extras = [movie ? creditsScene(keywords) : "", sourceNote(keywords, crew)];
+
+  let saga = null;
+  if (movie && d.belongs_to_collection) {
+    const col = await tmdb(env, `/collection/${d.belongs_to_collection.id}`, {}, lang);
+    saga = (col.parts || []).filter((p) => p.release_date && p.release_date <= today)
+      .sort((a, b) => a.release_date.localeCompare(b.release_date));
+    if (saga.length >= 2) extras.push(await sagaTime(env, saga, d, lang));
+  }
+
   if (!movie) {
     // Épisodes : les saisons sont ajoutées par lots de 20 à un seul appel TMDB.
     const base = imdb || `tmdb:${tmdbId}`;
     const numbers = (d.seasons || []).map((s) => s.season_number).filter((n) => Number.isInteger(n));
     const batches = [];
     for (let i = 0; i < numbers.length; i += 20) batches.push(numbers.slice(i, i + 20));
-    const parts = await Promise.all(batches.slice(0, 10).map((b) =>
-      tmdb(env, `/tv/${tmdbId}`, { append_to_response: b.map((n) => `season/${n}`).join(",") }, lang)));
+    const anime = d.original_language === "ja" && (d.genres || []).some((g) => g.id === 16) && (d.number_of_episodes || 0) >= 40;
+    const [parts, fillers] = await Promise.all([
+      Promise.all(batches.slice(0, 10).map((b) =>
+        tmdb(env, `/tv/${tmdbId}`, { append_to_response: b.map((n) => `season/${n}`).join(",") }, lang))),
+      anime ? fillerEpisodes(d).catch(() => null) : null,
+    ]);
     const videos = [];
     for (const part of parts) {
       for (const n of numbers) {
         const s = part[`season/${n}`];
         if (!s || !s.episodes) continue;
+        const best = n > 0 ? bestEpisodes(s.episodes, today) : new Set();
         for (const e of s.episodes) {
+          const title = `${best.has(e.episode_number) ? "⭐ " : ""}${e.name || `Épisode ${e.episode_number}`}`;
           videos.push({
             id: `${base}:${n}:${e.episode_number}`,
-            title: e.name || `Épisode ${e.episode_number}`,
-            name: e.name || `Épisode ${e.episode_number}`,
+            title,
+            name: title,
             season: n,
             episode: e.episode_number,
             number: e.episode_number,
@@ -775,26 +794,137 @@ async function meta(env, kind, id, cfg, today, ctx) {
             overview: e.overview || undefined,
             thumbnail: e.still_path ? `${IMG}w500${e.still_path}` : undefined,
             runtime: e.runtime ? `${e.runtime} min` : undefined,
+            _minutes: e.runtime || 0,
+            _aired: !!e.air_date && e.air_date <= today,
           });
         }
       }
     }
     videos.sort((a, b) => a.season - b.season || a.episode - b.episode);
-    m.videos = videos;
+    // Anime : épisodes de remplissage, comptés à la suite d'une saison à l'autre (hors spéciaux).
+    if (fillers && fillers.size) {
+      let k = 0;
+      for (const v of videos) {
+        if (v.season > 0 && fillers.has(++k)) v.title = v.name = `${v.title} (remplissage)`;
+      }
+    }
+    extras.push(seriesTime(videos, d));
+    m.videos = videos.map(({ _minutes, _aired, ...v }) => v);
   }
 
-  // Rappel de l'œuvre précédente (suite d'un film, nouvelle saison), à la fin du résumé.
-  const prev = env.GEMINI_API_KEY ? await previousWork(env, d, movie, m.videos, lang, today) : null;
-  if (prev) {
-    const job = aiRecap(env, ctx, prev.id, prev.prompt);
-    const r = await Promise.race([job, new Promise((res) => setTimeout(() => res(null), RECAP_WAIT_MS))]);
-    if (!r) m._partial = true;   // pas encore prêt : il le sera à la prochaine ouverture de la fiche
-    else if (r.recap) m.description = [m.description, `🔁 ${prev.label}, attention ça raconte la fin : ${r.recap}`].filter(Boolean).join("\n\n");
+  let recapLine = "";
+  if (env.GEMINI_API_KEY) {
+    const prev = previousWork(d, movie, saga, m.videos);
+    const wait = new Promise((res) => setTimeout(() => res("attente"), FICHE_AI_WAIT_MS));
+    const ask = (job) => (job ? Promise.race([job, wait]) : null);
+    const [recap, profile] = await Promise.all([
+      ask(prev && aiRecap(env, ctx, prev.id, prev.prompt)),
+      ask(aiProfile(env, ctx, `${movie ? "movie" : "tv"}-${d.id}`, profilePrompt(d, movie, keywords, cert))),
+    ]);
+    // Pas encore prêt, ou Gemini indisponible : la fiche n'est pas gardée, pour l'avoir plus tard.
+    if ([recap, profile].some((r) => r === "attente" || (r && r.error))) m._partial = true;
+    if (profile && profile !== "attente") {
+      if (profile.pourQui) extras.push(`🎯 ${profile.pourQui}`);
+      if (profile.aSavoir) extras.push(`⚠️ À savoir : ${profile.aSavoir}`);
+    }
+    if (recap && recap !== "attente" && recap.recap) recapLine = `🔁 ${prev.label}, attention ça raconte la fin : ${recap.recap}`;
   }
+  m.description = [m.description, extras.filter(Boolean).join("\n"), recapLine].filter(Boolean).join("\n\n") || undefined;
   return m;
 }
 
-const RECAP_WAIT_MS = 3500;   // attente maximale du rappel à l'ouverture d'une fiche
+const FICHE_AI_WAIT_MS = 3500;   // attente maximale du rappel et du « pour qui » à l'ouverture d'une fiche
+
+/** Scène pendant ou après le générique, d'après les mots-clés TMDB. */
+function creditsScene(keywords) {
+  const during = keywords.includes("duringcreditsstinger"), after = keywords.includes("aftercreditsstinger");
+  if (during && after) return "🎬 Reste jusqu'au bout : il y a des scènes pendant et après le générique.";
+  if (after) return "🎬 Reste après le générique : il y a une scène.";
+  if (during) return "🎬 Il y a une scène pendant le générique.";
+  return "";
+}
+
+// Œuvre adaptée (mots-clés TMDB) et métiers TMDB de son auteur.
+const SOURCES = [
+  [/based on (novel or book|young adult novel)/, "du roman"], [/based on short story/, "de la nouvelle"],
+  [/based on manga/, "du manga"], [/based on (comic|graphic novel)/, "de la bande dessinée"],
+  [/based on video game/, "du jeu vidéo"], [/based on play or musical/, "de la pièce"],
+];
+const AUTHOR_JOBS = new Set(["Novel", "Book", "Author", "Short Story", "Comic Book", "Graphic Novel"]);
+const de = (name) => (/^[aeiouyhâàéèêîïôûAEIOUYHÂÀÉÈÊÎÏÔÛ]/.test(name) ? `d'${name}` : `de ${name}`);
+
+/** « Adapté du roman de Stephen King », « Tiré d'une histoire vraie »… */
+function sourceNote(keywords, crew) {
+  const kw = keywords.join("|");
+  const src = SOURCES.find(([re]) => re.test(kw));
+  const real = /based on (true story|real events|memoir or autobiography)|biography/.test(kw);
+  const authors = [...new Set(crew.filter((c) => AUTHOR_JOBS.has(c.job)).map((c) => c.name))].slice(0, 2);
+  const parts = [];
+  if (src) parts.push(`Adapté ${src[1]}${authors.length ? ` ${de(authors.join(" et "))}` : ""}`);
+  if (real) parts.push(parts.length ? "tiré d'une histoire vraie" : "Tiré d'une histoire vraie");
+  return parts.length ? `📖 ${parts.join(", ")}.` : "";
+}
+
+const duration = (min) => (min >= 600 ? `${Math.round(min / 60)} h`
+  : `${Math.floor(min / 60)} h${min % 60 ? ` ${String(min % 60).padStart(2, "0")}` : ""}`);
+
+/** « Tout voir : 62 h (5 saisons, 50 épisodes) », d'après les épisodes déjà sortis. */
+function seriesTime(videos, d) {
+  const aired = videos.filter((v) => v.season > 0 && v._aired);
+  if (aired.length < 2) return "";
+  const usual = (d.episode_run_time || [])[0] || 0;
+  const minutes = aired.reduce((t, v) => t + (v._minutes || usual), 0);
+  if (!minutes) return "";
+  const seasons = new Set(aired.map((v) => v.season)).size;
+  return `⏳ Tout voir : ${duration(minutes)} (${seasons} saison${seasons > 1 ? "s" : ""}, ${aired.length} épisodes).`;
+}
+
+/** « La saga entière : 21 h (8 films) », films déjà sortis (une fiche TMDB par film, en cache). */
+async function sagaTime(env, saga, d, lang) {
+  if (saga.length > 12) return "";
+  const runtimes = await Promise.all(saga.map((p) => (p.id === d.id ? d.runtime
+    : tmdb(env, `/movie/${p.id}`, {}, lang).then((x) => x.runtime))));
+  if (runtimes.some((r) => !r)) return "";
+  return `⏳ La saga entière : ${duration(runtimes.reduce((t, r) => t + r, 0))} (${saga.length} films).`;
+}
+
+/** Les 3 épisodes les mieux notés d'une saison (au moins 6 épisodes sortis et notés), pour l'étoile. */
+function bestEpisodes(episodes, today) {
+  const rated = episodes.filter((e) => e.air_date && e.air_date <= today && (e.vote_count || 0) >= 5);
+  if (rated.length < 6) return new Set();
+  return new Set([...rated].sort((a, b) => b.vote_average - a.vote_average || b.vote_count - a.vote_count)
+    .slice(0, 3).map((e) => e.episode_number));
+}
+
+/** Numéros des épisodes de remplissage d'un anime (numérotation continue), d'après animefillerlist.com. */
+async function fillerEpisodes(d) {
+  const slugs = [...new Set([d.name, d.original_name].map((n) => norm(n).replace(/ /g, "-")).filter(Boolean))];
+  for (const slug of slugs) {
+    const html = await fetch(`https://www.animefillerlist.com/shows/${slug}`, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; CatalogueFR)" },
+      cf: { cacheTtl: 7 * 86400, cacheEverything: true },
+    }).then((r) => (r.ok ? r.text() : ""), () => "");
+    const m = /<div class="filler">([\s\S]*?)<\/div>/.exec(html);
+    if (!m) continue;
+    const out = new Set();
+    for (const [, a, b] of m[1].replace(/<[^>]+>/g, " ").matchAll(/(\d+)(?:\s*-\s*(\d+))?/g)) {
+      for (let k = Number(a); k <= Number(b || a) && out.size < 5000; k++) out.add(k);
+    }
+    return out;
+  }
+  return null;
+}
+
+/** Ce que Gemini sait de l'œuvre pour « pour qui » et « à savoir ». */
+function profilePrompt(d, movie, keywords, cert) {
+  return [
+    `${movie ? "Film" : "Série"} : « ${d.title || d.name} » (titre original : ${d.original_title || d.original_name}, ${(d.release_date || d.first_air_date || "").slice(0, 4)}).`,
+    `Genres : ${(d.genres || []).map((g) => g.name).join(", ") || "?"}.`,
+    cert ? `Classification en France : ${cert}.` : "",
+    keywords.length ? `Mots-clés : ${keywords.slice(0, 20).join(", ")}.` : "",
+    `Résumé : ${d.overview || "?"}`,
+  ].filter(Boolean).join("\n");
+}
 
 /**
  * L'œuvre à rappeler avant celle-ci → { id, label, prompt }, ou null :
@@ -802,14 +932,10 @@ const RECAP_WAIT_MS = 3500;   // attente maximale du rappel à l'ouverture d'une
  *   - série : la saison d'avant la saison en cours (ou d'avant celle qui va commencer), racontée
  *     d'après les résumés de ses épisodes (rien d'inventé).
  */
-async function previousWork(env, d, movie, videos, lang, today) {
+function previousWork(d, movie, saga, videos) {
   if (movie) {
-    if (!d.belongs_to_collection) return null;
-    const col = await tmdb(env, `/collection/${d.belongs_to_collection.id}`, {}, lang);
-    const parts = (col.parts || []).filter((p) => p.release_date && p.release_date <= today)
-      .sort((a, b) => a.release_date.localeCompare(b.release_date));
-    const i = parts.findIndex((p) => p.id === d.id);
-    const p = i > 0 ? parts[i - 1] : null;
+    const i = (saga || []).findIndex((p) => p.id === d.id);
+    const p = i > 0 ? saga[i - 1] : null;
     if (!p || (p.vote_count || 0) < 300) return null;
     const year = p.release_date.slice(0, 4);
     return {
@@ -825,11 +951,12 @@ async function previousWork(env, d, movie, videos, lang, today) {
   const eps = (videos || []).filter((v) => v.season === season && v.overview);
   // Sans résumés d'épisodes, seulement une série assez connue pour que Gemini la connaisse.
   if (eps.length < 2 && (d.vote_count || 0) < 300) return null;
+  const clean = (t) => t.replace(/^⭐ /, "").replace(/ \(remplissage\)$/, "");
   return {
     id: `tv-${d.id}-s${season}`,
     label: `Rappel de la saison ${season}`,
     prompt: [`Série : « ${d.name} » (titre original : ${d.original_name}), saison ${season} à raconter.`,
-      eps.length >= 2 ? `Résumés des épisodes :\n${eps.map((e) => `${e.episode}. ${e.title} : ${e.overview}`).join("\n")}` : ""]
+      eps.length >= 2 ? `Résumés des épisodes :\n${eps.map((e) => `${e.episode}. ${clean(e.title)} : ${e.overview}`).join("\n")}` : ""]
       .filter(Boolean).join("\n").slice(0, 12000),
   };
 }

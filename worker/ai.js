@@ -29,12 +29,15 @@ const MATCH = 0.75;                 // ressemblance minimale entre le titre prop
 const MAX_PICKS = 12;               // titres proposés retrouvés dans TMDB, par type (budget d'appels)
 
 // Mots qui racontent un titre ou une envie au lieu de le nommer (« où », « qui », « un mec », « glauque »…).
-const CUES = /\b(ou|qui|que|quand|avec|dans|pendant|apres|contre|mec|gars|type|meuf|fille|femme|homme|enfant|gamin|famille|histoire|parle|raconte|ressemble|comme|genre|style|ambiance|similaire|bien|tres|trop|thriller|comedie|horreur|drame|romantique|coreen|japonais|triste|drole|flippant|glauque|where|who|about|with|like)\b/;
+const CUES = /\b(ou|qui|que|quand|avec|dans|pendant|apres|contre|mec|gars|type|meuf|fille|femme|homme|enfant|gamin|famille|histoire|parle|raconte|ressemble|comme|genre|style|ambiance|similaire|bien|tres|trop|thriller|comedie|horreur|drame|romantique|coreen|japonais|triste|drole|flippant|glauque|where|who|about|with|like|je|tu|mon|ma|ton|ta|moi|toi|vous|entre|melange|mix|croisement)\b/;
 
-/** La requête ressemble à une description (au moins 3 mots, dont un mot de récit). */
+/**
+ * La requête ressemble à une description (au moins 3 mots, dont un mot de récit), à une réplique
+ * (pronoms, guillemets : « je suis ton père ») ou à un mélange (« entre Amélie et Fight Club »).
+ */
 export function looksDescriptive(query) {
   const q = norm(query);
-  return q.split(" ").length >= 3 && CUES.test(q);
+  return /["«»“”]/.test(query) || (q.split(" ").length >= 3 && CUES.test(q));
 }
 
 const PROMPT = `Tu aides à retrouver des films et des séries à partir de ce qu'un utilisateur français tape dans une barre de recherche : une description (« le film où un homme revit la même journée »), un souvenir flou, une scène, une ambiance, un acteur, ou un titre mal écrit.
@@ -47,6 +50,8 @@ Réponds avec les titres qui correspondent le mieux, du plus probable au moins p
 - saga : true si l'œuvre a des suites ou des préquelles, sinon false.
 Chaque détail de la requête compte : nationalité des personnages ou du film, pays, lieu, époque, métier, objet, situation. L'œuvre recherchée est celle qui réunit TOUS ces détails, même si elle est peu connue ou indépendante : elle passe avant une œuvre célèbre qui n'en réunit qu'une partie (« une japonaise part chercher un trésor aux états-unis » → Kumiko, the Treasure Hunter, pas Indiana Jones).
 Si la requête désigne une œuvre précise, mets-la en premier, puis ajoute des œuvres proches (même sujet, même genre) : donne toujours au moins 8 titres quand c'est possible. Si elle décrit une envie (« un thriller coréen glauque »), propose les titres les plus réputés qui correspondent.
+Si la requête est une réplique, même approximative, en français ou en version originale (« je suis ton père », « tu veux mon zizi »), mets en premier l'œuvre d'où elle vient, puis des œuvres proches.
+Si elle demande un mélange (« entre Amélie et Fight Club », « comme Alien mais en comédie »), propose des œuvres qui réunissent les deux, sans remettre en tête les œuvres citées.
 Pour une saga, ne cite qu'un film : celui qui correspond le mieux, sinon le premier. Les autres films de la saga sont ajoutés automatiquement : garde tes places pour d'autres œuvres.
 Pense aux films comme aux séries : un même sujet peut avoir les deux (dessins animés, adaptations, séries dérivées).
 Ne propose que des œuvres qui existent vraiment. Si rien ne correspond, renvoie une liste vide.`;
@@ -119,12 +124,15 @@ const PENDING = new Map();
 const RESTING = new Map();
 const restFor = (status) => (status === 429 ? 10 * 60e3 : status >= 500 || !status ? 60e3 : 0);
 
-/** Modèles à essayer, dans l'ordre ; ceux au repos sont sautés (sauf s'ils le sont tous). */
-function modelsFor(env, forced) {
+/**
+ * Modèles à essayer, dans l'ordre ; ceux au repos sont sautés. S'ils le sont tous : tous quand
+ * même pour une recherche, aucun pour un bonus de fiche (rappel, « pour qui ») qui attendra.
+ */
+function modelsFor(env, forced, optional) {
   if (forced) return [forced];
   const all = env.GEMINI_MODEL ? [env.GEMINI_MODEL, ...MODELS.filter((m) => m !== env.GEMINI_MODEL)] : MODELS;
   const ready = all.filter((m) => !(RESTING.get(m) > Date.now()));
-  return ready.length ? ready : all;
+  return ready.length || optional ? ready : all;
 }
 
 /**
@@ -141,7 +149,7 @@ function cachedAsk(env, ctx, cacheUrl, ttl, ask, opts = {}) {
     const hit = opts.fresh ? null : await caches.default.match(key);
     if (hit) return { value: await hit.json(), cached: true, ms: Date.now() - start };
     const tried = [];
-    for (const model of modelsFor(env, opts.model)) {
+    for (const model of modelsFor(env, opts.model, opts.optional)) {
       try {
         const value = await ask(model);
         await caches.default.put(key, new Response(JSON.stringify(value), {
@@ -154,8 +162,8 @@ function cachedAsk(env, ctx, cacheUrl, ttl, ask, opts = {}) {
         if (rest) RESTING.set(model, Date.now() + rest);
       }
     }
-    console.warn("Gemini :", tried.join(" / "));
-    return { value: null, cached: false, ms: Date.now() - start, tried, error: tried.join(" / ") };
+    if (tried.length) console.warn("Gemini :", tried.join(" / "));
+    return { value: null, cached: false, ms: Date.now() - start, tried, error: tried.join(" / ") || "tous les modèles au repos" };
   })().finally(() => { if (PENDING.get(key.url) === job) PENDING.delete(key.url); });
   if (!opts.model) PENDING.set(key.url, job);
   if (ctx) ctx.waitUntil(job);
@@ -193,8 +201,35 @@ export async function aiRecap(env, ctx, id, prompt) {
     if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffd]|#00/.test(recap)) throw Object.assign(new Error("texte abîmé"), { status: -1 });
     return recap;
   };
-  const r = await cachedAsk(env, ctx, `https://cache.local/recap/v1/${id}`, RECAP_CACHE_S, ask);
+  const r = await cachedAsk(env, ctx, `https://cache.local/recap/v1/${id}`, RECAP_CACHE_S, ask, { optional: true });
   return { ...r, recap: r.value || "" };
+}
+
+// ---------- « Pour qui ? » et « À savoir » ----------
+const PROFILE_PROMPT = `Tu aides des spectateurs français à choisir un film ou une série. Pour l'œuvre décrite, réponds :
+- pour_qui : une seule phrase de 25 mots au plus, qui dit à qui l'œuvre va plaire et, si c'est utile, à qui elle ne plaira pas (« Pour les fans de thrillers lents et d'ambiances pesantes ; à éviter si tu cherches de l'action. »). Tutoie, sans rien dévoiler de l'histoire.
+- a_savoir : ce qui peut choquer ou gêner, en une phrase courte et factuelle : violence, gore, sexe ou nudité, langage cru, drogue, peur (jump scares), thèmes durs (suicide, maltraitance…). Seulement ce qui est vraiment présent ; s'il n'y a rien de notable, « Rien de choquant ».
+N'invente rien. Si tu ne connais pas l'œuvre, appuie-toi sur le résumé, les genres, les mots-clés et la classification ; si tu ne peux pas savoir ce qu'elle montre, renvoie un texte vide pour a_savoir.`;
+const PROFILE_SCHEMA = {
+  type: "OBJECT",
+  properties: { pour_qui: { type: "STRING" }, a_savoir: { type: "STRING" } },
+  required: ["pour_qui", "a_savoir"],
+};
+
+/**
+ * « Pour qui » et « À savoir » d'un film ou d'une série, gardés 6 mois → { pourQui, aSavoir, … }.
+ * id → clé de cache (« movie-438631 ») ; prompt → l'œuvre (titre, année, genres, résumé…).
+ */
+export async function aiProfile(env, ctx, id, prompt) {
+  const clean = (s) => String(s || "").trim();
+  const ask = async (model) => {
+    const r = await geminiJSON(env, model, PROFILE_PROMPT, prompt, PROFILE_SCHEMA);
+    const value = { pourQui: clean(r.pour_qui), aSavoir: clean(r.a_savoir) };
+    if (BROKEN.test(value.pourQui + value.aSavoir)) throw Object.assign(new Error("texte abîmé"), { status: -1 });
+    return value;
+  };
+  const r = await cachedAsk(env, ctx, `https://cache.local/profile/v1/${id}`, RECAP_CACHE_S, ask, { optional: true });
+  return { ...r, ...(r.value || { pourQui: "", aSavoir: "" }) };
 }
 
 const results = (d) => (d && d.results) || [];

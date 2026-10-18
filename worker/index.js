@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.19.1";
+const VERSION = "5.19.2";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -756,7 +756,7 @@ async function youtubeVf(query, name, season, year, series) {
     try { title = JSON.parse(`"${m[2]}"`); } catch (e) { continue; }
     const t = norm(title);
     // Une bande-annonce en VF (pas un épisode ni un extrait), qui nomme l'œuvre (et la saison).
-    if (!/\bvf\b|version francaise/.test(t) || /\bvost/.test(t) || !/\b(bande d? ?annonce|ba|trailer|teaser)\b/.test(t)
+    if (!/\bvf\b|version francaise/.test(t) || /\bvost/.test(t) || !/\b(bande d? ?annonce|ba|trailer|teaser|nouvelle saison)\b/.test(t)
       || !` ${t} `.includes(want) || (seasonRe && !seasonRe.test(t))) continue;
     if (year) {
       const before = ` ${t} `.slice(0, ` ${t} `.indexOf(want)).trim().split(" ").filter(Boolean);
@@ -764,9 +764,10 @@ async function youtubeVf(query, name, season, year, series) {
       // Une série et un film du même nom (Bleach, Friday Night Lights) : la vidéo doit être du bon côté.
       const seriesWords = /\b(saison|season|serie|series|episode)\b/.test(t);
       if (series ? /\bfilm\b/.test(t) : seriesWords) continue;
-      // Série : l'année de la première saison, ou une plus récente si la vidéo dit de quelle saison il s'agit.
+      // Série : l'année de la première saison, ou une plus récente (ou aucune) si la vidéo dit de quelle saison
+      // il s'agit (« Black Clover - Saison 1 en VF : Bande-annonce »).
       const okYear = (n) => (series ? n === y || (seriesWords && n > y && n <= new Date().getFullYear() + 1) : Math.abs(n - y) <= 1);
-      if (before.some((w) => !TRAILER_WORDS.has(w)) || !years.some(okYear)) continue;
+      if (before.some((w) => !TRAILER_WORDS.has(w)) || !(years.some(okYear) || (series && seriesWords && !years.length))) continue;
     }
     return { key: m[1], title };
   }
@@ -775,7 +776,7 @@ async function youtubeVf(query, name, season, year, series) {
 
 /** Bande-annonce VF d'un titre ({ key: identifiant YouTube, title }, ou { key: null }), gardée en cache. */
 async function vfTrailer(kind, imdb, name, year) {
-  const cacheKey = new Request(`https://cache.local/vf-trailer/v4/${kind}/${imdb}`);
+  const cacheKey = new Request(`https://cache.local/vf-trailer/v5/${kind}/${imdb}`);
   const hit = await caches.default.match(cacheKey);
   if (hit) return hit.json();
   const allo = await allocineVf(kind, imdb);

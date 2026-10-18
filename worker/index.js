@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.18.11";
+const VERSION = "5.18.12";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -229,8 +229,9 @@ async function extraInfo(env, kind, tmdbId) {
   // Même appel qu'avant, avec en plus les images : logo (en français si possible) et fond
   // sans texte en pleine définition pour le grand carrousel et le mode ambiant.
   url.search = new URLSearchParams({
-    api_key: env.TMDB_API_KEY, language: "fr-FR", include_image_language: "fr,en,null",
-    append_to_response: movie ? "release_dates,images" : "external_ids,images",
+    api_key: env.TMDB_API_KEY, language: "fr-FR", include_image_language: "fr,en,null", include_video_language: "fr,en",
+    // Vidéos : la bande-annonce de l'accueil (Nuvio la prend dans la rangée, sans ouvrir la fiche).
+    append_to_response: movie ? "release_dates,images,videos" : "external_ids,images,videos",
   });
   // Sans réponse (limite d'appels de Cloudflare…) : le titre s'affiche quand même, sans ces infos.
   const j = await fetch(url, { cf: { cacheTtl: 86400, cacheEverything: true } })
@@ -244,6 +245,7 @@ async function extraInfo(env, kind, tmdbId) {
     episode: movie ? null : { next: j.next_episode_to_air, last: j.last_episode_to_air },
     logo: logo ? `${IMG}w500${logo.file_path.replace(/\.svg$/, ".png")}` : undefined,
     backdrop: backdrop ? backdrop.file_path : null,
+    trailers: trailersOf(j.videos && j.videos.results).slice(0, 2),
   };
 }
 
@@ -349,6 +351,9 @@ const GENRE_NAMES = {
 async function toMetas(env, ctx, results, kind, opts, today) {
   const infos = await Promise.all(results.map((it) => extraInfo(env, kind, it.id)));
   const ids = infos.map((x) => x.imdb);
+  // VF déjà trouvée par une fiche (Allociné + YouTube) : un seul appel pour toute la page, pas pendant
+  // la recherche (son budget d'appels est compté au plus juste).
+  const vfIndex = opts.search ? {} : await (opts.vfIndex = opts.vfIndex || readVfIndex());
   return results.map((it, i) => {
     const date = it.release_date || it.first_air_date || "";
     // Films : quand ils deviennent regardables ; séries : l'épisode de la semaine.
@@ -375,6 +380,7 @@ async function toMetas(env, ctx, results, kind, opts, today) {
       released: shownDate ? `${shownDate}T00:00:00.000Z` : undefined,
       genres: (it.genre_ids || []).map((g) => GENRE_NAMES[g]).filter(Boolean).slice(0, 3),
       imdbRating: imdbRating(ids[i]),   // vraie note IMDb (rien si IMDb n'en a pas assez)
+      ...catalogTrailers(infos[i].trailers || [], vfIndex[`${kind}:${ids[i]}`]),
       _digital: firstDigital(infos[i].releases),
       _guess: digitalGuess(infos[i].releases),
       _vf: likelyVf(infos[i].releases, it.original_language, today),
@@ -620,6 +626,7 @@ async function catalog(env, ctx, type, id, extra, today, cfg) {
     if (!query) return [];
     const page = Math.floor(skip / PAGE) + 1;
     const results = await runSearch(env, type, query, page, opts);
+    opts.search = true;
     const metas = results.length ? (await toMetas(env, ctx, results, type, opts, today)).map(({ _digital, _guess, _vf, ...m }) => m) : [];
     // Recherche faite sans l'IA (Gemini trop lent ou en panne) : à ne pas garder en cache.
     if (opts.partial) metas.partial = true;
@@ -741,7 +748,7 @@ async function youtubeVf(query, name, season) {
 
 /** Bande-annonce VF d'un titre ({ key: identifiant YouTube, title }, ou { key: null }), gardée en cache. */
 async function vfTrailer(kind, imdb, name, year) {
-  const cacheKey = new Request(`https://cache.local/vf-trailer/v2/${kind}/${imdb}`);
+  const cacheKey = new Request(`https://cache.local/vf-trailer/v3/${kind}/${imdb}`);
   const hit = await caches.default.match(cacheKey);
   if (hit) return hit.json();
   const allo = await allocineVf(kind, imdb);
@@ -760,7 +767,37 @@ async function vfTrailer(kind, imdb, name, year) {
   if (found !== undefined) {
     await caches.default.put(cacheKey, new Response(JSON.stringify(out), { headers: { "Cache-Control": `public, max-age=${found ? VF_CACHE_S : VF_MISS_S}` } }));
   }
+  if (found) await addToVfIndex(`${kind}:${imdb}`, { key: found.key, hd });
   return out;
+}
+
+// Index des VF trouvées, pour les rangées de l'accueil : Nuvio y lance la bande-annonce sans ouvrir la
+// fiche, et chercher la VF de chaque titre d'une page dépasserait la limite d'appels de Cloudflare.
+const VF_INDEX = new Request("https://cache.local/vf-trailer/index");
+const VF_INDEX_MAX = 4000;     // titres gardés (les plus anciens sortent en premier)
+
+function readVfIndex() {
+  return caches.default.match(VF_INDEX).then((r) => (r ? r.json() : {})).catch(() => ({}));
+}
+
+async function addToVfIndex(id, vf) {
+  const index = await readVfIndex();
+  delete index[id];
+  index[id] = vf;
+  const ids = Object.keys(index);
+  ids.slice(0, Math.max(0, ids.length - VF_INDEX_MAX)).forEach((k) => delete index[k]);
+  await caches.default.put(VF_INDEX, new Response(JSON.stringify(index), { headers: { "Cache-Control": `public, max-age=${30 * 86400}` } }));
+}
+
+/** Bandes-annonces d'un titre de rangée : celles de TMDB, avec la VF de l'index si TMDB n'en a pas. */
+function catalogTrailers(trailers, vf) {
+  let list = trailers;
+  if (vf && vf.key && !trailers.some((t) => t.lang === "fr")) {
+    const vfItem = { source: vf.key, ytId: vf.key, type: "Trailer", lang: "fr" };
+    // Même règle que la fiche : une VF pas en HD passe après la bande-annonce de TMDB.
+    list = vf.hd === false && trailers.length ? [trailers[0], vfItem, ...trailers.slice(1)] : [vfItem, ...trailers];
+  }
+  return list.length ? { trailers: list, trailerStreams: list.map((t) => ({ ytId: t.ytId })) } : {};
 }
 
 const person = (p) => ({ name: p.name, character: p.character || p.job || undefined, photo: p.profile_path ? `${IMG}w185${p.profile_path}` : undefined, tmdbId: p.id });

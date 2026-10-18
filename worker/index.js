@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.18.7";
+const VERSION = "5.18.8";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -932,7 +932,9 @@ async function meta(env, kind, id, cfg, today, ctx) {
   return m;
 }
 
-const FICHE_AI_WAIT_MS = 3500;   // attente maximale du rappel et du « pour qui » à l'ouverture d'une fiche
+// Attente maximale des lignes écrites par l'IA (rappel, « pour qui », saison commandée) à la première
+// ouverture d'une fiche : elles arrivent presque toujours d'un coup. Ensuite tout est en cache (6 mois).
+const FICHE_AI_WAIT_MS = 7000;
 
 /** « 7 nov. », ou « 7 nov. 2027 » hors de l'année en cours. */
 const dateFr = (iso, today) => `${shortDate(iso)}${iso.slice(0, 4) !== today.slice(0, 4) ? ` ${iso.slice(0, 4)}` : ""}`;

@@ -127,14 +127,17 @@ const bareSingular = (s) => norm(s).split(" ").map((w) => (w.length > 3 ? w.repl
   .replace(/^(the|a|an|le|la|les|l|un|une) /, "");
 
 /**
- * Le titre, ou une partie d'un titre composé, est la requête, au singulier comme au pluriel :
+ * Le titre est la requête, ou une partie d'un titre composé l'est, au singulier comme au pluriel :
  * « monstre » → « Monstre : L'Histoire d'Ed Gein », « DAHMER - Monstre : … », « Monstres : … ».
+ * Un titre simple doit être identique (« cars » ne doit pas donner « The Car »).
  */
 export function titleMatch(query, it) {
   if (isExact(query, it)) return true;
   const q = bareSingular(query);
-  return !!q && [it.title || it.name, it.original_title || it.original_name].some((t) =>
-    String(t || "").split(/\s*[:–—]\s+|\s+-\s+/).some((part) => bareSingular(part) === q));
+  return !!q && [it.title || it.name, it.original_title || it.original_name].some((t) => {
+    const parts = String(t || "").split(/\s*[:–—]\s+|\s+-\s+/);
+    return parts.length > 1 && parts.some((part) => bareSingular(part) === q);
+  });
 }
 
 /** Un seul mot : sa forme au pluriel (ou au singulier), que TMDB ne fait pas correspondre. */

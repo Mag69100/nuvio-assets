@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.18.3";
+const VERSION = "5.18.4";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -907,7 +907,7 @@ async function wikiNews(wikidataId) {
   const text = String(page.extract || "");
   if (!text) return "";
   const intro = text.split(/\n\s*\n/)[0].slice(0, 1500);
-  const news = text.split(/(?<=[.!?])\s+/).filter((x) => WIKI_NEWS.test(x) && !intro.includes(x));
+  const news = text.replace(/^=+.*=+$/gm, "").split(/(?<=[.!?])\s+/).filter((x) => WIKI_NEWS.test(x) && !intro.includes(x));
   return [intro, ...news].join("\n").slice(0, 5000);
 }
 

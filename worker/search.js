@@ -477,7 +477,7 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   if (fixed) forms.push({ q: fixed, pen: PEN_FIXED });
 
   const none = Promise.resolve(null);
-  const [rawRes, cleanRes, aliasRes, yearRes, fixedRes, pluralRes, enRes, people, sagas, studioRes] = await Promise.all([
+  const [rawRes, cleanRes, aliasRes, yearRes, fixedRes, pluralRes, enRes, people, sagas, studioRes, otherRes] = await Promise.all([
     search(raw, 1),
     clean ? search(clean, 1) : none,
     alias ? search(alias, 1) : none,
@@ -493,8 +493,11 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
       include_adult: "false", watch_region: opts.region || "FR",
       ...(kind === "series" ? { without_genres: "10762,10763,10764,10767" } : {}),
     }) : none,
+    // La même requête dans l'autre type : « ted lasso » dans Films est une série connue.
+    api && !sq && !studio ? api(`/search/${kind === "series" ? "movie" : "tv"}`, { query: main, include_adult: "false" }) : none,
   ]);
   const results = (d) => (d && d.results) || [];
+  const exactVotesIn = (list) => Math.max(0, ...list.filter((it) => titleMatch(main, it)).map((it) => it.vote_count || 0));
   const en = new Map(results(enRes).map((it) => [it.id, it.title || it.name]));
 
   let pool = dedupe(usable([
@@ -506,11 +509,18 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   const scoreAll = (list) => list.forEach((it) => { if (!text.has(it.id)) text.set(it.id, textScore(forms, it)); });
   scoreAll(pool);
 
+  // Titre connu de l'autre type, plus connu que tout titre identique ici : on ne garde que les
+  // titres qui ressemblent vraiment à la requête (pas « Lasso » ni « Slow West » dans Films), sans
+  // recherche de secours ni Gemini, et sans la personne (« Bart the Bear » pour « the bear »).
+  const exactVotes = exactVotesIn(pool);
+  const otherVotes = exactVotesIn(usable(results(otherRes)));
+  const otherKind = otherVotes >= FAMOUS && otherVotes > exactVotes;
+
   // Toujours rien de proche : débuts de mots que TMDB reconnaît (« inters » → Interstellar).
   const best = Math.max(0, ...pool.map((it) => text.get(it.id)));
   const good = pool.filter((it) => text.get(it.id) >= GOOD).length;
   let fallback = [];
-  if (!sq && !studio && (best < GOOD || (good < 3 && best < EXACT))) {
+  if (!sq && !studio && !otherKind && (best < GOOD || (good < 3 && best < EXACT))) {
     fallback = fallbackQueries(fixed || main);
     const more = usable((await Promise.all(fallback.map((s) => search(s, 1)))).flatMap(results));
     scoreAll(more);
@@ -525,7 +535,8 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   // Les titres sans rapport avec la requête (trouvés par TMDB via un titre étranger) ne
   // restent que s'il n'y a pas assez de vrais résultats.
   const tmdbTop = new Set(usable(results(rawRes)).slice(0, 5).map((it) => it.id));
-  if (ranked.filter((it) => text.get(it.id) >= KEEP).length >= 5) ranked = ranked.filter((it) => text.get(it.id) >= KEEP || tmdbTop.has(it.id));
+  if (otherKind) ranked = ranked.filter((it) => text.get(it.id) >= GOOD);
+  else if (ranked.filter((it) => text.get(it.id) >= KEEP).length >= 5) ranked = ranked.filter((it) => text.get(it.id) >= KEEP || tmdbTop.has(it.id));
 
   const famousExact = pool.some((it) => titleMatch(main, it) && it.vote_count >= FAMOUS);
   let head = [], headKind = null;
@@ -554,14 +565,13 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   // Un titre qui correspond l'emporte s'il est connu au regard de la personne : le documentaire
   // « Spielberg » (300 votes) ne cache pas les films de Spielberg, mais Super Mario Bros.
   // (11 000 votes) passe devant le chanteur Mario (titres phares à 4 000 votes).
-  const exactVotes = Math.max(0, ...pool.filter((it) => titleMatch(main, it)).map((it) => it.vote_count || 0));
   const nearVotes = Math.max(0, ...pool.filter((it) => text.get(it.id) >= 0.7).map((it) => it.vote_count || 0));
   const topVotes = (p) => Math.max(0, ...(p.known_for || []).map((k) => k.vote_count || 0));
   if (people) {
     const person = results(people).slice(0, 5).find((p) => ["Acting", "Directing", "Writing"].includes(p.known_for_department)
       && personMatch(main, p.name)
       && ((p.popularity || 0) >= PERSON_POP || topVotes(p) >= PERSON_VOTES)
-      && exactVotes < Math.max(FAMOUS, 0.1 * topVotes(p))
+      && Math.max(exactVotes, otherVotes) < Math.max(FAMOUS, 0.1 * topVotes(p))
       && nearVotes < Math.max(FAMOUS, 2 * topVotes(p)));
     if (person) {
       const credits = await api(`/person/${person.id}/${kind === "series" ? "tv" : "movie"}_credits`);
@@ -575,12 +585,12 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   // quand la requête est clairement un titre connu, une personne, une saga ou un studio.
   if (opts.stats) {
     opts.stats.strong = new Set(out.filter((it) => head.includes(it) || text.get(it.id) >= GOOD).map((it) => it.id));
-    opts.stats.sure = !!headKind || out.some((it) => text.get(it.id) >= EXACT && it.vote_count >= FAMOUS);
+    opts.stats.sure = !!headKind || otherKind || out.some((it) => text.get(it.id) >= EXACT && it.vote_count >= FAMOUS);
   }
   if (trace) {
     Object.assign(trace, {
       forms, fixed, variant, alias: alias || null, year: ym ? ym[2] : null, sequel: sq, sagaBase, studio: studio || null,
-      fallback, head: headKind,
+      fallback, head: headKind, otherKind,
       results: out.map((it) => ({
         name: it.title || it.name, original: it.original_title || it.original_name, en: it.en_title, year: yearOf(it),
         votes: it.vote_count, text: text.has(it.id) ? +text.get(it.id).toFixed(3) : null,

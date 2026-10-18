@@ -31,8 +31,9 @@ import { smartSearch, prepareWords } from "./search.js";
 import { looksDescriptive, aiTitles, resolveTitles, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.12.2";
+const VERSION = "5.13.0";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
+const AI_MAX = 40;                  // 1re page d'une recherche par IA (sagas entières comprises)
 const ASSETS = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main";
 const NOISE_TV = ["10763", "10764", "10766", "10767"]; // actualité, téléréalité, soap, talk-show
 
@@ -522,7 +523,8 @@ async function runSearch(env, type, query, page, opts, trace) {
   const useAI = !!env.GEMINI_API_KEY && page === 1;
   // Une description : Gemini part tout de suite, en même temps que la recherche classique.
   const descriptive = useAI && looksDescriptive(query);
-  const ai = descriptive ? aiTitles(env, opts.ctx, query) : null;
+  const aiOpts = { model: opts.aiModel, fresh: opts.aiFresh };   // réglages de /debug/search
+  const ai = descriptive ? aiTitles(env, opts.ctx, query, aiOpts) : null;
   const stats = {};
   const classic = await smartSearch(query, page, search, type, api, { words: searchWords, region: opts.region, trace, stats });
   if (!useAI) {
@@ -534,7 +536,7 @@ async function runSearch(env, type, query, page, opts, trace) {
   const why = stats.sure ? null : descriptive ? "description" : !stats.strong.size ? "rien de proche" : null;
   if (trace) trace.ai = { descriptive, sure: !!stats.sure, strong: stats.strong.size, why };
   if (!why) return classic;
-  const job = ai || aiTitles(env, opts.ctx, query);
+  const job = ai || aiTitles(env, opts.ctx, query, aiOpts);
   const answer = await Promise.race([job, new Promise((r) => setTimeout(() => r(null), AI_WAIT_MS))]);
   // Pas de réponse à temps ou erreur : la recherche classique, sans la garder en cache, pour que
   // la même recherche refaite profite de la réponse de Gemini (qui finit en arrière-plan).
@@ -543,7 +545,7 @@ async function runSearch(env, type, query, page, opts, trace) {
     if (trace) trace.ai.error = answer ? answer.error : `pas de réponse en ${AI_WAIT_MS} ms`;
     return classic;
   }
-  const found = await resolveTitles(answer.titles, type, search);
+  const found = await resolveTitles(answer.titles, type, search, api);
   if (trace) {
     Object.assign(trace.ai, {
       model: answer.model, ms: answer.ms, cached: answer.cached, error: answer.error,
@@ -558,7 +560,7 @@ async function runSearch(env, type, query, page, opts, trace) {
   // qui ressemblent à la requête (pas « Fils de personne » pour « des personnages bleus »).
   const seen = new Set();
   return [...found, ...classic.filter((it) => stats.strong.has(it.id))]
-    .filter((it) => !seen.has(it.id) && seen.add(it.id)).slice(0, PAGE);
+    .filter((it) => !seen.has(it.id) && seen.add(it.id)).slice(0, AI_MAX);
 }
 
 async function catalog(env, ctx, type, id, extra, today, cfg) {
@@ -864,10 +866,14 @@ export default {
     }
     if (!env.TMDB_API_KEY) return json({ error: "Secret TMDB_API_KEY manquant" }, 0);
     // Détail d'une recherche (formes essayées, correction, classement) : /debug/search/<movie|series>/<requête>
+    // ?model=gemini-… pour essayer un autre modèle, ?fresh=1 pour reposer la question à Gemini.
     const dbg = path.match(/^\/debug\/search\/(movie|series)\/(.+)$/);
     if (dbg) {
       const trace = {};
-      await runSearch(env, dbg[1], decodeURIComponent(dbg[2]), 1, { ctx, lang: langOf(cfg), region: cfg.g }, trace);
+      const out = await runSearch(env, dbg[1], decodeURIComponent(dbg[2]), 1, {
+        ctx, lang: langOf(cfg), region: cfg.g, aiModel: url.searchParams.get("model") || undefined, aiFresh: url.searchParams.has("fresh"),
+      }, trace);
+      trace.final = out.map((it) => `${it.title || it.name} (${(it.release_date || it.first_air_date || "").slice(0, 4)})`);
       return json(trace, 0);
     }
     const tm = path.match(/^\/trailer\/(movie|series)\/([^/]+)\.json$/);

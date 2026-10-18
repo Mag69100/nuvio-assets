@@ -5,6 +5,8 @@
  * revit la même journée », « la série avec le prof de chimie qui fait de la drogue ») ou quand la
  * recherche classique ne trouve rien qui ressemble. Il propose des titres (titre original + année),
  * chacun est retrouvé dans TMDB, et ce que TMDB ne connaît pas est écarté : aucun titre inventé.
+ *   - un film d'une saga amène toute la saga, d'après TMDB et dans l'ordre (« jouets vivants » →
+ *     Toy Story 1 à 5, même les suites trop récentes pour Gemini) ;
  *   - une seule question pour les films et les séries (les deux catalogues de recherche) ;
  *   - réponse gardée 30 jours dans le cache Cloudflare : la même requête ne coûte qu'une fois ;
  *   - Gemini trop lent : la recherche classique seule cette fois-ci, mais Gemini finit en arrière-plan
@@ -30,12 +32,14 @@ export function looksDescriptive(query) {
 }
 
 const PROMPT = `Tu aides à retrouver des films et des séries à partir de ce qu'un utilisateur français tape dans une barre de recherche : une description (« le film où un homme revit la même journée »), un souvenir flou, une scène, une ambiance, un acteur, ou un titre mal écrit.
-Réponds avec les titres qui correspondent le mieux, du plus probable au moins probable, 10 au maximum :
+Réponds avec les titres qui correspondent le mieux, du plus probable au moins probable, 15 au maximum :
 - title : le titre original exact s'il s'écrit en alphabet latin, sinon le titre anglais international ;
 - title_fr : le titre français s'il existe, sinon le même que title ;
 - year : l'année de sortie (pour une série : l'année de la première saison) ;
 - type : "film" ou "serie".
 Si la requête désigne une œuvre précise, mets-la en premier. Si elle décrit une envie (« un thriller coréen glauque »), propose les titres les plus réputés qui correspondent.
+Pour une saga, ne cite qu'un film : celui qui correspond le mieux, sinon le premier. Les autres films de la saga sont ajoutés automatiquement : garde tes places pour d'autres œuvres.
+Pense aux films comme aux séries : un même sujet peut avoir les deux (dessins animés, adaptations, séries dérivées).
 Ne propose que des œuvres qui existent vraiment. Si rien ne correspond, renvoie une liste vide.`;
 
 const SCHEMA = {
@@ -78,7 +82,7 @@ async function askGemini(env, query, model) {
   const parts = (((j.candidates || [])[0] || {}).content || {}).parts || [];
   const text = parts.filter((p) => !p.thought).map((p) => p.text || "").join("");
   const titles = (JSON.parse(text || "{}").titles || []).filter((t) => t && t.title);
-  return titles.slice(0, 10);
+  return titles.slice(0, 15);
 }
 
 // Les deux catalogues (Films, Séries) posent la même question en même temps : une seule part.
@@ -88,13 +92,13 @@ const PENDING = new Map();
  * Titres proposés par Gemini pour une requête → { titles, cached, ms, model, error }.
  * Ne lève jamais d'erreur : en cas de souci, titles est vide et error dit pourquoi.
  */
-export function aiTitles(env, ctx, query) {
-  const model = env.GEMINI_MODEL || MODEL;
-  const key = new Request(`https://cache.local/ai/${model}/${encodeURIComponent(norm(query))}`);
+export function aiTitles(env, ctx, query, opts = {}) {
+  const model = opts.model || env.GEMINI_MODEL || MODEL;
+  const key = new Request(`https://cache.local/ai/v2/${model}/${encodeURIComponent(norm(query))}`);
   if (PENDING.has(key.url)) return PENDING.get(key.url);
   const start = Date.now();
   const job = (async () => {
-    const hit = await caches.default.match(key);
+    const hit = opts.fresh ? null : await caches.default.match(key);
     if (hit) return { titles: await hit.json(), cached: true, ms: Date.now() - start, model };
     try {
       const titles = await askGemini(env, query, model);
@@ -132,10 +136,28 @@ async function findOne(pick, kind, search) {
   return best(results(await search(pick.title_fr || pick.title, 1)));
 }
 
-/** Fiches TMDB des titres proposés pour ce type (films ou séries), dans l'ordre de Gemini. */
-export async function resolveTitles(titles, kind, search) {
+const dedupe = (list) => { const seen = new Set(); return list.filter((it) => it && !seen.has(it.id) && seen.add(it.id)); };
+
+/** Films d'une saga dans l'ordre de sortie, suites annoncées comprises (avec affiche et date). */
+const sagaOrder = (parts) => (parts || []).filter((p) => p.poster_path && p.release_date)
+  .sort((a, b) => a.release_date.localeCompare(b.release_date));
+
+/**
+ * Fiches TMDB des titres proposés pour ce type (films ou séries), dans l'ordre de Gemini.
+ * api(path) → appel TMDB : avec lui, chaque film amène le reste de sa saga juste après lui.
+ */
+export async function resolveTitles(titles, kind, search, api) {
   const wanted = titles.filter((t) => (t.type === "serie") === (kind === "series"));
-  const found = await Promise.all(wanted.map((t) => findOne(t, kind, search).catch(() => null)));
-  const seen = new Set();
-  return found.filter((it) => it && !seen.has(it.id) && seen.add(it.id));
+  const found = dedupe(await Promise.all(wanted.map((t) => findOne(t, kind, search).catch(() => null))));
+  if (kind === "series" || !api || !found.length) return found;
+  const sagaOf = await Promise.all(found.map((it) => api(`/movie/${it.id}`).then((d) => d && d.belongs_to_collection, () => null)));
+  const ids = [...new Set(sagaOf.filter(Boolean).map((c) => c.id))];
+  const parts = new Map(await Promise.all(ids.map((id) => api(`/collection/${id}`).then((c) => [id, sagaOrder(c && c.parts)], () => [id, []]))));
+  return dedupe(found.flatMap((it, i) => {
+    const c = sagaOf[i];
+    if (!c || !parts.has(c.id)) return [it];
+    const saga = parts.get(c.id);
+    parts.delete(c.id);   // la saga n'est déroulée qu'une fois, au rang de son premier film
+    return [it, ...saga];
+  }));
 }

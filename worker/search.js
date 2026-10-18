@@ -136,14 +136,15 @@ export async function smartSearch(query, page, search, kind) {
   const seen = new Set();
   const uniq = (list) => list.filter((it) => !seen.has(it.id) && seen.add(it.id));
 
-  // Le sigle ou l'année d'abord, puis le reste.
-  const first = uniq(usable(extra.flatMap((d) => d.results || [])).sort(byPop));
+  // Le sigle ou l'année d'abord, puis le reste. Avec une année, TMDB lit aussi « dune » comme
+  // « d'une » : on ne garde que les titres vraiment proches de ce qui a été tapé.
+  const close = (it) => !ym || scoreOf(ym[1], it) >= GOOD;
+  const first = uniq(usable(extra.flatMap((d) => d.results || [])).filter((it) => alias || close(it)).sort(byPop));
   const main = usable(plain.results);
-  const best = Math.max(0, ...[...first, ...main].map((it) => scoreOf(q, it)), ...(alias ? [1] : []));
+  const best = Math.max(0, ...[...first, ...main].map((it) => scoreOf(ym ? ym[1] : q, it)), ...(alias ? [1] : []));
   if (best >= GOOD || first.length) {
     // Le plus ressemblant d'abord, puis par popularité.
-    // Avec une année, la recherche brute « dune 1984 » ramène aussi des « d'une… » : on les écarte.
-    const rest = uniq(main).filter((it) => !ym || scoreOf(ym[1], it) >= KEEP).sort((a, b) => (scoreOf(q, b) >= GOOD) - (scoreOf(q, a) >= GOOD) || byPop(a, b));
+    const rest = uniq(main).filter(close).sort((a, b) => (scoreOf(q, b) >= GOOD) - (scoreOf(q, a) >= GOOD) || byPop(a, b));
     return [...first, ...rest];
   }
 

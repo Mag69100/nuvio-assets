@@ -1,6 +1,6 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { aiEnv, aiProfile } from "../worker/ai.js";
+import { aiEnv, aiProfile, aiTitles, aiMiss } from "../worker/ai.js";
 
 // Cache Cloudflare simulé (clé = adresse) et fetch espion : chaque test choisit ce que répond Gemini.
 let store, calls, answer;
@@ -71,4 +71,23 @@ test("repos_par_cle", async () => {
   assert.ok(calls.length > 0);
   assert.equal(calls[0].key, "OTHER-KEY-B");
   assert.equal(r.pourQui, "Pour B");
+});
+
+test("recherche_sans_cle_en_cache", async () => {
+  store.set(`https://cache.local/ai/v5/${encodeURIComponent("film ou un mec revit la meme journee")}`, JSON.stringify([{ title: "Groundhog Day", year: 1993 }]));
+  const r = await aiTitles({ GEMINI_API_KEY: "" }, null, "film où un mec revit la même journée");
+  assert.deepEqual(r.titles, [{ title: "Groundhog Day", year: 1993 }]);
+  assert.equal(aiMiss(r), null);
+  assert.equal(calls.length, 0);
+});
+
+test("recherche_sans_cle_absente", async () => {
+  const r = await aiTitles({ GEMINI_API_KEY: "" }, null, "une requete jamais posee");
+  assert.equal(aiMiss(r), "absent");
+  assert.equal(calls.length, 0);
+});
+
+test("recherche_attente_ou_erreur", () => {
+  assert.equal(aiMiss(null), "attente");
+  assert.equal(aiMiss({ titles: [], error: "429" }), "erreur");
 });

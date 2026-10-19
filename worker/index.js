@@ -31,7 +31,7 @@ import { lienPage } from "./lien.js";
 import { hallPage } from "./hall.js";
 import { smartSearch, prepareWords, isExact, norm } from "./search.js";
 import { imdbRating } from "./ratings.js";
-import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
+import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
 const VERSION = "5.22.0";
@@ -691,9 +691,9 @@ async function runSearch(env, type, query, page, opts, trace) {
   const api = (path, params = {}) => (left-- > 0 ? tmdb(env, path, params, opts.lang) : none);
   const stats = {};
   const classicSearch = () => smartSearch(query, page, search, type, api, { words: searchWords, region: opts.region, trace, stats });
-  const useAI = !!env.GEMINI_API_KEY && page === 1;
-  if (!useAI) {
-    if (trace) trace.ai = env.GEMINI_API_KEY ? "page suivante : recherche classique" : "pas de secret GEMINI_API_KEY";
+  // Sans clé Gemini, l'IA ne fait que relire les réponses déjà en cache (aiTitles en lecture seule).
+  if (page !== 1) {
+    if (trace) trace.ai = "page suivante : recherche classique";
     return classicSearch();
   }
   // Une description : Gemini part tout de suite. Pas toute la recherche classique (une dizaine
@@ -721,10 +721,12 @@ async function runSearch(env, type, query, page, opts, trace) {
   const job = ai || aiTitles(env, opts.ctx, query, aiOpts);
   const answer = await Promise.race([job, new Promise((r) => setTimeout(() => r(null), AI_WAIT_MS))]);
   // Pas de réponse à temps ou erreur : la recherche classique, sans la garder en cache, pour que
-  // la même recherche refaite profite de la réponse de Gemini (qui finit en arrière-plan).
-  if (!answer || answer.error) {
-    opts.partial = true;
-    if (trace) trace.ai.error = answer ? answer.error : `pas de réponse en ${AI_WAIT_MS} ms`;
+  // la même recherche refaite profite de la réponse de Gemini (qui finit en arrière-plan). Sans clé
+  // et rien en cache : la recherche classique, gardée (il n'y a rien de mieux à attendre).
+  const miss = aiMiss(answer);
+  if (miss) {
+    if (miss !== "absent") opts.partial = true;
+    if (trace) trace.ai.error = miss === "absent" ? "pas de clé Gemini, rien en cache" : answer ? answer.error : `pas de réponse en ${AI_WAIT_MS} ms`;
     return descriptive ? classicSearch() : classic;
   }
   const found = await resolveTitles(answer.titles, type, search, api);

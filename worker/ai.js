@@ -249,6 +249,13 @@ function cachedAsk(env, ctx, cacheUrl, ttl, ask, opts = {}) {
 }
 
 /**
+ * Pourquoi une réponse de l'IA ne peut pas servir à une recherche : "attente" (pas de réponse à
+ * temps), "erreur" (Gemini en panne, à court de quota, clé refusée), "absent" (pas de clé et rien
+ * en cache) ; null si elle peut servir.
+ */
+export const aiMiss = (answer) => (!answer ? "attente" : answer.error ? "erreur" : answer.readOnly ? "absent" : null);
+
+/**
  * Titres proposés par Gemini pour une requête → { titles, cached, ms, model, tried, error }.
  * opts.model → un seul modèle, imposé ; opts.thinking → niveau de réflexion ; opts.fresh → sans le
  * cache (diagnostic).

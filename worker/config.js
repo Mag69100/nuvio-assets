@@ -92,6 +92,7 @@ export function defaults(rows, discover) {
     h: SEASON_KEYS.map(([k]) => k),   // fêtes suivies
     t: {},            // tuiles masquées par collection : { idCollection: [positions] }
     u: false,         // titres pas encore regardables dans les Tendances (masqués par défaut)
+    k: "",            // clé Gemini personnelle (IA avec le quota de l'utilisateur)
   };
 }
 
@@ -101,6 +102,8 @@ function b64urlDecode(s) {
   return new TextDecoder().decode(Uint8Array.from(bin, (ch) => ch.charCodeAt(0)));
 }
 
+/** Clé Gemini collée par l'utilisateur, nettoyée ; "" si elle n'en a pas la forme. */
+const geminiKeyOf = (v) => (typeof v === "string" && /^[A-Za-z0-9_-]{30,60}$/.test(v.trim()) ? v.trim() : "");
 const cleanName = (v) => (typeof v === "string" ? v.replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 40) : "");
 const int = (v, lo, hi) => (Number.isFinite(Number(v)) ? Math.min(hi, Math.max(lo, Math.round(Number(v)))) : null);
 
@@ -130,6 +133,7 @@ function cleanCustom(x) {
  *   x rangées sur mesure · g pays · e genres masqués · m note mini · a année mini
  *   f mode famille · h fêtes (masque) · t tuiles masquées par collection
  *   u titres pas encore regardables gardés dans les Tendances
+ *   k clé Gemini personnelle (l'IA tourne avec le quota de l'utilisateur ; hors clé de cache)
  * Toute valeur abîmée est ignorée : une adresse ne peut jamais casser l'addon.
  */
 export function decodeConfig(segment, rows, discover) {
@@ -182,6 +186,7 @@ export function decodeConfig(segment, rows, discover) {
     f: raw.f === 1 || raw.f === true,
     h: fromMask(raw.h, SEASON_KEYS.map(([k]) => k)) ?? base.h,
     u: raw.u === 1 || raw.u === true,
+    k: geminiKeyOf(raw.k),
     custom: true,
   };
 }

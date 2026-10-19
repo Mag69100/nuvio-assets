@@ -124,3 +124,62 @@ test("connexion_en_http_sans_secure", async () => {
   const https = await login("secret-hote");
   assert.match(https.headers.getSetCookie()[0], /Secure/);
 });
+
+// ---------- rangée « Mise à jour » dans Nuvio (lien de l'hébergeur) ----------
+import { alertToken, dismiss } from "../worker/hote.js";
+const withAl = async (al) => `/${seg({ al })}`;
+const manifestOf = async (prefix, e = hostEnv) => (await hostAt(`${prefix}/manifest.json`, {}, e)).json();
+
+test("rangee_absente_sans_jeton", async () => {
+  assert.ok(!(await manifestOf("")).catalogs.some((c) => c.id === "mise-a-jour"));
+});
+
+test("rangee_en_tete_avec_jeton", async () => {
+  const m = await manifestOf(await withAl(await alertToken(hostEnv)));
+  assert.equal(m.catalogs[0].id, "mise-a-jour");
+  assert.equal(m.catalogs[0].showInHome, true);
+});
+
+test("rangee_jeton_faux", async () => {
+  assert.ok(!(await manifestOf(await withAl("0".repeat(24)))).catalogs.some((c) => c.id === "mise-a-jour"));
+});
+
+test("rangee_jamais_sur_la_source", async () => {
+  const m = await (await worker.fetch(new Request(`https://nuvio-assets.xnzxflix.workers.dev${await withAl(await alertToken(hostEnv))}/manifest.json`), hostEnv, ctx)).json();
+  assert.ok(!m.catalogs.some((c) => c.id === "mise-a-jour"));
+});
+
+test("carte_si_mise_a_jour", async () => {
+  githubSays();
+  const res = await hostAt(`${await withAl(await alertToken(hostEnv))}/catalog/movie/mise-a-jour.json`);
+  const { metas } = await res.json();
+  assert.equal(metas.length, 1);
+  assert.equal(metas[0].id, "maj:5.99.1");
+  assert.match(metas[0].name, /5\.99\.1/);
+  assert.match(res.headers.get("Cache-Control"), /no-store/);
+  assert.ok(![...store.keys()].some((k) => k.includes("mise-a-jour")));
+});
+
+test("carte_absente_sans_jeton_valide", async () => {
+  githubSays();
+  const { metas } = await (await hostAt(`${await withAl("0".repeat(24))}/catalog/movie/mise-a-jour.json`)).json();
+  assert.deepEqual(metas, []);
+});
+
+test("carte_absente_apres_plus_tard", async () => {
+  githubSays();
+  await dismiss(hostEnv, "5.99");
+  const { metas } = await (await hostAt(`${await withAl(await alertToken(hostEnv))}/catalog/movie/mise-a-jour.json`)).json();
+  assert.deepEqual(metas, []);
+});
+
+test("fiche_mise_a_jour", async () => {
+  githubSays();
+  const prefix = await withAl(await alertToken(hostEnv));
+  const docker = await (await hostAt(`${prefix}/meta/movie/maj:5.99.1.json`, {}, { ...hostEnv, INSTALLATION: "docker" })).json();
+  assert.match(docker.meta.description, /• B/);
+  assert.match(docker.meta.description, /docker compose pull && docker compose up -d/);
+  const cf = await (await hostAt(`${prefix}/meta/movie/maj%3A5.99.1.json`, {}, { ...hostEnv, DEPOT: "moi/nuvio-assets" })).json();
+  assert.match(cf.meta.description, /https:\/\/github\.com\/moi\/nuvio-assets/);
+  assert.match(cf.meta.description, /Sync fork/);
+});

@@ -148,3 +148,25 @@ export async function hostRoute(request, env, url, path, current) {
   }
   return reply({ error: "introuvable" }, 404);
 }
+
+// ---------- rangée « Mise à jour » dans Nuvio ----------
+// Déclarée seulement dans le lien « avec alertes » de l'hébergeur ; vide (donc masquée par Nuvio)
+// tant qu'il n'y a rien à proposer.
+export const UPDATE_CATALOG = { type: "movie", id: "mise-a-jour", name: "Mise à jour", showInHome: true, extra: [], extraSupported: [] };
+
+/** Le lien de cette requête est-il celui de l'hébergeur d'une copie (jeton d'alerte valide) ? */
+export const hasAlerts = async (env, url, cfg) => isCopy(url) && !!cfg.al && cfg.al === (await alertToken(env));
+
+/** Carte (et fiche) « Version X disponible » : nouveautés, puis comment mettre à jour. */
+export function updateCard(info, env, origin) {
+  const how = env.INSTALLATION === "docker"
+    ? "Pour mettre à jour : sur ton serveur, dans le dossier de ta copie, lance\ndocker compose pull && docker compose up -d"
+    : `Pour mettre à jour : sur GitHub, ouvre ta copie${/^[\w.-]+\/[\w.-]+$/.test(env.DEPOT || "") ? ` (https://github.com/${env.DEPOT})` : ""} et clique sur « Sync fork » : Cloudflare la redéploie tout seul. C'est aussi expliqué sur ton site, salle 2 → Espace hébergeur.`;
+  const notes = info.notes.length ? `Nouveautés :\n${info.notes.map((n) => `• ${n}`).join("\n")}` : "";
+  return {
+    id: `maj:${info.version}`, type: "movie",
+    name: `🔔 Version ${info.version} disponible`,
+    poster: `${origin}/logo.png`, posterShape: "square",
+    description: [notes, how, `Tout l'historique : ${info.history}`].filter(Boolean).join("\n\n"),
+  };
+}

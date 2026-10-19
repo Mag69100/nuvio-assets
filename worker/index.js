@@ -31,7 +31,7 @@ import { lienPage } from "./lien.js";
 import { hallPage } from "./hall.js";
 import { smartSearch, prepareWords, isExact, norm } from "./search.js";
 import { imdbRating } from "./ratings.js";
-import { isCopy, addonId, hostRoute } from "./hote.js";
+import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, UPDATE_CATALOG } from "./hote.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
 const VERSION = "5.22.3";
@@ -173,7 +173,7 @@ function homeDefs(today, cfg) {
 /** Taille d'une page : 20, ou 40 pour une rangée qui mélange films et séries (20 + 20). */
 const pageSizeOf = (def) => (def.mix ? PAGE * def.mix.length : PAGE);
 
-function manifest(today, cfg, cfgSeg, url) {
+function manifest(today, cfg, cfgSeg, url, alerts) {
   const paging = { name: "skip" };
   const discover = DEFS.discover.filter((d) => cfg.d.includes(d.id)).map((d) => {
     const labels = d.options.map((o) => o.label);
@@ -194,12 +194,13 @@ function manifest(today, cfg, cfgSeg, url) {
     name: cfg.n,
     description: "Rangées d'accueil, Découvrir et saison en cours, en français, en direct depuis TMDB.",
     logo: `${ASSETS}/logo/addon.png`,
-    resources: ["catalog", { name: "meta", types: ["movie", "series"], idPrefixes: ["tt", "tmdb:"] }],
+    resources: ["catalog", { name: "meta", types: ["movie", "series"], idPrefixes: ["tt", "tmdb:", ...(alerts ? ["maj:"] : [])] }],
     types: ["movie", "series"],
     idPrefixes: ["tt", "tmdb:"],
     // Recherche : deux catalogues « Films » et « Séries » (titres en français), à la place
     // des « TMDB Search » de Discover Plus dont le nom ne se change pas.
-    catalogs: [...discover, ...home, ...SEARCH.map((c) => ({
+    // Lien de l'hébergeur d'une copie : la rangée « Mise à jour » en tête (vide, donc masquée, sans mise à jour).
+    catalogs: [...(alerts ? [UPDATE_CATALOG] : []), ...discover, ...home, ...SEARCH.map((c) => ({
       type: c.type, id: c.id, name: c.name, showInHome: false,
       extra: [{ name: "search", isRequired: true }, paging], extraRequired: ["search"], extraSupported: ["search", "skip"],
     }))],
@@ -1581,7 +1582,7 @@ export default {
     if (path === "/guide") return html(guidePage({ origin: url.origin, season: decorSaison(url, today) }));
     if (path === "/lien") return html(lienPage({ origin: url.origin }));   // ouvert par les QR codes du guide
     if (path === "/tv") return Response.redirect(NUVIO_TV_APK, 302);   // adresse courte pour Downloader : télécharge l'APK
-    if (path === "/manifest.json") return json(manifest(today, cfg, cfgSeg, url), CACHE_CLIENT_S);
+    if (path === "/manifest.json") return json(manifest(today, cfg, cfgSeg, url, await hasAlerts(env, url, cfg)), CACHE_CLIENT_S);
     if (path === "/collections.json") return json(await collections(cfg), CACHE_CLIENT_S);
     if (path === "/logo.png") {   // le logo servi par le site, sans l'adresse du dépôt dans les pages
       const r = await fetch(`${ASSETS}/logo/addon.png`, { cf: { cacheTtl: 86400, cacheEverything: true } });
@@ -1663,6 +1664,11 @@ export default {
     if (tm) return json(await trailer(env, tm[1], decodeURIComponent(tm[2])), 7 * 86400);
 
     const mm = path.match(/^\/meta\/(movie|series)\/([^/]+)\.json$/);
+    // Fiche « Version X disponible » de la rangée « Mise à jour » (lien de l'hébergeur d'une copie).
+    if (mm && decodeURIComponent(mm[2]).startsWith("maj:")) {
+      const info = (await hasAlerts(env, url, cfg)) ? await updateInfo(VERSION) : null;
+      return new Response(JSON.stringify({ meta: info ? updateCard(info, env, url.origin) : null }), { headers: { ...HEADERS, "Cache-Control": "no-store" } });
+    }
     if (mm) {
       const fullKey = `https://cache.local/${VERSION}/${today}/meta/${mm[1]}/${mm[2]}?l=${langOf(cfg)}&g=${cfg.g}&ai=${env.GEMINI_API_KEY ? 1 : 0}`;
       // ?leger=1 : l'aperçu du site au survol. La fiche complète si elle est déjà prête, sinon une fiche sans IA.
@@ -1684,6 +1690,11 @@ export default {
     if (!m) return json({ error: "introuvable" }, 60);
     const [, type, rawId, extraSeg] = m;
     const id = decodeURIComponent(rawId);
+    // Rangée « Mise à jour » : jamais en cache (« Plus tard » doit la vider tout de suite).
+    if (type === "movie" && id === "mise-a-jour") {
+      const info = (await hasAlerts(env, url, cfg)) ? await pendingUpdate(env, VERSION) : null;
+      return new Response(JSON.stringify({ metas: info ? [updateCard(info, env, url.origin)] : [] }), { headers: { ...HEADERS, "Cache-Control": "no-store" } });
+    }
 
     // Cache de la réponse complète (une page de catalogue) pendant quelques heures.
     // La clé ne dépend que de ce qui change le contenu (pas du nom ni de l'ordre choisis).

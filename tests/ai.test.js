@@ -91,3 +91,12 @@ test("recherche_attente_ou_erreur", () => {
   assert.equal(aiMiss(null), "attente");
   assert.equal(aiMiss({ titles: [], error: "429" }), "erreur");
 });
+
+test("limite_bonus_par_cle", async () => {
+  answer = geminiSays({ pour_qui: "Pour toi", a_savoir: "" });
+  for (let i = 0; i < 6; i++) await aiProfile({ GEMINI_API_KEY: "LIMIT-KEY-A" }, null, `limit-a-${i}`, "…");
+  const refused = await aiProfile({ GEMINI_API_KEY: "LIMIT-KEY-A" }, null, "limit-a-7", "…");
+  assert.equal(refused.error, "trop de demandes cette minute");
+  const other = await aiProfile({ GEMINI_API_KEY: "LIMIT-KEY-B" }, null, "limit-b-1", "…");
+  assert.equal(other.pourQui, "Pour toi");
+});

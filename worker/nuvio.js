@@ -38,12 +38,15 @@ export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cram
 .nvo-resume { margin: 0; font: 400 1.3125cqw/1.875cqw Inter, sans-serif; letter-spacing: .026cqw; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .nvo.paysage .nvo-resume { font-size: 1.458cqw; line-height: 2.083cqw; }
 /* Les rangées : une rangée pleine à la fois, qui s'arrête sous le haut de l'écran. */
+/* Les rangées restent toujours alignées comme sur la TV (une rangée pleine sous le haut de l'écran) : la molette
+   et le pavé tactile avancent d'une rangée à la fois, comme la télécommande (voir pilote). */
 .nvo-rangees { position: absolute; left: 0; right: 0; top: 27cqw; bottom: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; scroll-snap-type: y mandatory; overscroll-behavior: contain; padding-bottom: 29.25cqw; }
 .nvo.paysage .nvo-rangees { top: 28.6875cqw; padding-bottom: 27.5625cqw; }
 .nvo-rangees::-webkit-scrollbar { display: none; }
 .nvo-rangee { scroll-snap-align: start; margin-bottom: 2.5cqw; }
 .nvo-rangee h4 { margin: 0 0 1.458cqw; padding: 0 5.4167cqw; font: 600 1.667cqw/2.5cqw Inter, sans-serif; letter-spacing: .016cqw; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nvo-piste { display: flex; gap: 1.25cqw; padding: .25cqw 5.4167cqw; margin: -.25cqw 0; overflow-x: auto; scrollbar-width: none; scroll-padding: 0 5.4167cqw; cursor: grab; }
+/* Marge haute et basse de 3 cqw : la lueur des tuiles (flou de 28 dp) n'est pas rognée par la rangée. */
+.nvo-piste { display: flex; gap: 1.25cqw; padding: 3cqw 5.4167cqw; margin: -3cqw 0; overflow-x: auto; scrollbar-width: none; scroll-padding: 0 5.4167cqw; cursor: grab; }
 .nvo-piste::-webkit-scrollbar { display: none; }
 .nvo-piste.tire { cursor: grabbing; user-select: none; }
 .nvo-piste .vide { margin: 0; color: #808080; font-size: max(1.4cqw, 11px); }
@@ -440,9 +443,45 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
       const p = c.parentElement, pad = p.clientWidth * .054;
       if (c.offsetLeft - pad < p.scrollLeft) p.scrollTo({ left: c.offsetLeft - pad, behavior: "smooth" });
       else if (c.offsetLeft + c.offsetWidth + pad > p.scrollLeft + p.clientWidth) p.scrollTo({ left: c.offsetLeft + c.offsetWidth + pad - p.clientWidth, behavior: "smooth" });
-      const r = c.closest(".nvo-rangee"); if (r && rangees) rangees.scrollTo({ top: r.offsetTop, behavior: calme() ? "auto" : "smooth" });
+      const r = c.closest(".nvo-rangee"); if (r && rangees) rangees.scrollTo({ top: r.offsetTop - parseFloat(getComputedStyle(rangees).paddingTop), behavior: calme() ? "auto" : "smooth" });
     };
-    racine.addEventListener("pointerover", (e) => { if (e.pointerType !== "mouse") return; const c = e.target.closest(".nvo-rangees .nvo-carte, .nvo-rangees .nvo-tuile"); if (c && (c._m || c._f) && !racine.querySelector(".nvo-piste.tire")) choisit(c); });
+    // Pendant le défilement, les cartes passent sous la souris immobile : on ne les sélectionne pas.
+    let defile = 0;
+    if (rangees) rangees.addEventListener("scroll", () => { defile = Date.now(); }, { passive: true });
+    // Molette et pavé tactile = flèches haut/bas de la télécommande : une rangée par cran (souris) ou par geste
+    // (pavé tactile, dont l'élan envoie des dizaines d'événements), et la sélection descend avec.
+    const pas = (sens) => {
+      const rs = [...rangees.querySelectorAll(".nvo-rangee")];
+      let i = sel && sel.isConnected ? rs.indexOf(sel.closest(".nvo-rangee")) : -1;
+      if (i < 0) i = rs.reduce((k, r, j) => Math.abs(r.offsetTop - rangees.scrollTop) < Math.abs(rs[k].offsetTop - rangees.scrollTop) ? j : k, 0);
+      const cible = rs[i + sens]; if (!cible) return;
+      const cartes = [...cible.querySelectorAll(".nvo-carte, .nvo-tuile")].filter((k) => k._m || k._f);
+      if (!cartes.length) { rangees.scrollTo({ top: cible.offsetTop, behavior: calme() ? "auto" : "smooth" }); return; }
+      const x = sel && sel.isConnected ? sel.getBoundingClientRect().left : cartes[0].getBoundingClientRect().left;
+      choisit(cartes.reduce((a, b) => Math.abs(b.getBoundingClientRect().left - x) < Math.abs(a.getBoundingClientRect().left - x) ? b : a), true);
+    };
+    let cumul = 0, verrou = 0, dernier = 0;
+    if (rangees) rangees.addEventListener("wheel", (e) => {
+      if (e.ctrlKey || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;   // zoom, ou rangée qu'on fait glisser de côté
+      e.preventDefault();
+      const now = Date.now(), cran = e.deltaMode === 1 || (Math.abs(e.deltaY) >= 50 && Number.isInteger(e.deltaY));
+      const enRafale = now - dernier < 200; dernier = now;
+      if (now < verrou) { if (!cran && enRafale) verrou = now + 220; return; }
+      cumul += e.deltaY * (e.deltaMode === 1 ? 40 : 1);
+      if (Math.abs(cumul) < 30) return;
+      const sens = cumul > 0 ? 1 : -1; cumul = 0; verrou = now + (cran ? 220 : 450); defile = now;
+      pas(sens);
+    }, { passive: false });
+    // Sélection à la souris : seulement quand elle bouge vraiment. En défilant, Chrome envoie des survols
+    // fictifs à la carte restée sous la souris immobile, qui ramèneraient la sélection en arrière.
+    let sx = -1, sy = -1;
+    racine.addEventListener("pointermove", (e) => {
+      if (e.pointerType !== "mouse" || (e.screenX === sx && e.screenY === sy)) return;
+      sx = e.screenX; sy = e.screenY;
+      if (Date.now() - defile < 150) return;
+      const c = e.target.closest(".nvo-rangees .nvo-carte, .nvo-rangees .nvo-tuile");
+      if (c && c !== sel && (c._m || c._f) && !racine.querySelector(".nvo-piste.tire")) choisit(c);
+    });
     racine.addEventListener("focusin", (e) => { const c = e.target.closest(".nvo-rangees .nvo-carte, .nvo-rangees .nvo-tuile"); if (c && (c._m || c._f)) choisit(c, true); });
     racine.addEventListener("keydown", (e) => {
       const c = e.target.closest(".nvo-rangees .nvo-carte, .nvo-rangees .nvo-tuile"); if (!c) return;

@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.21.0";
+const VERSION = "5.21.1";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -391,7 +391,8 @@ const GENRE_NAMES = {
  * Sans identifiant IMDb, on se rabat sur « tmdb:<id> », que la fiche (/meta) sait ouvrir.
  */
 async function toMetas(env, ctx, results, kind, opts, today) {
-  const infos = await Promise.all(results.map((it) => extraInfo(env, kind, it.id)));
+  // Infos déjà lues pour trier la page (Tendances) : pas un second appel par titre.
+  const infos = await Promise.all(results.map((it) => (opts.infos && opts.infos.get(it.id)) || extraInfo(env, kind, it.id)));
   const ids = infos.map((x) => x.imdb);
   // VF déjà trouvée par une fiche (Allociné + YouTube) : un seul appel pour toute la page, pas pendant
   // la recherche (son budget d'appels est compté au plus juste).
@@ -539,20 +540,43 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
 }
 
 /**
- * Tendances sans les titres pas encore sortis : TMDB y classe aussi les films attendus dès leur
- * bande-annonce (Godzilla Minus Zero). Les pages restent pleines (20) pour que Nuvio pagine comme
- * avant : la page N reprend la suite de la liste filtrée, lue sur les pages TMDB 1 à N + 1
- * (gardées 3 h par Cloudflare). Sans date de sortie, le titre est compté comme pas encore sorti.
+ * Tendances avec seulement ce qu'on peut déjà regarder chez soi : TMDB y classe aussi les films
+ * attendus dès leur bande-annonce (Godzilla Minus Zero, voir « Les plus attendus ») et ceux qui
+ * ne sont encore qu'au cinéma (Street Fighter, voir « Bientôt dispo »). Séries : déjà diffusées.
+ * Pages pleines (20) : la page N part de la page N de TMDB et se complète avec la suivante. Nuvio
+ * demande la suite avec skip = titres déjà reçus et ignore les doublons : rien ne manque ni ne
+ * s'affiche deux fois. Les infos lues pour trier (dates de sortie) resservent pour les fiches.
  */
+const MAX_CHECKED = 40;   // fiches TMDB lues au plus par page (limite d'appels de Cloudflare)
 async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
-  const pages = await Promise.all(Array.from({ length: page + 1 }, (_, i) =>
-    tmdb(env, def.endpoint, { ...(def.params || {}), page: i + 1 }, opts.lang)));
-  const released = pages.flatMap((d) => d.results || [])
+  const lists = await Promise.all([page, page + 1].map((p) => tmdb(env, def.endpoint, { ...(def.params || {}), page: p }, opts.lang)));
+  const released = lists.flatMap((d) => d.results || [])
     .filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; });
-  const slice = released.slice((page - 1) * PAGE, page * PAGE);
-  if (!slice.length) return [];
-  const metas = await toMetas(env, ctx, slice, kind, opts, today);
+  let picked = released.slice(0, PAGE);
+  if (kind === "movie") {
+    const infos = new Map();
+    picked = [];
+    for (let i = 0; i < released.length && picked.length < PAGE && infos.size < MAX_CHECKED;) {
+      const batch = released.slice(i, i + Math.min(PAGE - picked.length + 4, MAX_CHECKED - infos.size));
+      i += batch.length;
+      const got = await Promise.all(batch.map((it) => extraInfo(env, kind, it.id)));
+      batch.forEach((it, k) => {
+        infos.set(it.id, got[k]);
+        if (picked.length < PAGE && watchable(got[k], it.release_date, today)) picked.push(it);
+      });
+    }
+    opts = { ...opts, infos };
+  }
+  if (!picked.length) return [];
+  const metas = await toMetas(env, ctx, picked, kind, opts, today);
   return metas.map(({ _digital, _guess, _vf, ...m }) => m);
+}
+
+/** Film regardable chez soi : sorti en numérique (ou salle + 45 jours passés). Sans infos : gardé. */
+function watchable(info, date, today) {
+  if (!info.releases) return true;
+  const dispo = firstDigital(info.releases) || digitalGuess(info.releases);
+  return dispo ? dispo <= today : date <= addDays(today, -45);
 }
 
 /**
@@ -595,12 +619,20 @@ async function fetchVfPage(env, ctx, def, kind, page, today, opts) {
     "release_date.gte": addDays(today, def.digital[0]), "release_date.lte": addDays(today, def.digital[1]) }, opts.lang)];
   if (future) reqs.push(tmdb(env, "/discover/movie", { ...base, with_release_type: "3|2",
     "release_date.gte": addDays(today, def.digital[0] - 45), "release_date.lte": addDays(today, def.digital[1] - 45) }, opts.lang));
+  // « Bientôt » : aussi les films des tendances encore au cinéma (retirés des Tendances), que
+  // « discover » laisse parfois passer (trop peu de votes). Pas avec des filtres : les tendances
+  // n'en acceptent pas.
+  const trending = future && page === 1 && !opts.filtered;
+  if (trending) [1, 2].forEach((p) => reqs.push(tmdb(env, "/trending/movie/week", { page: p }, opts.lang)));
   const lists = await Promise.all(reqs);
+  if (trending) lists.slice(-2).forEach((d) => {
+    d.results = (d.results || []).filter((it) => it.release_date && it.release_date <= today && it.release_date >= addDays(today, -120));
+  });
   const seen = new Set(), merged = [];
   lists.flatMap((d) => d.results || []).sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
     .forEach((it) => { if (!seen.has(it.id)) { seen.add(it.id); merged.push(it); } });
   if (!merged.length) return [];
-  const metas = await toMetas(env, ctx, merged.slice(0, 30), kind, opts, today);
+  const metas = await toMetas(env, ctx, merged.slice(0, 36), kind, opts, today);
   const from = addDays(today, def.digital[0]), to = addDays(today, def.digital[1]);
   const when = (m) => m._digital || (future ? m._guess : "");
   return metas

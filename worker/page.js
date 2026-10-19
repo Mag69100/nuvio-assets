@@ -550,7 +550,7 @@ ${NUVIO_CSS}
           <label class="field"><span>Rien de sorti avant</span><select id="g-year"></select></label>
         </div>
         <label class="switch"><input type="checkbox" id="g-family"><span><b>Mode famille</b><small>Films tous publics ou -10 ans seulement, pas d'horreur, séries pour la famille et les enfants.</small></span></label>
-        <label class="switch"><input type="checkbox" id="g-unreleased"><span><b>Pas de films pas encore sortis dans les Tendances</b><small>TMDB y met aussi les films très attendus dès leur bande-annonce. Ils ont leur rangée : « Les plus attendus ».</small></span></label>
+        <label class="switch"><input type="checkbox" id="g-unreleased"><span><b>Tendances : seulement ce qu'on peut déjà regarder</b><small>TMDB y met aussi les films encore au cinéma ou pas encore sortis. Ils passent dans « Bientôt dispo » et « Les plus attendus ».</small></span></label>
       </section>
 
       <section class="act" id="s-decouvrir">

@@ -91,7 +91,7 @@ export function defaults(rows, discover) {
     f: false,         // mode famille
     h: SEASON_KEYS.map(([k]) => k),   // fêtes suivies
     t: {},            // tuiles masquées par collection : { idCollection: [positions] }
-    u: false,         // titres pas encore sortis dans les Tendances (masqués par défaut)
+    u: false,         // titres pas encore regardables dans les Tendances (masqués par défaut)
   };
 }
 
@@ -129,7 +129,7 @@ function cleanCustom(x) {
  *   p plateformes · d Découvrir (masque) · c collections (masque) · o noms personnalisés
  *   x rangées sur mesure · g pays · e genres masqués · m note mini · a année mini
  *   f mode famille · h fêtes (masque) · t tuiles masquées par collection
- *   u titres pas encore sortis gardés dans les Tendances
+ *   u titres pas encore regardables gardés dans les Tendances
  * Toute valeur abîmée est ignorée : une adresse ne peut jamais casser l'addon.
  */
 export function decodeConfig(segment, rows, discover) {

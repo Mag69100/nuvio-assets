@@ -19,9 +19,15 @@
  */
 import { norm, scoreOf, isExact, similarity } from "./search.js";
 
-// Dans l'ordre : Flash-Lite répond en 1 à 2 s avec de bons titres ; 3.6 Flash en 3 s. 3.8 Flash,
-// un peu meilleur, met jusqu'à 6 s et sature souvent : pas retenu.
-const MODELS = ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.1-flash-lite"];
+// Dans l'ordre : les deux Flash-Lite (15 requêtes par minute, 500 par jour, réponse en 1 à 2 s), puis
+// 3.6 Flash (5 par minute et 20 par jour seulement : dernier secours, et jamais pour les bonus de
+// fiche). 3.8 Flash, un peu meilleur, met jusqu'à 6 s et sature souvent : pas retenu.
+const MODELS = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.6-flash"];
+const SEARCH_ONLY = new Set(["gemini-3.6-flash"]);
+// Bonus de fiche (rappel, « pour qui », saison commandée) : au plus autant d'appels par minute. Le hero
+// de Nuvio charge la fiche de chaque titre survolé : sans limite, faire défiler une rangée dépassait
+// la limite de Gemini (15 par minute) et privait la recherche d'IA. Au-delà : la ligne viendra plus tard.
+const OPTIONAL_PER_MIN = 6;
 const ATTEMPT_MS = 5000;            // un modèle qui ne répond pas en 5 s passe la main au suivant
 export const AI_WAIT_MS = 6000;     // attente maximale d'une réponse de Gemini pendant une recherche
 const CACHE_S = 30 * 86400;
@@ -114,7 +120,13 @@ async function geminiText(env, model, system, user, opts = {}) {
   });
   if (!res.ok) {
     const j = await res.json().catch(() => ({}));
-    throw Object.assign(new Error(`${res.status} ${((j.error || {}).message || "").slice(0, 600)}`), { status: res.status });
+    // Quota dépassé (429) : par minute (« réessaie dans 12 s ») ou pour la journée (quotaId « …PerDay… »).
+    const details = (j.error || {}).details || [];
+    const retry = (details.find((x) => /RetryInfo/.test(x["@type"] || "")) || {}).retryDelay || "";
+    const daily = details.some((x) => /QuotaFailure/.test(x["@type"] || "") && (x.violations || []).some((v) => /PerDay/i.test(v.quotaId || "")));
+    throw Object.assign(new Error(`${res.status} ${((j.error || {}).message || "").slice(0, 600)}`), {
+      status: res.status, daily, retryMs: /^\d+(\.\d+)?s$/.test(retry) ? Math.ceil(parseFloat(retry) * 1000) : 0,
+    });
   }
   const j = await res.json();
   const parts = (((j.candidates || [])[0] || {}).content || {}).parts || [];
@@ -129,9 +141,35 @@ async function geminiJSON(env, model, system, user, schema, thinking) {
 // Deux requêtes qui posent la même question en même temps (les catalogues Films et Séries d'une
 // recherche) : une seule part.
 const PENDING = new Map();
-// Modèle → moment où on peut le solliciter de nouveau (quota épuisé : 10 min ; surchargé : 1 min).
+// Modèle → moment où on peut le solliciter de nouveau.
 const RESTING = new Map();
-const restFor = (status) => (status === 429 ? 10 * 60e3 : status >= 500 || !status ? 60e3 : 0);
+
+/** Millisecondes jusqu'à minuit, heure du Pacifique (remise à zéro des quotas journaliers de Gemini). */
+function untilPacificMidnight() {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", hour: "numeric", minute: "numeric", second: "numeric", hourCycle: "h23" })
+    .formatToParts(new Date());
+  const get = (type) => Number((parts.find((x) => x.type === type) || {}).value || 0);
+  return ((24 - get("hour")) * 3600 - get("minute") * 60 - get("second")) * 1000;
+}
+
+/**
+ * Repos d'un modèle après une erreur : quota du jour épuisé → jusqu'à minuit (Pacifique) ; quota de
+ * la minute → le délai que donne Gemini (une minute par défaut) ; surchargé ou muet → une minute.
+ */
+function restFor(e) {
+  if (e.status === 429) return e.daily ? untilPacificMidnight() : Math.max(e.retryMs || 60e3, 5e3);
+  return e.status >= 500 || !e.status ? 60e3 : 0;
+}
+
+// Appels de bonus de fiche de la dernière minute (par instance de l'addon).
+const OPTIONAL_CALLS = [];
+function optionalAllowed() {
+  const now = Date.now();
+  while (OPTIONAL_CALLS.length && OPTIONAL_CALLS[0] < now - 60e3) OPTIONAL_CALLS.shift();
+  if (OPTIONAL_CALLS.length >= OPTIONAL_PER_MIN) return false;
+  OPTIONAL_CALLS.push(now);
+  return true;
+}
 
 /**
  * Modèles à essayer, dans l'ordre ; ceux au repos sont sautés. S'ils le sont tous : tous quand
@@ -139,7 +177,8 @@ const restFor = (status) => (status === 429 ? 10 * 60e3 : status >= 500 || !stat
  */
 function modelsFor(env, opts) {
   if (opts.model) return [opts.model];
-  const all = env.GEMINI_MODEL ? [env.GEMINI_MODEL, ...MODELS.filter((m) => m !== env.GEMINI_MODEL)] : MODELS;
+  const chain = env.GEMINI_MODEL ? [env.GEMINI_MODEL, ...MODELS.filter((m) => m !== env.GEMINI_MODEL)] : MODELS;
+  const all = opts.optional ? chain.filter((m) => !SEARCH_ONLY.has(m)) : chain;
   const ready = all.filter((m) => !(RESTING.get(m) > Date.now()));
   return ready.length || opts.optional ? ready : all;
 }
@@ -158,7 +197,12 @@ function cachedAsk(env, ctx, cacheUrl, ttl, ask, opts = {}) {
     const hit = opts.fresh ? null : await caches.default.match(key);
     if (hit) return { value: await hit.json(), cached: true, ms: Date.now() - start };
     const tried = [];
-    for (const model of modelsFor(env, opts)) {
+    const models = modelsFor(env, opts);
+    // Bonus de fiche : pas plus de OPTIONAL_PER_MIN appels par minute (la recherche passe avant).
+    if (opts.optional && models.length && !optionalAllowed()) {
+      return { value: null, cached: false, ms: Date.now() - start, tried, error: "trop de demandes cette minute" };
+    }
+    for (const model of models) {
       try {
         const value = await ask(model);
         await caches.default.put(key, new Response(JSON.stringify(value), {
@@ -167,7 +211,7 @@ function cachedAsk(env, ctx, cacheUrl, ttl, ask, opts = {}) {
         return { value, cached: false, ms: Date.now() - start, model, tried };
       } catch (e) {
         tried.push(`${model} : ${e.name === "TimeoutError" ? "pas de réponse en 5 s" : e.message}`);
-        const rest = restFor(e.status);
+        const rest = restFor(e);
         if (rest) RESTING.set(model, Date.now() + rest);
       }
     }

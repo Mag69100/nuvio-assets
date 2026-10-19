@@ -278,6 +278,8 @@ aside.long .stage:not(.big) { position: sticky; top: var(--stage-top, 18px); }
 .ai-key input { flex: 1; min-width: 0; }
 .ai-key button { flex: none; padding: 0 12px; border-radius: 8px; border: 1px solid var(--seat); background: var(--velvet); color: var(--cream); cursor: pointer; }
 #ai-key-hint { color: var(--dim); min-height: 1.2em; }
+/* Clé masquée sans champ « mot de passe » (Chrome proposerait de l'enregistrer). */
+#ai-key.masque { -webkit-text-security: disc; text-security: disc; }
 .field > span { font: 700 .72rem var(--body); letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
 .field input:is([type=text], [type=password]).plain, select, input[type=number] { font: 600 1rem var(--body); letter-spacing: 0; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--seat); background: var(--velvet); color: var(--cream); }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -563,7 +565,7 @@ ${NUVIO_CSS}
         <div class="field">
           <span>Ta clé Gemini (facultatif)</span>
           <div class="ai-key">
-            <input type="password" id="ai-key" class="plain" autocomplete="off" spellcheck="false" enterkeyhint="done" placeholder="AIza…" aria-label="Ta clé Gemini" aria-describedby="ai-key-hint">
+            <input type="text" id="ai-key" class="plain masque" autocomplete="off" data-1p-ignore data-lpignore="true" spellcheck="false" enterkeyhint="done" placeholder="AIza…" aria-label="Ta clé Gemini" aria-describedby="ai-key-hint">
             <button type="button" id="ai-key-eye" aria-label="Afficher la clé" aria-pressed="false">👁</button>
           </div>
           <small id="ai-key-hint" aria-live="polite"></small>
@@ -1065,8 +1067,7 @@ function aiKeyHint() {
 $("ai-key").addEventListener("input", () => { state.k = $("ai-key").value.trim(); aiKeyHint(); update(); });
 $("ai-key").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } });
 $("ai-key-eye").addEventListener("click", (e) => {
-  const show = $("ai-key").type === "password";
-  $("ai-key").type = show ? "text" : "password";
+  const show = $("ai-key").classList.toggle("masque") === false;
   e.currentTarget.setAttribute("aria-pressed", String(show));
   e.currentTarget.setAttribute("aria-label", show ? "Masquer la clé" : "Afficher la clé");
 });

@@ -24,3 +24,11 @@ test("partage_sans_cle", () => {
 test("indication_meme_format_que_serveur", () => {
   assert.ok(page().includes("/^[A-Za-z0-9._~+/=:-]{20,200}$/.test(k)"));
 });
+
+// Pas de champ « mot de passe » : Chrome proposerait d'enregistrer la clé. Elle est masquée en CSS.
+test("cle_masquee_sans_champ_mot_de_passe", () => {
+  const html = page();
+  assert.doesNotMatch(html, /type="password"/);
+  assert.match(html, /<input type="text" id="ai-key" class="plain masque"/);
+  assert.match(html, /-webkit-text-security: disc/);
+});

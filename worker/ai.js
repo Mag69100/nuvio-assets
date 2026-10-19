@@ -159,7 +159,13 @@ const PENDING = new Map();
 // Clé + modèle → moment où on peut le solliciter de nouveau. Par clé : un utilisateur à court de
 // quota (ou dont la clé est refusée) ne bloque pas les autres.
 const RESTING = new Map();
-const restKey = (env, model) => `${String(env.GEMINI_API_KEY).slice(-8)}|${model}`;
+const keyTag = (env) => String(env.GEMINI_API_KEY).slice(-8);
+const restKey = (env, model) => `${keyTag(env)}|${model}`;
+// Clé refusée par Google (fausse, révoquée) : toute la clé au repos 10 min, sans essayer les autres
+// modèles (ils la refuseraient aussi). Une autre erreur 400 vient de la requête : pas de repos.
+const keyRefused = (e) => e.status === 401 || e.status === 403 || (e.status === 400 && /API[_ ]?key/i.test(e.message || ""));
+const restKeyRefused = (env) => RESTING.set(`${keyTag(env)}|*`, Date.now() + 10 * 60e3);
+const keyResting = (env) => RESTING.get(`${keyTag(env)}|*`) > Date.now();
 
 /** Millisecondes jusqu'à minuit, heure du Pacifique (remise à zéro des quotas journaliers de Gemini). */
 function untilPacificMidnight() {
@@ -171,19 +177,18 @@ function untilPacificMidnight() {
 
 /**
  * Repos d'un modèle après une erreur : quota du jour épuisé → jusqu'à minuit (Pacifique) ; quota de
- * la minute → le délai que donne Gemini (une minute par défaut) ; clé fausse ou refusée → 10 min ;
- * surchargé ou muet → une minute.
+ * la minute → le délai que donne Gemini (une minute par défaut) ; surchargé ou muet → une minute.
+ * (Clé refusée : voir keyRefused.)
  */
 function restFor(e) {
   if (e.status === 429) return e.daily ? untilPacificMidnight() : Math.max(e.retryMs || 60e3, 5e3);
-  if ([400, 401, 403].includes(e.status)) return 10 * 60e3;
   return e.status >= 500 || !e.status ? 60e3 : 0;
 }
 
 // Appels de la dernière minute, par clé (par instance de l'addon) : bonus de fiche, et rangées préparées.
 const OPTIONAL_CALLS = new Map(), BATCH_CALLS = new Map();
 function allowed(store, env, max) {
-  const now = Date.now(), tag = String(env.GEMINI_API_KEY).slice(-8);
+  const now = Date.now(), tag = keyTag(env);
   const calls = (store.get(tag) || []).filter((t) => t >= now - 60e3);
   store.set(tag, calls);
   if (calls.length >= max) return false;
@@ -198,6 +203,7 @@ const optionalAllowed = (env) => allowed(OPTIONAL_CALLS, env, OPTIONAL_PER_MIN);
  */
 function modelsFor(env, opts) {
   if (opts.model) return [opts.model];
+  if (keyResting(env)) return [];
   const chain = env.GEMINI_MODEL ? [env.GEMINI_MODEL, ...MODELS.filter((m) => m !== env.GEMINI_MODEL)] : MODELS;
   const all = opts.optional ? chain.filter((m) => !SEARCH_ONLY.has(m)) : chain;
   const ready = all.filter((m) => !(RESTING.get(restKey(env, m)) > Date.now()));
@@ -214,7 +220,7 @@ function cachedAsk(env, ctx, cacheUrl, ttl, ask, opts = {}) {
   const key = new Request(cacheUrl);
   // Sans clé : lecture seule (réponse déjà en cache ou rien), jamais partagée avec une vraie demande.
   const readOnly = !env.GEMINI_API_KEY;
-  const pendingKey = `${key.url}|${readOnly ? 0 : 1}`;
+  const pendingKey = `${key.url}|${readOnly ? "" : keyTag(env)}`;
   if (PENDING.has(pendingKey) && !opts.model) return PENDING.get(pendingKey);
   const start = Date.now();
   const job = (async () => {
@@ -236,6 +242,7 @@ function cachedAsk(env, ctx, cacheUrl, ttl, ask, opts = {}) {
         return { value, cached: false, ms: Date.now() - start, model, tried };
       } catch (e) {
         tried.push(`${model} : ${e.name === "TimeoutError" ? "pas de réponse en 5 s" : e.message}`);
+        if (keyRefused(e)) { restKeyRefused(env); break; }
         const rest = restFor(e);
         if (rest) RESTING.set(restKey(env, model), Date.now() + rest);
       }
@@ -460,6 +467,7 @@ export async function aiProfiles(env, items) {
       return { asked: todo.length, saved: saved.reduce((a, b) => a + b, 0), model };
     } catch (e) {
       tried.push(`${model} : ${e.name === "TimeoutError" ? "pas de réponse" : e.message}`);
+      if (keyRefused(e)) { restKeyRefused(env); break; }
       const rest = restFor(e);
       if (rest) RESTING.set(restKey(env, model), Date.now() + rest);
     }

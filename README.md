@@ -59,7 +59,11 @@ lien d'installation et l'IA tourne avec son quota. Le secret `GEMINI_API_KEY` de
 `/debug`, et à tous les liens sans clé seulement si la variable `GEMINI_PUBLIC` vaut `on`. Sans clé, l'addon relit
 les réponses de l'IA déjà en cache (écrites pour un autre utilisateur) sans jamais appeler Gemini.
 
-Tests : `node --test "tests/*.test.js"` (Node 22 ou plus, aucun paquet à installer).
+Diagnostics `/debug/…` : réservés à l'hébergeur, à ouvrir depuis son propre lien d'addon, celui qui contient la clé
+Gemini de l'instance (`/<config>/debug/search/movie/dune`) ; sinon, refus (ils dépensent la clé de l'instance).
+
+Tests : `node --import ./tests/support/register.mjs --test "tests/*.test.js"` (Node 22 ou plus, aucun paquet à
+installer ; `tests/support` fait charger à Node le fichier des notes IMDb et les JSON comme le fait Cloudflare).
 Épisodes : ⭐ sur les 3 mieux notés de chaque saison, « (remplissage) » sur les anime (animefillerlist.com). Séries en
 cours : « 📺 Nouvel épisode jeudi… » en tête du résumé. La recherche IA comprend aussi les répliques (« je suis ton
 père ») et les mélanges (« entre Amélie et Fight Club »).

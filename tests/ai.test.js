@@ -16,7 +16,7 @@ beforeEach(() => {
   };
   globalThis.fetch = async (url, init = {}) => {
     calls.push({ url: String(url), key: (init.headers || {})["x-goog-api-key"] });
-    return answer();
+    return answer(String(url), init);
   };
 });
 const geminiSays = (obj) => () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(obj) }] } }] }));
@@ -120,4 +120,36 @@ test("rangee_repos_par_cle", async () => {
   const r = await aiProfiles({ GEMINI_API_KEY: "ROW-KEY-BBBBBBBB" }, row(902));
   assert.equal(calls[0].key, "ROW-KEY-BBBBBBBB");
   assert.equal(r.saved, 1);
+});
+
+const refused = () => new Response(JSON.stringify({ error: { code: 400, message: "API key not valid. Please pass a valid API key.", status: "INVALID_ARGUMENT" } }), { status: 400 });
+
+test("cle_refusee_recherche_un_seul_essai", async () => {
+  answer = refused;
+  const r = await aiTitles({ GEMINI_API_KEY: "SRCH-BAD-KEY-SRCHBAD1" }, null, "une premiere recherche");
+  assert.ok(r.error);
+  assert.equal(calls.length, 1);
+  calls = [];
+  await aiTitles({ GEMINI_API_KEY: "SRCH-BAD-KEY-SRCHBAD1" }, null, "une deuxieme recherche");
+  assert.equal(calls.length, 0);
+});
+
+test("erreur_400_de_requete_sans_repos", async () => {
+  answer = () => new Response(JSON.stringify({ error: { code: 400, message: "Invalid value at 'generation_config.thinking_config'" } }), { status: 400 });
+  await aiProfile({ GEMINI_API_KEY: "REQ-400-KEY-REQ400K1" }, null, "movie-950", "…");
+  answer = geminiSays({ pour_qui: "Pour toi", a_savoir: "" });
+  calls = [];
+  const r = await aiProfile({ GEMINI_API_KEY: "REQ-400-KEY-REQ400K1" }, null, "movie-951", "…");
+  assert.ok(calls.length > 0);
+  assert.equal(r.pourQui, "Pour toi");
+});
+
+test("demande_en_cours_par_cle", async () => {
+  answer = (url, init) => (init.headers["x-goog-api-key"] === "PEND-KEY-AAAAAAAA" ? refused() : geminiSays({ pour_qui: "Pour B", a_savoir: "" })());
+  const [a, b] = await Promise.all([
+    aiProfile({ GEMINI_API_KEY: "PEND-KEY-AAAAAAAA" }, null, "movie-960", "…"),
+    aiProfile({ GEMINI_API_KEY: "PEND-KEY-BBBBBBBB" }, null, "movie-960", "…"),
+  ]);
+  assert.ok(a.error);
+  assert.equal(b.pourQui, "Pour B");
 });

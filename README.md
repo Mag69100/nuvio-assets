@@ -45,14 +45,21 @@ tous les résultats ensemble (ressemblance du titre français, original ou angla
 (« got »), les fautes de frappe (vocabulaire des titres connus `data/search-words.json`, refait chaque nuit par
 `scripts/build_search_words.py`), les mots en trop (« film barbie », « the boys saison 4 »), l'année (« dune 2021 »),
 les numéros de suite (« harry potter 3 »), les acteurs et réalisateurs (« nolan ») et les studios et plateformes
-(« pixar », « netflix »). Avec le secret facultatif `GEMINI_API_KEY`, l'IA (`worker/ai.js`) prend le relais pour les
+(« pixar », « netflix »). Avec une clé Gemini (voir « Clé Gemini » plus bas), l'IA (`worker/ai.js`) prend le relais pour les
 descriptions (« le film où un mec revit la même journée ») et les requêtes sans résultat proche : Gemini propose des titres,
 chacun vérifié dans TMDB, réponse gardée 30 jours en cache. Détail d'une recherche : `/debug/search/<movie|series>/<requête>`. Fiches (`/meta/<type>/<id>.json`) : résumé,
 casting, saisons et épisodes en français. TMDB Discover Plus n'est plus nécessaire (`config/recherche-fr-tmdb.json`
 reste pour les anciennes installations). Après le résumé : y aura-t-il une suite (film suivant de la saga, série
 terminée ou annulée d'après TMDB ; saison suivante commandée ou non d'après l'article Wikipédia anglais, lu par Gemini,
 diagnostic `/debug/renewal/<id TMDB>`), scène après le générique, œuvre adaptée, temps pour tout
-voir (série ou saga), et avec `GEMINI_API_KEY` « pour qui », « à savoir » et le rappel de l'œuvre précédente (gardés 6 mois).
+voir (série ou saga), et avec une clé Gemini « pour qui », « à savoir » et le rappel de l'œuvre précédente (gardés 6 mois).
+
+Clé Gemini : chaque utilisateur colle la sienne (gratuite, Google AI Studio) dans la salle 2 ; elle est rangée dans son
+lien d'installation et l'IA tourne avec son quota. Le secret `GEMINI_API_KEY` de l'instance ne sert qu'aux pages
+`/debug`, et à tous les liens sans clé seulement si la variable `GEMINI_PUBLIC` vaut `on`. Sans clé, l'addon relit
+les réponses de l'IA déjà en cache (écrites pour un autre utilisateur) sans jamais appeler Gemini.
+
+Tests : `node --test "tests/*.test.js"` (Node 22 ou plus, aucun paquet à installer).
 Épisodes : ⭐ sur les 3 mieux notés de chaque saison, « (remplissage) » sur les anime (animefillerlist.com). Séries en
 cours : « 📺 Nouvel épisode jeudi… » en tête du résumé. La recherche IA comprend aussi les répliques (« je suis ton
 père ») et les mélanges (« entre Amélie et Fight Club »).

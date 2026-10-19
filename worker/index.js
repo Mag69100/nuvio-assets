@@ -34,7 +34,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.21.5";
+const VERSION = "5.22.0";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une

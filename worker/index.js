@@ -15,7 +15,9 @@
  *   /catalog/<type>/<id>/<genre=…&skip=…>.json
  *
  * Définitions des rangées et de Découvrir : ../catalogs.json (le même fichier qu'avant).
- * Secret requis : TMDB_API_KEY (clé API TMDB v3). Facultatif : GEMINI_API_KEY (recherche par IA, voir ai.js).
+ * Secret requis : TMDB_API_KEY (clé API TMDB v3). L'IA (voir ai.js) tourne avec la clé Gemini que chacun
+ * colle dans la salle 2. Facultatif : GEMINI_API_KEY, clé de l'instance pour /debug et, avec la
+ * variable GEMINI_PUBLIC=on, pour tous les liens sans clé.
  *   /meta/<type>/<id>.json      fiche détaillée (résumé, casting, saisons, épisodes) en français
  */
 import DEFS from "../catalogs.json";
@@ -29,7 +31,7 @@ import { lienPage } from "./lien.js";
 import { hallPage } from "./hall.js";
 import { smartSearch, prepareWords, isExact, norm } from "./search.js";
 import { imdbRating } from "./ratings.js";
-import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, AI_WAIT_MS } from "./ai.js";
+import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
 const VERSION = "5.21.5";
@@ -1045,10 +1047,11 @@ async function meta(env, kind, id, cfg, today, ctx) {
   // Lignes écrites par l'IA, lancées dès que possible, pendant que le reste de la fiche se construit :
   // « pour qui » et saison commandée n'ont besoin que de la fiche TMDB ; le rappel part dès que la
   // saga ou les épisodes sont connus. L'attente maximale compte à partir d'ici.
+  // Sans clé Gemini, « pour qui » et le rappel sont seulement relus dans le cache (écrits pour un autre).
   const ai = !!env.GEMINI_API_KEY;
-  const aiWait = ai ? new Promise((res) => setTimeout(() => res("attente"), FICHE_AI_WAIT_MS)) : null;
+  const aiWait = new Promise((res) => setTimeout(() => res("attente"), FICHE_AI_WAIT_MS));
   const ask = (job) => (job ? Promise.race([job, aiWait]) : null);
-  const profileJob = ai ? ask(aiProfile(env, ctx, `${movie ? "movie" : "tv"}-${d.id}`, profilePrompt(d, movie, keywords, cert))) : null;
+  const profileJob = ask(aiProfile(env, ctx, `${movie ? "movie" : "tv"}-${d.id}`, profilePrompt(d, movie, keywords, cert)));
   // TMDB dit « pas terminée » sans saison annoncée : Wikipédia tranche (renouvelée ou non).
   const renewalJob = ai && follow && follow.unsure ? ask(renewalOf(env, ctx, d, follow.season, today)) : null;
 
@@ -1111,18 +1114,16 @@ async function meta(env, kind, id, cfg, today, ctx) {
   }
 
   let recapLine = "";
-  if (ai) {
-    const prev = previousWork(d, movie, saga, m.videos);
-    const [recap, profile, renewal] = await Promise.all([ask(prev && aiRecap(env, ctx, prev.id, prev.prompt)), profileJob, renewalJob]);
-    // Pas encore prêt, ou Gemini indisponible : la fiche n'est pas gardée, pour l'avoir plus tard.
-    if ([recap, profile, renewal].some((r) => r === "attente" || (r && r.error))) m._partial = true;
-    if (renewal && renewal !== "attente" && renewal.status) extras[0] = renewalNote(renewal, follow.season);
-    if (profile && profile !== "attente") {
-      if (profile.pourQui) extras.push(`🎯 ${profile.pourQui}`);
-      if (profile.aSavoir) extras.push(`⚠️ À savoir : ${profile.aSavoir}`);
-    }
-    if (recap && recap !== "attente" && recap.recap) recapLine = `🔁 ${prev.label}, attention ça raconte la fin : ${recap.recap}`;
+  const prev = previousWork(d, movie, saga, m.videos);
+  const [recap, profile, renewal] = await Promise.all([ask(prev && aiRecap(env, ctx, prev.id, prev.prompt)), profileJob, renewalJob]);
+  // Pas encore prêt, ou Gemini indisponible : la fiche n'est pas gardée, pour l'avoir plus tard.
+  if ([recap, profile, renewal].some((r) => r === "attente" || (r && r.error))) m._partial = true;
+  if (renewal && renewal !== "attente" && renewal.status) extras[0] = renewalNote(renewal, follow.season);
+  if (profile && profile !== "attente") {
+    if (profile.pourQui) extras.push(`🎯 ${profile.pourQui}`);
+    if (profile.aSavoir) extras.push(`⚠️ À savoir : ${profile.aSavoir}`);
   }
+  if (recap && recap !== "attente" && recap.recap) recapLine = `🔁 ${prev.label}, attention ça raconte la fin : ${recap.recap}`;
   m.description = [m.description, extras.filter(Boolean).join("\n"), recapLine].filter(Boolean).join("\n\n") || undefined;
   if (vfJob) {
     const vf = await vfJob;
@@ -1386,7 +1387,7 @@ function prefetchProfiles(env, ctx, results, kind) {
   }));
   ctx.waitUntil((async () => {
     const headers = { "Content-Type": "application/json", "x-prefetch": await sha(env.GEMINI_API_KEY) };
-    await env.SELF.fetch("https://self/prefetch/profiles", { method: "POST", headers, body: JSON.stringify({ items }) });
+    await env.SELF.fetch("https://self/prefetch/profiles", { method: "POST", headers, body: JSON.stringify({ key: env.GEMINI_API_KEY, items }) });
   })().catch(() => {}));
 }
 
@@ -1583,20 +1584,25 @@ export default {
       return out;
     }
     // Préparation des « pour qui » d'une page (appel de l'addon à lui-même, voir prefetchProfiles).
+    // La clé Gemini (celle du lien de l'utilisateur) arrive avec l'appel, son empreinte en en-tête :
+    // un appel venu d'ailleurs ne peut dépenser que le quota d'une clé qu'il possède déjà.
     if (path === "/prefetch/profiles" && request.method === "POST") {
-      if (!env.GEMINI_API_KEY || request.headers.get("x-prefetch") !== await sha(env.GEMINI_API_KEY)) return json({ error: "interdit" }, 0);
       const body = await request.json().catch(() => ({}));
+      const key = typeof body.key === "string" ? body.key : "";
+      if (!key || request.headers.get("x-prefetch") !== await sha(key)) return json({ error: "interdit" }, 0);
       const items = (Array.isArray(body.items) ? body.items : [])
         .filter((it) => it && /^(movie|tv)-\d+$/.test(it.key) && Number.isInteger(it.id) && typeof it.text === "string")
         .map((it) => ({ key: it.key, id: it.id, text: it.text.slice(0, 1200) }));
-      return json(await aiProfiles(env, items), 0);
+      return json(await aiProfiles({ ...env, GEMINI_API_KEY: key }, items), 0);
     }
+    // IA : clé du lien de l'utilisateur (les /debug au-dessus gardent celle de l'instance).
+    env = aiEnv(env, cfg);
     const tm = path.match(/^\/trailer\/(movie|series)\/([^/]+)\.json$/);
     if (tm) return json(await trailer(env, tm[1], decodeURIComponent(tm[2])), 7 * 86400);
 
     const mm = path.match(/^\/meta\/(movie|series)\/([^/]+)\.json$/);
     if (mm) {
-      const metaKey = new Request(`https://cache.local/${VERSION}/${today}/meta/${mm[1]}/${mm[2]}?l=${langOf(cfg)}&g=${cfg.g}`);
+      const metaKey = new Request(`https://cache.local/${VERSION}/${today}/meta/${mm[1]}/${mm[2]}?l=${langOf(cfg)}&g=${cfg.g}&ai=${env.GEMINI_API_KEY ? 1 : 0}`);
       const hitMeta = await caches.default.match(metaKey);
       if (hitMeta) return new Response(hitMeta.body, { headers: { ...HEADERS, "Cache-Control": `public, max-age=${CACHE_META_CLIENT_S}` } });
       let found = null;
@@ -1616,13 +1622,16 @@ export default {
 
     // Cache de la réponse complète (une page de catalogue) pendant quelques heures.
     // La clé ne dépend que de ce qui change le contenu (pas du nom ni de l'ordre choisis).
-    const cacheKey = new Request(`https://cache.local/${VERSION}/${today}${path}?k=${await sha(contentKey(cfg))}`);
+    // Une recherche faite sans clé Gemini (sans IA) n'est pas resservie à qui en a une, et inversement.
+    const extra = parseExtra(extraSeg);
+    const aiTag = extra.search ? `&ai=${env.GEMINI_API_KEY ? 1 : 0}` : "";
+    const cacheKey = new Request(`https://cache.local/${VERSION}/${today}${path}?k=${await sha(contentKey(cfg))}${aiTag}`);
     const hit = await caches.default.match(cacheKey);
     if (hit) return new Response(hit.body, { headers: { ...HEADERS, "Cache-Control": `public, max-age=${CACHE_CLIENT_S}` } });
 
     let metas = [];
     try {
-      metas = await catalog(env, ctx, type, id, parseExtra(extraSeg), today, cfg);
+      metas = await catalog(env, ctx, type, id, extra, today, cfg);
     } catch (e) {
       return json({ metas: [], error: String(e) }, 60);
     }

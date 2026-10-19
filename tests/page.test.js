@@ -19,3 +19,8 @@ test("partage_sans_cle", () => {
   assert.doesNotMatch(html, /url: configureUrl/);
   assert.doesNotMatch(html, /writeText\(configureUrl\)/);
 });
+
+// L'indication sous le champ accepte les mêmes clés que le serveur (nouveau format « AQ.… » compris).
+test("indication_meme_format_que_serveur", () => {
+  assert.ok(page().includes("/^[A-Za-z0-9._~+/=:-]{20,200}$/.test(k)"));
+});

@@ -102,8 +102,12 @@ function b64urlDecode(s) {
   return new TextDecoder().decode(Uint8Array.from(bin, (ch) => ch.charCodeAt(0)));
 }
 
-/** Clé Gemini collée par l'utilisateur, nettoyée ; "" si elle n'en a pas la forme. */
-const geminiKeyOf = (v) => (typeof v === "string" && /^[A-Za-z0-9_-]{30,60}$/.test(v.trim()) ? v.trim() : "");
+/**
+ * Clé Gemini collée par l'utilisateur, nettoyée ; "" si elle n'en a pas la forme. Large exprès :
+ * Google change de format (« AIza… », puis « AQ.… ») ; seuls les espaces, guillemets et caractères
+ * de contrôle sont refusés (la clé part dans un en-tête HTTP).
+ */
+const geminiKeyOf = (v) => (typeof v === "string" && /^[A-Za-z0-9._~+/=:-]{20,200}$/.test(v.trim()) ? v.trim() : "");
 const cleanName = (v) => (typeof v === "string" ? v.replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 40) : "");
 const int = (v, lo, hi) => (Number.isFinite(Number(v)) ? Math.min(hi, Math.max(lo, Math.round(Number(v)))) : null);
 

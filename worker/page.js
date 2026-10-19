@@ -1060,7 +1060,7 @@ $("name").addEventListener("input", update);
 // Clé Gemini : nettoyée à la saisie ; l'indication dit si elle a la forme d'une clé.
 function aiKeyHint() {
   const k = state.k || "";
-  $("ai-key-hint").textContent = !k ? "" : /^[A-Za-z0-9_-]{30,60}$/.test(k) ? "Clé reconnue ✓" : "Ça ne ressemble pas à une clé Gemini";
+  $("ai-key-hint").textContent = !k ? "" : /^[A-Za-z0-9._~+/=:-]{20,200}$/.test(k) ? "Clé reconnue ✓" : "Ça ne ressemble pas à une clé Gemini";
 }
 $("ai-key").addEventListener("input", () => { state.k = $("ai-key").value.trim(); aiKeyHint(); update(); });
 $("ai-key").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } });

@@ -34,7 +34,7 @@ test("pas_de_palier_plus_recent", async () => {
 
 test("github_injoignable", async () => {
   globalThis.fetch = async () => { throw new Error("réseau"); };
-  assert.equal(await updateInfo("5.22.3"), null);
+  assert.equal(await updateInfo("5.22.3"), false);
 });
 
 test("api_limite_atteinte", async () => {

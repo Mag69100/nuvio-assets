@@ -57,3 +57,11 @@ test("bandeau_du_hall", () => {
 test("partage_sans_jeton_alerte", () => {
   assert.match(page(true), /const shared = compact\(\{ \.\.\.state, k: "", al: "" \}\);/);
 });
+
+// L'espace hébergeur explique quoi faire sans mot de passe, et quand GitHub ne répond pas.
+test("espace_hebergeur_messages", () => {
+  const html = page(true);
+  assert.match(html, /hote\.motDePasse === false/);
+  assert.match(html, /hote\.verification === "impossible"/);
+  assert.match(html, /r\.status === 429/);
+});

@@ -51,33 +51,56 @@ export function notesBetween(commits, current, latest) {
 }
 
 /**
- * Mise à jour disponible pour une copie en version `current` → { version, notes, history }, ou null
- * (pas de palier plus récent, ou GitHub injoignable). Les nouveautés manquent si l'API GitHub refuse
- * (limite d'appels) : le lien vers l'historique reste. Ne lève jamais d'erreur.
+ * Mise à jour disponible pour une copie en version `current` → { version, notes, history } ; null si la
+ * copie est à jour ; false si GitHub ne répond pas (impossible de vérifier). Les nouveautés manquent si
+ * l'API GitHub refuse (limite d'appels) : le lien vers l'historique reste. Ne lève jamais d'erreur.
  */
 export async function updateInfo(current) {
   try {
     const res = await fetch(RAW_INDEX, github());
-    if (!res.ok) return null;
+    if (!res.ok) return false;
     const m = /const VERSION = "(\d+\.\d+\.\d+)"/.exec(await res.text());
-    if (!m || !isNewerStep(m[1], current)) return null;
+    if (!m) return false;
+    if (!isNewerStep(m[1], current)) return null;
     const api = await fetch(COMMITS_API, github()).catch(() => null);
     const commits = api && api.ok ? await api.json().catch(() => []) : [];
     return { version: m[1], notes: notesBetween(commits, current, m[1]), history: HISTORY };
   } catch {
-    return null;
+    return false;
   }
 }
 
 // ---------- l'hébergeur : connexion, jeton d'alerte, « Plus tard » ----------
 // Hébergeur = qui connaît le secret ADMIN_PASSWORD. Sans lui, pas d'espace hébergeur.
-const hex = async (s) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)))]
-  .map((b) => b.toString(16).padStart(2, "0")).join("");
+const TEXT = new TextEncoder();
+const toHex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+const sha = async (s) => toHex(await crypto.subtle.digest("SHA-256", TEXT.encode(s)));
+// Signé avec le mot de passe ET un secret que seul le serveur connaît (la clé TMDB) : qui voit le jeton
+// (il est dans le lien d'installation) ne peut pas retrouver le mot de passe en essayant des mots.
+async function sign(env, what) {
+  const key = await crypto.subtle.importKey("raw", TEXT.encode(`${env.TMDB_API_KEY || ""}|${env.ADMIN_PASSWORD}`), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return toHex(await crypto.subtle.sign("HMAC", key, TEXT.encode(what)));
+}
+/** Comparaison en temps constant (deux textes de même longueur). */
+const same = (a, b) => {
+  if (a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+};
 
-/** Valeur du cookie « hote » de l'hébergeur (empreinte, jamais le mot de passe) ; "" sans mot de passe. */
-export const hostCookie = async (env) => (env.ADMIN_PASSWORD ? hex(`hote|${env.ADMIN_PASSWORD}`) : "");
+/** Valeur du cookie « hote » de l'hébergeur (signature, jamais le mot de passe) ; "" sans mot de passe. */
+export const hostCookie = async (env) => (env.ADMIN_PASSWORD ? sign(env, "hote") : "");
 /** Jeton du lien d'installation « avec alertes » de l'hébergeur ; "" sans mot de passe. */
-export const alertToken = async (env) => (env.ADMIN_PASSWORD ? (await hex(`alerte|${env.ADMIN_PASSWORD}`)).slice(0, 24) : "");
+export const alertToken = async (env) => (env.ADMIN_PASSWORD ? (await sign(env, "alerte")).slice(0, 24) : "");
+
+// Essais de mot de passe ratés par adresse IP : au-delà de 10 en un quart d'heure, on attend (par
+// instance du Worker : suffisant pour décourager quelqu'un qui essaie des mots de passe à la chaîne).
+const FAILS = new Map();
+const MAX_FAILS = 10, FAIL_WINDOW = 15 * 60e3;
+const ipOf = (request) => request.headers.get("cf-connecting-ip") || (request.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "?";
+// Une demande POST venue d'une page d'un autre site (Origin différente) est refusée.
+const sameOrigin = (request, url) => { const o = request.headers.get("origin"); return !o || o === url.origin; };
 
 const cookieValue = (request, name) => {
   for (const part of (request.headers.get("cookie") || "").split(";")) {
@@ -89,7 +112,7 @@ const cookieValue = (request, name) => {
 /** La requête vient-elle de l'hébergeur (cookie de connexion valide) ? */
 export async function isHost(request, env) {
   const want = await hostCookie(env);
-  return !!want && cookieValue(request, "hote") === want;
+  return !!want && same(cookieValue(request, "hote"), want);
 }
 
 // Palier repoussé (« Plus tard ») : KV ETAT s'il est relié, sinon le cache (gardé tant qu'il n'est pas
@@ -105,11 +128,14 @@ export async function dismiss(env, step) {
   await caches.default.put(new Request(DISMISS_URL), new Response(step, { headers: { "Cache-Control": "public, max-age=31536000" } }));
 }
 
-/** Mise à jour à proposer à l'hébergeur (null sans mot de passe, sans palier plus récent, ou repoussée). */
+/**
+ * Mise à jour à proposer à l'hébergeur : comme updateInfo (null à jour, false GitHub injoignable), et null
+ * aussi sans mot de passe ou si ce palier a été repoussé.
+ */
 export async function pendingUpdate(env, current) {
   if (!env.ADMIN_PASSWORD) return null;
   const info = await updateInfo(current);
-  if (!info) return null;
+  if (!info) return info;
   return palier(info.version) === (await dismissed(env)) ? null : info;
 }
 
@@ -124,24 +150,39 @@ const b64url = (obj) => btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\
  */
 export async function hostRoute(request, env, url, path, current) {
   const secure = url.protocol === "https:" ? "; Secure" : "";   // en http (Docker à la maison), pas de Secure
+  if (request.method === "POST" && !sameOrigin(request, url)) {
+    return reply({ error: "Demande refusée : elle ne vient pas de ce site (derrière un tunnel ou un proxy, règle ADRESSE_PUBLIQUE)." }, 403);
+  }
   if (path === "/hote/connexion" && request.method === "POST") {
+    const ip = ipOf(request), now = Date.now();
+    const f = FAILS.get(ip);
+    if (f && now - f.since > FAIL_WINDOW) FAILS.delete(ip);
+    else if (f && f.n >= MAX_FAILS) return reply({ error: "Trop d'essais : réessaie dans un quart d'heure." }, 429);
     const body = await request.json().catch(() => ({}));
-    const ok = env.ADMIN_PASSWORD && typeof body.motDePasse === "string" && body.motDePasse === env.ADMIN_PASSWORD;
-    if (!ok) return reply({ error: "Mot de passe incorrect." }, 403);
+    const ok = !!env.ADMIN_PASSWORD && typeof body.motDePasse === "string" && same(await sha(body.motDePasse), await sha(env.ADMIN_PASSWORD));
+    if (!ok) {
+      const g = FAILS.get(ip) || { n: 0, since: now };
+      g.n++;
+      FAILS.set(ip, g);
+      return reply({ error: "Mot de passe incorrect." }, 403);
+    }
+    FAILS.delete(ip);
     return reply({ ok: true }, 200, { "Set-Cookie": `hote=${await hostCookie(env)}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=31536000` });
   }
   if (path === "/hote/deconnexion" && request.method === "POST") {
     return reply({ ok: true }, 200, { "Set-Cookie": `hote=; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=0` });
   }
   if (path === "/hote/etat") {
-    if (!(await isHost(request, env))) return reply({ hote: false });
+    if (!(await isHost(request, env))) return reply({ hote: false, motDePasse: !!env.ADMIN_PASSWORD });
     const jeton = await alertToken(env);
+    const maj = await pendingUpdate(env, current);
     return reply({
       hote: true, jeton,
       installation: env.INSTALLATION === "docker" ? "docker" : "cloudflare",
       depot: /^[\w.-]+\/[\w.-]+$/.test(env.DEPOT || "") ? env.DEPOT : "",
       alerte: `${url.origin}/${b64url({ al: jeton })}/manifest.json`,
-      maj: await pendingUpdate(env, current),
+      maj: maj || null,
+      verification: maj === false ? "impossible" : "ok",
     });
   }
   if (path === "/hote/plus-tard" && request.method === "POST") {

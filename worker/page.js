@@ -60,12 +60,17 @@ async function hoteRefresh() {
 }
 function hoteRender() {
   const box = $("hote-box"); box.textContent = "";
+  if (hote && hote.motDePasse === false) {
+    box.append(el("p", { class: "sub", text: "Ta copie n'a pas encore de mot de passe d'hébergeur. Ajoute ADMIN_PASSWORD (Docker : dans docker-compose.yml, rubrique environment ; Cloudflare : un secret dans les paramètres de ton Worker), redémarre ou redéploie, puis recharge cette page." }));
+    return;
+  }
   if (!hote || !hote.hote) {
     const pw = el("input", { type: "password", id: "hote-mdp", autocomplete: "current-password", placeholder: "Mot de passe", "aria-label": "Mot de passe de l'hébergeur" });
     const msg = el("small", { class: "hote-msg", "aria-live": "polite" });
     const go = async () => {
       const r = await hoteCall("/hote/connexion", { motDePasse: pw.value }).catch(() => null);
-      if (r && r.ok) hoteRefresh(); else msg.textContent = "Mot de passe incorrect (ou ADMIN_PASSWORD pas défini sur ta copie).";
+      if (r && r.ok) hoteRefresh();
+      else msg.textContent = r && r.status === 429 ? "Trop d'essais : réessaie dans un quart d'heure." : "Mot de passe incorrect.";
     };
     pw.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go(); } });
     box.append(el("div", { class: "hote-ligne" }, pw, el("button", { type: "button", class: "hote-btn", text: "Se connecter", onclick: go })), msg);
@@ -77,7 +82,10 @@ function hoteRender() {
   box.append(el("label", { class: "switch" }, alertes, el("span", {},
     el("b", { text: "Alertes de mise à jour dans Nuvio" }),
     el("small", { text: "Ajoute à ton lien une rangée « Mise à jour », en tête de l'accueil, visible seulement quand une nouvelle version est sortie. Réinstalle ton lien après l'avoir coché, et ne coche pas pour les liens que tu donnes aux autres." }))));
-  box.append(hote.maj ? hoteBanner(hote.maj) : el("p", { class: "sub", text: "Ta copie est à jour (ou tu as repoussé la dernière version)." }));
+  box.append(hote.maj ? hoteBanner(hote.maj)
+    : el("p", { class: "sub", text: hote.verification === "impossible"
+      ? "Impossible de vérifier les mises à jour pour l'instant (GitHub ne répond pas). Réessaie plus tard."
+      : "Ta copie est à jour (ou tu as repoussé la dernière version)." }));
   box.append(el("button", { type: "button", class: "hote-btn line", text: "Se déconnecter", onclick: async () => { await hoteCall("/hote/deconnexion", {}); hoteRefresh(); } }));
 }
 function hoteBanner(maj) {

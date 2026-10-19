@@ -34,7 +34,7 @@ import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, UPDATE_CATALOG } from "./hote.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.23.0";
+const VERSION = "5.23.1";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -1232,7 +1232,8 @@ function seriesFollow(d, today) {
   return { text: `🔜 Pas encore terminée : aucune date pour la saison ${lastSeason + 1}.`, unsure: true, season: lastSeason + 1 };
 }
 
-const WIKI_HEADERS = { "User-Agent": "CatalogueFR/1.0 (https://nuvio-assets.xnzxflix.workers.dev)" };
+// Nom du logiciel (et de son dépôt) pour Wikimedia : le même pour l'instance principale et les copies.
+const WIKI_HEADERS = { "User-Agent": "CatalogueFR/1.0 (+https://github.com/xnzx07/nuvio-assets)" };
 const WIKI_CACHE = { cacheTtl: 86400, cacheEverything: true };
 // Phrases de l'article qui parlent de la suite : renouvellement, annulation, dernière saison.
 const WIKI_NEWS = /renew|cancel|final season|last season|conclud|will end|ended|season (premiere|finale)|upcoming|in production|filming|ordered/i;

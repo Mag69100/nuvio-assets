@@ -134,6 +134,10 @@ jamais chaque correction. Rien ne change sans ton accord.
   carte peut rester jusqu'au prochain redémarrage de Nuvio. Les liens que tu donnes aux autres n'ont jamais cette
   rangée.
 
+Sécurité de l'espace hébergeur : le cookie de connexion et le jeton du lien avec alertes sont signés avec ton mot
+de passe et ta clé TMDB (impossible de retrouver le mot de passe à partir du lien) ; 10 essais ratés en un quart
+d'heure depuis une même adresse bloquent les suivants ; les demandes venues d'un autre site sont refusées.
+
 Une copie se reconnaît à son adresse (tout autre hôte que celui de l'instance principale) : son addon a son propre identifiant
 (`com.xnzx07.catalogue-fr.perso`), on peut donc installer les deux dans Nuvio. Le code de l'espace hébergeur est
 dans `worker/hote.js`. « Plus tard » est gardé dans `./donnees` sur Docker ; sur Cloudflare, dans le cache de ta

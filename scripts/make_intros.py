@@ -4,8 +4,8 @@
   cadence d'origine (25 i/s au plus), logo final tenu 1,5 s avant que la boucle reparte.
 - GIF et pas WebP : Nuvio TV n'anime que le GIF avant Android 9 (Fire TV Stick 4K de 2018 : Fire OS 6),
   et sur ces appareils un WebP animé ne s'affiche même pas.
-- encodé par gifski (palettes optimisées image par image, sans le grain du GIF classique) ;
-  quelques Mo au plus, car Nuvio TV abandonne une image qui met plus de 8 s à arriver.
+- encodé par gifski en qualité maximale (palettes optimisées image par image, sans grain) ;
+  7 Mo au plus, car Nuvio TV abandonne une image qui met plus de 8 s à arriver.
 
 Les vidéos sont téléchargées depuis YouTube avec yt-dlp (meilleure définition), découpées par ffmpeg.
 
@@ -23,7 +23,9 @@ CACHE = ROOT / ".intros"          # vidéos sources téléchargées (ignoré par
 W, H = 480, 270
 MAX_FPS = 25
 HOLD = 1.5                        # secondes sur la dernière image
-GIFSKI_OPTS = ["--quality", "90", "--lossy-quality", "65", "--motion-quality", "65"]
+# qualité maximale ; le léger lissage (90) est invisible sur la tuile et allège de 30 %.
+# En dessous (65), du grain se voit.
+GIFSKI_OPTS = ["--quality", "100", "--motion-quality", "90", "--lossy-quality", "90"]
 
 # slug, dossier, vidéo YouTube, début, fin, cadrage, retouche ffmpeg[, secondes sur la dernière image]
 #   cadrage : None = remplit le 16:9 (recadre au centre)
@@ -47,7 +49,7 @@ INTROS = [
      "curves=all='0/0 0.12/0.3 0.4/0.75 1/1'"),   # éclairci (très sombre), le noir reste noir
     ("studio-41077",   "studios",   "silbBKuaXI4", 0.8, 6.1, None, ""),
     ("studio-3172",    "studios",   "Y77qa2feubs", 9.3, 14.4, None, ""),
-    ("studio-3",       "studios",   "UtLqABjbHAE", 8.9, 16.0, (204, 222, 3432, 1716), ""),
+    ("studio-3",       "studios",   "6ZyEU-uFbpk", 0.5, 10.9, None, ""),   # version 16:9 (open matte)
     ("studio-6125",    "studios",   "HCZeBzeAkPM", 7.2, 13.2, None, ""),
     ("studio-521",     "studios",   "6n3B01aRcvA", 16.6, 22.4, None, ""),
     ("studio-6704",    "studios",   "tKgTedV6Soo", 25.7, 33.0, (120, 0, 1680, 800), ""),

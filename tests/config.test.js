@@ -42,3 +42,12 @@ test("cle_caracteres_interdits", () => {
   for (const k of ["AIzaSyA1b2C3d4E5f6G7h8I9 j0K1l2M3n4O5p6Q", "AIzaSyA1b2C3d4E5f6G7h8I9\nj0K1l2M3n4O5p6Q", 'AIzaSyA1b2C3d4E5f6G7h8I9"j0K1l2M3n4O5p6Q'])
     assert.equal(decodeConfig(seg({ k }), rows, discover).k, "");
 });
+
+test("jeton_alerte", () => {
+  const al = "a".repeat(24);
+  const cfg = decodeConfig(seg({ al }), rows, discover);
+  assert.equal(cfg.al, al);
+  assert.ok(!contentKey(cfg).includes(al));
+  assert.equal(decodeConfig(seg({ al: "zz" }), rows, discover).al, "");
+  assert.equal(decodeConfig("", rows, discover).al, "");
+});

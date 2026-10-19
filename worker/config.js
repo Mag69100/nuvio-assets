@@ -93,6 +93,7 @@ export function defaults(rows, discover) {
     t: {},            // tuiles masquées par collection : { idCollection: [positions] }
     u: false,         // titres pas encore regardables dans les Tendances (masqués par défaut)
     k: "",            // clé Gemini personnelle (IA avec le quota de l'utilisateur)
+    al: "",           // jeton d'alerte : lien de l'hébergeur d'une copie (rangée « Mise à jour »)
   };
 }
 
@@ -138,6 +139,7 @@ function cleanCustom(x) {
  *   f mode famille · h fêtes (masque) · t tuiles masquées par collection
  *   u titres pas encore regardables gardés dans les Tendances
  *   k clé Gemini personnelle (l'IA tourne avec le quota de l'utilisateur ; hors clé de cache)
+ *   al jeton d'alerte de l'hébergeur d'une copie (voir hote.js ; hors clé de cache)
  * Toute valeur abîmée est ignorée : une adresse ne peut jamais casser l'addon.
  */
 export function decodeConfig(segment, rows, discover) {
@@ -191,6 +193,7 @@ export function decodeConfig(segment, rows, discover) {
     h: fromMask(raw.h, SEASON_KEYS.map(([k]) => k)) ?? base.h,
     u: raw.u === 1 || raw.u === true,
     k: geminiKeyOf(raw.k),
+    al: typeof raw.al === "string" && /^[a-f0-9]{24}$/.test(raw.al) ? raw.al : "",
     custom: true,
   };
 }

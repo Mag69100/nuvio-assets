@@ -31,7 +31,7 @@ import { lienPage } from "./lien.js";
 import { hallPage } from "./hall.js";
 import { smartSearch, prepareWords, isExact, norm } from "./search.js";
 import { imdbRating } from "./ratings.js";
-import { isCopy, addonId } from "./hote.js";
+import { isCopy, addonId, hostRoute } from "./hote.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
 const VERSION = "5.22.3";
@@ -1557,6 +1557,7 @@ export default {
     if (!cfg) return json({ error: "Configuration illisible : refais ton lien sur la page de personnalisation." }, 60);
     // Espace hébergeur des copies (/hote/…) : n'existe pas sur l'instance principale.
     if (path === "/hote" || path.startsWith("/hote/")) {
+      if (isCopy(url)) return hostRoute(request, env, url, path, VERSION);
       return new Response(JSON.stringify({ error: "introuvable" }), { status: 404, headers: { ...HEADERS, "Cache-Control": "no-store" } });
     }
 

@@ -765,7 +765,9 @@ export const NUVIO_JS = "const NV_PP = " + JSON.stringify(POSTER_URL) + ", NV_PA
   const VERSION_TV = "1.1.0-beta.7";
   const LOGO_NUVIO = "https://raw.githubusercontent.com/NuvioMedia/NuvioTV/" + VERSION_TV + "/app/src/main/res/drawable/app_logo_wordmark.png";
   // menu(ecran, vue courante, aller(vue)) : ouvre le panneau ; « Retour » ou un clic à côté le referme.
-  const menu = (ecran, courante, aller, possibles) => {
+  // auto : ouvert de lui-même à l'arrivée (pour qu'on le voie) : il ne prend pas le focus, ne fait pas de bruit,
+  // et se referme dès que le focus va ailleurs dans l'écran.
+  const menu = (ecran, courante, aller, possibles, auto) => {
     if (ecran.querySelector(".nvo-menu")) return;
     const p = mkd("div", "nvo-menu"); p.setAttribute("role", "dialog"); p.setAttribute("aria-label", "Menu de Nuvio");
     const logo = mkd("img"); logo.alt = "Nuvio"; logo.src = LOGO_NUVIO; logo.onerror = () => logo.replaceWith(mkd("b", null, "NUVIO"));
@@ -779,16 +781,21 @@ export const NUVIO_JS = "const NV_PP = " + JSON.stringify(POSTER_URL) + ", NV_PA
     });
     p.append(logo, nav); ecran.append(p);
     const avant = document.activeElement;
-    (nav.querySelector('[aria-current="page"]') || nav.querySelector("button")).focus({ preventScroll: true });
-    const ferme = () => { p.remove(); ecran.removeEventListener("pointerdown", dehors, true); if (avant && avant.isConnected) avant.focus({ preventScroll: true }); };
+    if (!auto) (nav.querySelector('[aria-current="page"]') || nav.querySelector("button")).focus({ preventScroll: true });
+    const ferme = (rendFocus = !auto) => {
+      p.remove(); ecran.removeEventListener("pointerdown", dehors, true); ecran.removeEventListener("focusin", ailleurs);
+      if (rendFocus && avant && avant.isConnected) avant.focus({ preventScroll: true });
+    };
     const dehors = (e) => { if (!p.contains(e.target)) ferme(); };
+    const ailleurs = (e) => { if (!p.contains(e.target)) ferme(false); };
     setTimeout(() => ecran.addEventListener("pointerdown", dehors, true), 0);
+    if (auto) ecran.addEventListener("focusin", ailleurs);
     p.addEventListener("keydown", (e) => {
       const bs = [...nav.querySelectorAll("button:not(:disabled)")], i = bs.indexOf(document.activeElement);
       if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); bs[(i + (e.key === "ArrowDown" ? 1 : -1) + bs.length) % bs.length].focus(); }
       else if (e.key === "ArrowRight" || e.key === "Escape" || e.key === "Backspace") { e.preventDefault(); e.stopPropagation(); ferme(); }
     });
-    if (window.sfx) sfx.click();
+    if (window.sfx && !auto) sfx.click();
   };
 
   // ---------- La bibliothèque (gardée sur l'appareil, la même dans tous les aperçus et les billets) ----------
@@ -1493,7 +1500,7 @@ export const NUVIO_JS = "const NV_PP = " + JSON.stringify(POSTER_URL) + ", NV_PA
   const ecran = (hote, opts = {}) => {
     const el = mkd("div", "nvo"), h = hero(), rangees = mkd("div", "nvo-rangees"), bord = mkd("div", "nvo-bord");
     el.append(h.el, rangees, bord); hote.append(el);
-    let vue = "accueil", vueEl = null;
+    let vue = "accueil", vueEl = null, menuVu = false;
     const ouvrir = (m) => ouvreFiche(el, m);
     const aller = (v, tuileOuverte) => {
       if (vueEl) { vueEl.remove(); vueEl = null; }
@@ -1534,7 +1541,8 @@ export const NUVIO_JS = "const NV_PP = " + JSON.stringify(POSTER_URL) + ", NV_PA
       // Quelque chose est ouvert par-dessus l'accueil (fiche, menu, recherche, bibliothèque) : « Échap » le referme d'abord.
       ouvert() { return !!el.querySelector(".nvo-fiche, .nvo-menu") || vue !== "accueil"; },
       vider() { rangees.textContent = ""; p.reset(); },
-      pret() { p.premier(); },
+      // Au premier remplissage, le menu est déjà ouvert : sinon on peut ne jamais le découvrir.
+      pret() { p.premier(); if (!menuVu) { menuVu = true; if (vue === "accueil" && !el.querySelector(".nvo-fiche")) menu(el, vue, aller, undefined, true); } },
       paysage(on) { el.classList.toggle("paysage", !!on); el.querySelectorAll(".nvo-carte").forEach(peint); },
       pp() { el.classList.toggle("pp", reglages.pp); el.querySelectorAll(".nvo-carte").forEach(peint); },
     };

@@ -81,3 +81,55 @@ Notes : vraies notes IMDb, d'après les fichiers publics d'IMDb (`data/imdb-rati
 - `/trailer/<type>/<id>.json` : bande-annonce YouTube d'un titre, pour l'aperçu.
 - La mise en scène commune (rideau, secrets, salles, décors de fête) est dans `worker/stage.js`.
   Le décor de fête suit la rangée « Spécial » ; pour en prévisualiser un : `?saison=noel`, `saint-valentin`, `paques`, `ete` ou `halloween`.
+
+## Héberger ta propre copie
+
+Le lien principal est partagé par tout le monde : ses quotas gratuits peuvent saturer. Ta propre copie tourne avec tes
+clés et ton quota (ou ton serveur), et c'est le même code. Elle lit toujours les images, catalogues et données
+communes sur ce dépôt GitHub, donc elle profite des mises à jour de données de chaque nuit.
+
+Ce qu'il te faut : une clé TMDB (gratuite, themoviedb.org → Paramètres → API, clé v3) et un mot de passe
+d'hébergeur de ton choix (`ADMIN_PASSWORD`). Facultatif : une clé Gemini (aistudio.google.com/apikey).
+
+### Sur Cloudflare (gratuit, sans serveur)
+
+1. Sur GitHub, **Fork** de ce dépôt.
+2. Sur dash.cloudflare.com : Workers & Pages → Créer → Importer un dépôt → choisis ton fork, laisse les réglages.
+3. Dans ton Worker → Paramètres → Variables et secrets : ajoute les secrets `TMDB_API_KEY` et `ADMIN_PASSWORD`
+   (et `GEMINI_API_KEY` si tu veux). Facultatif : la variable `DEPOT` = `ton-pseudo/nuvio-assets`, pour que le
+   bouton « Mettre à jour » t'emmène sur ton fork. `GEMINI_PUBLIC` = `on` partage ta clé Gemini avec tous les
+   liens de ta copie.
+4. Ton site est sur `https://nuvio-assets.<ton-sous-domaine>.workers.dev`, ton addon sur `…/manifest.json`.
+
+### Avec Docker (serveur, NAS, Raspberry Pi 64 bits)
+
+1. Copie `docker-compose.yml` de ce dépôt, mets ta clé TMDB et ton mot de passe dedans.
+2. `docker compose up -d`
+3. Le site : `http://<adresse-du-serveur>:8787`, l'addon : `http://<adresse-du-serveur>:8787/manifest.json`
+   (Nuvio TV accepte le http sur le réseau de la maison).
+4. De l'extérieur (téléphone en 4G…) : le plus simple est Cloudflare Tunnel (gratuit, https, aucun port à ouvrir
+   sur la box) vers `http://localhost:8787`. Un reverse proxy que tu as déjà marche aussi.
+
+Le conteneur fait tourner le Worker avec `wrangler dev` (le runtime workerd de Cloudflare) ; le cache et tes choix
+sont gardés dans `./donnees`. L'image est construite par le workflow « Image Docker » à chaque changement de l'addon :
+`ghcr.io/xnzx07/nuvio-assets:latest` et `:<version>`.
+
+### Mises à jour : c'est toi qui décides
+
+Ta copie compare sa version à celle de ce dépôt (lue sur GitHub) et ne te propose que les vrais paliers (5.23 → 5.24),
+jamais chaque correction. Rien ne change sans ton accord.
+
+- **Sur le site** : salle 2 → Espace hébergeur, connecte-toi avec ton mot de passe. Tu y vois la nouvelle version,
+  ses nouveautés, et deux boutons : « Mettre à jour » (Cloudflare : « Sync fork » sur ton fork, puis Cloudflare
+  redéploie seul ; Docker : `docker compose pull && docker compose up -d`) et « Plus tard » (plus rien jusqu'au
+  palier suivant). Le hall affiche aussi un bandeau quand tu es connecté.
+- **Dans Nuvio** : coche « Alertes de mise à jour dans Nuvio » dans l'espace hébergeur et réinstalle ton lien. Une
+  rangée « Mise à jour » apparaît en tête de l'accueil, seulement quand une nouvelle version est sortie. Si tu as
+  déjà réorganisé tes rangées, elle arrive en bas la première fois : remonte-la une fois. Après « Plus tard », la
+  carte peut rester jusqu'au prochain redémarrage de Nuvio. Les liens que tu donnes aux autres n'ont jamais cette
+  rangée.
+
+Une copie se reconnaît à son adresse (tout autre hôte que celui de l'instance principale) : son addon a son propre identifiant
+(`com.xnzx07.catalogue-fr.perso`), on peut donc installer les deux dans Nuvio. Le code de l'espace hébergeur est
+dans `worker/hote.js`. « Plus tard » est gardé dans le cache (ou dans un KV relié sous le nom `ETAT`, si tu en
+ajoutes un) : au pire, si le cache est vidé, la proposition revient.

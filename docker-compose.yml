@@ -1,0 +1,16 @@
+# Copie auto-hébergée du Catalogue FR. Lancer : docker compose up -d
+# Ensuite : le site sur http://<adresse-du-serveur>:8787, l'addon sur http://<adresse-du-serveur>:8787/manifest.json
+# Mettre à jour : docker compose pull && docker compose up -d
+services:
+  catalogue-fr:
+    image: ghcr.io/xnzx07/nuvio-assets:latest
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      TMDB_API_KEY: "ta-cle-tmdb"                 # obligatoire : themoviedb.org → Paramètres → API (clé v3)
+      ADMIN_PASSWORD: "choisis-un-mot-de-passe"   # espace hébergeur (salle 2) : mises à jour proposées
+      # GEMINI_API_KEY: ""                        # facultatif : clé Gemini de ta copie (aistudio.google.com/apikey)
+      # GEMINI_PUBLIC: "on"                       # facultatif : cette clé sert aussi aux liens sans clé (famille)
+    volumes:
+      - ./donnees:/data

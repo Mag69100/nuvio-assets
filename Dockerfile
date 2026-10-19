@@ -10,7 +10,8 @@ COPY wrangler.toml catalogs.json ./
 COPY worker ./worker
 COPY data/imdb-ratings.bin ./data/imdb-ratings.bin
 COPY docker/entrypoint.sh ./docker/entrypoint.sh
-RUN chmod +x docker/entrypoint.sh
+# Le Worker tourne avec l'utilisateur « node » (voir entrypoint.sh) : il écrit son état de travail dans /app.
+RUN chmod +x docker/entrypoint.sh && chown node:node /app
 
 ENV INSTALLATION=docker \
     WRANGLER_SEND_METRICS=false \

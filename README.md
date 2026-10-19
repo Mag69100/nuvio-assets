@@ -64,7 +64,7 @@ elle profite des mises à jour de chaque nuit.
 
 Il te faut :
 - une clé TMDB (gratuite : themoviedb.org → Paramètres → API, clé v3) ;
-- un mot de passe d'hébergeur de ton choix ;
+- un mot de passe d'hébergeur de ton choix (10 caractères au moins, pas celui de l'exemple) ;
 - facultatif : une clé Gemini.
 
 ### Sur Cloudflare (gratuit, sans serveur)
@@ -80,20 +80,22 @@ Il te faut :
 1. Copie [`docker-compose.yml`](docker-compose.yml), mets-y ta clé TMDB et ton mot de passe.
 2. `docker compose up -d`
 3. Le site : `http://<adresse-du-serveur>:8787`, l'addon : `…:8787/manifest.json`
-   (Nuvio TV accepte le http sur le réseau de la maison).
+   (Nuvio TV accepte le http sur le réseau de la maison). Si tout passe par un tunnel ou un proxy https sur
+   la même machine, publie le port en `127.0.0.1:8787:8787` : plus rien ne circule en clair.
 4. Pour y accéder de l'extérieur : Cloudflare Tunnel (gratuit, https, aucun port à ouvrir) vers
    `http://localhost:8787`, ou ton reverse proxy (nginx : `proxy_set_header Host $host;`).
    Renseigne alors `ADRESSE_PUBLIQUE`, sinon les liens resteraient en `http://`.
 
-Le conteneur fait tourner le Worker avec `wrangler dev` (runtime workerd de Cloudflare) ; le cache et tes choix
-sont gardés dans `./donnees`. Image : `ghcr.io/xnzx07/nuvio-assets:latest` (ou `:<version>`).
+Le conteneur fait tourner le Worker avec `wrangler dev` (runtime workerd de Cloudflare), sans les droits root ;
+le cache, tes choix et le secret de connexion sont gardés dans `./donnees`. Image : `ghcr.io/xnzx07/nuvio-assets:latest` (ou `:<version>`).
 
 ### Variables
 
 | Variable | | Rôle |
 |---|---|---|
 | `TMDB_API_KEY` | obligatoire | Clé TMDB v3 |
-| `ADMIN_PASSWORD` | obligatoire | Mot de passe de l'espace hébergeur (salle 2) |
+| `ADMIN_PASSWORD` | obligatoire | Mot de passe de l'espace hébergeur (salle 2), 10 caractères au moins |
+| `HOTE_SECRET` | conseillé sur Cloudflare | Longue suite de caractères au hasard qui signe la connexion (créé tout seul sur Docker) |
 | `GEMINI_API_KEY` | facultatif | Clé Gemini de ta copie (pages `/debug`) |
 | `GEMINI_PUBLIC` | facultatif | `on` : cette clé sert aussi aux liens sans clé |
 | `DEPOT` | Cloudflare | `ton-pseudo/nuvio-assets`, pour que « Mettre à jour » mène à ton fork |
@@ -116,15 +118,17 @@ chaque correction. Rien ne change sans ton accord.
 <details>
 <summary>Sécurité et détails</summary>
 
-- Le cookie de connexion et le jeton du lien avec alertes sont signés avec ton mot de passe et ta clé TMDB :
-  impossible de retrouver le mot de passe à partir du lien.
-- 10 essais ratés en un quart d'heure depuis une même adresse bloquent les suivants ; les demandes venues
-  d'un autre site sont refusées.
+- Le cookie de connexion et le jeton du lien avec alertes sont signés avec ton mot de passe et un secret du
+  serveur (`HOTE_SECRET`, sinon ta clé TMDB) : impossible de retrouver le mot de passe à partir du lien.
+- La connexion dure 30 jours ; « Se déconnecter » ferme toutes les sessions ouvertes.
+- 10 essais ratés en un quart d'heure depuis une même adresse bloquent les suivants, et 100 toutes adresses
+  confondues ; les demandes venues d'un autre site sont refusées. Un mot de passe trop court ou laissé tel que
+  dans l'exemple garde l'espace hébergeur fermé.
 - Une copie se reconnaît à son adresse : son addon a son propre identifiant (`com.xnzx07.catalogue-fr.perso`),
   on peut donc installer les deux dans Nuvio.
 - « Plus tard » est gardé dans `./donnees` sur Docker ; sur Cloudflare, dans le cache (ou un KV `ETAT` déclaré
   dans ton `wrangler.toml`). Si le cache est vidé, la proposition revient.
-- Sur Docker, les clés passent en arguments du Worker : visibles par qui a accès au serveur.
+- Sur Docker, les clés passent au Worker par un fichier lisible par lui seul, jamais en ligne de commande.
 
 </details>
 

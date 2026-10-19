@@ -33,10 +33,10 @@ import { hallPage } from "./hall.js";
 import { statique } from "./statique.js";
 import { smartSearch, prepareWords, isExact, norm } from "./search.js";
 import { imdbRating } from "./ratings.js";
-import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, UPDATE_CATALOG } from "./hote.js";
+import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.23.5";
+const VERSION = "5.23.6";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -1412,6 +1412,13 @@ function previousWork(d, movie, saga, videos) {
   };
 }
 
+/** Ce que Gemini lit d'un titre pour son « pour qui » de rangée (fiche TMDB : genres en objets ; liste : genre_ids). */
+const profileText = (series, it) => [
+  `${series ? "Série" : "Film"} : « ${it.title || it.name} » (titre original : ${it.original_title || it.original_name}, ${(it.release_date || it.first_air_date || "").slice(0, 4)}).`,
+  `Genres : ${(it.genre_ids || (it.genres || []).map((g) => g.id)).map((g) => GENRE_NAMES[g]).filter(Boolean).join(", ") || "?"}.`,
+  `Résumé : ${(it.overview || "?").slice(0, 600)}`,
+].join("\n");
+
 /**
  * Prépare en arrière-plan le « pour qui » et le « à savoir » des titres d'une page, en une seule
  * question à Gemini : le hero de Nuvio, qui charge la fiche de chaque titre survolé, les trouve prêts.
@@ -1420,15 +1427,9 @@ function previousWork(d, movie, saga, videos) {
  */
 function prefetchProfiles(env, ctx, results, kind) {
   if (!env.GEMINI_API_KEY || !env.SELF || !ctx || !results || !results.length) return;
-  const items = results.slice(0, 20).map((it) => ({
-    key: `${kind === "series" ? "tv" : "movie"}-${it.id}`,
-    id: it.id,
-    text: [
-      `${kind === "series" ? "Série" : "Film"} : « ${it.title || it.name} » (titre original : ${it.original_title || it.original_name}, ${(it.release_date || it.first_air_date || "").slice(0, 4)}).`,
-      `Genres : ${(it.genre_ids || []).map((g) => GENRE_NAMES[g]).filter(Boolean).join(", ") || "?"}.`,
-      `Résumé : ${(it.overview || "?").slice(0, 600)}`,
-    ].join("\n"),
-  }));
+  // Seulement les identifiants : l'appel relit lui-même chaque titre dans TMDB (un texte venu de la
+  // requête irait tel quel à Gemini, et sa réponse, en cache, serait lue par tout le monde).
+  const items = results.slice(0, 20).map((it) => ({ key: `${kind === "series" ? "tv" : "movie"}-${it.id}`, id: it.id }));
   ctx.waitUntil((async () => {
     const headers = { "Content-Type": "application/json", "x-prefetch": await sha(env.GEMINI_API_KEY) };
     await env.SELF.fetch("https://self/prefetch/profiles", { method: "POST", headers, body: JSON.stringify({ key: env.GEMINI_API_KEY, items }) });
@@ -1543,7 +1544,34 @@ function html(body) {
   return new Response(body, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" } });
 }
 
+/**
+ * En-têtes de sécurité ajoutés à toutes les réponses : pas de devinette du type de fichier, l'adresse
+ * complète (qui contient parfois une clé Gemini) jamais envoyée aux autres sites, et les pages du site
+ * jamais affichées dans le cadre d'un autre site.
+ */
+function withSecurity(res) {
+  const out = new Response(res.body, res);
+  out.headers.set("X-Content-Type-Options", "nosniff");
+  out.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  if ((out.headers.get("Content-Type") || "").startsWith("text/html")) {
+    out.headers.set("Content-Security-Policy", "frame-ancestors 'self'; object-src 'none'; base-uri 'self'");
+    out.headers.set("X-Frame-Options", "SAMEORIGIN");
+  }
+  return out;
+}
+// Adresse du site telle que le visiteur l'a tapée (sur Docker, l'en-tête Host vient de lui) : un nom,
+// une adresse IP et un port, rien d'autre, puisqu'elle est recopiée dans les pages.
+const SAFE_HOST = /^([a-z0-9-]+(\.[a-z0-9-]+)*|\[[0-9a-f:.]+\])(:\d{1,5})?$/i;
+
 export default {
+  async fetch(request, env, ctx) {
+    if (!SAFE_HOST.test(new URL(request.url).host)) return withSecurity(new Response("Adresse invalide", { status: 400 }));
+    return withSecurity(await app.fetch(request, env, ctx));
+  },
+};
+
+// Le site et l'addon (sans les en-têtes de sécurité, ajoutés ci-dessus).
+const app = {
   async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") return new Response(null, { headers: HEADERS });
     const url = new URL(request.url);
@@ -1597,7 +1625,7 @@ export default {
     if (!env.TMDB_API_KEY) return json({ error: "Secret TMDB_API_KEY manquant" }, 0);
     // Diagnostics (/debug) : ils dépensent la clé Gemini de l'instance, donc réservés à l'hébergeur,
     // depuis son propre lien (celui qui contient cette clé) : /<config>/debug/…
-    if (path.startsWith("/debug/") && !(env.GEMINI_API_KEY && cfg.k === env.GEMINI_API_KEY)) {
+    if (path.startsWith("/debug/") && !(env.GEMINI_API_KEY && cfg.k && same(cfg.k, env.GEMINI_API_KEY))) {
       return new Response(JSON.stringify({ error: "Réservé à l'hébergeur : ouvre /debug depuis ton lien d'addon (celui qui contient la clé Gemini de l'instance)." }),
         { status: 403, headers: { ...HEADERS, "Cache-Control": "no-store" } });
     }
@@ -1648,9 +1676,14 @@ export default {
       const body = await request.json().catch(() => ({}));
       const key = typeof body.key === "string" ? body.key : "";
       if (!key || request.headers.get("x-prefetch") !== await sha(key)) return json({ error: "interdit" }, 0);
+      // Le texte de chaque titre vient de TMDB, jamais de la requête (lu seulement s'il manque au cache).
       const items = (Array.isArray(body.items) ? body.items : [])
-        .filter((it) => it && /^(movie|tv)-\d+$/.test(it.key) && Number.isInteger(it.id) && typeof it.text === "string")
-        .map((it) => ({ key: it.key, id: it.id, text: it.text.slice(0, 1200) }));
+        .filter((it) => it && Number.isInteger(it.id) && it.id > 0 && it.key === `${String(it.key).startsWith("tv-") ? "tv" : "movie"}-${it.id}`)
+        .slice(0, 20)
+        .map((it) => {
+          const series = it.key.startsWith("tv-");
+          return { key: it.key, id: it.id, text: async () => { const d = await tmdb(env, `/${series ? "tv" : "movie"}/${it.id}`); return d && d.id === it.id ? profileText(series, d) : ""; } };
+        });
       return json(await aiProfiles({ ...env, GEMINI_API_KEY: key }, items), 0);
     }
     // IA : clé du lien de l'utilisateur (les /debug au-dessus gardent celle de l'instance).

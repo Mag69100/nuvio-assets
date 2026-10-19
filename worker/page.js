@@ -58,6 +58,10 @@ async function hoteRefresh() {
 }
 function hoteRender() {
   const box = $("hote-box"); box.textContent = "";
+  if (hote && hote.motDePasseFaible) {
+    box.append(el("p", { class: "sub", text: "Le mot de passe d'hébergeur de ta copie est trop simple : 10 caractères au moins, et pas celui de l'exemple. Change ADMIN_PASSWORD (Docker : dans docker-compose.yml ; Cloudflare : dans les paramètres de ton Worker), redémarre ou redéploie, puis recharge cette page." }));
+    return;
+  }
   if (hote && hote.motDePasse === false) {
     box.append(el("p", { class: "sub", text: "Ta copie n'a pas encore de mot de passe d'hébergeur. Ajoute ADMIN_PASSWORD (Docker : dans docker-compose.yml, rubrique environment ; Cloudflare : un secret dans les paramètres de ton Worker), redémarre ou redéploie, puis recharge cette page." }));
     return;
@@ -1178,6 +1182,8 @@ function loadQr() {
   if (!qrLib) qrLib = new Promise((ok, ko) => {
     const sc = document.createElement("script");
     sc.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js";
+    // Empreinte du fichier : si le CDN servait autre chose, le navigateur refuserait de l'exécuter.
+    sc.integrity = "sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k"; sc.crossOrigin = "anonymous";
     sc.onload = () => ok(window.qrcode); sc.onerror = () => { qrLib = null; ko(); };
     document.head.append(sc);
   });

@@ -6,10 +6,12 @@ services:
     image: ghcr.io/xnzx07/nuvio-assets:latest
     restart: unless-stopped
     ports:
+      # Ouvert au réseau de la maison (la TV s'y connecte, en http). Si tout passe par Cloudflare Tunnel ou
+      # un proxy https sur cette machine, mets plutôt "127.0.0.1:8787:8787" : plus rien ne circule en clair.
       - "8787:8787"
     environment:
       TMDB_API_KEY: "ta-cle-tmdb"                 # obligatoire : themoviedb.org → Paramètres → API (clé v3)
-      ADMIN_PASSWORD: "choisis-un-mot-de-passe"   # espace hébergeur (salle 2) : mises à jour proposées
+      ADMIN_PASSWORD: "choisis-un-mot-de-passe"   # à changer, 10 caractères au moins : espace hébergeur (salle 2)
       # GEMINI_API_KEY: ""                        # facultatif : clé Gemini de ta copie (aistudio.google.com/apikey)
       # GEMINI_PUBLIC: "on"                       # facultatif : cette clé sert aussi aux liens sans clé (famille)
       # ADRESSE_PUBLIQUE: "https://catalogue.ton-domaine.fr"   # si tu passes par Cloudflare Tunnel ou un proxy https

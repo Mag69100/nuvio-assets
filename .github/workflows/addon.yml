@@ -28,15 +28,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
       - run: pip install pillow
       - name: Construire l'addon
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
-        run: python scripts/update_addon.py ${{ github.event.inputs.season }}
+          # Passée par une variable et vérifiée : une saison est un mot connu, jamais une commande.
+          SEASON: ${{ github.event.inputs.season }}
+        run: |
+          case "$SEASON" in
+            ""|halloween|noel|saint-valentin|paques|ete|a-laffiche) ;;
+            *) echo "Saison inconnue : $SEASON" >&2; exit 1 ;;
+          esac
+          python scripts/update_addon.py $SEASON
       - name: Vocabulaire de la recherche (fautes de frappe)
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}

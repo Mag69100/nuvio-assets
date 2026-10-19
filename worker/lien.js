@@ -25,6 +25,7 @@ main { max-width: 560px; margin: 0 auto; display: grid; gap: 16px; }
 .ticket { display: grid; gap: 4px; padding: 16px 18px; border-radius: 14px; background: var(--cream); color: var(--ink); }
 .ticket small { font: 800 .72rem "Figtree"; letter-spacing: .16em; text-transform: uppercase; color: #7a5a4c; }
 h1 { margin: 0; font: 400 2rem/1 "Bebas Neue", Impact, sans-serif; letter-spacing: .03em; }
+.ticket #site { font: 600 .85rem/1.4 "Figtree"; letter-spacing: 0; text-transform: none; overflow-wrap: anywhere; }
 .choix { display: grid; gap: 10px; }
 .choix button, .choix a { display: grid; gap: 2px; width: 100%; padding: 16px; border-radius: 14px; border: 1px solid var(--seat); background: var(--velvet-2); color: var(--cream); text-align: left; text-decoration: none; font: inherit; cursor: pointer; }
 .choix button.principal { background: var(--bulb); border-color: var(--bulb); color: var(--ink); }
@@ -41,7 +42,7 @@ summary.aide { padding: 10px 0; cursor: pointer; }
 </head>
 <body>
 <main>
-  <div class="ticket"><small>Envoyé depuis ton ordinateur</small><h1 id="nom">Ton lien</h1></div>
+  <div class="ticket"><small>Envoyé depuis ton ordinateur</small><h1 id="nom">Ton lien</h1><small id="site" hidden></small></div>
   <div class="choix" id="choix"></div>
   <p class="etat" id="etat" role="status"></p>
   <details id="apercu" hidden><summary class="aide">Voir ce qui sera copié</summary><pre id="texte"></pre></details>
@@ -70,9 +71,16 @@ summary.aide { padding: 10px 0; cursor: pointer; }
     return;
   }
   $("texte").textContent = valeur; $("apercu").hidden = false;
+  // Le site où mène le lien, toujours affiché : n'importe qui peut fabriquer une adresse /lien#u=….
+  // Seuls les addons du guide (ce site, Torrentio, OpenSubtitles) ont le bouton d'installation directe.
+  let site = "";
+  try { site = new URL(valeur).hostname; } catch (e) {}
+  const connu = [location.hostname, "torrentio.strem.fun", "opensubtitles-v3.strem.io"].includes(site);
+  $("site").textContent = "Lien vers " + (site || "?") + (connu ? "" : " : un site qui n'est pas dans le guide, vérifie que tu l'attendais.");
+  $("site").hidden = false;
   bouton("Copier le lien", "Le plus courant : à coller dans Nuvio ou sur le site d'un addon", true, () => { $("texte").textContent = valeur; copier(valeur, "Lien copié ✓"); });
   // Un lien d'addon s'installe aussi d'un geste dans l'appli Nuvio de ce téléphone (nuvio://…, que Stremio ne prend pas ; pas sous Windows, où Nuvio n'ouvre aucun lien).
-  if (/^https:[/][/][^/]+[/].*manifest[.]json$/.test(valeur) && !/Windows/.test(navigator.userAgent)) {
+  if (connu && /^https:[/][/][^/]+[/].*manifest[.]json$/.test(valeur) && !/Windows/.test(navigator.userAgent)) {
     const inst = document.createElement("a"); inst.href = valeur.replace(/^https:/, "nuvio:");
     inst.innerHTML = "<b>Installer dans Nuvio sur ce téléphone</b><span>Si Nuvio est installé ici. Pour la TV, copie plutôt le lien.</span>"; $("choix").append(inst);
   }

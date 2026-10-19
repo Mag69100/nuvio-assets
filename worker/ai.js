@@ -445,10 +445,14 @@ const PROFILES_SCHEMA = {
 export async function aiProfiles(env, items) {
   const keyOf = (it) => new Request(`https://cache.local/profile/v3/${it.key}`);
   const known = await Promise.all(items.map((it) => caches.default.match(keyOf(it)).then(Boolean, () => false)));
-  const todo = items.filter((_, i) => !known[i]).slice(0, 20);
+  let todo = items.filter((_, i) => !known[i]).slice(0, 20);
   // Sans clé : rien à préparer (on ne lit que ce qui est déjà en cache).
   if (!todo.length || !env.GEMINI_API_KEY) return { asked: 0 };
   if (!allowed(BATCH_CALLS, env, BATCH_PER_MIN)) return { asked: 0, error: "trop de demandes cette minute" };
+  // Texte d'un titre : tel quel, ou lu à la demande (seulement pour ceux qui manquent au cache).
+  const texts = await Promise.all(todo.map((it) => (typeof it.text === "function" ? Promise.resolve(it.text()).catch(() => "") : it.text)));
+  todo = todo.map((it, i) => ({ ...it, text: texts[i] })).filter((it) => it.text);
+  if (!todo.length) return { asked: 0 };
   const prompt = todo.map((it) => `id ${it.id}\n${it.text}`).join("\n\n");
   const tried = [];
   for (const model of modelsFor(env, { optional: true })) {

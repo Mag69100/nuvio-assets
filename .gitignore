@@ -4,3 +4,5 @@ node_modules/
 .wrangler/
 IMG_7861.mov
 .dev.vars
+docs/superpowers/
+.superpowers/

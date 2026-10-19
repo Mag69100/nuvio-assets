@@ -75,30 +75,67 @@ export async function updateInfo(current) {
 const TEXT = new TextEncoder();
 const toHex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 const sha = async (s) => toHex(await crypto.subtle.digest("SHA-256", TEXT.encode(s)));
-// Signé avec le mot de passe ET un secret que seul le serveur connaît (la clé TMDB) : qui voit le jeton
-// (il est dans le lien d'installation) ne peut pas retrouver le mot de passe en essayant des mots.
+
+// Mot de passe trop court, ou laissé tel que dans l'exemple (docker-compose.yml, page /copie) : refusé,
+// l'espace hébergeur reste fermé tant qu'il n'est pas changé.
+export const MIN_PASSWORD = 10;
+const EXAMPLE_PASSWORDS = new Set(["choisis-un-mot-de-passe", "ton-mot-de-passe", "motdepasse", "password"]);
+/** État du mot de passe de l'hébergeur : "absent", "faible" ou "ok". */
+export function passwordState(env) {
+  const pw = typeof env.ADMIN_PASSWORD === "string" ? env.ADMIN_PASSWORD : "";
+  if (!pw) return "absent";
+  return pw.length < MIN_PASSWORD || EXAMPLE_PASSWORDS.has(pw.trim().toLowerCase()) ? "faible" : "ok";
+}
+const hasPassword = (env) => passwordState(env) === "ok";
+
+// Signé avec le mot de passe ET un secret du serveur : HOTE_SECRET (tiré au hasard, créé tout seul sur
+// Docker, facultatif sur Cloudflare), sinon la clé TMDB. Qui voit le jeton (il est dans le lien
+// d'installation) ne peut pas retrouver le mot de passe en essayant des mots.
 async function sign(env, what) {
-  const key = await crypto.subtle.importKey("raw", TEXT.encode(`${env.TMDB_API_KEY || ""}|${env.ADMIN_PASSWORD}`), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const secret = env.HOTE_SECRET || env.TMDB_API_KEY || "";
+  const key = await crypto.subtle.importKey("raw", TEXT.encode(`${secret}|${env.ADMIN_PASSWORD}`), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return toHex(await crypto.subtle.sign("HMAC", key, TEXT.encode(what)));
 }
 /** Comparaison en temps constant (deux textes de même longueur). */
-const same = (a, b) => {
+export const same = (a, b) => {
+  a = String(a); b = String(b);
   if (a.length !== b.length) return false;
   let d = 0;
   for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return d === 0;
 };
 
-/** Valeur du cookie « hote » de l'hébergeur (signature, jamais le mot de passe) ; "" sans mot de passe. */
-export const hostCookie = async (env) => (env.ADMIN_PASSWORD ? sign(env, "hote") : "");
+// Cookie de connexion : « date d'émission.signature ». Valable 30 jours ; la déconnexion ferme toutes
+// les sessions ouvertes avant elle (date gardée comme « Plus tard », voir etat()).
+const SESSION_MS = 30 * 86400e3;
+/** Valeur du cookie « hote » émis à la date `at` (signature, jamais le mot de passe) ; "" sans mot de passe. */
+export const hostCookie = async (env, at = Date.now()) => (hasPassword(env) ? `${at}.${await sign(env, `hote|${at}`)}` : "");
 /** Jeton du lien d'installation « avec alertes » de l'hébergeur ; "" sans mot de passe. */
-export const alertToken = async (env) => (env.ADMIN_PASSWORD ? (await sign(env, "alerte")).slice(0, 24) : "");
+export const alertToken = async (env) => (hasPassword(env) ? (await sign(env, "alerte")).slice(0, 24) : "");
 
-// Essais de mot de passe ratés par adresse IP : au-delà de 10 en un quart d'heure, on attend (par
-// instance du Worker : suffisant pour décourager quelqu'un qui essaie des mots de passe à la chaîne).
+// Essais de mot de passe ratés : au-delà de 10 en un quart d'heure depuis une adresse, on attend. En plus,
+// au-delà de 100 ratés en un quart d'heure toutes adresses confondues, plus personne n'essaie : sur Docker,
+// l'adresse vient d'un en-tête que le visiteur peut inventer, la limite par adresse ne suffit pas.
+// (Par instance du Worker : de quoi décourager quelqu'un qui essaie des mots de passe à la chaîne.)
 const FAILS = new Map();
-const MAX_FAILS = 10, FAIL_WINDOW = 15 * 60e3;
+const MAX_FAILS = 10, MAX_FAILS_ALL = 100, FAIL_WINDOW = 15 * 60e3;
+const ALL = "*";
 const ipOf = (request) => request.headers.get("cf-connecting-ip") || (request.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "?";
+const fresh = (f, now) => f && now - f.since <= FAIL_WINDOW;
+function blocked(ip, now) {
+  return [[ip, MAX_FAILS], [ALL, MAX_FAILS_ALL]].some(([k, max]) => { const f = FAILS.get(k); return fresh(f, now) && f.n >= max; });
+}
+function failed(ip, now) {
+  // Les vieilles entrées partent, pour que la liste ne grossisse pas sans fin.
+  if (FAILS.size > 1000) for (const [k, f] of FAILS) if (!fresh(f, now)) FAILS.delete(k);
+  for (const k of [ip, ALL]) {
+    const f = fresh(FAILS.get(k), now) ? FAILS.get(k) : { n: 0, since: now };
+    f.n++;
+    FAILS.set(k, f);
+  }
+}
+/** Pour les tests : oublie les essais ratés. */
+export const resetFails = () => FAILS.clear();
 // Une demande POST venue d'une page d'un autre site (Origin différente) est refusée.
 const sameOrigin = (request, url) => { const o = request.headers.get("origin"); return !o || o === url.origin; };
 
@@ -109,31 +146,39 @@ const cookieValue = (request, name) => {
   }
   return "";
 };
-/** La requête vient-elle de l'hébergeur (cookie de connexion valide) ? */
-export async function isHost(request, env) {
-  const want = await hostCookie(env);
-  return !!want && same(cookieValue(request, "hote"), want);
-}
-
-// Palier repoussé (« Plus tard ») : KV ETAT s'il est relié, sinon le cache (gardé tant qu'il n'est pas
-// vidé ; au pire, la proposition revient).
-const DISMISS_URL = "https://cache.local/hote/plus-tard";
-export async function dismissed(env) {
-  if (env.ETAT) return (await env.ETAT.get("plus-tard")) || "";
-  const hit = await caches.default.match(new Request(DISMISS_URL));
+// Petit état de l'hébergeur (palier repoussé, date de la dernière déconnexion) : KV ETAT s'il est relié,
+// sinon le cache (gardé tant qu'il n'est pas vidé ; au pire, la proposition revient).
+async function readState(env, name) {
+  if (env.ETAT) return (await env.ETAT.get(name)) || "";
+  const hit = await caches.default.match(new Request(`https://cache.local/hote/${name}`));
   return hit ? hit.text() : "";
 }
-export async function dismiss(env, step) {
-  if (env.ETAT) return env.ETAT.put("plus-tard", step);
-  await caches.default.put(new Request(DISMISS_URL), new Response(step, { headers: { "Cache-Control": "public, max-age=31536000" } }));
+async function writeState(env, name, value) {
+  if (env.ETAT) return env.ETAT.put(name, value);
+  await caches.default.put(new Request(`https://cache.local/hote/${name}`), new Response(value, { headers: { "Cache-Control": "public, max-age=31536000" } }));
 }
+
+/** La requête vient-elle de l'hébergeur (cookie de connexion valide, pas trop vieux, d'après la dernière déconnexion) ? */
+export async function isHost(request, env) {
+  if (!hasPassword(env)) return false;
+  const m = /^(\d{13})\.([0-9a-f]{64})$/.exec(cookieValue(request, "hote"));
+  if (!m) return false;
+  const at = Number(m[1]), now = Date.now();
+  if (at > now + 60e3 || now - at > SESSION_MS) return false;
+  if (!same(m[0], await hostCookie(env, at))) return false;
+  return at > (Number(await readState(env, "deconnexion")) || 0);
+}
+
+// Palier repoussé (« Plus tard »).
+export const dismissed = (env) => readState(env, "plus-tard");
+export const dismiss = (env, step) => writeState(env, "plus-tard", step);
 
 /**
  * Mise à jour à proposer à l'hébergeur : comme updateInfo (null à jour, false GitHub injoignable), et null
  * aussi sans mot de passe ou si ce palier a été repoussé.
  */
 export async function pendingUpdate(env, current) {
-  if (!env.ADMIN_PASSWORD) return null;
+  if (!hasPassword(env)) return null;
   const info = await updateInfo(current);
   if (!info) return info;
   return palier(info.version) === (await dismissed(env)) ? null : info;
@@ -155,25 +200,27 @@ export async function hostRoute(request, env, url, path, current) {
   }
   if (path === "/hote/connexion" && request.method === "POST") {
     const ip = ipOf(request), now = Date.now();
-    const f = FAILS.get(ip);
-    if (f && now - f.since > FAIL_WINDOW) FAILS.delete(ip);
-    else if (f && f.n >= MAX_FAILS) return reply({ error: "Trop d'essais : réessaie dans un quart d'heure." }, 429);
+    if (blocked(ip, now)) return reply({ error: "Trop d'essais : réessaie dans un quart d'heure." }, 429);
+    if (!hasPassword(env)) return reply({ error: `Mot de passe d'hébergeur absent ou trop simple (${MIN_PASSWORD} caractères au moins, pas celui de l'exemple).` }, 403);
     const body = await request.json().catch(() => ({}));
-    const ok = !!env.ADMIN_PASSWORD && typeof body.motDePasse === "string" && same(await sha(body.motDePasse), await sha(env.ADMIN_PASSWORD));
+    const ok = typeof body.motDePasse === "string" && same(await sha(body.motDePasse), await sha(env.ADMIN_PASSWORD));
     if (!ok) {
-      const g = FAILS.get(ip) || { n: 0, since: now };
-      g.n++;
-      FAILS.set(ip, g);
+      failed(ip, now);
       return reply({ error: "Mot de passe incorrect." }, 403);
     }
     FAILS.delete(ip);
-    return reply({ ok: true }, 200, { "Set-Cookie": `hote=${await hostCookie(env)}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=31536000` });
+    return reply({ ok: true }, 200, { "Set-Cookie": `hote=${await hostCookie(env, now)}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=${SESSION_MS / 1000}` });
   }
   if (path === "/hote/deconnexion" && request.method === "POST") {
+    // Seul l'hébergeur connecté ferme les sessions (sinon n'importe qui le déconnecterait).
+    if (await isHost(request, env)) await writeState(env, "deconnexion", String(Date.now()));
     return reply({ ok: true }, 200, { "Set-Cookie": `hote=; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=0` });
   }
   if (path === "/hote/etat") {
-    if (!(await isHost(request, env))) return reply({ hote: false, motDePasse: !!env.ADMIN_PASSWORD });
+    if (!(await isHost(request, env))) {
+      const state = passwordState(env);
+      return reply({ hote: false, motDePasse: state === "ok", ...(state === "faible" ? { motDePasseFaible: true } : {}) });
+    }
     const jeton = await alertToken(env);
     const maj = await pendingUpdate(env, current);
     return reply({
@@ -205,7 +252,11 @@ export async function hostRoute(request, env, url, path, current) {
 export const UPDATE_CATALOG = { type: "movie", id: "mise-a-jour", name: "Mise à jour", showInHome: true, extra: [], extraSupported: [] };
 
 /** Le lien de cette requête est-il celui de l'hébergeur d'une copie (jeton d'alerte valide) ? */
-export const hasAlerts = async (env, url, cfg) => isCopy(url) && !!cfg.al && cfg.al === (await alertToken(env));
+export const hasAlerts = async (env, url, cfg) => {
+  if (!isCopy(url) || !cfg.al) return false;
+  const want = await alertToken(env);
+  return !!want && same(cfg.al, want);
+};
 
 /** Carte (et fiche) « Version X disponible » : nouveautés, puis comment mettre à jour. */
 export function updateCard(info, env, origin) {

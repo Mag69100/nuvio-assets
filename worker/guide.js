@@ -1138,6 +1138,9 @@ const garde = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.re
   let o = {};
   try { const b = location.hash.slice(6).replace(/-/g, "+").replace(/_/g, "/"); o = lirePaquet(atob(b)); } catch (e) {}
   history.replaceState(null, "", location.pathname);
+  // N'importe qui peut fabriquer ce lien : des clés déjà rangées ici ne sont remplacées qu'avec accord.
+  const autres = [["ad", "ad-key"], ["tmdb", "tmdb-key"]].some(([k, s]) => o[k] && lit(s) && lit(s) !== o[k]);
+  if (autres && !confirm("Ce lien remplace les clés déjà enregistrées sur cet appareil (AllDebrid, TMDB). Continuer ? Annule si tu ne viens pas de le scanner toi-même.")) return;
   if (o.ad) garde("ad-key", o.ad);
   if (o.tmdb) garde("tmdb-key", o.tmdb);
   if (o.app) garde("guide-appareil", o.app);
@@ -1350,6 +1353,8 @@ let qrLib = null;
 const chargerQr = () => qrLib || (qrLib = new Promise((ok, ko) => {
   const sc = document.createElement("script");
   sc.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js";
+  // Empreinte du fichier : si le CDN servait autre chose, le navigateur refuserait de l'exécuter.
+  sc.integrity = "sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k"; sc.crossOrigin = "anonymous";
   sc.onload = () => ok(window.qrcode); sc.onerror = () => { qrLib = null; ko(); };
   document.head.append(sc);
 }));

@@ -3,7 +3,8 @@
 # Secret à définir dans le tableau de bord Cloudflare : TMDB_API_KEY
 # Facultatif : GEMINI_API_KEY (clé de l'instance pour /debug ; chaque utilisateur met la sienne dans la salle 2)
 # et GEMINI_PUBLIC = "on" pour que la clé de l'instance serve aussi aux liens sans clé (voir worker/ai.js)
-# Copies auto-hébergées (voir README) : ADMIN_PASSWORD (espace hébergeur), DEPOT (« pseudo/nuvio-assets »).
+# Copies auto-hébergées (voir README) : ADMIN_PASSWORD (espace hébergeur, 10 caractères au moins), DEPOT
+# (« pseudo/nuvio-assets ») et, conseillé, HOTE_SECRET (une longue suite de caractères au hasard).
 name = "nuvio-assets"
 main = "worker/index.js"
 compatibility_date = "2026-10-01"
@@ -25,3 +26,7 @@ service = "nuvio-assets"
 
 [observability]
 enabled = true
+# Pas de journal de chaque requête : les adresses contiennent les réglages des liens, parfois une clé
+# Gemini. Les messages du code (console.warn…) restent.
+[observability.logs]
+invocation_logs = false

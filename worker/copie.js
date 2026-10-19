@@ -73,7 +73,7 @@ code { font: .9em "Courier Prime", monospace; background: #0f080c; padding: 1px 
     <h2 id="t-besoin">Ce qu'il te faut</h2>
     <ul class="besoin">
       <li><b>Une clé TMDB</b>, gratuite : themoviedb.org → Paramètres → API (clé « v3 »).</li>
-      <li><b>Un mot de passe d'hébergeur</b>, que tu inventes (<code>ADMIN_PASSWORD</code>) : il ouvre ton espace hébergeur et les mises à jour.</li>
+      <li><b>Un mot de passe d'hébergeur</b>, que tu inventes (<code>ADMIN_PASSWORD</code>, 10 caractères au moins) : il ouvre ton espace hébergeur et les mises à jour.</li>
       <li class="dim">Facultatif : une clé Gemini pour l'IA (<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>), à partager avec ta famille si tu veux.</li>
     </ul>
   </section>

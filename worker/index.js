@@ -29,10 +29,10 @@ import { lienPage } from "./lien.js";
 import { hallPage } from "./hall.js";
 import { smartSearch, prepareWords, isExact, norm } from "./search.js";
 import { imdbRating } from "./ratings.js";
-import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
+import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.21.3";
+const VERSION = "5.21.4";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -391,6 +391,8 @@ const GENRE_NAMES = {
  * Sans identifiant IMDb, on se rabat sur « tmdb:<id> », que la fiche (/meta) sait ouvrir.
  */
 async function toMetas(env, ctx, results, kind, opts, today) {
+  // « Pour qui » de toute la page préparés en arrière-plan (pas pendant la recherche, au budget compté).
+  if (!opts.search) prefetchProfiles(env, ctx, results, kind);
   // Infos déjà lues pour trier la page (Tendances) : pas un second appel par titre.
   const infos = await Promise.all(results.map((it) => (opts.infos && opts.infos.get(it.id)) || extraInfo(env, kind, it.id)));
   const ids = infos.map((x) => x.imdb);
@@ -1365,6 +1367,29 @@ function previousWork(d, movie, saga, videos) {
   };
 }
 
+/**
+ * Prépare en arrière-plan le « pour qui » et le « à savoir » des titres d'une page, en une seule
+ * question à Gemini : le hero de Nuvio, qui charge la fiche de chaque titre survolé, les trouve prêts.
+ * Passe par un appel de l'addon à lui-même (liaison SELF de wrangler.toml), qui a son propre budget
+ * d'appels : une page de rangée en utilise déjà une vingtaine sur les 50 permis.
+ */
+function prefetchProfiles(env, ctx, results, kind) {
+  if (!env.GEMINI_API_KEY || !env.SELF || !ctx || !results || !results.length) return;
+  const items = results.slice(0, 20).map((it) => ({
+    key: `${kind === "series" ? "tv" : "movie"}-${it.id}`,
+    id: it.id,
+    text: [
+      `${kind === "series" ? "Série" : "Film"} : « ${it.title || it.name} » (titre original : ${it.original_title || it.original_name}, ${(it.release_date || it.first_air_date || "").slice(0, 4)}).`,
+      `Genres : ${(it.genre_ids || []).map((g) => GENRE_NAMES[g]).filter(Boolean).join(", ") || "?"}.`,
+      `Résumé : ${(it.overview || "?").slice(0, 600)}`,
+    ].join("\n"),
+  }));
+  ctx.waitUntil((async () => {
+    const headers = { "Content-Type": "application/json", "x-prefetch": await sha(env.GEMINI_API_KEY) };
+    await env.SELF.fetch("https://self/prefetch/profiles", { method: "POST", headers, body: JSON.stringify({ items }) });
+  })().catch(() => {}));
+}
+
 // ---------- HTTP ----------
 const HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
@@ -1408,7 +1433,7 @@ function json(data, maxAge) {
   });
 }
 
-const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche"]);
+const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch"]);
 
 async function loadCollections() {
   const res = await fetch(`${ASSETS}/collections/collections.json`, { cf: { cacheTtl: 600, cacheEverything: true } });
@@ -1556,6 +1581,15 @@ export default {
       const out = new Response(r.body, { headers: { "Access-Control-Allow-Origin": "*", "Content-Type": r.headers.get("Content-Type"), "Cache-Control": "public, max-age=604800" } });
       ctx.waitUntil(caches.default.put(key, out.clone()));
       return out;
+    }
+    // Préparation des « pour qui » d'une page (appel de l'addon à lui-même, voir prefetchProfiles).
+    if (path === "/prefetch/profiles" && request.method === "POST") {
+      if (!env.GEMINI_API_KEY || request.headers.get("x-prefetch") !== await sha(env.GEMINI_API_KEY)) return json({ error: "interdit" }, 0);
+      const body = await request.json().catch(() => ({}));
+      const items = (Array.isArray(body.items) ? body.items : [])
+        .filter((it) => it && /^(movie|tv)-\d+$/.test(it.key) && Number.isInteger(it.id) && typeof it.text === "string")
+        .map((it) => ({ key: it.key, id: it.id, text: it.text.slice(0, 1200) }));
+      return json(await aiProfiles(env, items), 0);
     }
     const tm = path.match(/^\/trailer\/(movie|series)\/([^/]+)\.json$/);
     if (tm) return json(await trailer(env, tm[1], decodeURIComponent(tm[2])), 7 * 86400);

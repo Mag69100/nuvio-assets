@@ -27,7 +27,10 @@ const SEARCH_ONLY = new Set(["gemini-3.6-flash"]);
 // Bonus de fiche (rappel, « pour qui », saison commandée) : au plus autant d'appels par minute. Le hero
 // de Nuvio charge la fiche de chaque titre survolé : sans limite, faire défiler une rangée dépassait
 // la limite de Gemini (15 par minute) et privait la recherche d'IA. Au-delà : la ligne viendra plus tard.
-const OPTIONAL_PER_MIN = 6;
+const OPTIONAL_PER_MIN = 5;
+// « Pour qui » préparés par rangée entière (une question pour 20 titres) : au plus autant par minute.
+// Avec les bonus de fiche, il reste toujours au moins 6 appels par minute pour la recherche.
+const BATCH_PER_MIN = 4;
 const ATTEMPT_MS = 5000;            // un modèle qui ne répond pas en 5 s passe la main au suivant
 export const AI_WAIT_MS = 6000;     // attente maximale d'une réponse de Gemini pendant une recherche
 const CACHE_S = 30 * 86400;
@@ -101,7 +104,8 @@ async function askGemini(env, query, model, thinking) {
 
 /**
  * Une question à un modèle Gemini → texte de la réponse (erreur avec .status sinon).
- * opts.schema → réponse JSON selon ce schéma ; opts.thinking → niveau de réflexion.
+ * opts.schema → réponse JSON selon ce schéma ; opts.thinking → niveau de réflexion ; opts.timeout →
+ * attente maximale (5 s par défaut).
  */
 async function geminiText(env, model, system, user, opts = {}) {
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -116,7 +120,7 @@ async function geminiText(env, model, system, user, opts = {}) {
         thinkingConfig: { thinkingLevel: opts.thinking || thinkingOf(model) },
       },
     }),
-    signal: AbortSignal.timeout(ATTEMPT_MS),
+    signal: AbortSignal.timeout(opts.timeout || ATTEMPT_MS),
   });
   if (!res.ok) {
     const j = await res.json().catch(() => ({}));
@@ -161,15 +165,16 @@ function restFor(e) {
   return e.status >= 500 || !e.status ? 60e3 : 0;
 }
 
-// Appels de bonus de fiche de la dernière minute (par instance de l'addon).
-const OPTIONAL_CALLS = [];
-function optionalAllowed() {
+// Appels de la dernière minute (par instance de l'addon) : bonus de fiche, et rangées préparées.
+const OPTIONAL_CALLS = [], BATCH_CALLS = [];
+function allowed(calls, max) {
   const now = Date.now();
-  while (OPTIONAL_CALLS.length && OPTIONAL_CALLS[0] < now - 60e3) OPTIONAL_CALLS.shift();
-  if (OPTIONAL_CALLS.length >= OPTIONAL_PER_MIN) return false;
-  OPTIONAL_CALLS.push(now);
+  while (calls.length && calls[0] < now - 60e3) calls.shift();
+  if (calls.length >= max) return false;
+  calls.push(now);
   return true;
 }
+const optionalAllowed = () => allowed(OPTIONAL_CALLS, OPTIONAL_PER_MIN);
 
 /**
  * Modèles à essayer, dans l'ordre ; ceux au repos sont sautés. S'ils le sont tous : tous quand
@@ -377,6 +382,59 @@ export async function resolveTitles(titles, kind, search, api) {
     parts.delete(c.id);   // la saga n'est déroulée qu'une fois, au rang de son premier film
     return [it, ...saga];
   }));
+}
+
+const PROFILES_PROMPT = `${PROFILE_PROMPT}
+On te donne plusieurs œuvres d'un coup, chacune avec son numéro (id) : réponds pour chacune d'elles, avec le même id.`;
+const PROFILES_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    items: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: { id: { type: "INTEGER" }, pour_qui: { type: "STRING" }, a_savoir: { type: "STRING" } },
+        required: ["id", "pour_qui", "a_savoir"],
+      },
+    },
+  },
+  required: ["items"],
+};
+
+/**
+ * « Pour qui » et « À savoir » de toute une rangée en une seule question à Gemini, rangés comme ceux
+ * d'aiProfile (même clé de cache) : à l'ouverture de la fiche, ils sont déjà prêts.
+ * items → [{ key: « movie-438631 », id: identifiant TMDB, text: l'œuvre }] ; ceux déjà en cache sont sautés.
+ */
+export async function aiProfiles(env, items) {
+  const keyOf = (it) => new Request(`https://cache.local/profile/v2/${it.key}`);
+  const known = await Promise.all(items.map((it) => caches.default.match(keyOf(it)).then(Boolean, () => false)));
+  const todo = items.filter((_, i) => !known[i]).slice(0, 20);
+  if (!todo.length) return { asked: 0 };
+  if (!allowed(BATCH_CALLS, BATCH_PER_MIN)) return { asked: 0, error: "trop de demandes cette minute" };
+  const prompt = todo.map((it) => `id ${it.id}\n${it.text}`).join("\n\n");
+  const tried = [];
+  for (const model of modelsFor(env, { optional: true })) {
+    try {
+      const r = JSON.parse((await geminiText(env, model, PROFILES_PROMPT, prompt, { schema: PROFILES_SCHEMA, timeout: 20000 })) || "{}");
+      const byId = new Map((r.items || []).map((x) => [Number(x.id), x]));
+      const saved = await Promise.all(todo.map(async (it) => {
+        const x = byId.get(it.id);
+        const value = x && { pourQui: String(x.pour_qui || "").trim(), aSavoir: String(x.a_savoir || "").trim() };
+        if (!value || !value.pourQui || BROKEN.test(value.pourQui + value.aSavoir)) return 0;
+        await caches.default.put(keyOf(it), new Response(JSON.stringify(value), {
+          headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${RECAP_CACHE_S}` },
+        }));
+        return 1;
+      }));
+      return { asked: todo.length, saved: saved.reduce((a, b) => a + b, 0), model };
+    } catch (e) {
+      tried.push(`${model} : ${e.name === "TimeoutError" ? "pas de réponse" : e.message}`);
+      const rest = restFor(e);
+      if (rest) RESTING.set(model, Date.now() + rest);
+    }
+  }
+  return { asked: todo.length, saved: 0, error: tried.join(" / ") || "tous les modèles au repos" };
 }
 
 // ---------- Série renouvelée ? (d'après Wikipédia) ----------

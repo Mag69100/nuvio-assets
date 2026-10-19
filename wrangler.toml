@@ -13,5 +13,11 @@ type = "Data"
 globs = ["**/*.bin"]
 fallthrough = true
 
+# L'addon peut s'appeler lui-même (préparation des « pour qui » d'une rangée, voir prefetchProfiles) :
+# l'appel a son propre budget de 50 appels sortants.
+[[services]]
+binding = "SELF"
+service = "nuvio-assets"
+
 [observability]
 enabled = true

@@ -26,6 +26,10 @@ HOLD = 1.5                        # secondes sur la dernière image
 # qualité maximale ; le léger lissage (90) est invisible sur la tuile et allège de 30 %.
 # En dessous (65), du grain se voit.
 GIFSKI_OPTS = ["--quality", "100", "--motion-quality", "90", "--lossy-quality", "90"]
+# Dégradés sombres et doux : 256 couleurs par image ne suffisent pas, le GIF les rend par un semis de points.
+# Faits plus grands et sans lissage, la TV les réduit à la taille de la tuile et le semis se fond.
+GRADIENTS = {"disney-plus", "apple-tv-plus"}
+W_GRADIENT, H_GRADIENT = 720, 405
 
 # slug, dossier, vidéo YouTube, début, fin, cadrage, retouche ffmpeg[, secondes sur la dernière image]
 #   cadrage : None = remplit le 16:9 (recadre au centre)
@@ -80,12 +84,15 @@ def fps_of(src: Path) -> float:
 
 def make(slug, group, video_id, start, end, crop, extra, hold=HOLD) -> Path:
     src = download(video_id)
+    gradient = slug in GRADIENTS
+    w, h = (W_GRADIENT, H_GRADIENT) if gradient else (W, H)
+    opts = ["--quality", "100"] if gradient else GIFSKI_OPTS
     if crop:
         x, y, cw, ch = crop
-        frame = f"crop={cw}:{ch}:{x}:{y},scale={W}:{H}:force_original_aspect_ratio=decrease:flags=lanczos," \
-                f"pad={W}:{H}:-1:-1:black"
+        frame = f"crop={cw}:{ch}:{x}:{y},scale={w}:{h}:force_original_aspect_ratio=decrease:flags=lanczos," \
+                f"pad={w}:{h}:-1:-1:black"
     else:
-        frame = f"scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,crop={W}:{H}"
+        frame = f"scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,crop={w}:{h}"
     fps = fps_of(src)
     chain = ",".join(s for s in (f"fps={fps:.5f}", frame, extra, f"tpad=stop_mode=clone:stop_duration={hold}") if s)
     out = ROOT / "gifs" / group / f"{slug}.gif"
@@ -93,7 +100,7 @@ def make(slug, group, video_id, start, end, crop, extra, hold=HOLD) -> Path:
     ffmpeg = subprocess.Popen(["ffmpeg", "-v", "error", "-ss", str(start), "-to", str(end), "-i", str(src),
                                "-vf", chain, "-pix_fmt", "yuv444p", "-f", "yuv4mpegpipe", "-"],
                               stdout=subprocess.PIPE)
-    subprocess.run([os.environ.get("GIFSKI", "gifski"), "-q", *GIFSKI_OPTS, "--fps", f"{fps:.3f}",
+    subprocess.run([os.environ.get("GIFSKI", "gifski"), "-q", *opts, "--fps", f"{fps:.3f}",
                     "-o", str(out), "-"], stdin=ffmpeg.stdout, check=True)
     ffmpeg.stdout.close()
     if ffmpeg.wait():

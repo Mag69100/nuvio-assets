@@ -745,6 +745,8 @@ export const NUVIO_JS = "const NV_PP = " + JSON.stringify(POSTER_URL) + ", NV_PA
   let aGlisse = 0;
   const glisse = (piste) => {
     let x0 = 0, l0 = 0, tire = false, id = 0;
+    // Sans ça, le navigateur attrape l'image (logo, affiche) au lieu de faire défiler la rangée.
+    piste.addEventListener("dragstart", (e) => e.preventDefault());
     piste.addEventListener("pointerdown", (e) => { if (e.pointerType !== "mouse" || e.button !== 0) return; tire = true; x0 = e.clientX; l0 = piste.scrollLeft; id = e.pointerId; });
     addEventListener("pointermove", (e) => { if (!tire || e.pointerId !== id) return; if (Math.abs(e.clientX - x0) > 5) piste.classList.add("tire"); if (piste.classList.contains("tire")) piste.scrollLeft = l0 - (e.clientX - x0); });
     addEventListener("pointerup", () => { if (tire && piste.classList.contains("tire")) aGlisse = Date.now(); tire = false; piste.classList.remove("tire"); });

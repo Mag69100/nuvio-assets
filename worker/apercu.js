@@ -71,7 +71,7 @@ export const apercuJS = (origin, posterUrl) => nuvioJS(origin, posterUrl) + "\nc
     // L'accueil : Plateformes (épinglée en haut), les rangées du Catalogue FR, puis Genres, J'ai envie de…, Sagas, Studios.
     const rangeeTuiles = (c) => {
       const { piste } = E.rangee(c.title);
-      (c.folders || []).forEach((f) => piste.append(NV.tuile(f, c.title)));
+      (c.folders || []).forEach((f) => piste.append(NV.tuile(f, c.title, c.id)));
     };
     try {
       const [manifest, colls] = await Promise.all([fetch(ORIG_AP + "/manifest.json").then((r) => r.json()), fetch(ORIG_AP + "/collections.json").then((r) => r.json()).catch(() => [])]);

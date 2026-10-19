@@ -251,6 +251,42 @@ async function extraInfo(env, kind, tmdbId) {
   };
 }
 
+/**
+ * Un onglet d'une tuile de collection (une source TMDB), chargé comme Nuvio TV le fait
+ * (TmdbCollectionSourceResolver) : « discover » page par page, ou les films d'une saga. Sert à l'aperçu du site.
+ */
+async function dossierSource(env, src, lang, page) {
+  const tv = src.mediaType === "TV", kind = tv ? "series" : "movie";
+  const toMeta = (it) => {
+    const name = it.title || it.name || it.original_title || it.original_name;
+    if (!name) return null;
+    const date = (tv ? it.first_air_date : it.release_date) || "";
+    return {
+      id: `tmdb:${it.id}`, type: kind, name,
+      poster: it.poster_path ? `${IMG}w500${it.poster_path}` : it.backdrop_path ? `${IMG}w780${it.backdrop_path}` : undefined,
+      background: it.backdrop_path ? `${IMG}w1280${it.backdrop_path}` : undefined,
+      description: it.overview || undefined, releaseInfo: date.slice(0, 4) || undefined, released: date ? `${date}T00:00:00.000Z` : undefined,
+    };
+  };
+  if (src.tmdbSourceType === "COLLECTION") {
+    if (page > 1) return { metas: [], hasMore: false };
+    const d = await tmdb(env, `/collection/${Number(src.tmdbId)}`, {}, lang);
+    return { metas: (d.parts || []).map(toMeta).filter(Boolean), hasMore: false };
+  }
+  const f = src.filters || {};
+  const sort = src.sortBy || "popularity.desc";
+  const p = { page: String(page), sort_by: tv ? sort.replace("primary_release_date.desc", "first_air_date.desc") : sort.replace("first_air_date.desc", "primary_release_date.desc") };
+  const set = (k, v) => { if (v != null && v !== "") p[k] = String(v); };
+  set("with_companies", f.withCompanies); set("vote_count.gte", f.voteCountGte); set("with_genres", f.withGenres); set("without_genres", f.withoutGenres);
+  set("vote_average.gte", f.voteAverageGte); set("with_original_language", f.withOriginalLanguage);
+  set(tv ? "first_air_date.gte" : "primary_release_date.gte", f.releaseDateGte); set(tv ? "first_air_date.lte" : "primary_release_date.lte", f.releaseDateLte);
+  if (f.withWatchProviders) { set("watch_region", f.watchRegion || "US"); set("with_watch_providers", f.withWatchProviders); set("with_watch_monetization_types", "flatrate|free|ads|rent|buy"); }
+  const d = await tmdb(env, `/discover/${tv ? "tv" : "movie"}`, p, lang);
+  const seen = new Set();
+  const metas = (d.results || []).map(toMeta).filter((m) => m && !seen.has(m.id) && seen.add(m.id));
+  return { metas, hasMore: (d.page || page) < (d.total_pages || page) && metas.length > 0 };
+}
+
 const MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
 const shortDate = (iso) => `${Number(iso.slice(8, 10))} ${MONTHS[Number(iso.slice(5, 7)) - 1]}`;
 /** Ce qu'il faut savoir des épisodes d'une série TMDB, pour episodeNote et betweenSeasons. */
@@ -964,7 +1000,7 @@ function catalogTrailers(trailers, vf) {
 
 const person = (p) => ({ name: p.name, character: p.character || p.job || undefined, photo: p.profile_path ? `${IMG}w185${p.profile_path}` : undefined, tmdbId: p.id });
 
-async function meta(env, kind, id, cfg, today, ctx) {
+async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
   const tmdbId = await tmdbIdOf(env, kind, id);
   if (!tmdbId) return null;
   const lang = langOf(cfg);
@@ -1050,7 +1086,9 @@ async function meta(env, kind, id, cfg, today, ctx) {
   // « pour qui » et saison commandée n'ont besoin que de la fiche TMDB ; le rappel part dès que la
   // saga ou les épisodes sont connus. L'attente maximale compte à partir d'ici.
   // Sans clé Gemini, « pour qui » et le rappel sont seulement relus dans le cache (écrits pour un autre).
-  const ai = !!env.GEMINI_API_KEY;
+  // Fiche « légère » (survol dans l'aperçu du site) : sans les lignes écrites par Gemini, pour ne pas
+  // dépenser le quota à chaque affiche survolée.
+  const ai = !!env.GEMINI_API_KEY && !opts.leger;
   const aiWait = new Promise((res) => setTimeout(() => res("attente"), FICHE_AI_WAIT_MS));
   const ask = (job) => (job ? Promise.race([job, aiWait]) : null);
   const profileJob = ask(aiProfile(env, ctx, `${movie ? "movie" : "tv"}-${d.id}`, profilePrompt(d, movie, keywords, cert)));
@@ -1436,7 +1474,7 @@ function json(data, maxAge) {
   });
 }
 
-const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch"]);
+const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier"]);
 
 async function loadCollections() {
   const res = await fetch(`${ASSETS}/collections/collections.json`, { cf: { cacheTtl: 600, cacheEverything: true } });
@@ -1599,16 +1637,30 @@ export default {
     }
     // IA : clé du lien de l'utilisateur (les /debug au-dessus gardent celle de l'instance).
     env = aiEnv(env, cfg);
+    // Une tuile de collection ouverte dans l'aperçu du site : /dossier/<collection>/<tuile>/<n° de source>.json?page=1
+    // (mêmes filtres que le collections.json de ce lien : pays, genres exclus, note…).
+    const dm = path.match(/^\/dossier\/([\w-]{1,60})\/([\w-]{1,60})\/(\d{1,2})\.json$/);
+    if (dm) {
+      const page = Math.min(Math.max(parseInt(url.searchParams.get("page"), 10) || 1, 1), 20);
+      const col = (await collections(cfg)).find((c) => c.id === dm[1]);
+      const folder = col && col.folders.find((f) => f.id === dm[2]);
+      const src = folder && (folder.sources || [])[Number(dm[3])];
+      if (!src || src.provider !== "tmdb") return json({ metas: [], hasMore: false, error: "introuvable" }, 600);
+      return json(await dossierSource(env, src, langOf(cfg), page), 6 * 3600);
+    }
     const tm = path.match(/^\/trailer\/(movie|series)\/([^/]+)\.json$/);
     if (tm) return json(await trailer(env, tm[1], decodeURIComponent(tm[2])), 7 * 86400);
 
     const mm = path.match(/^\/meta\/(movie|series)\/([^/]+)\.json$/);
     if (mm) {
-      const metaKey = new Request(`https://cache.local/${VERSION}/${today}/meta/${mm[1]}/${mm[2]}?l=${langOf(cfg)}&g=${cfg.g}&ai=${env.GEMINI_API_KEY ? 1 : 0}`);
-      const hitMeta = await caches.default.match(metaKey);
+      const fullKey = `https://cache.local/${VERSION}/${today}/meta/${mm[1]}/${mm[2]}?l=${langOf(cfg)}&g=${cfg.g}&ai=${env.GEMINI_API_KEY ? 1 : 0}`;
+      // ?leger=1 : l'aperçu du site au survol. La fiche complète si elle est déjà prête, sinon une fiche sans IA.
+      const leger = url.searchParams.get("leger") === "1";
+      const metaKey = new Request(leger ? `${fullKey}&leger=1` : fullKey);
+      const hitMeta = (leger && await caches.default.match(new Request(fullKey))) || await caches.default.match(metaKey);
       if (hitMeta) return new Response(hitMeta.body, { headers: { ...HEADERS, "Cache-Control": `public, max-age=${CACHE_META_CLIENT_S}` } });
       let found = null;
-      try { found = await meta(env, mm[1], decodeURIComponent(mm[2]), cfg, today, ctx); } catch (e) { return json({ meta: null, error: String(e) }, 60); }
+      try { found = await meta(env, mm[1], decodeURIComponent(mm[2]), cfg, today, ctx, { leger }); } catch (e) { return json({ meta: null, error: String(e) }, 60); }
       if (!found) return json({ meta: null }, 600);
       // Rappel encore en préparation : fiche pas gardée, pour l'avoir à la prochaine ouverture.
       const { _partial, ...metaOut } = found;

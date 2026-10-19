@@ -195,6 +195,24 @@ export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cram
 .nvo-item:hover .nvo-carte::after, .nvo-item:focus-visible .nvo-carte::after { opacity: 1; }
 .nvo-item b { display: block; margin-top: .833cqw; font: 500 1.667cqw/2.5cqw Inter, sans-serif; letter-spacing: .016cqw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nvo-item small { display: block; margin-top: .208cqw; font: 500 1.25cqw/1.667cqw Inter, sans-serif; letter-spacing: .052cqw; color: #B3B3B3; }
+/* Tuile ouverte : vignette 64 × 36 dp, titre, onglets (le sélectionné en pastille blanche), grille de 6 colonnes */
+.nvo-dossier { padding-top: 2.5cqw; }
+.nvo-dossier header { display: flex; align-items: center; gap: 1.25cqw; padding: .833cqw 5cqw; }
+.nvo-dossier header img { flex: none; width: 6.667cqw; height: 3.75cqw; border-radius: .833cqw; object-fit: fill; }
+.nvo-dossier h3 { flex: none; max-width: 31.25cqw; margin: 0; font: 600 2.5cqw/3.333cqw Inter, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nvo-dossier .ongs { flex: 1; display: flex; gap: .417cqw; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.nvo-dossier .ongs::-webkit-scrollbar { display: none; }
+.nvo-dossier .ongs button { flex: none; }
+.nvo-dossier .ongs button { padding: .833cqw 1.667cqw; border: 0; border-radius: 99px; background: transparent; color: #B3B3B3; cursor: pointer; outline: none; font: 500 1.458cqw/2.083cqw Inter, sans-serif; white-space: nowrap; }
+.nvo-dossier .ongs button[aria-selected="true"] { background: #fff; color: #0D0D0D; }
+.nvo-dossier .ongs button:focus-visible { box-shadow: 0 0 0 .208cqw #FF5252; }
+.nvo-dossier .grille { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1.667cqw; padding: 1.667cqw 5cqw 5cqw; }
+.nvo.paysage .nvo-dossier .grille { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.nvo-dossier .nvo-item { width: auto; }
+.nvo-dossier .nvo-item .nvo-carte { width: 100%; height: 19.6875cqw; }
+.nvo.paysage .nvo-dossier .nvo-item .nvo-carte { height: auto; aspect-ratio: 16 / 9; }
+.nvo-dossier .vide { grid-column: 1 / -1; margin: 4cqw 0; text-align: center; color: #B3B3B3; font-size: max(1.458cqw, 11px); }
+.nvo-dossier .fin { display: block; height: 1px; }
 .nvo-biblio { padding: 2.5cqw 5cqw 3.333cqw; }
 .nvo-biblio header { display: flex; justify-content: space-between; align-items: baseline; }
 .nvo-biblio h3 { margin: 0; font: 600 2.5cqw/3.333cqw Inter, sans-serif; }
@@ -250,9 +268,11 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
 
   // ---------- Données de l'addon (fiches, bandes-annonces), gardées en mémoire ----------
   const caches = { meta: new Map(), ba: new Map() };
-  const fiche = (m) => {
+  // leger : la fiche sans les lignes écrites par Gemini (survol du haut de l'accueil), pour ne pas dépenser
+  // le quota de l'IA à chaque affiche survolée. La fiche ouverte, elle, est complète.
+  const fiche = (m, leger) => {
     if (!m || !m.id) return Promise.resolve(null);
-    const u = NV_ORIG + "/meta/" + (m.type === "series" ? "series" : "movie") + "/" + encodeURIComponent(m.id) + ".json";
+    const u = NV_ORIG + "/meta/" + (m.type === "series" ? "series" : "movie") + "/" + encodeURIComponent(m.id) + ".json" + (leger ? "?leger=1" : "");
     if (!caches.meta.has(u)) caches.meta.set(u, fetch(u).then((r) => r.ok ? r.json() : {}).then((d) => (d && d.meta) || null).catch(() => null));
     return caches.meta.get(u);
   };
@@ -358,7 +378,7 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
       // (durée, statut, langue), et cache le texte le temps de la recevoir.
       info.classList.add("attente");
       const tard = setTimeout(() => { if (n === jeton) { ecrireInfos(m); info.classList.remove("attente"); } }, 2500);
-      fiche(m).then((f) => {
+      fiche(m, true).then((f) => {
         clearTimeout(tard); if (n !== jeton) return;
         const plein = f ? { ...m, ...f, type: m.type, id: m.id } : m;
         if (f && f.background) fond(imgW(f.background, "w1280"));
@@ -426,9 +446,9 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
     }));
     return lueurs.get(src);
   };
-  const tuile = (f, nomCollection) => {
+  const tuile = (f, nomCollection, idCollection) => {
     const t = mkd("button", "nvo-tuile"); t.type = "button"; t.tabIndex = -1; t.setAttribute("aria-label", f.title || "");
-    t._f = f; t._coll = nomCollection;
+    t._f = f; t._coll = nomCollection; t._collId = idCollection;
     if (f.coverImageUrl) {
       const im = new Image(); im.onload = () => { t.style.backgroundImage = cssUrl(f.coverImageUrl); }; im.src = f.coverImageUrl;
       lueur(f.coverImageUrl).then((c) => { if (c) t.style.setProperty("--lueur", c); });
@@ -762,6 +782,46 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
     b.addEventListener("click", () => ouvrir(m));
     return b;
   };
+  // ---------- Une tuile de collection ouverte (FolderDetailScreen, vue « TABBED_GRID ») ----------
+  // En haut : la vignette, le titre et un onglet par source (sélectionné au survol, comme au focus de la télécommande).
+  // Dessous : la grille d'affiches de l'onglet, page après page. base = l'adresse de l'addon avec les réglages du lien.
+  const dossier = (vue, t, base, ouvrir) => {
+    const f = t._f; vue.textContent = ""; vue.className = "nvo-vue nvo-dossier";
+    const hd = mkd("header"), grille = mkd("div", "grille"), fin = mkd("i", "fin");
+    if (f.coverImageUrl) { const im = mkd("img"); im.alt = ""; im.src = f.coverImageUrl; hd.append(im); }
+    hd.append(mkd("h3", null, f.title || ""));
+    const ongs = mkd("div", "ongs"); hd.append(ongs);
+    vue.append(hd, grille, fin);
+    const sources = (f.sources || []).map((src, i) => ({ src, i }));
+    let n = 0, page = 1, plus = false, charge = false, courant = -1;
+    const remplir = () => {
+      if (charge || courant < 0) return;
+      charge = true; const k = n, ici = courant;
+      const att = []; for (let j = 0; j < 6; j++) { const it = mkd("div", "nvo-item"); it.append(carte(null)); grille.append(it); att.push(it); }
+      fetch(base + "/dossier/" + encodeURIComponent(t._collId) + "/" + encodeURIComponent(f.id) + "/" + ici + ".json?page=" + page).then((r) => r.json()).then((d) => {
+        if (k !== n) return;
+        att.forEach((x) => x.remove());
+        ((d && d.metas) || []).forEach((m) => grille.append(item(m, ouvrir)));
+        plus = !!(d && d.hasMore); page++;
+        if (!grille.children.length) grille.append(mkd("p", "vide", "Rien à afficher pour le moment."));
+      }).catch(() => { if (k === n) { att.forEach((x) => x.remove()); grille.append(mkd("p", "vide", "Impossible de charger cet onglet pour le moment.")); } })
+        .finally(() => { if (k === n) charge = false; });
+    };
+    const choisis = (i) => {
+      if (i === courant) return;
+      courant = i; n++; page = 1; plus = false; charge = false; grille.textContent = ""; vue.scrollTop = 0;
+      ongs.querySelectorAll("button").forEach((b) => b.setAttribute("aria-selected", String(b._i === i)));
+      remplir();
+    };
+    if (sources.length > 1) sources.forEach(({ src, i }) => {
+      const b = mkd("button", null, src.title || "Onglet " + (i + 1)); b.type = "button"; b._i = i; b.setAttribute("role", "tab");
+      b.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") choisis(i); });
+      b.addEventListener("focus", () => choisis(i)); b.addEventListener("click", () => choisis(i));
+      ongs.append(b);
+    });
+    new IntersectionObserver((es) => { if (es[0].isIntersecting && plus) remplir(); }, { root: vue, rootMargin: "400px 0px" }).observe(fin);
+    if (sources.length) choisis(0); else grille.append(mkd("p", "vide", "Cette tuile n’a pas de catalogue."));
+  };
   // ---------- La bibliothèque ----------
   const bibliotheque = (vue, ouvrir) => {
     vue.textContent = ""; vue.className = "nvo-vue nvo-biblio";
@@ -777,15 +837,16 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
 
   // ---------- L'écran complet : accueil, recherche, bibliothèque, fiche, barre latérale ----------
   // ecran(hote) crée .nvo dans hote. L'appelant remplit l'accueil avec rangee() puis appelle pret().
-  const ecran = (hote) => {
+  const ecran = (hote, opts = {}) => {
     const el = mkd("div", "nvo"), h = hero(), rangees = mkd("div", "nvo-rangees"), bord = mkd("div", "nvo-bord");
     el.append(h.el, rangees, bord); hote.append(el);
     let vue = "accueil", vueEl = null;
     const ouvrir = (m) => ouvreFiche(el, m);
-    const aller = (v) => {
+    const aller = (v, tuileOuverte) => {
       if (vueEl) { vueEl.remove(); vueEl = null; }
       vue = v; h.stopVideo();
       if (v === "recherche" || v === "biblio") { vueEl = mkd("div"); el.append(vueEl); (v === "recherche" ? recherche : bibliotheque)(vueEl, ouvrir); }
+      else if (v === "dossier") { vueEl = mkd("div"); el.append(vueEl); dossier(vueEl, tuileOuverte, opts.base ? opts.base() : NV_ORIG, ouvrir); }
       else { const c = p.sel; if (c) c.focus({ preventScroll: true }); }
       if (window.sfx) sfx.click();
     };
@@ -795,7 +856,7 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
     el.addEventListener("click", (e) => {
       const c = e.target.closest(".nvo-rangees .nvo-carte, .nvo-rangees .nvo-tuile"); if (!c || vientDeGlisser()) return;
       if (c._m) ouvrir(c._m);
-      else if (c._f && window.toast) toast("Dans Nuvio, la tuile « " + c._f.title + " » ouvre ses catalogues en plein écran.");
+      else if (c._f && c._collId) aller("dossier", c);
     });
     // Le bouton « Retour » de la télécommande
     const retour = () => {

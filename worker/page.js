@@ -869,7 +869,7 @@ function zap(sc) {
   const now = Date.now(); if (now - lastZap < 450) return; lastZap = now;
   sc.classList.remove("zap"); void sc.offsetWidth; sc.classList.add("zap");
 }
-const E = NV.ecran($("screen"));
+const E = NV.ecran($("screen"), { base: () => currentBase });
 E.paysage(NV.reglages.format === "l"); E.pp();
 // La lueur derrière la TV prend les couleurs du haut de l'écran.
 new MutationObserver(() => { const i = E.hero.el.querySelector(".nvo-bd > i.on:last-of-type") || E.hero.el.querySelector(".nvo-bd > i:last-of-type"); if (i && i.style.backgroundImage) $("glow").style.backgroundImage = i.style.backgroundImage; })
@@ -885,7 +885,7 @@ function renderScreen() {
     E.vider();
     const collections = Array.isArray(colls) ? colls : ((colls && colls.collections) || []);
     const accueil = ((man && man.catalogs) || []).filter((c) => c.showInHome !== false && !(c.extra || []).some((x) => x.isRequired));
-    const rangeeTuiles = (c) => { const { piste } = E.rangee(c.title); (c.folders || []).forEach((f) => piste.append(NV.tuile(f, c.title))); };
+    const rangeeTuiles = (c) => { const { piste } = E.rangee(c.title); (c.folders || []).forEach((f) => piste.append(NV.tuile(f, c.title, c.id))); };
     collections.filter((c) => c.pinToTop).forEach(rangeeTuiles);
     const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { io.unobserve(e.target); e.target._charge(); } }), { root: E.rangees, rootMargin: "300px 0px" });
     accueil.forEach((c) => {

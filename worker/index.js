@@ -32,7 +32,7 @@ import { imdbRating } from "./ratings.js";
 import { looksDescriptive, aiTitles, resolveTitles, aiRecap, aiProfile, aiRenewal, AI_WAIT_MS } from "./ai.js";
 
 const ADDON_ID = "com.xnzx07.catalogue-fr";
-const VERSION = "5.21.1";
+const VERSION = "5.21.2";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -606,7 +606,7 @@ async function fetchUpcomingPage(env, ctx, kind, page, today, opts) {
 }
 
 /**
- * Rangées « Dispo cette semaine » / « Bientôt dispo » : films dont la PREMIÈRE sortie
+ * Rangées « Dispo depuis peu » / « Bientôt dispo » : films dont la PREMIÈRE sortie
  * numérique (tous pays) tombe dans la fenêtre. Pour « Bientôt », on ajoute les films
  * encore sans date annoncée dont l'estimation (salle + 45 jours) tombe dans la fenêtre.
  */
@@ -637,7 +637,7 @@ async function fetchVfPage(env, ctx, def, kind, page, today, opts) {
   const when = (m) => m._digital || (future ? m._guess : "");
   return metas
     .filter((m) => when(m) && when(m) >= from && when(m) <= to)
-    .filter((m) => future || m._vf)   // « Dispo cette semaine » : seulement ceux qui ont sûrement une VF
+    .filter((m) => future || m._vf)   // « Dispo depuis peu » : seulement ceux qui ont sûrement une VF
     .sort((a, b) => (future ? (when(a) < when(b) ? -1 : 1) : (when(a) > when(b) ? -1 : 1)))
     .map(({ _digital, _guess, _vf, ...m }) => m);
 }

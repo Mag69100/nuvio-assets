@@ -1857,7 +1857,7 @@
   {
    "id": "accueil-vod-semaine",
    "type": "movie",
-   "name": "Dispo depuis cette semaine",
+   "name": "Dispo depuis peu",
    "defaultHome": true,
    "homeRank": 65,
    "digital": [

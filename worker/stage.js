@@ -1181,8 +1181,9 @@ export const STAGE_JS = String.raw`
         const key = d && /^[A-Za-z0-9_-]{6,20}$/.test(d.key || "") ? d.key : null;
         if (!key) { ba.textContent = "Pas de bande-annonce"; return; }
         const f = document.createElement("iframe");
-        f.src = "https://www.youtube-nocookie.com/embed/" + key + "?autoplay=1&playsinline=1&rel=0&modestbranding=1";
-        f.title = "Bande-annonce"; f.allow = "autoplay; encrypted-media; picture-in-picture"; f.allowFullscreen = true;
+        // Lecteur YouTube normal : youtube-nocookie demande souvent de se connecter (« pas un robot »).
+        f.src = "https://www.youtube.com/embed/" + key + "?autoplay=1&playsinline=1&rel=0&modestbranding=1&origin=" + encodeURIComponent(location.origin);
+        f.title = "Bande-annonce"; f.allow = "autoplay; encrypted-media; picture-in-picture"; f.allowFullscreen = true; f.referrerPolicy = "strict-origin-when-cross-origin";
         ecran.classList.add("video"); ecran.append(f); ba.textContent = "▶ En cours";
       }).catch(() => { ba.textContent = "Pas de bande-annonce"; });
     });

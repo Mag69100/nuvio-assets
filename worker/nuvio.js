@@ -11,7 +11,8 @@ export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cram
 .nvo { position: absolute; inset: 0; overflow: hidden; background: #0D0D0D; color: #fff; font-family: Inter, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 .nvo button { font-family: inherit; }
 /* Le haut de l'accueil : il montre l'affiche sélectionnée (pas de carrousel, pas de bouton). */
-.nvo-hero { position: absolute; left: 0; right: 0; top: 0; height: 30.958cqw; pointer-events: none; }
+/* z-index 0 : le haut forme sa propre couche, ses dégradés (z-index 2) restent sous les rangées qui défilent. */
+.nvo-hero { position: absolute; z-index: 0; left: 0; right: 0; top: 0; height: 30.958cqw; pointer-events: none; }
 .nvo.paysage .nvo-hero { height: 32.646cqw; }
 .nvo-bd { position: absolute; top: 0; bottom: 0; left: 33.833cqw; width: 72cqw; overflow: hidden; }
 .nvo-bd > i { position: absolute; inset: 0; background: center / cover no-repeat; background-position: right top; opacity: 0; transition: opacity .4s ease; }
@@ -40,7 +41,7 @@ export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cram
 /* Les rangées : une rangée pleine à la fois, qui s'arrête sous le haut de l'écran. */
 /* Les rangées restent toujours alignées comme sur la TV (une rangée pleine sous le haut de l'écran) : la molette
    et le pavé tactile avancent d'une rangée à la fois, comme la télécommande (voir pilote). */
-.nvo-rangees { position: absolute; left: 0; right: 0; top: 27cqw; bottom: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; scroll-snap-type: y mandatory; overscroll-behavior: contain; padding-bottom: 29.25cqw; }
+.nvo-rangees { position: absolute; z-index: 1; left: 0; right: 0; top: 27cqw; bottom: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; scroll-snap-type: y mandatory; overscroll-behavior: contain; padding-bottom: 29.25cqw; }
 .nvo.paysage .nvo-rangees { top: 28.6875cqw; padding-bottom: 27.5625cqw; }
 .nvo-rangees::-webkit-scrollbar { display: none; }
 .nvo-rangee { scroll-snap-align: start; margin-bottom: 2.5cqw; }
@@ -261,11 +262,30 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
     if (!caches.ba.has(u)) caches.ba.set(u, fetch(u).then((r) => r.ok ? r.json() : {}).then((d) => (d && /^[A-Za-z0-9_-]{6,20}$/.test(d.key || "")) ? d.key : null).catch(() => null));
     return caches.ba.get(u);
   };
+  // Lecteur YouTube normal (pas youtube-nocookie : sans la session Google, YouTube y demande souvent
+  // « Connectez-vous pour confirmer que vous n'êtes pas un robot »), avec l'adresse du site (origin, referrer).
   const youtube = (key, muet) => {
     const f = document.createElement("iframe");
-    f.src = "https://www.youtube-nocookie.com/embed/" + key + "?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3" + (muet ? "&mute=1&controls=0&loop=1&disablekb=1&playlist=" + key : "");
-    f.title = "Bande-annonce"; f.allow = "autoplay; encrypted-media; picture-in-picture"; f.allowFullscreen = true; if (muet) f.tabIndex = -1;
+    f.src = "https://www.youtube.com/embed/" + key + "?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1&origin=" + encodeURIComponent(location.origin) + (muet ? "&mute=1&controls=0&loop=1&disablekb=1&playlist=" + key : "");
+    f.title = "Bande-annonce"; f.allow = "autoplay; encrypted-media; picture-in-picture"; f.allowFullscreen = true; f.referrerPolicy = "strict-origin-when-cross-origin"; if (muet) f.tabIndex = -1;
     return f;
+  };
+  // quandJoue(iframe, ok) : ok() quand YouTube dit que la vidéo joue vraiment (état 1). Bloquée (robot,
+  // vidéo privée…), elle ne joue jamais : on ne montre alors pas l'écran d'erreur de YouTube.
+  const quandJoue = (f, ok) => {
+    const id = "nvo" + Math.random().toString(36).slice(2);
+    const ecoute = (e) => {
+      if (e.source !== f.contentWindow || typeof e.data !== "string") return;
+      let d; try { d = JSON.parse(e.data); } catch (err) { return; }
+      const etat = d.event === "onStateChange" ? d.info : d.event === "infoDelivery" && d.info ? d.info.playerState : null;
+      if (etat === 1) { removeEventListener("message", ecoute); ok(); }
+    };
+    addEventListener("message", ecoute);
+    const parle = () => { if (!f.isConnected) { removeEventListener("message", ecoute); return; } try {
+      f.contentWindow.postMessage(JSON.stringify({ event: "listening", id, channel: "widget" }), "*");
+      f.contentWindow.postMessage(JSON.stringify({ event: "command", func: "addEventListener", args: ["onStateChange"], id, channel: "widget" }), "*");
+    } catch (err) {} };
+    f.addEventListener("load", () => { parle(); setTimeout(parle, 600); setTimeout(parle, 1500); setTimeout(parle, 3000); });
   };
 
   // ---------- Textes comme Nuvio les écrit ----------
@@ -352,8 +372,8 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
       if (!m || m.dossier || calme() || tactile) return;
       baT = setTimeout(() => baCle(m).then((key) => {
         if (!key || courant !== m || !el.isConnected) return;
-        const v = mkd("div", "nvo-video"); v.append(youtube(key, true)); bd.append(v);
-        v.querySelector("iframe").addEventListener("load", () => setTimeout(() => v.classList.add("on"), 900));
+        const v = mkd("div", "nvo-video"), fr = youtube(key, true); v.append(fr); bd.append(v);
+        quandJoue(fr, () => setTimeout(() => v.classList.add("on"), 400));
       }), 3000);
     };
     return { el, montre, bandeAnnonce, stopVideo, get courant() { return courant; } };
@@ -582,12 +602,27 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
     f.append(fd, fh, bas); ecran.append(f);
     let baT = 0, m = m0;
     const finBA = () => { clearTimeout(baT); f.classList.remove("ba"); f.querySelectorAll(".fv, .astuce").forEach((x) => x.remove()); };
+    // Bande-annonce en plein écran. Toute seule (muet) : rien ne change tant qu'elle ne joue pas vraiment.
+    // Demandée (bouton) : tout de suite, avec un lien vers YouTube si elle n'a pas démarré au bout de 5 s.
+    const joueBA = (key, muet) => {
+      finBA(); f.scrollTo({ top: 0 });
+      const v = mkd("div", "fv"), fr = youtube(key, muet); v.append(fr);
+      const astuce = mkd("p", "astuce", "Appuyez sur « Retour » pour quitter la bande-annonce");
+      let joue = false;
+      const montre = () => { if (!v.isConnected) return; v.style.opacity = ""; f.classList.add("ba"); if (!astuce.isConnected) fh.append(astuce); };
+      quandJoue(fr, () => { joue = true; montre(); });
+      if (muet) v.style.opacity = "0"; else montre();
+      f.insertBefore(v, fh);
+      if (!muet) setTimeout(() => {
+        if (joue || !v.isConnected) return;
+        const a = mkd("a", null, "Elle ne démarre pas ? Regarder sur YouTube"); a.href = "https://www.youtube.com/watch?v=" + key; a.target = "_blank"; a.rel = "noopener";
+        a.style.cssText = "color:#fff;text-decoration:underline;margin-left:1.25cqw"; astuce.append(a);
+      }, 5000);
+    };
     const lanceBA = (muet) => {
       baCle(m).then((key) => {
         if (!key || !f.isConnected) { if (!muet) { bBA.disabled = true; bBA.title = "Pas de bande-annonce"; } return; }
-        finBA(); f.scrollTo({ top: 0 });
-        const v = mkd("div", "fv"); v.append(youtube(key, muet)); f.insertBefore(v, fh);
-        f.classList.add("ba"); fh.append(mkd("p", "astuce", "Appuyez sur « Retour » pour quitter la bande-annonce"));
+        joueBA(key, muet);
       });
     };
     const dessine = () => {
@@ -662,7 +697,7 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
       const bas2 = (m.trailers || []).filter((t) => t.ytId || t.source);
       if (bas2.length) ongs.push(["Bande-annonce", () => {
         const l = mkd("div", "ligne");
-        bas2.slice(0, 6).forEach((t) => { const k = t.ytId || t.source, b = mkd("button", "vid"), i = mkd("i"); b.type = "button"; i.style.backgroundImage = cssUrl("https://i.ytimg.com/vi/" + k + "/hqdefault.jpg"); b.append(i, t.name || "Bande-annonce"); b.addEventListener("click", () => { finBA(); f.scrollTo({ top: 0 }); const v = mkd("div", "fv"); v.append(youtube(k, false)); f.insertBefore(v, fh); f.classList.add("ba"); fh.append(mkd("p", "astuce", "Appuyez sur « Retour » pour quitter la bande-annonce")); }); l.append(b); });
+        bas2.slice(0, 6).forEach((t) => { const k = t.ytId || t.source, b = mkd("button", "vid"), i = mkd("i"); b.type = "button"; i.style.backgroundImage = cssUrl("https://i.ytimg.com/vi/" + k + "/hqdefault.jpg"); b.append(i, t.name || "Bande-annonce"); b.addEventListener("click", () => joueBA(k, false)); l.append(b); });
         return l;
       }]);
       ongs.forEach(([nom, rend], i) => {
@@ -677,7 +712,7 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
     dessine();
     // « Préférer les métadonnées de l'addon externe » : la fiche est celle de l'addon (résumé, distribution, épisodes).
     fiche(m0).then((x) => { if (x && f.isConnected) { m = { ...m0, ...x, id: m0.id, type: m0.type }; finBA(); dessine(); auto(); } });
-    const auto = () => { clearTimeout(baT); if (tactile || calme()) return; baT = setTimeout(() => { if (f.isConnected && !f.classList.contains("ba") && fh.querySelector(".lire.focus")) lanceBA(true); }, 5000); };
+    const auto = () => { clearTimeout(baT); if (tactile || calme()) return; baT = setTimeout(() => { if (f.isConnected && !f.classList.contains("ba") && !f.querySelector(".fv") && fh.querySelector(".lire.focus")) lanceBA(true); }, 5000); };
     auto();
     f.addEventListener("scroll", () => f.classList.toggle("loin", f.scrollTop > 200 * ecran.clientWidth / 1920));
     f.addEventListener("click", (e) => { if (f.classList.contains("ba") && !e.target.closest(".fb")) finBA(); });

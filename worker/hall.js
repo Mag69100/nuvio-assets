@@ -107,6 +107,9 @@ a { color: var(--bulb); }
 .cadre.vide { animation: attente 1.4s ease-in-out infinite; }
 @keyframes attente { 50% { opacity: .55; } }
 footer { text-align: center; }
+.propre-salle { justify-self: center; margin-top: -8px; text-align: center; color: var(--dim); font-size: .95rem; }
+.propre-salle a { color: inherit; font-weight: 800; text-underline-offset: 3px; }
+.propre-salle a:hover { color: var(--cream, #f5ead8); }
 @media (max-width: 760px) {
   .portes { grid-template-columns: 1fr; }
   .affiches { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -132,7 +135,8 @@ ${stageTop({ here: "hall", origin })}
     ${porte(1, origin + "/guide", "Je n'ai pas encore Nuvio", "Le guide de A à Z : on installe tout, dans l'ordre, sur TV, téléphone ou ordinateur. Environ 25 minutes.")}
     ${porte(2, origin + "/configure", "J'ai déjà Nuvio", "Compose ton accueil : rangées, plateformes, filtres et collections, avec un aperçu en direct.", " data-programmation")}
   </nav>
-
+${copy ? "" : `  <p class="propre-salle">Tu veux ta propre salle, avec tes clés et ton quota ? <a href="${origin}/copie">Monte-la</a></p>
+`}
   <button type="button" class="apercu-lien" data-resultat>${ICONE_APERCU}Voir l'accueil que tu auras à la fin</button>
 
   <section class="mur" aria-labelledby="a-laffiche">

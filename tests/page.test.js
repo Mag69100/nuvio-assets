@@ -78,3 +78,9 @@ test("navigation_ignore_les_sections_masquees", () => {
   assert.match(html, /const visible = \(sec\) => sec && sec\.getClientRects\(\)\.length > 0;/);
   assert.match(html, /if \(visible\(sec\) && sec\.getBoundingClientRect\(\)\.top <= line\) cur = i;/);
 });
+
+// Salle 2, section IA : sur la source, une ligne mène à la page « Monte ta propre salle ».
+test("salle_2_mene_a_la_page_copie_seulement_sur_la_source", () => {
+  assert.ok(page(false).includes('href="https://x/copie"'));
+  assert.ok(!page(true).includes('/copie"'));
+});

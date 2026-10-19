@@ -256,3 +256,10 @@ test("etat_a_jour", async () => {
 test("wikipedia_sans_l_adresse_perso", () => {
   assert.doesNotMatch(readFileSync("worker/index.js", "utf8"), /User-Agent": "CatalogueFR[^"]*xnzxflix/);
 });
+
+test("route_copie", async () => {
+  const res = await at("https://nuvio-assets.xnzxflix.workers.dev/copie");
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("Content-Type"), /text\/html/);
+  assert.match(await res.text(), /docker compose up -d/);
+});

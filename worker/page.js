@@ -657,7 +657,8 @@ ${NUVIO_CSS}
           <small id="ai-key-hint" aria-live="polite"></small>
         </div>
         <p class="sub">Ta clé est rangée dans ton lien d'installation : ne partage pas ce lien. Sans clé, tu profites quand même des réponses déjà écrites pour les autres.</p>
-      </section>
+${copy ? "" : `        <p class="sub">Le lien partagé sature ? <a href="${origin}/copie">Monte ta propre copie</a> : la même chose, avec tes clés et ton quota.</p>
+`}      </section>
 
       <section class="act" id="s-decouvrir">
         <header><span>Coulisses</span><h2>Les catalogues de Découvrir</h2></header>

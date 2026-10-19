@@ -31,9 +31,9 @@ import { lienPage } from "./lien.js";
 import { hallPage } from "./hall.js";
 import { smartSearch, prepareWords, isExact, norm } from "./search.js";
 import { imdbRating } from "./ratings.js";
+import { isCopy, addonId } from "./hote.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const ADDON_ID = "com.xnzx07.catalogue-fr";
 const VERSION = "5.22.3";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
@@ -173,7 +173,7 @@ function homeDefs(today, cfg) {
 /** Taille d'une page : 20, ou 40 pour une rangée qui mélange films et séries (20 + 20). */
 const pageSizeOf = (def) => (def.mix ? PAGE * def.mix.length : PAGE);
 
-function manifest(today, cfg, cfgSeg) {
+function manifest(today, cfg, cfgSeg, url) {
   const paging = { name: "skip" };
   const discover = DEFS.discover.filter((d) => cfg.d.includes(d.id)).map((d) => {
     const labels = d.options.map((o) => o.label);
@@ -189,7 +189,7 @@ function manifest(today, cfg, cfgSeg) {
     pageSize: pageSizeOf(d), extra: [paging], extraSupported: ["skip"],
   }));
   return {
-    id: ADDON_ID,
+    id: addonId(url),
     version: VERSION,
     name: cfg.n,
     description: "Rangées d'accueil, Découvrir et saison en cours, en français, en direct depuis TMDB.",
@@ -1474,7 +1474,7 @@ function json(data, maxAge) {
   });
 }
 
-const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier"]);
+const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote"]);
 
 async function loadCollections() {
   const res = await fetch(`${ASSETS}/collections/collections.json`, { cf: { cacheTtl: 600, cacheEverything: true } });
@@ -1555,6 +1555,10 @@ export default {
     if (first && !RESERVED.has(first)) { cfgSeg = first; path = path.slice(first.length + 1); }
     const cfg = decodeConfig(cfgSeg, rows, DEFS.discover);
     if (!cfg) return json({ error: "Configuration illisible : refais ton lien sur la page de personnalisation." }, 60);
+    // Espace hébergeur des copies (/hote/…) : n'existe pas sur l'instance principale.
+    if (path === "/hote" || path.startsWith("/hote/")) {
+      return new Response(JSON.stringify({ error: "introuvable" }), { status: 404, headers: { ...HEADERS, "Cache-Control": "no-store" } });
+    }
 
     // La racine ouvre la salle 1 (le guide) ; la programmation (salle 2) est sur /configure,
     // et aussi sur /<config>/ pour les anciens liens personnalisés.
@@ -1576,7 +1580,7 @@ export default {
     if (path === "/guide") return html(guidePage({ origin: url.origin, season: decorSaison(url, today) }));
     if (path === "/lien") return html(lienPage({ origin: url.origin }));   // ouvert par les QR codes du guide
     if (path === "/tv") return Response.redirect(NUVIO_TV_APK, 302);   // adresse courte pour Downloader : télécharge l'APK
-    if (path === "/manifest.json") return json(manifest(today, cfg, cfgSeg), CACHE_CLIENT_S);
+    if (path === "/manifest.json") return json(manifest(today, cfg, cfgSeg, url), CACHE_CLIENT_S);
     if (path === "/collections.json") return json(await collections(cfg), CACHE_CLIENT_S);
     if (path === "/logo.png") {   // le logo servi par le site, sans l'adresse du dépôt dans les pages
       const r = await fetch(`${ASSETS}/logo/addon.png`, { cf: { cacheTtl: 86400, cacheEverything: true } });

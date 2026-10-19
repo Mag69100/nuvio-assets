@@ -42,3 +42,20 @@ test("debug_ouvert_avec_la_cle_de_l_instance", async () => {
   assert.equal(res.status, 200);
   assert.ok(Array.isArray((await res.json()).final));
 });
+
+const at = (url, init) => worker.fetch(new Request(url, init), env, ctx);
+
+test("manifeste_source", async () => {
+  const m = await (await at("https://nuvio-assets.xnzxflix.workers.dev/manifest.json")).json();
+  assert.equal(m.id, "com.xnzx07.catalogue-fr");
+});
+
+test("manifeste_copie", async () => {
+  const m = await (await at("https://catalogue.exemple.fr/manifest.json")).json();
+  assert.equal(m.id, "com.xnzx07.catalogue-fr.perso");
+});
+
+test("hote_absent_sur_la_source", async () => {
+  const res = await at("https://nuvio-assets.xnzxflix.workers.dev/hote/etat");
+  assert.equal(res.status, 404);
+});

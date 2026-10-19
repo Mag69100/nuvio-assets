@@ -93,7 +93,7 @@ function hoteBanner(maj) {
   }
   b.append(el("div", { class: "hote-ligne" },
     el("button", { type: "button", class: "hote-btn", text: "Mettre à jour", onclick: () => { how.hidden = false; } }),
-    el("button", { type: "button", class: "hote-btn line", text: "Plus tard", onclick: async () => { await hoteCall("/hote/plus-tard", {}); hote.maj = null; hoteRender(); } })), how);
+    el("button", { type: "button", class: "hote-btn line", text: "Plus tard", onclick: async () => { await hoteCall("/hote/plus-tard", { palier: maj.version.split(".").slice(0, 2).join(".") }); hote.maj = null; hoteRender(); } })), how);
   return b;
 }
 hoteRefresh();

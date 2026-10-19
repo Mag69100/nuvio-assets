@@ -20,7 +20,11 @@ const REPO = "xnzx07/nuvio-assets";
 const RAW_INDEX = `https://raw.githubusercontent.com/${REPO}/main/worker/index.js`;
 const COMMITS_API = `https://api.github.com/repos/${REPO}/commits?per_page=100`;
 export const HISTORY = `https://github.com/${REPO}/commits/main`;
-const GITHUB = { headers: { "User-Agent": "CatalogueFR" }, cf: { cacheTtl: 6 * 3600, cacheEverything: true } };
+// Gardé 6 h ; une erreur de GitHub (limite d'appels, panne) n'est pas gardée ; 5 s au plus.
+const github = () => ({
+  headers: { "User-Agent": "CatalogueFR" }, signal: AbortSignal.timeout(5000),
+  cf: { cacheEverything: true, cacheTtlByStatus: { "200-299": 6 * 3600, "400-599": 0 } },
+});
 
 const parts = (v) => String(v).split(".").map(Number);
 /** Palier d'une version (« 5.22.3 » → « 5.22 ») : on ne propose pas chaque petite correction. */
@@ -53,11 +57,11 @@ export function notesBetween(commits, current, latest) {
  */
 export async function updateInfo(current) {
   try {
-    const res = await fetch(RAW_INDEX, GITHUB);
+    const res = await fetch(RAW_INDEX, github());
     if (!res.ok) return null;
     const m = /const VERSION = "(\d+\.\d+\.\d+)"/.exec(await res.text());
     if (!m || !isNewerStep(m[1], current)) return null;
-    const api = await fetch(COMMITS_API, GITHUB).catch(() => null);
+    const api = await fetch(COMMITS_API, github()).catch(() => null);
     const commits = api && api.ok ? await api.json().catch(() => []) : [];
     return { version: m[1], notes: notesBetween(commits, current, m[1]), history: HISTORY };
   } catch {
@@ -142,8 +146,13 @@ export async function hostRoute(request, env, url, path, current) {
   }
   if (path === "/hote/plus-tard" && request.method === "POST") {
     if (!(await isHost(request, env))) return reply({ error: "Réservé à l'hébergeur." }, 403);
-    const info = await updateInfo(current);
-    if (info) await dismiss(env, palier(info.version));
+    // Le palier affiché, envoyé par la page (sans redemander à GitHub, qui peut être injoignable).
+    const body = await request.json().catch(() => ({}));
+    if (typeof body.palier === "string" && /^\d+\.\d+$/.test(body.palier)) await dismiss(env, body.palier);
+    else {
+      const info = await updateInfo(current);
+      if (info) await dismiss(env, palier(info.version));
+    }
     return reply({ ok: true });
   }
   return reply({ error: "introuvable" }, 404);

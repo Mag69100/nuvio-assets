@@ -1665,7 +1665,7 @@ export default {
 
     const mm = path.match(/^\/meta\/(movie|series)\/([^/]+)\.json$/);
     // Fiche « Version X disponible » de la rangée « Mise à jour » (lien de l'hébergeur d'une copie).
-    if (mm && decodeURIComponent(mm[2]).startsWith("maj:")) {
+    if (mm && /^maj(:|%3A)/i.test(mm[2])) {
       const info = (await hasAlerts(env, url, cfg)) ? await updateInfo(VERSION) : null;
       return new Response(JSON.stringify({ meta: info ? updateCard(info, env, url.origin) : null }), { headers: { ...HEADERS, "Cache-Control": "no-store" } });
     }

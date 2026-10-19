@@ -15,5 +15,12 @@ fi
 if [ -z "${ADMIN_PASSWORD:-}" ]; then
   echo "ADMIN_PASSWORD absent : pas d'espace hébergeur, donc pas de proposition de mise à jour." >&2
 fi
+# Derrière Cloudflare Tunnel ou un reverse proxy en https : l'adresse publique, pour que les liens du
+# site et de l'addon soient en https://ton-domaine (sinon http://, bloqué par le navigateur).
+if [ -n "${ADRESSE_PUBLIQUE:-}" ]; then
+  host=$(printf '%s' "$ADRESSE_PUBLIQUE" | sed -e 's#^[A-Za-z]*://##' -e 's#/.*$##')
+  set -- "$@" --local-upstream "$host" --upstream-protocol https
+fi
 cd "$APP_DIR"
-exec wrangler dev --local --ip 0.0.0.0 --port 8787 --persist-to /data --show-interactive-dev-session=false "$@"
+# --log-level warn : pas une ligne par requête (les adresses contiennent les réglages, parfois une clé Gemini).
+exec wrangler dev --local --ip 0.0.0.0 --port 8787 --persist-to /data --show-interactive-dev-session=false --log-level warn "$@"

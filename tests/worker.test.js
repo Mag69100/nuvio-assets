@@ -183,3 +183,19 @@ test("fiche_mise_a_jour", async () => {
   assert.match(cf.meta.description, /https:\/\/github\.com\/moi\/nuvio-assets/);
   assert.match(cf.meta.description, /Sync fork/);
 });
+
+test("fiche_adresse_mal_formee", async () => {
+  const res = await at("https://nuvio-assets.xnzxflix.workers.dev/meta/movie/%E0%A4%A.json");
+  assert.ok(res.status < 500);
+  assert.equal((await res.json()).meta, null);
+});
+
+test("plus_tard_sans_github", async () => {
+  githubSays();
+  const cookie = cookieOf(await login("secret-hote"));
+  globalThis.fetch = async () => { throw new Error("GitHub en panne"); };
+  const res = await hostAt("/hote/plus-tard", { method: "POST", headers: { cookie, "Content-Type": "application/json" }, body: JSON.stringify({ palier: "5.99" }) });
+  assert.equal(res.status, 200);
+  githubSays();
+  assert.equal((await (await hostAt("/hote/etat", { headers: { cookie } })).json()).maj, null);
+});

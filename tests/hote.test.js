@@ -41,3 +41,14 @@ test("api_limite_atteinte", async () => {
   api = () => new Response("{}", { status: 403 });
   assert.deepEqual(await updateInfo("5.22.3"), { version: "5.23.1", notes: [], history: HISTORY });
 });
+
+test("github_delai_et_pas_d_erreur_en_cache", async () => {
+  const seen = [];
+  globalThis.fetch = async (url, init = {}) => { seen.push(init); return String(url).includes("api.github.com") ? api() : raw(); };
+  await updateInfo("5.22.3");
+  assert.ok(seen.length >= 2);
+  for (const init of seen) {
+    assert.ok(init.signal, "délai maximal");
+    assert.equal(init.cf.cacheTtlByStatus["400-599"], 0);
+  }
+});

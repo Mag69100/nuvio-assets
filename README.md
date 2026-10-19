@@ -98,7 +98,7 @@ d'hébergeur de ton choix (`ADMIN_PASSWORD`). Facultatif : une clé Gemini (aist
 3. Dans ton Worker → Paramètres → Variables et secrets : ajoute les secrets `TMDB_API_KEY` et `ADMIN_PASSWORD`
    (et `GEMINI_API_KEY` si tu veux). Facultatif : la variable `DEPOT` = `ton-pseudo/nuvio-assets`, pour que le
    bouton « Mettre à jour » t'emmène sur ton fork. `GEMINI_PUBLIC` = `on` partage ta clé Gemini avec tous les
-   liens de ta copie.
+   liens de ta copie. Ces variables restent à chaque mise à jour (`keep_vars` dans `wrangler.toml`).
 4. Ton site est sur `https://nuvio-assets.<ton-sous-domaine>.workers.dev`, ton addon sur `…/manifest.json`.
 
 ### Avec Docker (serveur, NAS, Raspberry Pi 64 bits)
@@ -108,11 +108,16 @@ d'hébergeur de ton choix (`ADMIN_PASSWORD`). Facultatif : une clé Gemini (aist
 3. Le site : `http://<adresse-du-serveur>:8787`, l'addon : `http://<adresse-du-serveur>:8787/manifest.json`
    (Nuvio TV accepte le http sur le réseau de la maison).
 4. De l'extérieur (téléphone en 4G…) : le plus simple est Cloudflare Tunnel (gratuit, https, aucun port à ouvrir
-   sur la box) vers `http://localhost:8787`. Un reverse proxy que tu as déjà marche aussi.
+   sur la box) vers `http://localhost:8787`. Un reverse proxy que tu as déjà marche aussi (nginx :
+   `proxy_set_header Host $host;`). Dans les deux cas, mets ton adresse dans `ADRESSE_PUBLIQUE`
+   (`https://catalogue.ton-domaine.fr`) : sans elle, les liens du site et de l'addon resteraient en `http://`.
 
 Le conteneur fait tourner le Worker avec `wrangler dev` (le runtime workerd de Cloudflare) ; le cache et tes choix
-sont gardés dans `./donnees`. L'image est construite par le workflow « Image Docker » à chaque changement de l'addon :
-`ghcr.io/xnzx07/nuvio-assets:latest` et `:<version>`.
+sont gardés dans `./donnees`. Les clés passent en arguments du Worker : visibles par qui a accès au serveur, comme
+partout sur une machine à soi. L'image est construite par le workflow « Image Docker » à chaque changement de
+l'addon : `ghcr.io/xnzx07/nuvio-assets:latest` et `:<version>` (pour le propriétaire du dépôt, une seule fois après la première image :
+GitHub → Packages → nuvio-assets → Package settings → Change visibility → Public, sinon personne ne peut la
+télécharger).
 
 ### Mises à jour : c'est toi qui décides
 
@@ -131,5 +136,6 @@ jamais chaque correction. Rien ne change sans ton accord.
 
 Une copie se reconnaît à son adresse (tout autre hôte que celui de l'instance principale) : son addon a son propre identifiant
 (`com.xnzx07.catalogue-fr.perso`), on peut donc installer les deux dans Nuvio. Le code de l'espace hébergeur est
-dans `worker/hote.js`. « Plus tard » est gardé dans le cache (ou dans un KV relié sous le nom `ETAT`, si tu en
-ajoutes un) : au pire, si le cache est vidé, la proposition revient.
+dans `worker/hote.js`. « Plus tard » est gardé dans `./donnees` sur Docker ; sur Cloudflare, dans le cache de ta
+copie (ou dans un KV `ETAT` si tu en déclares un dans le `wrangler.toml` de ton fork) : au pire, si le cache est
+vidé, la proposition revient.

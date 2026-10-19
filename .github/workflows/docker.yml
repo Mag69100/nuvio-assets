@@ -2,6 +2,7 @@ name: Image Docker (copies auto-hébergées)
 
 # Construit l'image des copies Docker à chaque changement de l'addon sur main :
 # ghcr.io/xnzx07/nuvio-assets:latest et :<VERSION> (lue dans worker/index.js).
+# Une seule fois après la première image : la rendre publique (Packages → nuvio-assets → Package settings).
 on:
   push:
     branches: [main]

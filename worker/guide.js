@@ -883,7 +883,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
       <li>Copie la <b>Clé d'API</b> (une suite de 32 lettres et chiffres) et colle-la dans <a href="#trousseau">ton trousseau, juste en dessous</a> : elle sert à l'étape 8 (affiches).</li>
     </ol>
     <h3 class="sub-h">B · AllDebrid premium et sa clé API</h3>
-    <p>Les addons de sources (Lumio, StreamFusion, Torrentio, WAStream) passent par un débrideur. Le guide utilise AllDebrid.</p>
+    <p>Les addons de sources (Lumio, StreamFusion, Torrentio, WAStream) passent par un débrideur. Il t'en faut <b>au moins un</b> pour regarder quelque chose : les autres sont là au cas où le premier ne trouve rien. Le guide utilise AllDebrid.</p>
     <ol>
       <li>Crée un compte sur ${link(LINKS.allDebrid, "alldebrid.com")} et confirme ton adresse e-mail.</li>
       <li>Passe en <b>premium</b> sur ${link(LINKS.allDebridOffer, "la page des offres")} : sans premium, aucun addon ne fonctionne. <b>L'essai gratuit de 7 jours ne marche pas</b> avec les addons : il faut un vrai abonnement premium payant. Celui d'un mois suffit pour essayer.</li>
@@ -905,6 +905,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
   <section class="act" id="addons">
     <header><span class="num">06</span><span class="label">Le cœur</span><h2>Ajouter les addons, dans cet ordre</h2></header>
     <p class="lead">L'ordre compte : Nuvio interroge les addons de haut en bas. Pour chacun : configure-le sur son site, copie le lien d'installation qu'il te donne, puis colle-le dans <span class="path">Addons → Ajouter un addon</span> (ou depuis le téléphone).</p>
+    <p class="note">Les addons marqués <b>Débrideur</b> (Lumio, StreamFusion, Torrentio, WAStream) donnent les sources : il en faut <b>au moins un</b>. Les autres sont un secours, au cas où le premier ne trouve rien pour un film ou un épisode.</p>
     <div class="compat-box" id="compatibilite">
       <h3>Avant tout : ce que ton appareil sait lire</h3>
       <p>Valable pour <b>tous les addons de sources</b> : Lumio, StreamFusion, Torrentio et WAStream. Dans chacun, exclus les qualités et les formats que ton appareil ne gère pas. Sinon : <b>écran vert ou violet</b>, <b>image saccadée</b> ou <b>pas de son</b>.</p>

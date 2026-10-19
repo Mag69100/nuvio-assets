@@ -4,7 +4,7 @@
  * dessiné par l'écran Nuvio commun (nuvio.js). Partagé par le hall et le guide.
  * Les boutons [data-resultat] l'ouvrent ; une arrivée avec « #apercu » l'ouvre directement.
  */
-import { NUVIO_CSS, nuvioJS } from "./nuvio.js";
+import { nuvioDonnees } from "./nuvio.js";
 
 // L'icône des boutons d'aperçu : une petite TV dont l'écran (.ap-ecran) s'allume, avec le bouton lecture.
 export const ICONE_APERCU = `<svg viewBox="0 0 20 20" aria-hidden="true"><rect class="ap-ecran" x="3.4" y="4.9" width="13.2" height="7.7" rx=".6"/><rect x="2" y="3.5" width="16" height="10.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 17h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path class="ap-play" d="M8.5 6.6v4.4l3.8-2.2z" fill="currentColor"/></svg>`;
@@ -91,11 +91,13 @@ export const APERCU_CSS = `/* L'aperçu du résultat : l'accueil Nuvio qu'on obt
   .r-outils button { min-height: 44px; }
   .resultat .nvo-rech input { font-size: 16px; }
   .resultat .fermer { width: 44px; height: 44px; }
-}
-${NUVIO_CSS}`;
+}`;
 
-/** Le script de l'aperçu ; posterUrl est le réglage PostersPlus conseillé, avec « TA_CLE_TMDB » à la place de la clé. */
-export const apercuJS = (origin, posterUrl) => nuvioJS(origin, posterUrl) + "\nconst ORIG_AP = " + JSON.stringify(origin) + ";\n" + `// ---------- L'accueil qu'on aura à la fin du guide ----------
+/** Les données de l'aperçu propres au site qui sert la page (son adresse). */
+export const apercuDonnees = (origin) => nuvioDonnees(origin) + "\nconst ORIG_AP = " + JSON.stringify(origin) + ";";
+
+/** Le script de l'aperçu (après nuvio.js et apercuDonnees). Servi à part par statique.js. */
+export const APERCU_JS = `// ---------- L'accueil qu'on aura à la fin du guide ----------
 (() => {
   let ouvert = null;
   const mkd = NV.mkd;

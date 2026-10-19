@@ -771,6 +771,11 @@ export function stageTop({ here, origin }) {
 
 // Messages cachés : placés sur le velours, de part et d'autre du contenu (body en position relative).
 const SECRETS = {
+  hall: [
+    ["top: 220px; left: max(12px, calc(50% - 700px)); --r: -5deg", "↑ ↑ ↓ ↓ ← → ← → B A.<br>Les anciens comprendront.", "lampe"],
+    ["top: 340px; right: max(12px, calc(50% - 700px)); --r: 4deg", "Tape au clavier l'année du tout premier film. Les frères Lumière t'attendent.", "lampe"],
+    ["bottom: 70px; left: max(12px, calc(50% - 690px)); --r: -3deg", "Même dans le hall, tu fouilles jusqu'au fond ? Respect.", "fond"],
+  ],
   programmation: [
     ["top: 210px; left: max(12px, calc(50% - 610px)); --r: -6deg", "Psst… tape « popcorn » au clavier.", "lampe"],
     ["top: 300px; right: max(12px, calc(50% - 610px)); --r: 5deg", "Une ampoule de l'enseigne est fatiguée. Clique dessus.", "lampe"],

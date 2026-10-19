@@ -100,6 +100,10 @@ const pageHTML = ({ id, chap, side, title, sub, body, parent }) =>
   <div class="nv-vp"><div class="nv-ct">${body}<i class="nv-ring" aria-hidden="true"></i></div></div>
 </div>`;
 
+// Réglage d'affiches conseillé (PostersPlus), SANS clé : « TA_CLE_TMDB » est remplacé
+// dans la page par la clé que la personne tape (rien n'est envoyé nulle part).
+export const POSTER_URL = "https://postersplus.stremio.ru/poster?tmdb_id={tmdb_id?}&imdb_id={imdb_id?}&stremio_id={id}&type={type}&shape={shape}&pc=stremio_tv_nuvio&tmdb_key=TA_CLE_TMDB&tg=low&bgr=low&vpcb=1&sm=notch&_bgr=low&_sm=sash&bp=top_left&_ip=bottom_right&_soo10=1&_rs=bullet_star&_gs=1&_bst=gold&_rb=1&_rbl=imdb&_cl=off&fti=1&irs=dataset&trs=direct&rdm=2&nsyo=0.93&soo10=1&rb=imdb&rbs=normalized&mw=lb:.01,tk:.01,im:.97,tm:.01&tw=tk:.01,im:.97,tm:.02&ll=fr-fr&fbs=photoreal&lba=1&cgsia=1&rsco=1&hur=1&mo=genre,year,rating&_mo=&ol=fr&stc=FFFFFF&sbs=gold&sbsw=1.40&sbsh=1.20&sbpo=auto_hug&bdm=7&bg1=tr:4:res&bms=3&_bdm=7&_bg1=chip:4:res:30&qad=1&wfq=1&gnq=1";
+
 const PAGES = (posterUrl) => [
   page("apparence", "Apparence", "Apparence", "Apparence", "Choisissez votre thème de couleur, votre police et votre langue", [
     G("Thème de couleur", "Choisissez la couleur d'accent utilisée dans toute l'application", [
@@ -636,13 +640,15 @@ export const REGLAGES_JS = `// ---------- Étape 9 : les réglages rejoués comm
     nv.querySelectorAll(".nv-ct").forEach((ct) => { ct.style.transform = ""; });
     page = null; el = null; inSide = true;
   };
-  let relayT = 0;
+  let relayT = 0, sideAttente = null;
   const apply = (a, instant) => {
-    if (a.t === "side") { inSide = true; setSide(a.i, true); }
+    // En saut (instant), la barre latérale n'est placée qu'une fois, à la fin (seek) : setSide mesure la page.
+    const side = (i, f) => { if (instant) sideAttente = [i, f]; else setSide(i, f); };
+    if (a.t === "side") { inSide = true; side(a.i, true); }
     else if (a.t === "page") { showPage(a.p); }
-    else if (a.t === "focus") { inSide = false; el = a.el; setSide(+(a.p.dataset.side), false); }
+    else if (a.t === "focus") { inSide = false; el = a.el; side(+(a.p.dataset.side), false); }
     else if (a.t === "open") { openSec(a.el); }
-    else if (a.t === "leave") { inSide = true; el = null; setSide(+(a.p.dataset.side), true); }
+    else if (a.t === "leave") { inSide = true; el = null; side(+(a.p.dataset.side), true); }
     if (instant) return;
     caption(); layout();
     // Une section qui s'ouvre change les hauteurs : on recale une fois le dépliage fini.
@@ -671,7 +677,9 @@ export const REGLAGES_JS = `// ---------- Étape 9 : les réglages rejoués comm
   };
   const seek = (n) => {
     nv.classList.add("instant"); reset();
+    sideAttente = null;
     for (let i = 0; i < n; i++) apply(A[i], true);
+    if (sideAttente) setSide(...sideAttente);
     k = n; caption(); layout(); progress();
     void nv.offsetWidth; requestAnimationFrame(() => nv.classList.remove("instant"));
   };

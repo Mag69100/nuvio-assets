@@ -36,14 +36,13 @@ const LINKS = {
   torbox: "https://torbox.app/",
 };
 
-// Réglage d'affiches conseillé (PostersPlus), SANS clé : « TA_CLE_TMDB » est remplacé
-// dans la page par la clé que la personne tape (rien n'est envoyé nulle part).
-export const POSTER_URL = "https://postersplus.stremio.ru/poster?tmdb_id={tmdb_id?}&imdb_id={imdb_id?}&stremio_id={id}&type={type}&shape={shape}&pc=stremio_tv_nuvio&tmdb_key=TA_CLE_TMDB&tg=low&bgr=low&vpcb=1&sm=notch&_bgr=low&_sm=sash&bp=top_left&_ip=bottom_right&_soo10=1&_rs=bullet_star&_gs=1&_bst=gold&_rb=1&_rbl=imdb&_cl=off&fti=1&irs=dataset&trs=direct&rdm=2&nsyo=0.93&soo10=1&rb=imdb&rbs=normalized&mw=lb:.01,tk:.01,im:.97,tm:.01&tw=tk:.01,im:.97,tm:.02&ll=fr-fr&fbs=photoreal&lba=1&cgsia=1&rsco=1&hur=1&mo=genre,year,rating&_mo=&ol=fr&stc=FFFFFF&sbs=gold&sbsw=1.40&sbsh=1.20&sbpo=auto_hug&bdm=7&bg1=tr:4:res&bms=3&_bdm=7&_bg1=chip:4:res:30&qad=1&wfq=1&gnq=1";
 
-import { STAGE_HEAD, STAGE_CSS, stageTop, secretsHTML, BEAM_HTML, SEATS_HTML, CREDITS_HTML, STAGE_JS } from "./stage.js";
-import { APERCU_CSS, ICONE_APERCU, apercuJS } from "./apercu.js";
-import { REGLAGES_CSS, REGLAGES_JS, reglagesHTML } from "./reglages.js";
-import { APPAREILS, LIENS_JS, installUrl } from "./liens.js";
+import { STAGE_HEAD, stageTop, secretsHTML, BEAM_HTML, SEATS_HTML, CREDITS_HTML } from "./stage.js";
+import { ICONE_APERCU, apercuDonnees } from "./apercu.js";
+import { reglagesHTML, POSTER_URL } from "./reglages.js";
+export { POSTER_URL };
+import { APPAREILS, installUrl } from "./liens.js";
+import { feuilles, scripts } from "./statique.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>`;
@@ -476,8 +475,9 @@ kbd { font: 700 .75rem var(--type); padding: 1px 6px; border-radius: 4px; backgr
 .raccourci { display: inline-block; font: 800 .92rem var(--body); text-decoration: none; color: var(--ink); background: var(--bulb); padding: 9px 16px; border-radius: 99px; box-shadow: 0 0 22px rgba(255,207,107,.35); }
 .raccourci:hover { background: #fff1c9; }
 
-${APERCU_CSS}
-${REGLAGES_CSS}
+</style>
+${feuilles("apercu.css", "nuvio.css", "reglages.css")}
+<style>
 /* Réclames d'avant-séance : de fausses pubs d'époque pour les fonctions du site. */
 .reclames { position: relative; display: grid; }
 .reclame { grid-area: 1 / 1; position: relative; display: grid; gap: 8px; justify-items: start; padding: 26px 30px 24px; border-radius: 6px; color: #2a1a14; overflow: hidden;
@@ -564,7 +564,9 @@ ${REGLAGES_CSS}
 .o-faisceau.on { opacity: 1; }
 @media (max-width: 1179px) { .ouvreuse, .o-faisceau { display: none; } }
 @media (prefers-reduced-motion: reduce) { .entracte.vue .vendeuse, .vendeuse svg *, .ouvreuse svg *, .pot.vide .p-seau { animation: none !important; } .vendeuse { display: none; } }
-${STAGE_CSS}
+</style>
+${feuilles("scene.css")}
+<style>
 @media (max-width: 520px) { .act > header { grid-template-columns: auto minmax(0, 1fr); } .composte { grid-column: 1 / -1; grid-row: 3; justify-self: start; margin-top: 8px; } .entracte { gap: 14px; } .entracte .titre { font-size: 2.1rem; } }
 @media (max-width: 520px) { .act { padding: 18px; } .act .num { width: 64px; height: 64px; font-size: 2.2rem; } .act h2 { font-size: 1.8rem; } body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); } .reel-btn small { max-width: 16ch; } }
 @media (prefers-reduced-motion: reduce) { body::after, .act .num, .act .num::before, .reel-menu, .choix span.focus::after, .cornet i, .sortie::after, .composte { animation: none !important; } }
@@ -1101,7 +1103,7 @@ ${CREDITS_HTML}
   </button>
 </div>
 
-<script>${LIENS_JS}</script>
+${scripts("liens.js")}
 <script>
 // Onglets d'installation
 document.querySelectorAll(".appareils button").forEach((b) => b.addEventListener("click", () => {
@@ -1257,9 +1259,9 @@ document.querySelectorAll("[data-copy]").forEach((btn) => btn.addEventListener("
   try { navigator.clipboard.writeText(node.textContent).then(() => done("Copié ✓"), fallback); } catch (e) { fallback(); }
 }));
 </script>
-<script>${STAGE_JS}</script>
-<script>${apercuJS(origin, POSTER_URL)}</script>
-<script>${REGLAGES_JS}</script>
+${scripts("scene.js")}
+<script>${apercuDonnees(origin)}</script>
+${scripts("nuvio.js", "apercu.js", "reglages.js")}
 <script>
 // Amorce : le secteur balaie le cercle une fois, la première fois qu'on arrive sur l'étape.
 const acts = [...document.querySelectorAll("section.act")];

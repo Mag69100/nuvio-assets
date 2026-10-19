@@ -30,6 +30,7 @@ import { guidePage, NUVIO_TV_APK, POSTER_URL } from "./guide.js";
 import { lienPage } from "./lien.js";
 import { copiePage } from "./copie.js";
 import { hallPage } from "./hall.js";
+import { statique } from "./statique.js";
 import { smartSearch, prepareWords, isExact, norm } from "./search.js";
 import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, UPDATE_CATALOG } from "./hote.js";
@@ -1477,7 +1478,7 @@ function json(data, maxAge) {
   });
 }
 
-const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "copie"]);
+const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie"]);
 
 async function loadCollections() {
   const res = await fetch(`${ASSETS}/collections/collections.json`, { cf: { cacheTtl: 600, cacheEverything: true } });
@@ -1585,6 +1586,8 @@ export default {
     if (path === "/lien") return html(lienPage({ origin: url.origin }));   // ouvert par les QR codes du guide
     if (path === "/copie") return html(copiePage({ origin: url.origin }));   // « Monte ta propre salle » : héberger sa copie
     if (path === "/tv") return Response.redirect(NUVIO_TV_APK, 302);   // adresse courte pour Downloader : télécharge l'APK
+    // Styles et scripts communs aux pages du site, gardés en cache par le navigateur (voir statique.js).
+    if (path.startsWith("/statique/")) return statique(path.slice(10), url.searchParams.get("v")) || new Response("introuvable", { status: 404 });
     if (path === "/manifest.json") return json(manifest(today, cfg, cfgSeg, url, await hasAlerts(env, url, cfg)), CACHE_CLIENT_S);
     if (path === "/collections.json") return json(await collections(cfg), CACHE_CLIENT_S);
     if (path === "/logo.png") {   // le logo servi par le site, sans l'adresse du dépôt dans les pages

@@ -7,7 +7,7 @@
  *
  * Les mesures viennent du code de Nuvio TV (écran de référence 960 × 540 dp) : 1 dp = 1/9,6 cqw.
  */
-import { parametresNuvio } from "./reglages.js";
+import { parametresNuvio, POSTER_URL } from "./reglages.js";
 
 export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cramoisi) ---------- */
 .nvo { position: absolute; inset: 0; overflow: hidden; background: #0D0D0D; color: #fff; font-family: Inter, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
@@ -250,7 +250,8 @@ export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cram
 .nvo-dec .grille { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); column-gap: 1.042cqw; row-gap: 1.667cqw; align-items: start; padding-bottom: 3.333cqw; }
 .nvo.paysage .nvo-dec .grille { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .nvo-dec .nvo-item { width: 13.125cqw; padding-top: .3125cqw; }
-.nvo.paysage .nvo-dec .nvo-carte { height: 7.374cqw; }
+/* Paysage : la largeur de la grille (126 dp) l'emporte sur celle des cartes paysage de l'accueil ; la carte passe en 16:9 (126 × 71 dp). */
+.nvo.paysage .nvo-dec .nvo-carte { width: 13.125cqw; height: 7.383cqw; }
 .nvo-dec .nvo-item b { padding: 0 .208cqw; }
 .nvo-dec .nvo-item b span { display: inline; }
 .nvo-dec .nvo-item:hover .nvo-carte { transform: none; }
@@ -263,7 +264,7 @@ export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cram
 @keyframes nvo-defil { to { transform: translateX(var(--x)); } }
 /* « Charger plus » : une carte de la taille d'une affiche */
 .nvo-dec .action { box-sizing: border-box; width: 13.125cqw; height: 19.6875cqw; margin-top: .3125cqw; padding: 0; border: 0; border-radius: 1.667cqw; display: grid; place-items: center; background: #241A1A; color: #fff; font: 500 1.667cqw/2.5cqw Inter, sans-serif; letter-spacing: .016cqw; cursor: pointer; outline: none; transition: transform .18s ease; }
-.nvo.paysage .nvo-dec .action { height: 7.374cqw; }
+.nvo.paysage .nvo-dec .action { height: 7.383cqw; }
 .nvo-dec .action.focus { background: #3D1A1A; box-shadow: inset 0 0 0 .208cqw #FF5252; transform: scale(1.02); }
 .nvo-dec .action:disabled { cursor: default; }
 .nvo-dec .charge { grid-column: 1 / -1; display: grid; place-items: center; padding: 2.917cqw 0; }
@@ -424,8 +425,12 @@ const parametresJSON = (posterUrl) => {
   return JSON.stringify({ rubriques, pages: pages.map((p) => ({ ...p, body: net(p.body) })) }).replace(/</g, "\\u003c");
 };
 
-/** Le script commun : window.NV. origin = l'adresse de l'addon ; posterUrl = le réglage PostersPlus conseillé (« TA_CLE_TMDB » à la place de la clé). */
-export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringify(origin) + ", NV_PP = " + JSON.stringify(posterUrl) + ", NV_PAR = " + parametresJSON(posterUrl) + ";\n" + `window.NV = (() => {
+/** La donnée du script commun propre au site qui sert la page : origin = l'adresse de l'addon. */
+export const nuvioDonnees = (origin) => "const NV_ORIG = " + JSON.stringify(origin) + ";";
+
+/** Le script commun : window.NV, avec le réglage PostersPlus conseillé (« TA_CLE_TMDB » à la place de la clé) et les écrans
+ *  des Paramètres. Servi à part (statique.js, gardé en cache par le navigateur), après nuvioDonnees. */
+export const NUVIO_JS = "const NV_PP = " + JSON.stringify(POSTER_URL) + ", NV_PAR = " + parametresJSON(POSTER_URL) + ";\n" + `window.NV = (() => {
   const mkd = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
   const cssUrl = (u) => "url('" + String(u).replace(/'/g, "%27") + "')";
   // Fonds envoyés en w1920 (ou original, w1280 selon la version de l'addon) : on demande la taille utile.
@@ -1013,6 +1018,36 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
       b.addEventListener("focus", () => choisis(i)); b.addEventListener("click", () => choisis(i));
       ongs.append(b);
     });
+    // La télécommande : gauche/droite d'un onglet à l'autre (la rangée défile pour le garder visible),
+    // bas vers la grille, haut depuis la première ligne de la grille vers l'onglet choisi.
+    const voitOnglet = (b) => {
+      const g = b.offsetLeft - ongs.offsetLeft, d = g + b.offsetWidth, m = b.offsetHeight;
+      if (g < ongs.scrollLeft) ongs.scrollTo({ left: g - m, behavior: calme() ? "auto" : "smooth" });
+      else if (d > ongs.scrollLeft + ongs.clientWidth) ongs.scrollTo({ left: d - ongs.clientWidth + m, behavior: calme() ? "auto" : "smooth" });
+    };
+    const ongSel = () => ongs.querySelector('[aria-selected="true"]') || ongs.firstChild;
+    const vers = (x) => { if (!x) return; x.focus({ preventScroll: true }); if (ongs.contains(x)) { voitOnglet(x); vue.scrollTo({ top: 0, behavior: calme() ? "auto" : "smooth" }); } else montreDans(vue, x); };
+    vue.addEventListener("keydown", (e) => {
+      if (!/^Arrow/.test(e.key)) return;
+      const a = document.activeElement, items = [...grille.querySelectorAll("button.nvo-item")];
+      e.preventDefault();
+      if (a && ongs.contains(a)) {
+        if (e.key === "ArrowLeft") vers(a.previousElementSibling);
+        else if (e.key === "ArrowRight") vers(a.nextElementSibling);
+        else if (e.key === "ArrowDown") vers(items[0]);
+        return;
+      }
+      const i = items.indexOf(a);
+      if (i < 0) { vers(ongSel() || items[0]); return; }
+      const cols = getComputedStyle(grille).gridTemplateColumns.split(" ").length || 1;
+      if (e.key === "ArrowLeft" && i % cols) vers(items[i - 1]);
+      else if (e.key === "ArrowRight" && i % cols < cols - 1) vers(items[i + 1]);
+      else if (e.key === "ArrowDown") vers(items[i + cols] || (Math.floor(i / cols) < Math.floor((items.length - 1) / cols) ? items[items.length - 1] : null));
+      else if (e.key === "ArrowUp") vers(i >= cols ? items[i - cols] : ongSel());
+    });
+    // La molette sur les onglets les fait défiler de côté (ceux qui dépassent à droite deviennent atteignables).
+    ongs.addEventListener("wheel", (e) => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && ongs.scrollWidth > ongs.clientWidth) { e.preventDefault(); ongs.scrollLeft += e.deltaY; } }, { passive: false });
+    setTimeout(() => { const b = ongSel(); if (b && vue.isConnected) b.focus({ preventScroll: true }); }, 0);
     new IntersectionObserver((es) => { if (es[0].isIntersecting && plus) remplir(); }, { root: vue, rootMargin: "400px 0px" }).observe(fin);
     if (sources.length) choisis(0); else grille.append(mkd("p", "vide", "Cette tuile n’a pas de catalogue."));
   };

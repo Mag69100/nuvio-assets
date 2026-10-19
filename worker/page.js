@@ -26,9 +26,6 @@ const ROW_HINTS = {
   "accueil-attendus": "Les films pas encore sortis dont tout le monde parle, avec leur date au cinéma",
 };
 
-/** Affiches PostersPlus conseillées pour l'aperçu, SANS clé : avec la clé TMDB du visiteur (guide, étape 8),
- *  le navigateur la met à la place de « TA_CLE_TMDB » ; sans elle, le worker sert l'affiche (/affiche/…). */
-const PP_URL = "https://postersplus.stremio.ru/poster?tmdb_id={tmdb_id?}&imdb_id={imdb_id?}&stremio_id={id}&type={type}&shape={shape}&pc=stremio_tv_nuvio&tmdb_key=TA_CLE_TMDB&tg=low&bgr=low&vpcb=1&sm=notch&_bgr=low&_sm=sash&bp=top_left&_ip=bottom_right&_soo10=1&_rs=bullet_star&_gs=1&_bst=gold&_rb=1&_rbl=imdb&_cl=off&fti=1&irs=dataset&trs=direct&rdm=2&nsyo=0.93&soo10=1&rb=imdb&rbs=normalized&mw=lb:.01,tk:.01,im:.97,tm:.01&tw=tk:.01,im:.97,tm:.02&ll=fr-fr&fbs=photoreal&lba=1&cgsia=1&rsco=1&hur=1&mo=genre,year,rating&_mo=&ol=fr&stc=FFFFFF&sbs=gold&sbsw=1.40&sbsh=1.20&sbpo=auto_hug&bdm=7&bg1=tr:4:res&bms=3&_bdm=7&_bg1=chip:4:res:30&qad=1&wfq=1&gnq=1";
 
 /** Couleur d'accent de chaque plateforme (pastille et tuile de l'aperçu). */
 const PROVIDER_COLORS = {
@@ -36,8 +33,9 @@ const PROVIDER_COLORS = {
   1899: "#7b2cff", 350: "#d9d9de", 381: "#111111", 283: "#f47521",
 };
 
-import { STAGE_HEAD, STAGE_CSS, stageTop, secretsHTML, BEAM_HTML, SEATS_HTML, CREDITS_HTML, STAGE_JS } from "./stage.js";
-import { NUVIO_CSS, nuvioJS } from "./nuvio.js";
+import { STAGE_HEAD, stageTop, secretsHTML, BEAM_HTML, SEATS_HTML, CREDITS_HTML } from "./stage.js";
+import { nuvioDonnees } from "./nuvio.js";
+import { feuilles, scripts } from "./statique.js";
 
 // Espace hébergeur d'une copie auto-hébergée (absent de l'instance principale) : connexion avec le mot de
 // passe ADMIN_PASSWORD, lien avec alertes (rangée « Mise à jour » dans Nuvio), bannière de mise à jour.
@@ -533,8 +531,9 @@ body::after { content: ""; position: fixed; inset: -50%; pointer-events: none; z
 .frame.lit .pos { animation: tick .45s cubic-bezier(.3,1.7,.5,1); }
 @keyframes tick { from { transform: scale(.3); opacity: 0; } }
 
-${STAGE_CSS}
-${NUVIO_CSS}
+</style>
+${feuilles("scene.css", "nuvio.css")}
+<style>
 /* ---------- Téléphone (après tout le reste, pour passer devant) ---------- */
 @media (max-width: 960px) {
   /* L'aperçu en haut, les réglages, puis le billet tout à la fin (là où on en a besoin). */
@@ -742,7 +741,8 @@ ${copy ? HOTE_HTML : ""}
 
   <div class="dock"><button type="button" class="dock-billet" id="dock-billet">Ton billet : <b id="dock-count"></b><i aria-hidden="true">↓</i></button><button type="button" class="btn" id="dock-copy">Copier mon lien</button></div>
 
-<script>${nuvioJS(origin, PP_URL)}</script>
+<script>${nuvioDonnees(origin)}</script>
+${scripts("nuvio.js")}
 <script>
 const D = ${json};
 const hashDepart = location.hash; // l'adresse est réécrite ensuite (réglages), on garde l'ancre demandée
@@ -1346,7 +1346,7 @@ spyNav();
 { const i = navLinks.findIndex((a) => a.getAttribute("href") === hashDepart); if (i >= 0) setTimeout(() => navLinks[i].click(), 500); }
 ${copy ? HOTE_JS : ""}
 </script>
-<script>${STAGE_JS}</script>
+${scripts("scene.js")}
 </body>
 </html>`;
 }

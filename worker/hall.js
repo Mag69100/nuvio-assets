@@ -3,9 +3,9 @@
  * salle 1, le guide (pour qui n'a pas encore Nuvio) ; salle 2, la programmation (pour qui l'a déjà).
  * Au mur, les films à l'affiche cette semaine, tirés du Catalogue FR.
  */
-import { STAGE_HEAD, STAGE_CSS, stageTop, BEAM_HTML, CREDITS_HTML, STAGE_JS } from "./stage.js";
-import { APERCU_CSS, ICONE_APERCU, apercuJS } from "./apercu.js";
-import { POSTER_URL } from "./guide.js";
+import { STAGE_HEAD, stageTop, secretsHTML, BEAM_HTML, CREDITS_HTML } from "./stage.js";
+import { ICONE_APERCU, apercuDonnees } from "./apercu.js";
+import { feuilles, scripts } from "./statique.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -116,13 +116,13 @@ footer { text-align: center; }
   .encadrement { width: 170px; height: 200px; }
 }
 @media (prefers-reduced-motion: reduce) { body::after, .cadre.vide { animation: none; } .battant, .porte { transition: none; } }
-${STAGE_CSS}
-${APERCU_CSS}
 </style>
+${feuilles("scene.css", "apercu.css", "nuvio.css")}
 </head>
 <body>
 <div class="valance" aria-hidden="true"></div>
 ${stageTop({ here: "hall", origin })}
+${secretsHTML("hall")}
 <main class="hall">
   <header class="hero">
     ${BEAM_HTML}
@@ -146,8 +146,9 @@ ${copy ? "" : `  <p class="propre-salle">Tu veux ta propre salle, avec tes clés
   </section>
   <footer>${CREDITS_HTML}</footer>
 </main>
-<script>${STAGE_JS}</script>
-<script>${apercuJS(origin, POSTER_URL)}</script>
+${scripts("scene.js")}
+<script>${apercuDonnees(origin)}</script>
+${scripts("nuvio.js", "apercu.js")}
 <script>
 // Le mur : les 6 premiers films de « Tendances de la semaine · Films ».
 fetch(${JSON.stringify(origin)} + "/catalog/movie/accueil-top10.json").then((r) => r.json()).then((d) => {

@@ -135,6 +135,7 @@ export function configurePage({ origin, cfg, rows, discover, providers, collecti
 <head>
 <meta charset="utf-8">
 ${STAGE_HEAD}
+<script>try{if(window.parent!==window&&parent.location.origin===location.origin)document.documentElement.classList.add("dans-guide")}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${esc(cfg.n)} · Ta programmation</title>
 <meta name="description" content="Compose ton accueil Nuvio en français : rangées, plateformes, collections, filtres.">
@@ -559,6 +560,10 @@ ${NUVIO_CSS}
   .nvo-rech input, .rename input, .field input:is([type=text], [type=password]).plain, select, input[type=number] { font-size: 16px; }
   .act { scroll-margin-top: 76px; }
 }
+/* Ouverte par-dessus le guide (dans un cadre) : seulement les réglages et le billet. La barre du guide
+   porte le titre et « Terminé » ; rien ne mène ailleurs (salles, guide, mode d'emploi déjà dans le guide). */
+.dans-guide .valance, .dans-guide .foyer, .dans-guide .marquee-wrap, .dans-guide .draperie, .dans-guide #s-mode, .dans-guide .nav a[href="#s-mode"] { display: none !important; }
+.dans-guide body { padding-top: 16px; }
 @media (prefers-reduced-motion: reduce) { body::after, .frame::after, .frame .pos, .screen::before, .nv *, .fiche, .fiche * { animation: none !important; } .ticket { transform: none; } .nv, .nv-track { scroll-behavior: auto; } }
 </style>
 </head>
@@ -1056,7 +1061,8 @@ function update() {
   $("u-collections").textContent = base + "/collections.json";
   // nuvio:// et pas stremio:// (sinon Stremio, s'il est installé, s'ouvre à la place) ; sous Windows, Nuvio n'ouvre aucun lien.
   $("open-app").href = manifest.replace(/^https:/, "nuvio:");
-  $("open-app").hidden = /Windows/.test(navigator.userAgent);
+  // Lien http (copie Docker à la maison) : pas de nuvio://, le bouton ouvrirait le fichier dans le navigateur.
+  $("open-app").hidden = !/^https:/.test(manifest) || /Windows/.test(navigator.userAgent);
   $("copy-manifest").classList.toggle("full", $("open-app").hidden);
   $("t-name").textContent = state.n;
   $("t-serial").textContent = serial(manifest);
@@ -1325,9 +1331,13 @@ function spyNav() {
   navTick = false;
   if (Date.now() < navLock) return;
   const line = navOffset() + 40;
+  // Sections masquées (dans le guide : #s-mode) ignorées, sinon leur lien invisible s'allumerait.
+  const visible = (sec) => sec && sec.getClientRects().length > 0;
   let cur = 0;
-  sections.forEach((sec, i) => { if (sec.getBoundingClientRect().top <= line) cur = i; });
-  if (innerHeight + scrollY >= document.documentElement.scrollHeight - 4) cur = sections.length - 1;
+  sections.forEach((sec, i) => { if (visible(sec) && sec.getBoundingClientRect().top <= line) cur = i; });
+  if (innerHeight + scrollY >= document.documentElement.scrollHeight - 4) {
+    for (let i = sections.length - 1; i >= 0; i--) if (visible(sections[i])) { cur = i; break; }
+  }
   if (!navLinks[cur].classList.contains("on")) lightNav(navLinks[cur]);
 }
 addEventListener("scroll", () => { if (!navTick) { navTick = true; requestAnimationFrame(spyNav); } }, { passive: true });

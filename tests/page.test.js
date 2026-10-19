@@ -65,3 +65,16 @@ test("espace_hebergeur_messages", () => {
   assert.match(html, /hote\.verification === "impossible"/);
   assert.match(html, /r\.status === 429/);
 });
+
+// Bouton « ouvrir dans Nuvio » : seulement pour un lien https (une copie Docker en http, à la maison,
+// ouvrirait le fichier manifest.json dans le navigateur).
+test("ouvrir_dans_nuvio_seulement_en_https", () => {
+  assert.match(page(), /\$\("open-app"\)\.hidden = !\/\^https:\/\.test\(manifest\) \|\| \/Windows\/\.test\(navigator\.userAgent\);/);
+});
+
+// Dans le guide, la salle 2 masque des sections (#s-mode) : la navigation ne doit jamais allumer leur lien.
+test("navigation_ignore_les_sections_masquees", () => {
+  const html = page();
+  assert.match(html, /const visible = \(sec\) => sec && sec\.getClientRects\(\)\.length > 0;/);
+  assert.match(html, /if \(visible\(sec\) && sec\.getBoundingClientRect\(\)\.top <= line\) cur = i;/);
+});

@@ -331,18 +331,22 @@ a { color: var(--bulb); font-weight: 700; text-underline-offset: 3px; }
 .etat-cles { min-height: 1.3em; font-weight: 800; font-size: .9rem; color: var(--bulb); }
 .etat-cles:empty { display: none; }
 .etat-cles.erreur { color: #ff9c95; }
-/* Tes liens (étape 6) : tout ce qu'il faut coller, dans l'ordre. */
-.paquet { display: grid; gap: 8px; padding: 16px 18px; border-radius: 14px; background: var(--cream); color: var(--ink); }
-.paquet h3 { margin: 0; font: 400 1.6rem/1 var(--display); letter-spacing: .03em; }
-.paquet .small { color: #6b4c3e; margin: 0; }
-.paquet-liste { margin: 4px 0 0; padding: 0; list-style: none; counter-reset: pq; display: grid; gap: 10px; }
-.paquet-liste li { counter-increment: pq; display: grid; gap: 5px; padding-top: 10px; border-top: 1px dashed rgba(42,26,20,.25); min-width: 0; }
-.paquet-liste li > b { font: 800 1rem var(--body); }
-.paquet-liste li > b::before { content: counter(pq) ". "; color: var(--red); }
-.paquet-liste .ou, .paquet-liste .manque { font-size: .86rem; color: #6b4c3e; }
-.paquet-liste .manque { font-style: italic; }
-.paquet-liste .site { justify-self: start; font-weight: 800; color: #7a1824; }
-.paquet .installer { color: #7a1824; }
+/* Personnaliser sans quitter le guide : la salle 2 par-dessus, dans un cadre. */
+.perso-actions { margin: 0; }
+.perso-btn { font: 800 .92rem var(--body); padding: 10px 18px; border-radius: 99px; border: 1px solid var(--bulb); background: rgba(255,207,107,.1); color: var(--bulb); cursor: pointer; transition: background-color .2s ease; }
+.perso-btn:hover { background: rgba(255,207,107,.2); }
+.perso-lien { font: inherit; font-weight: 800; padding: 0; border: 0; background: none; color: var(--bulb); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.salle2 { position: fixed; inset: 0; z-index: 92; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--velvet); animation: rise .3s ease both; }
+.s2-barre { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap;
+  padding: max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left)); background: var(--velvet-2); border-bottom: 1px solid rgba(255,207,107,.35); }
+.s2-barre p { margin: 0; display: grid; gap: 2px; min-width: 0; }
+.s2-barre b { font: 400 1.5rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
+.s2-barre span { font-size: .86rem; color: var(--dim); }
+.s2-fini { font: 800 .95rem var(--body); padding: 10px 18px; border-radius: 99px; border: 0; background: var(--bulb); color: var(--ink); cursor: pointer; }
+.salle2 iframe { width: 100%; height: 100%; border: 0; background: var(--velvet); }
+html.s2-ouverte, html.s2-ouverte body { overflow: hidden; }
+@media (max-width: 560px) { .s2-barre { flex-wrap: nowrap; } .s2-barre b { font-size: 1.25rem; } .s2-barre span { display: none; } .s2-fini { padding: 9px 14px; font-size: .86rem; white-space: nowrap; } }
+@media (prefers-reduced-motion: reduce) { .salle2 { animation: none; } }
 /* Installer d'un geste (nuvio://) et consignes selon l'appareil */
 .installer { justify-self: start; font: 800 .88rem var(--body); color: var(--bulb); text-decoration: underline; text-underline-offset: 3px; }
 .installer[hidden] { display: none; }
@@ -355,6 +359,48 @@ a { color: var(--bulb); font-weight: 700; text-underline-offset: 3px; }
 .faq details { border-bottom: 1px solid var(--seat); padding: 12px 0; }
 .faq summary { cursor: pointer; font-weight: 800; }
 .faq details p { margin: 8px 0 0; color: #d9c8be; }
+/* Le panneau de la cabine (étape 12) : on allume le voyant de l'endroit où ça coince, les autres pannes s'effacent. */
+.cabine { display: grid; gap: 12px; padding: 18px 20px 16px; border-radius: 14px;
+  background: radial-gradient(circle at 10px 10px, #7a654f 0 2.5px, transparent 3px), radial-gradient(circle at calc(100% - 10px) 10px, #7a654f 0 2.5px, transparent 3px),
+    radial-gradient(circle at 10px calc(100% - 10px), #7a654f 0 2.5px, transparent 3px), radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #7a654f 0 2.5px, transparent 3px), linear-gradient(#2b2226, #1b1418);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), inset 0 0 0 1px rgba(0,0,0,.5), 0 10px 26px rgba(0,0,0,.35); }
+/* L'étiquette de la plaque : du ruban à lettres en relief, collé un peu de travers. */
+.cab-plaque { justify-self: start; margin: 0; padding: 4px 10px 3px; border-radius: 3px; transform: rotate(-1deg); font: 700 .74rem var(--type); letter-spacing: .18em; text-transform: uppercase;
+  color: #f4f0e6; background: #0d0a0b; text-shadow: 0 -1px 0 #000; box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 1px 0 rgba(0,0,0,.6); }
+.cab-voyants { display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr)); gap: 10px; }
+.voyant { display: grid; justify-items: center; gap: 4px; padding: 14px 8px 11px; border-radius: 12px; border: 1px solid #0c090a; cursor: pointer; text-align: center; color: var(--cream);
+  background: linear-gradient(#30272b, #221a1e); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 3px 0 #0c090a; transition: transform .1s ease, box-shadow .1s ease, border-color .2s ease; }
+.voyant:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 1px 0 #0c090a; }
+.voyant b { font: 800 .9rem/1.2 var(--body); }
+.voyant small { font: 400 .74rem var(--type); color: var(--dim); }
+.voyant .lampe { width: 24px; height: 24px; margin-bottom: 4px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #6e3431, #2e1010 70%);
+  box-shadow: 0 0 0 3px #8a6a3a, 0 0 0 4px #000, inset 0 -3px 6px rgba(0,0,0,.5); }
+.voyant[aria-pressed="true"] { border-color: rgba(255,90,74,.55); }
+.voyant[aria-pressed="true"] .lampe { background: radial-gradient(circle at 35% 30%, #ffe1d8, #ff5a4a 45%, #b81f18 78%);
+  box-shadow: 0 0 0 3px #c99a4a, 0 0 0 4px #000, 0 0 18px 5px rgba(255,80,60,.55); animation: allume .6s; }
+/* L'ampoule grésille avant de tenir. */
+@keyframes allume { 0%, 18%, 36% { opacity: .35; } 10%, 26%, 100% { opacity: 1; } }
+.cab-etat { margin: 0; font-size: .9rem; color: var(--dim); }
+.faq details.revient { animation: rise .35s ease both; }
+/* Le grand rembobinage : chaque geste coché remet de la pellicule sur la bobine. */
+.rembobinage { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px 20px; align-items: start; margin-top: 6px; padding: 18px 20px; border-radius: 14px; border: 1px dashed rgba(255,207,107,.4); background: rgba(255,207,107,.04); }
+.rembobinage h3 { margin: 0 0 6px; font: 400 1.6rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
+.rb-texte { display: grid; gap: 8px; }
+.rb-bobine { width: 78px; height: 78px; }
+.rb-bobine * { transform-box: view-box; }
+.rb-film { fill: #3a2418; stroke: #6b4a32; stroke-width: 1; transition: r .6s cubic-bezier(.3,1.2,.5,1); }
+.rb-tourne { fill: none; stroke: var(--bulb); stroke-width: 2.5; stroke-linecap: round; transform-origin: 40px 40px; transition: transform .7s cubic-bezier(.3,1.2,.5,1); }
+.rb-tourne circle:last-child { fill: var(--velvet); }
+.act .rb-gestes { list-style: none; padding: 0; gap: 2px; }
+.rb-gestes label { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; align-items: start; padding: 5px 0; cursor: pointer; color: #e6d6c8; }
+.rb-gestes input { appearance: none; -webkit-appearance: none; width: 20px; height: 20px; margin: 3px 0 0; display: grid; place-items: center; border-radius: 5px; border: 2px solid var(--bulb); background: transparent; cursor: pointer; }
+.rb-gestes input::after { content: "✓"; font: 800 .8rem/1 var(--body); color: #0e2a1c; opacity: 0; }
+.rb-gestes input:checked { background: var(--green); border-color: var(--green); }
+.rb-gestes input:checked::after { opacity: 1; }
+.rb-gestes input:checked + span { color: var(--dim); text-decoration: line-through; text-decoration-color: rgba(95,211,154,.6); }
+.rb-fin { font: italic 400 1.3rem/1.3 var(--serif); color: var(--green); animation: rise .4s ease both; }
+@media (max-width: 520px) { .cabine, .rembobinage { padding: 16px; } .rembobinage { grid-template-columns: minmax(0, 1fr); } .rb-bobine { width: 60px; height: 60px; } }
+@media (prefers-reduced-motion: reduce) { .voyant[aria-pressed="true"] .lampe, .faq details.revient, .rb-fin { animation: none; } .rb-film, .rb-tourne { transition: none; } }
 .cta { display: flex; flex-wrap: wrap; gap: 10px; }
 .btn { display: inline-block; font: 800 .95rem var(--body); text-decoration: none; padding: 12px 18px; border-radius: 10px; background: var(--bulb); color: var(--ink); }
 .btn.ghost { background: transparent; color: var(--cream); border: 1px solid var(--seat); }
@@ -527,6 +573,7 @@ ${STAGE_CSS}
   .composte { min-height: 44px; }
   .faq details { padding: 3px 0; }
   .faq summary, .manual summary { padding-block: 10px; }
+  .rb-gestes label { min-height: 44px; padding-block: 10px; }
   .reel-menu a { padding: 12px; }
   .r-dots { gap: 0; }
   .r-dots button { box-sizing: border-box; width: 30px; height: 30px; padding: 10px; background-clip: content-box; }
@@ -821,7 +868,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
     <ol>
       <li>Dans Nuvio sur la TV : <span class="path">Addons → Gérer depuis le téléphone</span>. Un QR code s'affiche.</li>
       <li>Scanne-le avec l'appareil photo du téléphone. Une page s'ouvre avec trois onglets : <b>Addons</b>, <b>Disposition de l'accueil</b> et <b>Collections</b>.</li>
-      <li>Ouvre aussi ce guide sur le téléphone. Tous les liens à coller y sont regroupés, dans l'ordre, dans « Tes liens » (étape 6) : appuie sur <b>Copier</b>, puis colle le lien dans la page de Nuvio.</li>
+      <li>Ouvre aussi ce guide sur le téléphone. À chaque étape, appuie sur <b>Copier</b>, puis colle le lien dans la page de Nuvio.</li>
     </ol>
   </section>
 
@@ -867,18 +914,14 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
         <li><b>Mouvements de caméra saccadés, sans chargement</b> : ce n'est pas le fichier. Le film est en 24 images/s et la TV l'affiche en 60 Hz. Sur Fire TV : <span class="path">Paramètres → Affichage et sons → Affichage → Faire correspondre la fréquence d'images d'origine</span> → activé.</li>
       </ul>
     </div>
-    <div class="paquet" id="tes-liens">
-      <h3>Tes liens, dans l'ordre</h3>
-      <p class="small">Tout ce qu'il faut coller, sur un seul écran : pratique sur le téléphone, avec la page « Gérer depuis le téléphone » de Nuvio ouverte à côté. Le détail de chaque addon est juste en dessous.</p>
-      <ol class="paquet-liste" id="paquet-liste"></ol>
-    </div>
     <div class="addons">
       <article class="addon">
         <header><h3>Catalogue FR</h3><span class="role">Accueil, Découvrir, recherche, fiches</span></header>
         <p>Les rangées d'accueil en français (saison, tendances, nouveautés sur tes plateformes…), les catalogues de Découvrir, la recherche (rangées « Films » et « Séries », titres en français, les plus connus d'abord) et les fiches des films et séries (résumé avec la date de dispo des films à venir, casting, saisons, épisodes, bande-annonce en VF quand elle existe). Pas de compte nécessaire, et plus besoin de TMDB Discover Plus.</p>
-        <p>Pour les réglages conseillés, colle simplement ce lien. Pour choisir tes rangées, tes plateformes et tes filtres, passe par ${link(origin + "/configure", "la page de personnalisation")}, qui te donne ton propre lien.</p>
+        <p>Pour les réglages conseillés, colle simplement ce lien. Pour choisir tes rangées, tes plateformes et tes filtres, personnalise-le sans quitter le guide : ton lien perso arrive ensuite dans cette carte.</p>
+        <p class="perso-actions"><button type="button" class="perso-btn" data-perso-ouvrir>Personnaliser mon catalogue</button></p>
         ${addonBox("u-cat", manifest)}
-        <p class="small perso" data-perso hidden>C'est ton lien perso, repris de ta programmation en salle 2.</p>
+        <p class="small perso" data-perso hidden>C'est ton lien perso, repris de ta programmation. <button type="button" class="perso-lien" data-perso-ouvrir>Le modifier</button> · <button type="button" class="perso-lien" data-perso-retour>Revenir au lien conseillé</button></p>
       </article>
       <article class="addon">
         <header><h3>Lumio</h3><span class="role need">Débrideur</span></header>
@@ -924,7 +967,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
         <div class="cle-ad" data-cle-ad hidden><p class="small">Ta clé AllDebrid, prête à coller :</p>${copyBox("u-ad-wa", "")}</div>
       </article>
       <article class="addon">
-        <header><h3>OpenSubtitles v3</h3><span class="role">Sous-titres</span></header>
+        <header><h3>OpenSubtitles v3 <span class="opt">Facultatif</span></h3><span class="role">Sous-titres</span></header>
         <p>Les sous-titres français pour tout le reste. Pas de compte nécessaire : colle ce lien.</p>
         ${addonBox("u-os", LINKS.opensubtitles)}
         <p>Puis dans le lecteur : <span class="path">Paramètres → Sous-titres → Langue préférée → Français</span>.</p>
@@ -945,10 +988,10 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
     <p class="lead">Les grandes tuiles en haut de l'accueil : Plateformes, Genres, J'ai envie de…, Sagas et Studios.</p>
     <ol>
       <li>Sur le téléphone (étape 4), onglet <b>Collections → Importer → URL</b>. Sur PC : <span class="path">Collections → Importer → URL</span>.</li>
-      <li>Colle ce lien et valide. Si tu as personnalisé ton catalogue en salle 2 sur cet appareil, le guide a déjà mis ton lien perso.</li>
+      <li>Colle ce lien et valide. Si tu as personnalisé ton catalogue à l'étape 6, le guide a déjà mis ton lien perso.</li>
     </ol>
     ${copyBox("u-coll", origin + "/collections.json")}
-    <p class="small perso" data-perso hidden>C'est ton lien perso, repris de ta programmation en salle 2.</p>
+    <p class="small perso" data-perso hidden>C'est ton lien perso, repris de ta programmation (étape 6).</p>
   </section>
 
   <section class="act" id="affiches">
@@ -991,17 +1034,43 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
 
   <section class="act faq" id="depannage">
     <header><span class="num">12</span><span class="label">Coulisses</span><h2>En cas de souci</h2></header>
-    <details><summary>« Aucun addon installé ne fournit de métadonnées pour… » en ouvrant un film</summary><p>Les fiches viennent du Catalogue FR : retire-le et rajoute-le (étape 6) pour que Nuvio voie qu'il fournit maintenant les fiches. Si tu avais un autre addon de fiches (TMDB Discover Plus, Cinemeta), tu peux le garder ou le supprimer.</p></details>
-    <details><summary>« Aucun catalogue de recherche trouvé dans les addons installés »</summary><p>La recherche vient du Catalogue FR (addon n° 1 de l'étape 6) : vérifie qu'il est bien installé. Si tu viens de le mettre à jour, retire-le et rajoute-le pour que Nuvio voie ses catalogues de recherche.</p></details>
-    <details><summary>Aucune source quand je clique sur Regarder</summary><p>Vérifie que ton abonnement AllDebrid premium est actif (étape 5) : l'essai gratuit de 7 jours ne suffit pas. Vérifie aussi que ta clé API est bien renseignée dans Lumio, StreamFusion, Torrentio et WAStream. S'il n'y a rien seulement sur certains films, tes exclusions sont peut-être trop strictes : relis l'encadré « Ce que ton appareil sait lire » de l'étape 6.</p></details>
-    <details><summary>L'image saccade pendant les mouvements de caméra</summary><p>Si les travellings avancent par à-coups, sans rond de chargement, c'est du <b>judder</b> : le film est en 24 images/s (23,976) et la TV l'affiche en 60 Hz, alors les images sont répétées de façon inégale. Sur Fire TV : <span class="path">Paramètres → Affichage et sons → Affichage → Faire correspondre la fréquence d'images d'origine</span> → activé. Dans Nuvio, active aussi <b>Frame Rate Matching</b> (étape 9).</p><p>Si l'image se fige avec un rond de chargement, c'est autre chose : le fichier est trop lourd pour ta connexion (voir l'encadré de l'étape 6).</p></details>
-    <details><summary>C'est écrit « Movie » au lieu de « Film »</summary><p>La langue de l'appli est en anglais : <span class="path">Paramètres → Langue de l'application → Français</span> (étape 3).</p></details>
-    <details><summary>Les bandes-annonces sont en anglais</summary><p>Dans <span class="path">Paramètres → Enrichissement TMDB</span>, <b>désactive Bandes-annonces</b> (étape 3), puis force l'arrêt de Nuvio et relance-le. Activé, ce réglage fait passer les bandes-annonces de TMDB, souvent en anglais, avant celles du Catalogue FR, qui va chercher la VF sur TMDB, Allociné et YouTube.</p><p>Si un titre reste en version originale, c'est qu'aucune VF n'a été trouvée (fréquent pour les animés et les séries étrangères). Une VF trouvée en ouvrant la fiche arrive sur l'accueil dans les 3 heures.</p></details>
-    <details><summary>Une rangée ou une modification n'apparaît pas</summary><p>Nuvio garde la liste des rangées d'un addon pendant 6 h. Pas besoin de réinstaller : dans <span class="path">Addons</span>, appuie sur <b>Actualiser les addons</b>, qui récupère tout de suite leurs dernières modifications.</p><p>Si tu as changé tes réglages en salle 2, ton lien d'addon a changé : là, il faut bien remplacer l'ancien Catalogue FR par le nouveau lien de ton billet.</p></details>
-    <details><summary>La recherche affiche « TMDB Search » ou des résultats en double</summary><p>Ton installation date d’avant le passage de la recherche dans le Catalogue FR. <b>1.</b> Retire le Catalogue FR et remets-le (lien de l’étape 6) pour que Nuvio voie sa recherche et ses fiches. <b>2.</b> Dans Addons, supprime <b>TMDB Discover Plus</b> : il ne sert plus, le Catalogue FR fait maintenant la recherche et les fiches. <b>3.</b> Vérifie que « Afficher le type de catalogue » est désactivé (étape 9).</p></details>
-    <details><summary>Un film à venir n’affiche pas sa date de dispo</summary><p>Pour un film pas encore regardable, l’addon envoie la date où il arrive chez toi (sortie numérique, ou une estimation) : c’est elle que le grand carrousel affiche, pas la sortie au cinéma. Le rappel « 📅 Dispo le 17 nov. » en tête du résumé n’apparaît que si <span class="path">Paramètres → Intégrations → Enrichissement TMDB → Infos</span> est désactivé (étape 3) : sinon, Nuvio remplace le résumé par celui de TMDB. Nuvio garde l’ancienne version environ 5 minutes : si rien ne change, ferme et relance l’appli.</p></details>
-    <details><summary>Un autre profil n'a pas les addons</summary><p>Chaque profil Nuvio a sa propre liste d'addons. Ouvre <span class="path">Paramètres → Profils → Gérer les profils</span>, choisis le profil, puis <b>Modifier</b>, et active <b>Utiliser les addons principaux</b> : il reprend alors exactement les addons du profil principal, et suivra chacune de tes modifications.</p></details>
-    <details><summary>Une collection est tout en bas de l'accueil</summary><p>C'est normal : seule Plateformes est épinglée tout en haut. Genres, J'ai envie de…, Sagas et Studios viennent après les rangées du Catalogue FR. Pour en remonter une : <span class="path">Paramètres → Réorganiser les catalogues de l'accueil</span> (étape 10).</p></details>
+    <div class="cabine" id="cabine" hidden>
+      <p class="cab-plaque">Panneau de la cabine · où ça coince ?</p>
+      <p class="lead">Un incident de projection ? Allume le voyant de l'endroit où ça coince : seules les pannes qui s'y produisent restent à l'écran.</p>
+      <div class="cab-voyants" role="group" aria-label="Où ça coince ?">
+        <button type="button" class="voyant" data-moment="accueil" aria-pressed="false"><i class="lampe"></i><b>À l'accueil</b><small></small></button>
+        <button type="button" class="voyant" data-moment="fiche" aria-pressed="false"><i class="lampe"></i><b>Sur une fiche</b><small></small></button>
+        <button type="button" class="voyant" data-moment="recherche" aria-pressed="false"><i class="lampe"></i><b>En cherchant</b><small></small></button>
+        <button type="button" class="voyant" data-moment="lecture" aria-pressed="false"><i class="lampe"></i><b>Pour regarder</b><small></small></button>
+        <button type="button" class="voyant" data-moment="profils" aria-pressed="false"><i class="lampe"></i><b>Sur un autre profil</b><small></small></button>
+      </div>
+      <p class="cab-etat" id="cab-etat" aria-live="polite"></p>
+    </div>
+    <details data-moment="fiche"><summary>« Aucun addon installé ne fournit de métadonnées pour… » en ouvrant un film</summary><p>Les fiches viennent du Catalogue FR : retire-le et rajoute-le (étape 6) pour que Nuvio voie qu'il fournit maintenant les fiches. Si tu avais un autre addon de fiches (TMDB Discover Plus, Cinemeta), tu peux le garder ou le supprimer.</p></details>
+    <details data-moment="recherche"><summary>« Aucun catalogue de recherche trouvé dans les addons installés »</summary><p>La recherche vient du Catalogue FR (addon n° 1 de l'étape 6) : vérifie qu'il est bien installé. Si tu viens de le mettre à jour, retire-le et rajoute-le pour que Nuvio voie ses catalogues de recherche.</p></details>
+    <details data-moment="lecture"><summary>Aucune source quand je clique sur Regarder</summary><p>Vérifie que ton abonnement AllDebrid premium est actif (étape 5) : l'essai gratuit de 7 jours ne suffit pas. Vérifie aussi que ta clé API est bien renseignée dans Lumio, StreamFusion, Torrentio et WAStream. S'il n'y a rien seulement sur certains films, tes exclusions sont peut-être trop strictes : relis l'encadré « Ce que ton appareil sait lire » de l'étape 6.</p></details>
+    <details data-moment="lecture"><summary>L'image saccade pendant les mouvements de caméra</summary><p>Si les travellings avancent par à-coups, sans rond de chargement, c'est du <b>judder</b> : le film est en 24 images/s (23,976) et la TV l'affiche en 60 Hz, alors les images sont répétées de façon inégale. Sur Fire TV : <span class="path">Paramètres → Affichage et sons → Affichage → Faire correspondre la fréquence d'images d'origine</span> → activé. Dans Nuvio, active aussi <b>Frame Rate Matching</b> (étape 9).</p><p>Si l'image se fige avec un rond de chargement, c'est autre chose : le fichier est trop lourd pour ta connexion (voir l'encadré de l'étape 6).</p></details>
+    <details data-moment="accueil fiche"><summary>C'est écrit « Movie » au lieu de « Film »</summary><p>La langue de l'appli est en anglais : <span class="path">Paramètres → Langue de l'application → Français</span> (étape 3).</p></details>
+    <details data-moment="accueil fiche"><summary>Les bandes-annonces sont en anglais</summary><p>Dans <span class="path">Paramètres → Enrichissement TMDB</span>, <b>désactive Bandes-annonces</b> (étape 3), puis force l'arrêt de Nuvio et relance-le. Activé, ce réglage fait passer les bandes-annonces de TMDB, souvent en anglais, avant celles du Catalogue FR, qui va chercher la VF sur TMDB, Allociné et YouTube.</p><p>Si un titre reste en version originale, c'est qu'aucune VF n'a été trouvée (fréquent pour les animés et les séries étrangères). Une VF trouvée en ouvrant la fiche arrive sur l'accueil dans les 3 heures.</p></details>
+    <details data-moment="accueil"><summary>Une rangée ou une modification n'apparaît pas</summary><p>Nuvio garde la liste des rangées d'un addon pendant 6 h. Pas besoin de réinstaller : dans <span class="path">Addons</span>, appuie sur <b>Actualiser les addons</b>, qui récupère tout de suite leurs dernières modifications.</p><p>Si tu as changé tes réglages en salle 2, ton lien d'addon a changé : là, il faut bien remplacer l'ancien Catalogue FR par le nouveau lien de ton billet.</p></details>
+    <details data-moment="recherche"><summary>La recherche affiche « TMDB Search » ou des résultats en double</summary><p>Ton installation date d’avant le passage de la recherche dans le Catalogue FR. <b>1.</b> Retire le Catalogue FR et remets-le (lien de l’étape 6) pour que Nuvio voie sa recherche et ses fiches. <b>2.</b> Dans Addons, supprime <b>TMDB Discover Plus</b> : il ne sert plus, le Catalogue FR fait maintenant la recherche et les fiches. <b>3.</b> Vérifie que « Afficher le type de catalogue » est désactivé (étape 9).</p></details>
+    <details data-moment="accueil fiche"><summary>Un film à venir n’affiche pas sa date de dispo</summary><p>Pour un film pas encore regardable, l’addon envoie la date où il arrive chez toi (sortie numérique, ou une estimation) : c’est elle que le grand carrousel affiche, pas la sortie au cinéma. Le rappel « 📅 Dispo le 17 nov. » en tête du résumé n’apparaît que si <span class="path">Paramètres → Intégrations → Enrichissement TMDB → Infos</span> est désactivé (étape 3) : sinon, Nuvio remplace le résumé par celui de TMDB. Nuvio garde l’ancienne version environ 5 minutes : si rien ne change, ferme et relance l’appli.</p></details>
+    <details data-moment="profils"><summary>Un autre profil n'a pas les addons</summary><p>Chaque profil Nuvio a sa propre liste d'addons. Ouvre <span class="path">Paramètres → Profils → Gérer les profils</span>, choisis le profil, puis <b>Modifier</b>, et active <b>Utiliser les addons principaux</b> : il reprend alors exactement les addons du profil principal, et suivra chacune de tes modifications.</p></details>
+    <details data-moment="accueil"><summary>Une collection est tout en bas de l'accueil</summary><p>C'est normal : seule Plateformes est épinglée tout en haut. Genres, J'ai envie de…, Sagas et Studios viennent après les rangées du Catalogue FR. Pour en remonter une : <span class="path">Paramètres → Réorganiser les catalogues de l'accueil</span> (étape 10).</p></details>
+    <div class="rembobinage" id="rembobinage">
+      <svg class="rb-bobine" viewBox="0 0 80 80" aria-hidden="true"><circle class="rb-film" cx="40" cy="40" r="12"/><g class="rb-tourne"><circle cx="40" cy="40" r="36"/><path d="M40 33V4M33.9 43.5L8.8 58M46.1 43.5L71.2 58"/><circle cx="40" cy="40" r="7"/></g></svg>
+      <div class="rb-texte">
+        <h3>Toujours pas ? Le grand rembobinage</h3>
+        <p>Quatre gestes, du plus léger au plus radical, qui règlent la plupart des pannes. Coche-les au fur et à mesure : la bobine se rembobine.</p>
+        <ul class="rb-gestes">
+          <li><label><input type="checkbox"><span>Dans <span class="path">Addons</span>, appuie sur <b>Actualiser les addons</b> : Nuvio récupère tout de suite leurs dernières modifications.</span></label></li>
+          <li><label><input type="checkbox"><span>Force l'arrêt de Nuvio, puis relance-le.</span></label></li>
+          <li><label><input type="checkbox"><span>Vérifie que ton abonnement AllDebrid <b>premium</b> est actif (étape 5) : l'essai gratuit de 7 jours ne suffit pas.</span></label></li>
+          <li><label><input type="checkbox"><span>Retire le Catalogue FR et rajoute-le avec le lien de l'étape 6.</span></label></li>
+        </ul>
+        <p class="rb-fin" id="rb-fin" hidden>Bobine rembobinée : relance le film, la séance reprend.</p>
+      </div>
+    </div>
   </section>
 
   <section class="diplome-box" id="diplome" aria-label="Diplôme de projectionniste" hidden>
@@ -1071,7 +1140,7 @@ const garde = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.re
   if (o.tmdb) garde("tmdb-key", o.tmdb);
   if (o.app) garde("guide-appareil", o.app);
   if (!Object.keys(o).length) return;
-  addEventListener("load", () => { document.getElementById("tes-liens").scrollIntoView(); toast("Clés reçues : tes liens sont prêts."); });
+  addEventListener("load", () => { document.getElementById("addons").scrollIntoView(); toast("Clés reçues : tes liens sont prêts."); });
 })();
 const adInput = document.getElementById("ad-key");
 // L’appareil : les cartes radio de l’étape 6 (une seule cochée). Une fois choisi, la liste se replie sur lui.
@@ -1093,56 +1162,47 @@ const setInstall = (id) => {
 };
 const SANS_INSTALL = sansInstall(navigator.userAgent);
 document.querySelectorAll("[data-installe]").forEach((a) => setInstall(a.dataset.installe));
-// Programmation perso faite en salle 2 dans cet onglet : son lien remplace celui par défaut.
-let perso = "";
-try { perso = basePerso(sessionStorage.getItem("programmation") || "", ORIG); } catch (e) {}
-if (perso) {
-  $id("u-cat").textContent = perso + "/manifest.json";
-  $id("u-coll").textContent = perso + "/collections.json";
-  document.querySelectorAll("[data-perso]").forEach((p) => { p.hidden = false; });
+// Programmation perso (salle 2, ouverte par-dessus le guide ou plus tôt dans cet onglet) : son lien remplace celui par défaut.
+function appliquerPerso(base) {
+  $id("u-cat").textContent = (base || ORIG) + "/manifest.json";
+  $id("u-coll").textContent = (base || ORIG) + "/collections.json";
+  document.querySelectorAll("[data-perso]").forEach((p) => { p.hidden = !base; });
+  document.querySelectorAll("a[data-programmation]").forEach((a) => { a.href = (base || ORIG) + "/configure"; });
   setInstall("u-cat");
 }
-// « Tes liens » : tout ce qu'il faut coller, dans l'ordre, recopié des étapes.
-const SITES = ${JSON.stringify({ lumio: LINKS.lumio, streamFusion: LINKS.streamFusion, wastream: LINKS.wastream })};
-const PAQUET = [
-  { nom: "Catalogue FR", src: "u-cat", ou: "Addons → Ajouter un addon" },
-  { nom: "Lumio", site: SITES.lumio, ou: "Sur son site : connecte AllDebrid, règle-le, puis copie son lien d'installation." },
-  { nom: "StreamFusion Reborn", site: SITES.streamFusion, ou: "Sur son site : AllDebrid, ta clé, Français, puis copie son lien d'installation." },
-  { nom: "Torrentio", src: "u-torrentio", ou: "Addons → Ajouter un addon", manque: "Il manque ta clé AllDebrid ou ton appareil." },
-  { nom: "WAStream (facultatif)", site: SITES.wastream, ou: "Sur son site : AllDebrid, ta clé, puis copie son lien d'installation." },
-  { nom: "OpenSubtitles v3", src: "u-os", ou: "Addons → Ajouter un addon" },
-  { nom: "Collections (étape 7)", src: "u-coll", ou: "Collections → Importer → URL" },
-  { nom: "Affiches perso (étape 8)", src: "u-poster", ou: "Paramètres → Disposition → Custom Poster Source", manque: "Ajoute ta clé TMDB au trousseau (étape 5)." },
-];
-PAQUET.forEach((p) => {
-  const li = document.createElement("li"); li.dataset.nom = p.nom;
-  const t = document.createElement("b"); t.textContent = p.nom;
-  const ou = document.createElement("span"); ou.className = "ou"; ou.textContent = p.ou;
-  li.append(t, ou);
-  if (!p.src) {
-    if (!p.site) { $id("paquet-liste").append(li); return; }
-    const a = document.createElement("a"); a.href = p.site; a.target = "_blank"; a.rel = "noopener"; a.className = "site"; a.textContent = "Ouvrir son site";
-    li.append(a);
-  } else {
-    const box = document.createElement("div"); box.className = "copy";
-    box.innerHTML = '<code id="p-' + p.src + '"></code><button type="button" data-copy="p-' + p.src + '">Copier</button>';
-    const inst = document.createElement("a"); inst.className = "installer"; inst.dataset.installe = "p-" + p.src; inst.hidden = true; inst.textContent = "Installer dans Nuvio sur cet appareil";
-    const manque = document.createElement("span"); manque.className = "manque"; manque.textContent = p.manque || ""; manque.hidden = true;
-    li.append(box, inst, manque);
-  }
-  $id("paquet-liste").append(li);
-});
-function drawPaquet() {
-  PAQUET.forEach((p) => {
-    if (!p.src) return;
-    const src = $id(p.src), code = $id("p-" + p.src), v = src.textContent.trim();
-    const vide = !v || v.indexOf("TA_CLE_TMDB") >= 0;
-    code.textContent = v;
-    code.parentNode.hidden = vide;
-    code.parentNode.parentNode.querySelector(".manque").hidden = !vide;
-    setInstall("p-" + p.src);
-  });
+try { appliquerPerso(basePerso(sessionStorage.getItem("programmation") || "", ORIG)); } catch (e) { appliquerPerso(""); }
+// La salle 2 s'ouvre par-dessus le guide, sans changer de page ; en la fermant, son lien arrive dans les cartes.
+function ouvrirSalle2(e) {
+  const declencheur = e && e.currentTarget;
+  let depart = "";
+  try { depart = sessionStorage.getItem("programmation") || ""; } catch (err) {}
+  if (!basePerso(depart, ORIG)) depart = ORIG + "/configure";
+  const ov = document.createElement("div"); ov.className = "salle2"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", "Ta programmation");
+  ov.innerHTML = '<div class="s2-barre"><p><b>Ta programmation</b><span>Choisis tes rangées, tes plateformes et tes filtres : le guide reprend ton lien.</span></p><button type="button" class="s2-fini">Terminé, revenir au guide</button></div><iframe title="Salle 2 : ta programmation"></iframe>';
+  const frame = ov.querySelector("iframe"); frame.src = depart;
+  document.body.append(ov); document.documentElement.classList.add("s2-ouverte");
+  const fini = ov.querySelector(".s2-fini"); fini.focus();
+  const fermer = () => {
+    // La salle 2 réécrit son adresse à chaque réglage : on la relit à la fermeture.
+    let u = "";
+    try { u = frame.contentWindow.location.href; } catch (err) {}
+    if (!/[/]configure$/.test(u)) { try { u = sessionStorage.getItem("programmation") || ""; } catch (err) {} }
+    const base = basePerso(u, ORIG);
+    try { sessionStorage.setItem("programmation", (base || ORIG) + "/configure"); } catch (err) {}
+    appliquerPerso(base);
+    removeEventListener("keydown", echap); ov.remove(); document.documentElement.classList.remove("s2-ouverte");
+    $id("u-cat").closest(".addon").scrollIntoView({ block: "center" });
+    if (declencheur && declencheur.isConnected && !declencheur.closest("[hidden]")) declencheur.focus({ preventScroll: true });
+    toast(base ? "Ton lien perso est prêt : il est dans la carte du Catalogue FR." : "Tu gardes les réglages conseillés.");
+  };
+  const echap = (ev) => { if (ev.key === "Escape") fermer(); };
+  fini.addEventListener("click", fermer); addEventListener("keydown", echap);
 }
+document.querySelectorAll("[data-perso-ouvrir]").forEach((b) => b.addEventListener("click", ouvrirSalle2));
+document.querySelectorAll("[data-perso-retour]").forEach((b) => b.addEventListener("click", () => {
+  try { sessionStorage.setItem("programmation", ORIG + "/configure"); } catch (e) {}
+  appliquerPerso(""); toast("Retour au lien conseillé.");
+}));
 // Ce qu'il faut régler sur le site de chaque addon, selon l'appareil.
 document.querySelectorAll("[data-consigne] span").forEach((s) => { s.dataset.vide = s.textContent; });
 function majCles() {
@@ -1169,7 +1229,6 @@ function majCles() {
   if (brut && !ad) { $id("etat-cles").textContent = "Cette clé AllDebrid paraît incomplète : recopie-la depuis la page des clés API."; $id("etat-cles").classList.add("erreur"); }
   else if (tmdb && tmdb.length !== 32) { $id("etat-cles").textContent = "Une clé TMDB fait 32 caractères : prends bien la « Clé d'API », pas le « Jeton d'accès en lecture »."; $id("etat-cles").classList.add("erreur"); }
   else $id("etat-cles").textContent = ad && tmdb ? "Clés gardées sur cet appareil ✓" : ad || tmdb ? "Clé gardée sur cet appareil ✓" : "";
-  drawPaquet();
 }
 adInput.addEventListener("input", () => { garde("ad-key", adInput.value.trim().replace(/[^A-Za-z0-9]/g, "")); majCles(); });
 tmdbInputs.forEach((i) => i.addEventListener("input", () => {
@@ -1318,8 +1377,7 @@ document.querySelectorAll(".copy").forEach((box) => {
   const code = box.querySelector("code"); if (!code) return;
   const b = document.createElement("button"); b.type = "button"; b.className = "qr-btn"; b.innerHTML = QR_ICONE;
   b.setAttribute("aria-label", "Envoyer ce lien sur mon téléphone (QR code)"); b.title = "Envoyer sur mon téléphone";
-  const porteur = box.closest("[data-nom]");
-  const nom = porteur ? porteur.dataset.nom : (box.closest(".addon") || box.closest(".act")).querySelector("h3, h2").textContent.trim();
+  const nom = (box.closest(".addon") || box.closest(".act")).querySelector("h3, h2").textContent.trim();
   // Le QR code ouvre la page /lien : on y choisit de copier le lien ou le contenu du fichier.
   // (Le lien voyage après le #, il n'est jamais envoyé au serveur. Ton lien perso part tel quel, avec ta
   // clé Gemini : il sert à l'installer sur ton propre appareil.)

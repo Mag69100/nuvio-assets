@@ -91,7 +91,7 @@ test("guide_scripts_valides", () => {
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
   assert.ok(scripts.length >= 4);
   for (const s of scripts) assert.doesNotThrow(() => new Function(s));
-  for (const id of ["ad-key", "tmdb-key", "tmdb-key-8", "choix-appareil", "ma-conf", "ca-changer", "paquet-liste", "u-torrentio", "torrentio-pret", "cles-tel"]) {
+  for (const id of ["ad-key", "tmdb-key", "tmdb-key-8", "choix-appareil", "ma-conf", "ca-changer", "u-torrentio", "torrentio-pret", "cles-tel"]) {
     assert.ok(html.includes('id="' + id + '"'), id);
   }
   assert.ok(html.includes('href="nuvio://nuvio-assets.xnzxflix.workers.dev/manifest.json"'));

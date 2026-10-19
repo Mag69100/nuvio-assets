@@ -329,7 +329,7 @@ a { color: var(--bulb); font-weight: 700; text-underline-offset: 3px; }
 .trousseau .vers-tel { justify-self: start; }
 .etat-cles { min-height: 1.3em; font-weight: 800; font-size: .9rem; color: var(--bulb); }
 .etat-cles:empty { display: none; }
-.etat-cles.erreur { color: #ff9c95; }
+.etat-cles.erreur { color: #ffe1d8; }
 /* Personnaliser sans quitter le guide : la salle 2 par-dessus, dans un cadre. */
 .perso-actions { margin: 0; }
 .perso-btn { font: 800 .92rem var(--body); padding: 10px 18px; border-radius: 99px; border: 1px solid var(--bulb); background: rgba(255,207,107,.1); color: var(--bulb); cursor: pointer; transition: background-color .2s ease; }
@@ -1232,8 +1232,8 @@ function majCles() {
   document.querySelectorAll("[data-cle-ad]").forEach((d) => { d.hidden = !ad; d.querySelector("code").textContent = ad; });
   const brut = adInput.value.trim();
   $id("etat-cles").className = "etat-cles";
-  if (brut && !ad) { $id("etat-cles").textContent = "Cette clé AllDebrid paraît incomplète : recopie-la depuis la page des clés API."; $id("etat-cles").classList.add("erreur"); }
-  else if (tmdb && tmdb.length !== 32) { $id("etat-cles").textContent = "Une clé TMDB fait 32 caractères : prends bien la « Clé d'API », pas le « Jeton d'accès en lecture »."; $id("etat-cles").classList.add("erreur"); }
+  if (brut && !ad) { $id("etat-cles").textContent = "Cette clé AllDebrid paraît incomplète : recopie-la depuis la page des clés API."; $id("etat-cles").classList.add("erreur", "alerte"); }
+  else if (tmdb && tmdb.length !== 32) { $id("etat-cles").textContent = "Une clé TMDB fait 32 caractères : prends bien la « Clé d'API », pas le « Jeton d'accès en lecture »."; $id("etat-cles").classList.add("erreur", "alerte"); }
   else $id("etat-cles").textContent = ad && tmdb ? "Clés gardées sur cet appareil ✓" : ad || tmdb ? "Clé gardée sur cet appareil ✓" : "";
 }
 adInput.addEventListener("input", () => { garde("ad-key", adInput.value.trim().replace(/[^A-Za-z0-9]/g, "")); majCles(); });
@@ -1378,7 +1378,7 @@ function montrerQr(titre, texte, cible, detail) {
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   ov.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
   chargerQr().then((qrcode) => { ov.querySelector(".code-qr").innerHTML = qrSvg(qrcode, cible); },
-    () => { ov.querySelector(".code-qr").textContent = "QR code indisponible : vérifie ta connexion."; });
+    () => { const q = ov.querySelector(".code-qr"), p = document.createElement("p"); p.className = "alerte"; p.setAttribute("role", "alert"); p.textContent = "QR code indisponible : vérifie ta connexion."; q.textContent = ""; q.append(p); });
 }
 // Un bouton QR à côté de chaque « Copier » : le téléphone ouvre le guide avec ce lien prêt à copier.
 document.querySelectorAll(".copy").forEach((box) => {
@@ -1582,7 +1582,7 @@ document.getElementById("cles-tel").addEventListener("click", () => {
       if (matchMedia("(pointer: coarse)").matches && navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: "Diplôme de projectionniste" });
       else { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "diplome-projectionniste.png"; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
       btn.textContent = "Diplôme imprimé ✓"; popcorn(btn); sfx.punch();
-    } catch (e) { btn.textContent = "Impression impossible"; }
+    } catch (e) { btn.textContent = "Impression impossible"; toast("Impression du diplôme impossible : réessaie, ou fais une capture d'écran.", true); }
     btn.disabled = false; setTimeout(() => { btn.textContent = label; }, 2200);
   });
 })();

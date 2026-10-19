@@ -322,6 +322,14 @@ export const STAGE_CSS = `
   padding: 12px 18px; border-radius: 12px; background: var(--cream); color: var(--ink); font: 800 .95rem var(--body); text-align: center;
   max-width: calc(100vw - 32px); box-shadow: 0 12px 30px rgba(0,0,0,.5); transition: opacity .3s ease, transform .35s cubic-bezier(.22,1,.36,1); }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
+/* ---------- Les erreurs : un encadré rouge bien visible, le même partout ---------- */
+/* Fond sombre plein : lisible aussi bien sur le velours que dans un cadre blanc (QR code). */
+.alerte { display: flex; gap: 10px; align-items: flex-start; margin: 0; padding: 12px 14px; border-radius: 12px; border: 1.5px solid #e5413a;
+  background: #3b1216; color: #ffe1d8; font: 600 .95rem/1.45 "Figtree", system-ui, sans-serif; text-align: left; box-shadow: 0 0 0 3px rgba(229,65,58,.15); }
+.alerte::before { content: "!"; flex: none; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; display: grid; place-items: center;
+  background: #e5413a; color: #fff; font: 800 .85rem/1 "Figtree", system-ui, sans-serif; }
+.alerte:empty { display: none; }
+.toast.erreur { background: #3b1216; color: #ffe1d8; border: 1.5px solid #e5413a; }
 
 /* ---------- Le décor de saison (le même que la rangée « Spécial ») ---------- */
 .saison { position: fixed; inset: 0; z-index: 45; pointer-events: none; overflow: hidden; }
@@ -932,7 +940,11 @@ export const STAGE_JS = String.raw`
   const toastEl = document.createElement("div");
   toastEl.className = "toast"; toastEl.setAttribute("role", "status"); document.body.append(toastEl);
   let toastT = 0;
-  window.toast = (msg) => { toastEl.textContent = msg; toastEl.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove("on"), 3400); };
+  // toast(message, true) : une erreur, en rouge, annoncée tout de suite et affichée plus longtemps.
+  window.toast = (msg, erreur) => {
+    toastEl.textContent = msg; toastEl.classList.toggle("erreur", !!erreur); toastEl.setAttribute("role", erreur ? "alert" : "status");
+    toastEl.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove("on"), erreur ? 6000 : 3400);
+  };
   const kernel = (x, y) => { const k = document.createElement("i"); k.className = "kernel"; k.style.left = x + "px"; k.style.top = y + "px"; document.body.append(k); return k; };
 
   // Quelques grains sautent du bouton qu'on vient d'utiliser.

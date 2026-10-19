@@ -59,20 +59,22 @@ async function hoteRefresh() {
 function hoteRender() {
   const box = $("hote-box"); box.textContent = "";
   if (hote && hote.motDePasseFaible) {
-    box.append(el("p", { class: "sub", text: "Le mot de passe d'hébergeur de ta copie est trop simple : 10 caractères au moins, et pas celui de l'exemple. Change ADMIN_PASSWORD (Docker : dans docker-compose.yml ; Cloudflare : dans les paramètres de ton Worker), redémarre ou redéploie, puis recharge cette page." }));
+    box.append(el("p", { class: "alerte", role: "alert", text: "Le mot de passe d'hébergeur de ta copie est trop simple : 10 caractères au moins, et pas celui de l'exemple. Change ADMIN_PASSWORD (Docker : dans docker-compose.yml ; Cloudflare : dans les paramètres de ton Worker), redémarre ou redéploie, puis recharge cette page." }));
     return;
   }
   if (hote && hote.motDePasse === false) {
-    box.append(el("p", { class: "sub", text: "Ta copie n'a pas encore de mot de passe d'hébergeur. Ajoute ADMIN_PASSWORD (Docker : dans docker-compose.yml, rubrique environment ; Cloudflare : un secret dans les paramètres de ton Worker), redémarre ou redéploie, puis recharge cette page." }));
+    box.append(el("p", { class: "alerte", role: "alert", text: "Ta copie n'a pas encore de mot de passe d'hébergeur. Ajoute ADMIN_PASSWORD (Docker : dans docker-compose.yml, rubrique environment ; Cloudflare : un secret dans les paramètres de ton Worker), redémarre ou redéploie, puis recharge cette page." }));
     return;
   }
   if (!hote || !hote.hote) {
     const pw = el("input", { type: "password", id: "hote-mdp", autocomplete: "current-password", placeholder: "Mot de passe", "aria-label": "Mot de passe de l'hébergeur" });
-    const msg = el("small", { class: "hote-msg", "aria-live": "polite" });
+    const msg = el("p", { class: "alerte", role: "alert" });
     const go = async () => {
       const r = await hoteCall("/hote/connexion", { motDePasse: pw.value }).catch(() => null);
       if (r && r.ok) hoteRefresh();
-      else msg.textContent = r && r.status === 429 ? "Trop d'essais : réessaie dans un quart d'heure." : "Mot de passe incorrect.";
+      else msg.textContent = !r ? "Pas de réponse de ta copie : vérifie ta connexion et réessaie."
+        : r.status === 429 ? "Trop d'essais : réessaie dans un quart d'heure."
+        : (await r.json().catch(() => ({}))).error || "Mot de passe incorrect.";
     };
     pw.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go(); } });
     box.append(el("div", { class: "hote-ligne" }, pw, el("button", { type: "button", class: "hote-btn", text: "Se connecter", onclick: go })), msg);
@@ -85,9 +87,9 @@ function hoteRender() {
     el("b", { text: "Alertes de mise à jour dans Nuvio" }),
     el("small", { text: "Ajoute à ton lien une rangée « Mise à jour », en tête de l'accueil, visible seulement quand une nouvelle version est sortie. Réinstalle ton lien après l'avoir coché, et ne coche pas pour les liens que tu donnes aux autres." }))));
   box.append(hote.maj ? hoteBanner(hote.maj)
-    : el("p", { class: "sub", text: hote.verification === "impossible"
-      ? "Impossible de vérifier les mises à jour pour l'instant (GitHub ne répond pas). Réessaie plus tard."
-      : "Ta copie est à jour (ou tu as repoussé la dernière version)." }));
+    : hote.verification === "impossible"
+      ? el("p", { class: "alerte", role: "alert", text: "Impossible de vérifier les mises à jour pour l'instant (GitHub ne répond pas). Réessaie plus tard." })
+      : el("p", { class: "sub", text: "Ta copie est à jour (ou tu as repoussé la dernière version)." }));
   box.append(el("button", { type: "button", class: "hote-btn line", text: "Se déconnecter", onclick: async () => { await hoteCall("/hote/deconnexion", {}); hoteRefresh(); } }));
 }
 function hoteBanner(maj) {
@@ -349,6 +351,7 @@ aside.long .stage:not(.big) { position: sticky; top: var(--stage-top, 18px); }
 .ai-key input { flex: 1; min-width: 0; }
 .ai-key button { flex: none; padding: 0 12px; border-radius: 8px; border: 1px solid var(--seat); background: var(--velvet); color: var(--cream); cursor: pointer; }
 #ai-key-hint { color: var(--dim); min-height: 1.2em; }
+#ai-key-hint.alerte { color: #ffe1d8; min-height: 0; }
 /* Clé masquée sans champ « mot de passe » (Chrome proposerait de l'enregistrer). */
 #ai-key.masque { -webkit-text-security: disc; text-security: disc; }
 /* Espace hébergeur (copies auto-hébergées seulement). */
@@ -357,7 +360,6 @@ aside.long .stage:not(.big) { position: sticky; top: var(--stage-top, 18px); }
 .hote-ligne input { flex: 1; min-width: 0; font: 600 1rem var(--body); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--seat); background: var(--velvet); color: var(--cream); }
 .hote-btn { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--cream); background: var(--cream); color: var(--ink); font: 700 .9rem var(--body); cursor: pointer; }
 .hote-btn.line { background: transparent; color: var(--cream); justify-self: start; }
-.hote-msg { color: var(--dim); min-height: 1.2em; }
 .hote-maj { border: 1px solid var(--red); border-radius: 12px; padding: 14px 16px; display: grid; gap: 10px; background: var(--velvet-2); }
 .hote-maj ul { margin: 0; padding-left: 1.2em; color: var(--dim); }
 .hote-maj a { color: var(--cream); }
@@ -1159,7 +1161,9 @@ $("name").addEventListener("input", update);
 // Clé Gemini : nettoyée à la saisie ; l'indication dit si elle a la forme d'une clé.
 function aiKeyHint() {
   const k = state.k || "";
-  $("ai-key-hint").textContent = !k ? "" : /^[A-Za-z0-9._~+/=:-]{20,200}$/.test(k) ? "Clé reconnue ✓" : "Ça ne ressemble pas à une clé Gemini";
+  const cleOk = /^[A-Za-z0-9._~+/=:-]{20,200}$/.test(k);
+  $("ai-key-hint").textContent = !k ? "" : cleOk ? "Clé reconnue ✓" : "Ça ne ressemble pas à une clé Gemini : recopie-la depuis Google AI Studio (elle commence par AIza).";
+  $("ai-key-hint").classList.toggle("alerte", !!k && !cleOk);
 }
 $("ai-key").addEventListener("input", () => { state.k = $("ai-key").value.trim(); aiKeyHint(); update(); });
 $("ai-key").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } });
@@ -1197,7 +1201,7 @@ function drawQr() {
     for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += "M" + c + " " + r + "h1v1h-1z";
     box.className = "";
     box.innerHTML = '<svg viewBox="-2 -2 ' + w + " " + w + '" role="img" aria-label="QR code de ta programmation" shape-rendering="crispEdges"><rect x="-2" y="-2" width="' + w + '" height="' + w + '" fill="#fff"/><path d="' + d + '" fill="#2a1a14"/></svg>';
-  }, () => { box.className = "qr-wait"; box.textContent = "QR code indisponible : vérifie ta connexion."; });
+  }, () => { box.className = "alerte"; box.setAttribute("role", "alert"); box.textContent = "QR code indisponible : vérifie ta connexion."; });
 }
 $("qr-btn").addEventListener("click", () => {
   const open = $("qr").hidden;
@@ -1209,7 +1213,7 @@ $("share-btn").addEventListener("click", async (e) => {
   const btn = e.currentTarget, label = btn.textContent;
   const data = { title: state.n + ", ma programmation Nuvio", text: "Ouvre ce lien pour avoir les mêmes rangées que moi dans Nuvio.", url: shareUrl };
   if (navigator.share) { try { await navigator.share(data); popcorn(btn); } catch (err) {} return; }
-  try { await navigator.clipboard.writeText(shareUrl); btn.textContent = "Lien copié ✓"; popcorn(btn); } catch (err) { btn.textContent = "Copie impossible"; }
+  try { await navigator.clipboard.writeText(shareUrl); btn.textContent = "Lien copié ✓"; popcorn(btn); } catch (err) { btn.textContent = "Copie impossible"; toast("Copie impossible : sélectionne le lien et copie-le à la main.", true); }
   setTimeout(() => { btn.textContent = label; }, 1800);
 });
 // Le billet en image (1080 × 1350), à garder ou à envoyer.
@@ -1283,7 +1287,7 @@ $("img-btn").addEventListener("click", async (e) => {
     if (matchMedia("(pointer: coarse)").matches && navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: state.n });
     else { const a = el("a", { href: URL.createObjectURL(blob), download: "billet-nuvio.png" }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
     btn.textContent = "Billet imprimé ✓"; popcorn(btn); if (window.sfx) sfx.punch();
-  } catch (err) { btn.textContent = "Impression impossible"; }
+  } catch (err) { btn.textContent = "Impression impossible"; toast("Impression du billet impossible : réessaie, ou fais une capture d'écran.", true); }
   btn.disabled = false;
   setTimeout(() => { btn.textContent = label; }, 2000);
 });

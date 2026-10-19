@@ -35,7 +35,9 @@ h1 { margin: 0; font: 400 2rem/1 "Bebas Neue", Impact, sans-serif; letter-spacin
 pre { margin: 0; max-height: 40vh; overflow: auto; padding: 12px 14px; border-radius: 12px; background: #0f080c; border: 1px solid var(--seat); font: .78rem/1.45 "Courier Prime", monospace; white-space: pre-wrap; word-break: break-all; color: #f0e2cf; }
 .aide { margin: 0; font-size: .9rem; color: var(--dim); }
 .etat { min-height: 1.4em; margin: 0; font-weight: 800; color: var(--bulb); text-align: center; }
-.erreur { color: #ff9c95; }
+/* Les erreurs : le même encadré rouge que sur le reste du site. */
+.erreur { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; border: 1.5px solid #e5413a; background: #3b1216; color: #ffe1d8; font-weight: 600; text-align: left; box-shadow: 0 0 0 3px rgba(229,65,58,.15); }
+.erreur::before { content: "!"; flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: #e5413a; color: #fff; font: 800 .85rem/1 "Figtree", system-ui, sans-serif; }
 a, button, summary { touch-action: manipulation; }
 summary.aide { padding: 10px 0; cursor: pointer; }
 </style>

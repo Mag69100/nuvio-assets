@@ -43,10 +43,15 @@ export const POSTER_URL = "https://postersplus.stremio.ru/poster?tmdb_id={tmdb_i
 import { STAGE_HEAD, STAGE_CSS, stageTop, secretsHTML, BEAM_HTML, SEATS_HTML, CREDITS_HTML, STAGE_JS } from "./stage.js";
 import { APERCU_CSS, apercuJS } from "./apercu.js";
 import { REGLAGES_CSS, REGLAGES_JS, reglagesHTML } from "./reglages.js";
+import { APPAREILS, LIENS_JS, installUrl } from "./liens.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>`;
 const copyBox = (id, value) => `<div class="copy"><code id="${id}">${esc(value)}</code><button type="button" data-copy="${id}">Copier</button></div>`;
+// Lien d'addon : Copier, plus « Installer dans Nuvio » (stremio://), suivi par la page quand le lien change.
+const addonBox = (id, value) => `${copyBox(id, value)}<a class="installer" data-installe="${id}" href="${esc(installUrl(value) || "#")}"${installUrl(value) ? "" : " hidden"}>Installer dans Nuvio sur cet appareil</a>`;
+// Ce qu'il faut régler sur le site d'un addon, selon l'appareil choisi à l'étape 6.
+const consigne = (addon) => `<p class="consigne" data-consigne="${addon}"><b>Pour ton appareil :</b> <span>choisis-le dans l'encadré « Avant tout » plus haut, le guide te dira quoi régler.</span></p>`;
 
 export const NUVIO_TV_APK = LINKS.nuvioTvApk;
 
@@ -217,6 +222,9 @@ a { color: var(--bulb); font-weight: 700; text-underline-offset: 3px; }
 .compat td { padding: 10px 12px; border-top: 1px solid var(--seat); vertical-align: top; color: #e6d6c8; }
 .compat td:first-child { font-weight: 800; color: var(--cream); }
 .compat td:nth-child(2) { font: 700 .9rem var(--type); color: var(--bulb); white-space: nowrap; }
+.compat td small { display: block; margin-top: 2px; font: 400 .8rem var(--body); color: var(--dim); }
+.compat tr.choisi td { background: rgba(255,207,107,.1); }
+.compat tr.choisi td:first-child { color: var(--bulb); }
 .tips { display: grid; gap: 8px; }
 .first-run { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px 22px; align-items: center; padding: 18px 20px; border-radius: 14px;
   background: linear-gradient(135deg, rgba(229,65,58,.14), rgba(229,65,58,.04)); border: 1px solid rgba(229,65,58,.4); color: #eadacd; }
@@ -252,6 +260,35 @@ a { color: var(--bulb); font-weight: 700; text-underline-offset: 3px; }
 .keyfield { display: grid; gap: 6px; }
 .keyfield span { font: 700 .72rem var(--body); letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
 .keyfield input { font: 600 1rem var(--type); padding: 11px 13px; border-radius: 10px; border: 1px dashed var(--bulb); background: #0f080c; color: var(--cream); }
+.keyfield input, .keyfield select { min-width: 0; width: 100%; }
+.keyfield select { font: 700 1rem var(--body); padding: 11px 13px; border-radius: 10px; border: 1px solid var(--bulb); background: #0f080c; color: var(--cream); cursor: pointer; }
+/* Le trousseau (étape 5) : les clés tapées une fois, reprises partout. */
+.trousseau { display: grid; gap: 10px; padding: 16px 18px; border-radius: 14px; border: 1px solid rgba(255,207,107,.35); background: linear-gradient(180deg, rgba(255,207,107,.08), rgba(255,207,107,.02)); }
+.trousseau p { margin: 0; }
+.trousseau .vers-tel { justify-self: start; }
+.etat-cles { min-height: 1.3em; font-weight: 800; font-size: .9rem; color: var(--bulb); }
+.etat-cles:empty { display: none; }
+.etat-cles.erreur { color: #ff9c95; }
+/* Tes liens (étape 6) : tout ce qu'il faut coller, dans l'ordre. */
+.paquet { display: grid; gap: 8px; padding: 16px 18px; border-radius: 14px; background: var(--cream); color: var(--ink); }
+.paquet h3 { margin: 0; font: 400 1.6rem/1 var(--display); letter-spacing: .03em; }
+.paquet .small { color: #6b4c3e; margin: 0; }
+.paquet-liste { margin: 4px 0 0; padding: 0; list-style: none; counter-reset: pq; display: grid; gap: 10px; }
+.paquet-liste li { counter-increment: pq; display: grid; gap: 5px; padding-top: 10px; border-top: 1px dashed rgba(42,26,20,.25); min-width: 0; }
+.paquet-liste li > b { font: 800 1rem var(--body); }
+.paquet-liste li > b::before { content: counter(pq) ". "; color: var(--red); }
+.paquet-liste .ou, .paquet-liste .manque { font-size: .86rem; color: #6b4c3e; }
+.paquet-liste .manque { font-style: italic; }
+.paquet-liste .site { justify-self: start; font-weight: 800; color: #7a1824; }
+.paquet .installer { color: #7a1824; }
+/* Installer d'un geste (stremio://) et consignes selon l'appareil */
+.installer { justify-self: start; font: 800 .88rem var(--body); color: var(--bulb); text-decoration: underline; text-underline-offset: 3px; }
+.installer[hidden] { display: none; }
+.consigne { margin: 0; padding: 10px 14px; border-radius: 10px; background: rgba(255,255,255,.04); border: 1px dashed var(--seat); color: #e6d6c8; font-size: .93rem; }
+.consigne.pret { border-style: solid; border-color: rgba(255,207,107,.45); background: rgba(255,207,107,.07); }
+.cle-ad { display: grid; gap: 6px; }
+.cle-ad p { margin: 0; }
+.copy[hidden], .cle-ad[hidden] { display: none; }
 
 .faq details { border-bottom: 1px solid var(--seat); padding: 12px 0; }
 .faq summary { cursor: pointer; font-weight: 800; }
@@ -722,7 +759,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
     <ol>
       <li>Dans Nuvio sur la TV : <span class="path">Addons → Gérer depuis le téléphone</span>. Un QR code s'affiche.</li>
       <li>Scanne-le avec l'appareil photo du téléphone. Une page s'ouvre avec trois onglets : <b>Addons</b>, <b>Disposition de l'accueil</b> et <b>Collections</b>.</li>
-      <li>À chaque étape de ce guide, ouvre ce guide sur le téléphone, appuie sur <b>Copier</b>, puis colle le lien dans cette page.</li>
+      <li>Ouvre aussi ce guide sur le téléphone. Tous les liens à coller y sont regroupés, dans l'ordre, dans « Tes liens » (étape 6) : appuie sur <b>Copier</b>, puis colle le lien dans la page de Nuvio.</li>
     </ol>
   </section>
 
@@ -732,7 +769,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
     <ol>
       <li>Crée un compte sur ${link(LINKS.tmdbSignup, "themoviedb.org")} et confirme ton adresse e-mail.</li>
       <li>Va dans ${link(LINKS.tmdbApi, "Paramètres → API")} et demande une clé : type <b>Développeur</b>, usage <b>personnel</b>. Remplis le formulaire simplement (nom de l'appli : « Nuvio perso »).</li>
-      <li>Copie la <b>Clé d'API</b> (une suite de 32 lettres et chiffres) et garde-la dans tes notes : elle sert à l'étape 8 (affiches).</li>
+      <li>Copie la <b>Clé d'API</b> (une suite de 32 lettres et chiffres) et colle-la dans <a href="#trousseau">ton trousseau, juste en dessous</a> : elle sert à l'étape 8 (affiches).</li>
     </ol>
     <h3 class="sub-h">B · AllDebrid premium et sa clé API</h3>
     <p>Les addons de sources (Lumio, StreamFusion, Torrentio, WAStream) passent par un débrideur. Le guide utilise AllDebrid.</p>
@@ -740,9 +777,17 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
       <li>Crée un compte sur ${link(LINKS.allDebrid, "alldebrid.com")} et confirme ton adresse e-mail.</li>
       <li>Passe en <b>premium</b> sur ${link(LINKS.allDebridOffer, "la page des offres")} : sans premium, aucun addon ne fonctionne. <b>L'essai gratuit de 7 jours ne marche pas</b> avec les addons : il faut un vrai abonnement premium payant. Celui d'un mois suffit pour essayer.</li>
       <li>Ouvre ${link(LINKS.allDebridKeys, "la page des clés API")} (<span class="path">Mon compte → Clés API</span>), crée une clé et nomme-la « Nuvio ».</li>
-      <li>Copie la clé et garde-la avec ta clé TMDB : tu la colleras dans chaque addon de sources à l'étape 6.</li>
+      <li>Copie la clé et colle-la dans <a href="#trousseau">ton trousseau, juste en dessous</a> : le guide la met tout seul dans le lien de Torrentio, et la garde sous la main pour les autres addons de sources.</li>
     </ol>
     <p class="note">Certains addons proposent aussi « Se connecter avec AllDebrid » : tu valides un code sur alldebrid.com au lieu de coller la clé. Les deux marchent.</p>
+    <div class="trousseau" id="trousseau">
+      <h3 class="sub-h">C · Ton trousseau</h3>
+      <p>Colle tes deux clés ici, une seule fois : le guide les insère dans les liens des étapes suivantes. Elles restent sur cet appareil, rien n'est envoyé.</p>
+      <label class="keyfield" for="ad-key"><span>Ta clé AllDebrid</span><input id="ad-key" type="text" placeholder="la clé nommée « Nuvio »" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+      <label class="keyfield" for="tmdb-key"><span>Ta clé TMDB</span><input id="tmdb-key" type="text" placeholder="ta clé de 32 caractères" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+      <p class="etat-cles" id="etat-cles" role="status"></p>
+      <button type="button" class="vers-tel" id="cles-tel">Envoyer mes clés sur mon téléphone (QR code)</button>
+    </div>
     <p class="note warn">Tes clés sont personnelles : ne les publie pas et ne les envoie à personne. Ne partage pas non plus tes liens d'installation d'addons, ils contiennent ta clé AllDebrid.</p>
   </section>
 
@@ -752,14 +797,14 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
     <div class="compat-box" id="compatibilite">
       <h3>Avant tout : ce que ton appareil sait lire</h3>
       <p>Valable pour <b>tous les addons de sources</b> : Lumio, StreamFusion, Torrentio et WAStream. Dans chacun, exclus les qualités et les formats que ton appareil ne gère pas. Sinon : <b>écran vert ou violet</b>, <b>image saccadée</b> ou <b>pas de son</b>.</p>
+      <label class="keyfield choix-appareil" for="appareil"><span>L'appareil où tu regardes</span>
+        <select id="appareil"><option value="">Choisis ton appareil…</option>${Object.entries(APPAREILS).map(([id, a]) => `<option value="${id}">${esc(a.nom + (a.exemples ? " : " + a.exemples : ""))}</option>`).join("")}</select></label>
+      <p class="small">Le guide s'en sert pour préparer le lien de Torrentio et te dire quoi cocher dans les autres addons. Tu ne connais pas ton modèle ? Regarde sous la box ou dans <span class="path">Paramètres → À propos</span> ; dans le doute, prends « Box 4K sans Dolby Vision ».</p>
       <div class="compat">
         <table>
           <thead><tr><th>Ton appareil</th><th>Qualité max</th><th>À exclure</th></tr></thead>
           <tbody>
-            <tr><td>Fire TV Stick Lite, Fire TV Stick (HD)</td><td>1080p</td><td>4K, HDR, Dolby Vision, et de préférence HEVC/H.265 et AV1</td></tr>
-            <tr><td>Fire TV Stick 4K, 4K Max, Fire TV Cube</td><td>4K</td><td>AV1 sur les anciens modèles. Dolby Vision « profil 7 » des fichiers REMUX</td></tr>
-            <tr><td>TV Android / Google TV</td><td>Selon la TV</td><td>Ce que la fiche technique de ta TV ne cite pas (HDR10+, Dolby Vision…)</td></tr>
-            <tr><td>Ordinateur</td><td>Selon l'écran</td><td>Rien en général</td></tr>
+            ${Object.entries(APPAREILS).map(([id, a]) => `<tr data-appareil="${id}"><td>${esc(a.nom)}${a.exemples ? `<small>${esc(a.exemples)}</small>` : ""}</td><td>${esc(a.qualite)}</td><td>${esc(a.exclure)}</td></tr>`).join("\n            ")}
           </tbody>
         </table>
       </div>
@@ -770,12 +815,18 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
         <li><b>Mouvements de caméra saccadés, sans chargement</b> : ce n'est pas le fichier. Le film est en 24 images/s et la TV l'affiche en 60 Hz. Sur Fire TV : <span class="path">Paramètres → Affichage et sons → Affichage → Faire correspondre la fréquence d'images d'origine</span> → activé.</li>
       </ul>
     </div>
+    <div class="paquet" id="tes-liens">
+      <h3>Tes liens, dans l'ordre</h3>
+      <p class="small">Tout ce qu'il faut coller, sur un seul écran : pratique sur le téléphone, avec la page « Gérer depuis le téléphone » de Nuvio ouverte à côté. Le détail de chaque addon est juste en dessous.</p>
+      <ol class="paquet-liste" id="paquet-liste"></ol>
+    </div>
     <div class="addons">
       <article class="addon">
         <header><h3>Catalogue FR</h3><span class="role">Accueil, Découvrir, recherche, fiches</span></header>
         <p>Les rangées d'accueil en français (saison, tendances, nouveautés sur tes plateformes…), les catalogues de Découvrir, la recherche (rangées « Films » et « Séries », titres en français, les plus connus d'abord) et les fiches des films et séries (résumé avec la date de dispo des films à venir, casting, saisons, épisodes, bande-annonce en VF quand elle existe). Pas de compte nécessaire, et plus besoin de TMDB Discover Plus.</p>
         <p>Pour les réglages conseillés, colle simplement ce lien. Pour choisir tes rangées, tes plateformes et tes filtres, passe par ${link(origin + "/configure", "la page de personnalisation")}, qui te donne ton propre lien.</p>
-        ${copyBox("u-cat", manifest)}
+        ${addonBox("u-cat", manifest)}
+        <p class="small perso" data-perso hidden>C'est ton lien perso, repris de ta programmation en salle 2.</p>
       </article>
       <article class="addon">
         <header><h3>Lumio</h3><span class="role need">Débrideur</span></header>
@@ -783,17 +834,27 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
         <ol>
           <li>Ouvre ${link(LINKS.lumio, "la page de Lumio")} et connecte AllDebrid (clé API ou code).</li>
           <li>Règle tes préférences (qualités, formats vidéo et audio) <b>selon ce que ton appareil sait lire</b> : voir <a href="#compatibilite">l'encadré plus haut</a>.</li>
-          <li>Copie le lien d'installation (bouton en bas à droite) et ajoute-le dans Nuvio.</li>
+          <li>Copie le lien d'installation (bouton en bas à droite) et ajoute-le dans Nuvio. Sur l'appareil où Nuvio est installé, son bouton d'installation l'ajoute directement.</li>
         </ol>
+        ${consigne("lumio")}
+        <div class="cle-ad" data-cle-ad hidden><p class="small">Ta clé AllDebrid, prête à coller :</p>${copyBox("u-ad-lumio", "")}</div>
       </article>
       <article class="addon">
         <header><h3>StreamFusion Reborn</h3><span class="role need">Débrideur</span></header>
         <p>Sources françaises complémentaires.</p>
         <ol>${sf}<li>Choisis AllDebrid, colle ta clé API et mets la langue sur Français.</li><li>Exclus les qualités et formats que ton appareil ne gère pas (<a href="#compatibilite">encadré plus haut</a>), puis copie le lien d'installation.</li></ol>
+        ${consigne("streamfusion")}
+        <div class="cle-ad" data-cle-ad hidden><p class="small">Ta clé AllDebrid, prête à coller :</p>${copyBox("u-ad-sf", "")}</div>
       </article>
       <article class="addon">
         <header><h3>Torrentio</h3><span class="role need">Débrideur</span></header>
         <p>Le grand classique, très complet, en complément des sources françaises.</p>
+        <p class="note" id="torrentio-attente">Ton lien Torrentio se prépare tout seul : il manque <span id="torrentio-manque">ta clé AllDebrid (<a href="#trousseau">trousseau, étape 5</a>) et ton appareil (<a href="#compatibilite">encadré plus haut</a>)</span>.</p>
+        <div id="torrentio-pret" hidden>
+          <p>Ton lien est prêt : français en premier, sans le catalogue AllDebrid sur l'accueil, et sans ce que ton appareil ne sait pas lire. Colle-le dans Nuvio.</p>
+          ${addonBox("u-torrentio", "")}
+        </div>
+        <details class="manual"><summary>Régler Torrentio à la main sur son site</summary>
         <ol>
           <li>Ouvre ${link(LINKS.torrentio, "la page de Torrentio")}.</li>
           <li><b>Priority foreign language</b> : French. <b>Debrid provider</b> : AllDebrid, puis colle ta clé API.</li>
@@ -801,16 +862,19 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
           <li><b>Exclude qualities</b> et <b>Max size</b> : selon ton appareil (<a href="#compatibilite">encadré plus haut</a>). Par exemple, sur un Fire TV Stick HD : exclure 4K, HDR, DV et limiter à 15 Go.</li>
           <li>Clique <b>Install</b>, puis <b>Copy link</b>, et colle le lien dans Nuvio.</li>
         </ol>
+        </details>
       </article>
       <article class="addon">
         <header><h3>WAStream <span class="opt">Facultatif</span></h3><span class="role need">Débrideur</span></header>
         <p>Des sources en téléchargement direct converties par ton débrideur, utiles quand les autres ne trouvent rien.</p>
         <ol>${wa}<li>Choisis AllDebrid et colle ta clé API.</li><li>Exclus les qualités et formats que ton appareil ne gère pas (<a href="#compatibilite">encadré plus haut</a>), puis copie le lien d'installation.</li></ol>
+        ${consigne("wastream")}
+        <div class="cle-ad" data-cle-ad hidden><p class="small">Ta clé AllDebrid, prête à coller :</p>${copyBox("u-ad-wa", "")}</div>
       </article>
       <article class="addon">
         <header><h3>OpenSubtitles v3</h3><span class="role">Sous-titres</span></header>
         <p>Les sous-titres français pour tout le reste. Pas de compte nécessaire : colle ce lien.</p>
-        ${copyBox("u-os", LINKS.opensubtitles)}
+        ${addonBox("u-os", LINKS.opensubtitles)}
         <p>Puis dans le lecteur : <span class="path">Paramètres → Sous-titres → Langue préférée → Français</span>.</p>
       </article>
     </div>
@@ -829,15 +893,16 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
     <p class="lead">Les grandes tuiles en haut de l'accueil : Plateformes, Genres, J'ai envie de…, Sagas et Studios.</p>
     <ol>
       <li>Sur le téléphone (étape 4), onglet <b>Collections → Importer → URL</b>. Sur PC : <span class="path">Collections → Importer → URL</span>.</li>
-      <li>Colle ce lien et valide. Si tu as personnalisé ton catalogue, prends plutôt le lien « Collections » de ton billet.</li>
+      <li>Colle ce lien et valide. Si tu as personnalisé ton catalogue en salle 2 sur cet appareil, le guide a déjà mis ton lien perso.</li>
     </ol>
     ${copyBox("u-coll", origin + "/collections.json")}
+    <p class="small perso" data-perso hidden>C'est ton lien perso, repris de ta programmation en salle 2.</p>
   </section>
 
   <section class="act" id="affiches">
     <header><span class="num">08</span><span class="label">Finitions</span><h2>Les affiches perso</h2></header>
     <p class="lead">Les affiches avec badges (classement, note IMDb, qualité, genre, année) du réglage conseillé.</p>
-    <label class="keyfield" for="tmdb-key"><span>Colle ta clé TMDB ici</span><input id="tmdb-key" type="text" placeholder="ta clé de 32 caractères" autocomplete="off" spellcheck="false"></label>
+    <label class="keyfield" for="tmdb-key-8"><span>Ta clé TMDB (reprise de ton trousseau)</span><input id="tmdb-key-8" type="text" placeholder="ta clé de 32 caractères" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
     <p class="note">Ta clé reste sur ton appareil : elle est seulement insérée dans le lien ci-dessous, rien n'est envoyé.</p>
     <div class="copy long"><code id="u-poster">${esc(POSTER_URL)}</code><button type="button" data-copy="u-poster">Copier</button></div>
     <ol>
@@ -915,6 +980,7 @@ ${CREDITS_HTML}
   </button>
 </div>
 
+<script>${LIENS_JS}</script>
 <script>
 // Onglets d'installation
 document.querySelectorAll(".appareils button").forEach((b) => b.addEventListener("click", () => {
@@ -938,16 +1004,122 @@ document.querySelectorAll(".modes button").forEach((b) => b.addEventListener("cl
     : /Linux|X11/.test(ua) ? "linux" : null;
   if (tab) document.querySelector('.appareils button[data-tab="' + tab + '"]').click();
 })();
-// Clé TMDB → lien d'affiches (reste dans le navigateur)
+// ---------- Le trousseau : clés et appareil, gardés dans le navigateur (rien n'est envoyé) ----------
 const TEMPLATE = ${JSON.stringify(POSTER_URL)};
-const keyInput = document.getElementById("tmdb-key");
-try { keyInput.value = localStorage.getItem("tmdb-key") || ""; } catch (e) {}
-function drawPoster() {
-  const k = keyInput.value.trim().replace(/[^A-Za-z0-9]/g, "");
-  document.getElementById("u-poster").textContent = TEMPLATE.replace("TA_CLE_TMDB", k || "TA_CLE_TMDB");
-  try { k ? localStorage.setItem("tmdb-key", k) : localStorage.removeItem("tmdb-key"); } catch (e) {}
+const ORIG = ${JSON.stringify(origin)};
+const lit = (k) => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
+const garde = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} };
+// Clés envoyées depuis l'ordinateur par QR code (#cles=…) : rangées sur ce téléphone, puis retirées de l'adresse.
+(() => {
+  if (location.hash.indexOf("#cles=") !== 0) return;
+  let o = {};
+  try { const b = location.hash.slice(6).replace(/-/g, "+").replace(/_/g, "/"); o = lirePaquet(atob(b)); } catch (e) {}
+  history.replaceState(null, "", location.pathname);
+  if (o.ad) garde("ad-key", o.ad);
+  if (o.tmdb) garde("tmdb-key", o.tmdb);
+  if (o.app) garde("guide-appareil", o.app);
+  if (!Object.keys(o).length) return;
+  addEventListener("load", () => { document.getElementById("tes-liens").scrollIntoView(); toast("Clés reçues : tes liens sont prêts."); });
+})();
+const adInput = document.getElementById("ad-key"), appSel = document.getElementById("appareil");
+const tmdbInputs = [document.getElementById("tmdb-key"), document.getElementById("tmdb-key-8")];
+adInput.value = lit("ad-key");
+tmdbInputs.forEach((i) => { i.value = lit("tmdb-key"); });
+appSel.value = APPAREILS[lit("guide-appareil")] ? lit("guide-appareil") : "";
+const $id = (id) => document.getElementById(id);
+const setInstall = (id) => {
+  document.querySelectorAll('[data-installe="' + id + '"]').forEach((a) => {
+    const u = installUrl($id(id).textContent.trim()); a.hidden = !u; if (u) a.href = u;
+  });
+};
+// Programmation perso faite en salle 2 dans cet onglet : son lien remplace celui par défaut.
+let perso = "";
+try { perso = basePerso(sessionStorage.getItem("programmation") || "", ORIG); } catch (e) {}
+if (perso) {
+  $id("u-cat").textContent = perso + "/manifest.json";
+  $id("u-coll").textContent = perso + "/collections.json";
+  document.querySelectorAll("[data-perso]").forEach((p) => { p.hidden = false; });
+  setInstall("u-cat");
 }
-keyInput.addEventListener("input", drawPoster); drawPoster();
+// « Tes liens » : tout ce qu'il faut coller, dans l'ordre, recopié des étapes.
+const SITES = ${JSON.stringify({ lumio: LINKS.lumio, streamFusion: LINKS.streamFusion, wastream: LINKS.wastream })};
+const PAQUET = [
+  { nom: "Catalogue FR", src: "u-cat", ou: "Addons → Ajouter un addon" },
+  { nom: "Lumio", site: SITES.lumio, ou: "Sur son site : connecte AllDebrid, règle-le, puis copie son lien d'installation." },
+  { nom: "StreamFusion Reborn", site: SITES.streamFusion, ou: "Sur son site : AllDebrid, ta clé, Français, puis copie son lien d'installation." },
+  { nom: "Torrentio", src: "u-torrentio", ou: "Addons → Ajouter un addon", manque: "Il manque ta clé AllDebrid ou ton appareil." },
+  { nom: "WAStream (facultatif)", site: SITES.wastream, ou: "Sur son site : AllDebrid, ta clé, puis copie son lien d'installation." },
+  { nom: "OpenSubtitles v3", src: "u-os", ou: "Addons → Ajouter un addon" },
+  { nom: "Collections (étape 7)", src: "u-coll", ou: "Collections → Importer → URL" },
+  { nom: "Affiches perso (étape 8)", src: "u-poster", ou: "Paramètres → Disposition → Custom Poster Source", manque: "Ajoute ta clé TMDB au trousseau (étape 5)." },
+];
+PAQUET.forEach((p) => {
+  const li = document.createElement("li"); li.dataset.nom = p.nom;
+  const t = document.createElement("b"); t.textContent = p.nom;
+  const ou = document.createElement("span"); ou.className = "ou"; ou.textContent = p.ou;
+  li.append(t, ou);
+  if (!p.src) {
+    if (!p.site) { $id("paquet-liste").append(li); return; }
+    const a = document.createElement("a"); a.href = p.site; a.target = "_blank"; a.rel = "noopener"; a.className = "site"; a.textContent = "Ouvrir son site";
+    li.append(a);
+  } else {
+    const box = document.createElement("div"); box.className = "copy";
+    box.innerHTML = '<code id="p-' + p.src + '"></code><button type="button" data-copy="p-' + p.src + '">Copier</button>';
+    const inst = document.createElement("a"); inst.className = "installer"; inst.dataset.installe = "p-" + p.src; inst.hidden = true; inst.textContent = "Installer dans Nuvio sur cet appareil";
+    const manque = document.createElement("span"); manque.className = "manque"; manque.textContent = p.manque || ""; manque.hidden = true;
+    li.append(box, inst, manque);
+  }
+  $id("paquet-liste").append(li);
+});
+function drawPaquet() {
+  PAQUET.forEach((p) => {
+    if (!p.src) return;
+    const src = $id(p.src), code = $id("p-" + p.src), v = src.textContent.trim();
+    const vide = !v || v.indexOf("TA_CLE_TMDB") >= 0;
+    code.textContent = v;
+    code.parentNode.hidden = vide;
+    code.parentNode.parentNode.querySelector(".manque").hidden = !vide;
+    setInstall("p-" + p.src);
+  });
+}
+// Ce qu'il faut régler sur le site de chaque addon, selon l'appareil.
+document.querySelectorAll("[data-consigne] span").forEach((s) => { s.dataset.vide = s.textContent; });
+function majCles() {
+  const ad = cleAllDebrid(adInput.value), tmdb = tmdbInputs[0].value.trim().replace(/[^A-Za-z0-9]/g, ""), a = APPAREILS[appSel.value];
+  $id("u-poster").textContent = TEMPLATE.replace("TA_CLE_TMDB", tmdb || "TA_CLE_TMDB");
+  document.querySelectorAll("tr[data-appareil]").forEach((tr) => tr.classList.toggle("choisi", tr.dataset.appareil === appSel.value));
+  const t = torrentioUrl(ad, appSel.value);
+  $id("u-torrentio").textContent = t;
+  $id("torrentio-pret").hidden = !t;
+  $id("torrentio-attente").hidden = !!t;
+  $id("torrentio-manque").innerHTML = [ad ? "" : 'ta clé AllDebrid (<a href="#trousseau">trousseau, étape 5</a>)', a ? "" : 'ton appareil (<a href="#compatibilite">encadré plus haut</a>)'].filter(Boolean).join(" et ");
+  setInstall("u-torrentio");
+  document.querySelectorAll("[data-consigne]").forEach((p) => {
+    const s = p.querySelector("span"); s.textContent = a ? a[p.dataset.consigne] : s.dataset.vide; p.classList.toggle("pret", !!a);
+  });
+  document.querySelectorAll("[data-cle-ad]").forEach((d) => { d.hidden = !ad; d.querySelector("code").textContent = ad; });
+  const brut = adInput.value.trim();
+  $id("etat-cles").className = "etat-cles";
+  if (brut && !ad) { $id("etat-cles").textContent = "Cette clé AllDebrid paraît incomplète : recopie-la depuis la page des clés API."; $id("etat-cles").classList.add("erreur"); }
+  else if (tmdb && tmdb.length !== 32) { $id("etat-cles").textContent = "Une clé TMDB fait 32 caractères : prends bien la « Clé d'API », pas le « Jeton d'accès en lecture »."; $id("etat-cles").classList.add("erreur"); }
+  else $id("etat-cles").textContent = ad && tmdb ? "Clés gardées sur cet appareil ✓" : ad || tmdb ? "Clé gardée sur cet appareil ✓" : "";
+  drawPaquet();
+}
+adInput.addEventListener("input", () => { garde("ad-key", adInput.value.trim().replace(/[^A-Za-z0-9]/g, "")); majCles(); });
+tmdbInputs.forEach((i) => i.addEventListener("input", () => {
+  tmdbInputs.forEach((x) => { if (x !== i) x.value = i.value; });
+  garde("tmdb-key", i.value.trim().replace(/[^A-Za-z0-9]/g, "")); majCles();
+}));
+// L'appareil : choisi à la main, ou déduit de l'onglet cliqué à l'étape 2 tant qu'on n'a rien choisi
+// (sauf TV et Fire TV : TV ou box, HD ou 4K, Dolby Vision ou non, seule la personne le sait).
+let appAuto = !appSel.value;
+appSel.addEventListener("change", () => { appAuto = false; garde("guide-appareil", appSel.value); majCles(); });
+document.querySelectorAll(".appareils button").forEach((b) => b.addEventListener("click", (e) => {
+  if (!e.isTrusted || !appAuto) return;
+  appSel.value = { android: "ecran", ios: "ecran", pc: "ecran", linux: "ecran" }[b.dataset.tab] || "";
+  garde("guide-appareil", appSel.value); majCles();
+}));
+majCles();
 // Boutons Copier
 document.querySelectorAll("[data-copy]").forEach((btn) => btn.addEventListener("click", () => {
   const node = document.getElementById(btn.dataset.copy);
@@ -1076,11 +1248,14 @@ document.querySelectorAll(".copy").forEach((box) => {
   const code = box.querySelector("code"); if (!code) return;
   const b = document.createElement("button"); b.type = "button"; b.className = "qr-btn"; b.innerHTML = QR_ICONE;
   b.setAttribute("aria-label", "Envoyer ce lien sur mon téléphone (QR code)"); b.title = "Envoyer sur mon téléphone";
-  const nom = (box.closest(".addon") || box.closest(".act")).querySelector("h3, h2").textContent.trim();
+  const porteur = box.closest("[data-nom]");
+  const nom = porteur ? porteur.dataset.nom : (box.closest(".addon") || box.closest(".act")).querySelector("h3, h2").textContent.trim();
   // Le QR code ouvre la page /lien : on y choisit de copier le lien ou le contenu du fichier.
-  // (Le lien voyage après le #, il n'est jamais envoyé au serveur.)
+  // (Le lien voyage après le #, il n'est jamais envoyé au serveur. Ton lien perso part tel quel, avec ta
+  // clé Gemini : il sert à l'installer sur ton propre appareil.)
   b.addEventListener("click", () => {
     const valeur = code.textContent.trim();
+    if (!valeur) return;
     const cible = ORIGINE + "/lien#" + new URLSearchParams({ u: valeur, nom }).toString();
     montrerQr("Sur ton téléphone", "Scanne avec l'appareil photo : tu pourras copier le lien, ou le contenu du fichier s'il s'agit d'une configuration.", cible, nom);
   });
@@ -1089,6 +1264,13 @@ document.querySelectorAll(".copy").forEach((box) => {
 document.getElementById("vers-tel").addEventListener("click", () => {
   const ici = acts[Math.max(0, cur)];
   montrerQr("Le guide sur ton téléphone", "Scanne avec l'appareil photo : le guide s'ouvre à la même étape.", ORIGINE + "/guide#" + (cur >= 0 ? ici.id : ""), "");
+});
+// Le trousseau sur le téléphone : les clés et l'appareil voyagent dans le QR code, après le #.
+document.getElementById("cles-tel").addEventListener("click", () => {
+  const o = paquetCles({ ad: adInput.value, tmdb: tmdbInputs[0].value, appareil: appSel.value });
+  if (!o.ad && !o.tmdb) { toast("Colle d'abord tes clés dans le trousseau."); adInput.focus(); return; }
+  const b = btoa(JSON.stringify(o)).replace(/[+]/g, "-").replace(/[/]/g, "_").replace(/=+$/, "");
+  montrerQr("Tes clés sur ton téléphone", "Scanne avec l'appareil photo : le guide s'ouvre sur le téléphone, avec tes clés et tes liens prêts.", ORIGINE + "/guide#cles=" + b, "Elles passent de cet écran au téléphone par l'image, sans être envoyées sur internet.");
 });
 // Arrivée sur le téléphone avec un lien envoyé depuis le PC : on le montre avec un gros bouton Copier.
 (() => {

@@ -71,6 +71,11 @@ summary.aide { padding: 10px 0; cursor: pointer; }
   }
   $("texte").textContent = valeur; $("apercu").hidden = false;
   bouton("Copier le lien", "Le plus courant : à coller dans Nuvio ou sur le site d'un addon", true, () => { $("texte").textContent = valeur; copier(valeur, "Lien copié ✓"); });
+  // Un lien d'addon s'installe aussi d'un geste dans l'appli Nuvio de ce téléphone (stremio://…).
+  if (/^https:[/][/][^/]+[/].*manifest[.]json$/.test(valeur)) {
+    const inst = document.createElement("a"); inst.href = valeur.replace(/^https:/, "stremio:");
+    inst.innerHTML = "<b>Installer dans Nuvio sur ce téléphone</b><span>Si Nuvio est installé ici. Pour la TV, copie plutôt le lien.</span>"; $("choix").append(inst);
+  }
   // Si le lien mène à un fichier (configuration JSON…), on prépare aussi son contenu, prêt à copier.
   const fichier = bouton("Copier le contenu du fichier", "Chargement du fichier…", false, () => { if (contenu) { $("texte").textContent = contenu; copier(contenu, "Contenu copié ✓"); } });
   fichier.disabled = true;

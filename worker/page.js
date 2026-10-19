@@ -863,6 +863,7 @@ function fetchJSON(url) {
 }
 let currentBase = D.origin, screenTimer = 0, screenToken = 0, lastZap = 0;
 let configureUrl = D.origin + "/configure"; // adresse de cette page avec les réglages en cours
+let shareUrl = configureUrl;                  // la même, sans la clé Gemini : pour le billet partagé
 // L'écran grésille à chaque changement (pas plus de deux fois par seconde).
 function zap(sc) {
   const now = Date.now(); if (now - lastZap < 450) return; lastZap = now;
@@ -961,6 +962,8 @@ function update() {
   currentBase = base;
   // L'adresse de la page suit les réglages : on peut revenir, recharger ou partager sans rien perdre.
   configureUrl = base + "/configure";
+  const shared = compact({ ...state, k: "" });
+  shareUrl = D.origin + (Object.keys(shared).length ? "/" + enc(shared) : "") + "/configure";
   try { if (location.protocol.startsWith("http") && location.href !== configureUrl) history.replaceState(null, "", configureUrl); } catch (e) {}
   try { sessionStorage.setItem("programmation", configureUrl); } catch (e) {}
   if (!$("qr").hidden) drawQr();
@@ -1089,7 +1092,7 @@ function loadQr() {
 function drawQr() {
   const box = $("qr-code");
   loadQr().then((qrcode) => {
-    const q = qrcode(0, "M"); q.addData(configureUrl); q.make();
+    const q = qrcode(0, "M"); q.addData(shareUrl); q.make();
     const n = q.getModuleCount(), w = n + 4; let d = "";
     for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += "M" + c + " " + r + "h1v1h-1z";
     box.className = "";
@@ -1104,9 +1107,9 @@ $("qr-btn").addEventListener("click", () => {
 });
 $("share-btn").addEventListener("click", async (e) => {
   const btn = e.currentTarget, label = btn.textContent;
-  const data = { title: state.n + ", ma programmation Nuvio", text: "Ouvre ce lien pour avoir les mêmes rangées que moi dans Nuvio.", url: configureUrl };
+  const data = { title: state.n + ", ma programmation Nuvio", text: "Ouvre ce lien pour avoir les mêmes rangées que moi dans Nuvio.", url: shareUrl };
   if (navigator.share) { try { await navigator.share(data); popcorn(btn); } catch (err) {} return; }
-  try { await navigator.clipboard.writeText(configureUrl); btn.textContent = "Lien copié ✓"; popcorn(btn); } catch (err) { btn.textContent = "Copie impossible"; }
+  try { await navigator.clipboard.writeText(shareUrl); btn.textContent = "Lien copié ✓"; popcorn(btn); } catch (err) { btn.textContent = "Copie impossible"; }
   setTimeout(() => { btn.textContent = label; }, 1800);
 });
 // Le billet en image (1080 × 1350), à garder ou à envoyer.
@@ -1172,7 +1175,7 @@ $("img-btn").addEventListener("click", async (e) => {
   try {
     await Promise.all(['400 90px "Bebas Neue"', '700 28px "Courier Prime"', '700 30px "Figtree"', '800 22px "Figtree"', '600 30px "Figtree"', 'italic 400 38px "Instrument Serif"'].map((f) => document.fonts.load(f)));
     let qr = null;
-    try { const qrcode = await loadQr(); qr = qrcode(0, "M"); qr.addData(configureUrl); qr.make(); } catch (err) { qr = null; }
+    try { const qrcode = await loadQr(); qr = qrcode(0, "M"); qr.addData(shareUrl); qr.make(); } catch (err) { qr = null; }
     const cv = document.createElement("canvas"); cv.width = 1080; cv.height = 1350;
     drawTicket(cv.getContext("2d"), qr);
     const blob = await new Promise((r) => cv.toBlob(r, "image/png"));

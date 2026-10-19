@@ -102,9 +102,16 @@ export function torrentioUrl(cle, appareil) {
   return "https://torrentio.strem.fun/" + opts.join("|") + "/manifest.json";
 }
 
-// Lien « Installer dans Nuvio » : les applis Nuvio (TV, téléphone, ordinateur) ouvrent stremio://…
+// Lien « Installer dans Nuvio » : nuvio://… installe l’addon dans les applis Nuvio (TV, Android, iPhone, Mac, Linux).
+// Pas stremio:// : si Stremio est installé, c’est lui qui l’ouvrirait. (Sous Windows, Nuvio n’enregistre aucun lien :
+// la page cache alors le bouton, voir sansInstall.)
 export function installUrl(manifest) {
-  return /^https:[/][/][^/]+[/].*manifest[.]json$/.test(String(manifest || "")) ? String(manifest).replace(/^https:/, "stremio:") : "";
+  return /^https:[/][/][^/]+[/].*manifest[.]json$/.test(String(manifest || "")) ? String(manifest).replace(/^https:/, "nuvio:") : "";
+}
+
+// Sous Windows, Nuvio Desktop n’ouvre pas les liens nuvio:// : pas de bouton d’installation.
+export function sansInstall(userAgent) {
+  return /Windows/.test(String(userAgent || ""));
 }
 
 // Base perso de la salle 2 (adresse « …/<config>/configure » gardée par la page) → base de l'addon,
@@ -138,6 +145,7 @@ export const LIENS_JS = `const APPAREILS = ${JSON.stringify(APPAREILS)};
 ${cleAllDebrid}
 ${torrentioUrl}
 ${installUrl}
+${sansInstall}
 ${basePerso}
 ${paquetCles}
 ${lirePaquet}`;

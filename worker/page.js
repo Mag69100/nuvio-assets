@@ -1054,7 +1054,10 @@ function update() {
   if (!$("qr").hidden) drawQr();
   $("u-manifest").textContent = manifest;
   $("u-collections").textContent = base + "/collections.json";
-  $("open-app").href = manifest.replace(/^https:/, "stremio:");
+  // nuvio:// et pas stremio:// (sinon Stremio, s'il est installé, s'ouvre à la place) ; sous Windows, Nuvio n'ouvre aucun lien.
+  $("open-app").href = manifest.replace(/^https:/, "nuvio:");
+  $("open-app").hidden = /Windows/.test(navigator.userAgent);
+  $("copy-manifest").classList.toggle("full", $("open-app").hidden);
   $("t-name").textContent = state.n;
   $("t-serial").textContent = serial(manifest);
   $("t-rows").textContent = state.r.length;

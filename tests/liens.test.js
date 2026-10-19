@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { APPAREILS, cleAllDebrid, torrentioUrl, installUrl, basePerso, paquetCles, lirePaquet, LIENS_JS } from "../worker/liens.js";
+import { APPAREILS, cleAllDebrid, torrentioUrl, installUrl, sansInstall, basePerso, paquetCles, lirePaquet, LIENS_JS } from "../worker/liens.js";
 import { guidePage } from "../worker/guide.js";
 
 const O = "https://nuvio-assets.xnzxflix.workers.dev";
@@ -41,14 +41,14 @@ test("box_android_rangees_par_ce_qu_elles_lisent", () => {
   assert.equal(filtre("box-4k-dv"), filtre("fire-4k"));              // 4K avec Dolby Vision : sans les REMUX
   assert.match(filtre("box-4k"), /^dolbyvision,brremux,/);           // 4K sans Dolby Vision (ou on ne sait pas)
   assert.doesNotMatch(filtre("shield"), /brremux|dolbyvision|4k/);   // Shield : tout passe
-  // Le tableau de compatibilité du guide reprend chaque appareil, avec ses exemples.
+  // Le choix de l’appareil du guide propose chaque appareil (une carte), avec ses exemples.
   const html = guidePage({ origin: O, season: "" });
-  for (const id of Object.keys(APPAREILS)) assert.ok(html.includes('<tr data-appareil="' + id + '">'), id);
+  for (const id of Object.keys(APPAREILS)) assert.ok(html.includes('<input type="radio" name="appareil" value="' + id + '">'), id);
   assert.ok(html.includes("Chromecast avec Google TV 4K"));
 });
 
 test("installer_dans_nuvio", () => {
-  assert.equal(installUrl(O + "/manifest.json"), "stremio://nuvio-assets.xnzxflix.workers.dev/manifest.json");
+  assert.equal(installUrl(O + "/manifest.json"), "nuvio://nuvio-assets.xnzxflix.workers.dev/manifest.json");
   assert.equal(installUrl(O + "/collections.json"), "");
   assert.equal(installUrl("http://exemple.fr/manifest.json"), "");
   assert.equal(installUrl(""), "");
@@ -91,8 +91,18 @@ test("guide_scripts_valides", () => {
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
   assert.ok(scripts.length >= 4);
   for (const s of scripts) assert.doesNotThrow(() => new Function(s));
-  for (const id of ["ad-key", "tmdb-key", "tmdb-key-8", "appareil", "paquet-liste", "u-torrentio", "torrentio-pret", "cles-tel"]) {
+  for (const id of ["ad-key", "tmdb-key", "tmdb-key-8", "choix-appareil", "ma-conf", "ca-changer", "paquet-liste", "u-torrentio", "torrentio-pret", "cles-tel"]) {
     assert.ok(html.includes('id="' + id + '"'), id);
   }
-  assert.ok(html.includes('href="stremio://nuvio-assets.xnzxflix.workers.dev/manifest.json"'));
+  assert.ok(html.includes('href="nuvio://nuvio-assets.xnzxflix.workers.dev/manifest.json"'));
+});
+
+test("installer_sans_stremio_ni_windows", () => {
+  // nuvio:// : Stremio ne le prend pas ; sous Windows, Nuvio Desktop n'enregistre aucun lien, donc pas de bouton.
+  assert.match(installUrl("https://torrentio.strem.fun/language=french/manifest.json"), /^nuvio:[/][/]torrentio/);
+  assert.equal(sansInstall("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/141"), true);
+  assert.equal(sansInstall("Mozilla/5.0 (Linux; Android 14) Chrome/141 Mobile"), false);
+  assert.equal(sansInstall("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"), false);
+  const html = guidePage({ origin: O, season: "" });
+  assert.ok(!html.includes("stremio:"), "plus aucun lien stremio:// dans le guide");
 });

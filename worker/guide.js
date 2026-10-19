@@ -41,15 +41,41 @@ const LINKS = {
 export const POSTER_URL = "https://postersplus.stremio.ru/poster?tmdb_id={tmdb_id?}&imdb_id={imdb_id?}&stremio_id={id}&type={type}&shape={shape}&pc=stremio_tv_nuvio&tmdb_key=TA_CLE_TMDB&tg=low&bgr=low&vpcb=1&sm=notch&_bgr=low&_sm=sash&bp=top_left&_ip=bottom_right&_soo10=1&_rs=bullet_star&_gs=1&_bst=gold&_rb=1&_rbl=imdb&_cl=off&fti=1&irs=dataset&trs=direct&rdm=2&nsyo=0.93&soo10=1&rb=imdb&rbs=normalized&mw=lb:.01,tk:.01,im:.97,tm:.01&tw=tk:.01,im:.97,tm:.02&ll=fr-fr&fbs=photoreal&lba=1&cgsia=1&rsco=1&hur=1&mo=genre,year,rating&_mo=&ol=fr&stc=FFFFFF&sbs=gold&sbsw=1.40&sbsh=1.20&sbpo=auto_hug&bdm=7&bg1=tr:4:res&bms=3&_bdm=7&_bg1=chip:4:res:30&qad=1&wfq=1&gnq=1";
 
 import { STAGE_HEAD, STAGE_CSS, stageTop, secretsHTML, BEAM_HTML, SEATS_HTML, CREDITS_HTML, STAGE_JS } from "./stage.js";
-import { APERCU_CSS, apercuJS } from "./apercu.js";
+import { APERCU_CSS, ICONE_APERCU, apercuJS } from "./apercu.js";
 import { REGLAGES_CSS, REGLAGES_JS, reglagesHTML } from "./reglages.js";
 import { APPAREILS, LIENS_JS, installUrl } from "./liens.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>`;
 const copyBox = (id, value) => `<div class="copy"><code id="${id}">${esc(value)}</code><button type="button" data-copy="${id}">Copier</button></div>`;
-// Lien d'addon : Copier, plus « Installer dans Nuvio » (stremio://), suivi par la page quand le lien change.
+// Lien d'addon : Copier, plus « Installer dans Nuvio » (nuvio://), suivi par la page quand le lien change.
 const addonBox = (id, value) => `${copyBox(id, value)}<a class="installer" data-installe="${id}" href="${esc(installUrl(value) || "#")}"${installUrl(value) ? "" : " hidden"}>Installer dans Nuvio sur cet appareil</a>`;
+// Le choix de l'appareil (étape 6) : des cartes rangées par famille ; une fois choisi, on ne voit plus
+// que lui et sa configuration (qualité max, ce qu'on exclut), avec « Changer » pour revoir la liste.
+const ICONES_APPAREIL = {
+  stick: '<rect x="5" y="12" width="17" height="8" rx="2"/><path d="M22 16h3M25 13v6"/><path d="M10.5 16h6"/>',
+  box: '<rect x="4" y="11" width="24" height="10" rx="3"/><path d="M8.5 16h7"/><circle cx="23" cy="16" r="1.3"/>',
+  tv: '<rect x="3" y="6" width="26" height="16" rx="2"/><path d="M11 27h10M16 22v5"/>',
+  ecran: '<rect x="3" y="7" width="18" height="13" rx="1.5"/><path d="M1 24h22"/><rect x="23" y="10" width="7" height="14" rx="1.5"/>',
+};
+const FAMILLES = [
+  ["Fire TV", "stick", ["fire-hd", "fire-4k"]],
+  ["Box Android", "box", ["box-hd", "box-4k-dv", "box-4k", "shield"]],
+  ["TV, téléphone, ordinateur", null, ["tv", "ecran"]],
+];
+const appareilsHTML = () => `<div class="choix-appareil" id="choix-appareil">
+        <p class="ca-titre" id="ca-titre">L'appareil où tu regardes</p>
+        <div class="ca-liste" role="radiogroup" aria-labelledby="ca-titre">
+          ${FAMILLES.map(([famille, icone, ids]) => `<p class="ca-famille">${esc(famille)}</p>
+          ${ids.map((id) => { const a = APPAREILS[id], ic = icone || (id === "tv" ? "tv" : "ecran"); return `<label class="ca-carte" data-appareil="${id}"><input type="radio" name="appareil" value="${id}"><svg viewBox="0 0 32 32" aria-hidden="true">${ICONES_APPAREIL[ic]}</svg><span class="ca-nom">${esc(a.nom)}${a.exemples ? `<small>${esc(a.exemples)}</small>` : ""}</span>${a.qualite.length <= 5 ? `<i class="ca-q">${esc(a.qualite)}</i>` : ""}</label>`; }).join("\n          ")}`).join("\n          ")}
+        </div>
+        <div class="ma-conf" id="ma-conf" hidden>
+          <dl><div><dt>Qualité max</dt><dd id="mc-q"></dd></div><div><dt>À exclure</dt><dd id="mc-x"></dd></div></dl>
+          <button type="button" class="ca-changer" id="ca-changer">Changer d'appareil</button>
+        </div>
+        <p class="small ca-aide">Le guide s'en sert pour préparer le lien de Torrentio et te dire quoi cocher dans les autres addons. Tu ne connais pas ton modèle ? Regarde sous la box ou dans <span class="path">Paramètres → À propos</span> ; dans le doute, prends « Box 4K sans Dolby Vision ».</p>
+      </div>`;
+
 // Ce qu'il faut régler sur le site d'un addon, selon l'appareil choisi à l'étape 6.
 const consigne = (addon) => `<p class="consigne" data-consigne="${addon}"><b>Pour ton appareil :</b> <span>choisis-le dans l'encadré « Avant tout » plus haut, le guide te dira quoi régler.</span></p>`;
 
@@ -222,9 +248,45 @@ a { color: var(--bulb); font-weight: 700; text-underline-offset: 3px; }
 .compat td { padding: 10px 12px; border-top: 1px solid var(--seat); vertical-align: top; color: #e6d6c8; }
 .compat td:first-child { font-weight: 800; color: var(--cream); }
 .compat td:nth-child(2) { font: 700 .9rem var(--type); color: var(--bulb); white-space: nowrap; }
-.compat td small { display: block; margin-top: 2px; font: 400 .8rem var(--body); color: var(--dim); }
-.compat tr.choisi td { background: rgba(255,207,107,.1); }
-.compat tr.choisi td:first-child { color: var(--bulb); }
+/* Le choix de l’appareil : des cartes par famille, repliées sur l’appareil choisi et sa configuration. */
+.choix-appareil { display: grid; gap: 10px; }
+.ca-titre { margin: 0; font: 700 .72rem var(--body); letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
+.ca-liste { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ca-famille { grid-column: 1 / -1; margin: 8px 0 0; font: 800 .74rem var(--body); letter-spacing: .16em; text-transform: uppercase; color: var(--bulb); }
+.ca-famille:first-child { margin-top: 0; }
+.ca-carte { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px;
+  border: 1px solid var(--seat); background: var(--velvet); color: var(--cream); cursor: pointer; transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease; }
+.ca-carte:hover { border-color: rgba(255,207,107,.5); }
+.ca-carte input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.ca-carte:focus-within { outline: 2px solid var(--bulb); outline-offset: 2px; }
+.ca-carte svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--bulb); }
+.ca-carte svg circle { fill: currentColor; stroke: none; }
+.ca-nom { display: grid; gap: 2px; font: 800 .95rem/1.25 var(--body); }
+.ca-nom small { font: 400 .8rem/1.35 var(--body); color: var(--dim); }
+.ca-q { font: normal 700 .78rem var(--type); color: var(--bulb); padding: 3px 7px; border-radius: 6px; border: 1px solid rgba(255,207,107,.35); white-space: nowrap; }
+.ca-carte.on { background: var(--cream); border-color: var(--cream); color: var(--ink); box-shadow: 0 0 0 3px rgba(255,207,107,.35); }
+.ca-carte.on small { color: #6b4c3e; }
+.ca-carte.on svg { color: var(--red); }
+.ca-carte.on .ca-q { color: var(--ink); border-color: rgba(42,26,20,.3); }
+.ca-carte[hidden], .ca-famille[hidden], .ma-conf[hidden] { display: none; }
+.choix-appareil.replie .ca-liste { grid-template-columns: minmax(0, 1fr); }
+.choix-appareil.replie .ca-carte.on { animation: ca-pose .4s cubic-bezier(.16,1,.3,1); }
+.choix-appareil.replie .ca-aide { display: none; }
+@keyframes ca-pose { from { transform: scale(.97); box-shadow: 0 0 0 10px rgba(255,207,107,0); } }
+.ma-conf { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px 14px; border-radius: 12px; border: 1px dashed rgba(255,207,107,.45); animation: rise .3s ease both; }
+.ma-conf dl { margin: 0; display: grid; gap: 8px; }
+.ma-conf dl div { display: grid; grid-template-columns: 8.5em minmax(0, 1fr); gap: 10px; }
+.ma-conf dt { font: 700 .7rem var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); padding-top: 3px; }
+.ma-conf dd { margin: 0; color: var(--cream); }
+.ca-changer { font: 800 .85rem var(--body); padding: 8px 14px; border-radius: 99px; border: 1px solid rgba(255,207,107,.45); background: transparent; color: var(--bulb); cursor: pointer; white-space: nowrap; }
+.ca-changer:hover { background: rgba(255,207,107,.1); }
+@media (max-width: 620px) {
+  .ca-liste { grid-template-columns: minmax(0, 1fr); }
+  .ma-conf { grid-template-columns: minmax(0, 1fr); }
+  .ma-conf dl div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .ca-changer { justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) { .choix-appareil.replie .ca-carte.on, .ma-conf { animation: none; } }
 .tips { display: grid; gap: 8px; }
 .first-run { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px 22px; align-items: center; padding: 18px 20px; border-radius: 14px;
   background: linear-gradient(135deg, rgba(229,65,58,.14), rgba(229,65,58,.04)); border: 1px solid rgba(229,65,58,.4); color: #eadacd; }
@@ -281,7 +343,7 @@ a { color: var(--bulb); font-weight: 700; text-underline-offset: 3px; }
 .paquet-liste .manque { font-style: italic; }
 .paquet-liste .site { justify-self: start; font-weight: 800; color: #7a1824; }
 .paquet .installer { color: #7a1824; }
-/* Installer d'un geste (stremio://) et consignes selon l'appareil */
+/* Installer d'un geste (nuvio://) et consignes selon l'appareil */
 .installer { justify-self: start; font: 800 .88rem var(--body); color: var(--bulb); text-decoration: underline; text-underline-offset: 3px; }
 .installer[hidden] { display: none; }
 .consigne { margin: 0; padding: 10px 14px; border-radius: 10px; background: rgba(255,255,255,.04); border: 1px dashed var(--seat); color: #e6d6c8; font-size: .93rem; }
@@ -481,7 +543,7 @@ ${secretsHTML("guide")}
     <div class="marquee"><small>Guide de A à Z</small><h1>Nuvio en français</h1></div>
     <p class="tagline">De l'appli vide à l'accueil complet, en une séance.</p>
     <a class="raccourci" href="${esc(origin)}/configure" data-programmation>Tu as déjà Nuvio ? Passe direct à la salle 2 →</a>
-    <button type="button" class="voir-resultat" data-resultat><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="3.5" width="16" height="10.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 17h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8.5 6.6v4.4l3.8-2.2z" fill="currentColor"/></svg>Voir l'accueil que tu auras à la fin</button>
+    <button type="button" class="voir-resultat" data-resultat>${ICONE_APERCU}Voir l'accueil que tu auras à la fin</button>
     <button type="button" class="vers-tel" id="vers-tel">Ouvrir ce guide sur mon téléphone (QR code)</button>
     <p>Ce guide installe Nuvio puis toute la configuration conseillée, dans le bon ordre : catalogue en français, recherche, sources, sous-titres, collections et affiches.</p>
     <div class="facts"><span>≈ 25 minutes</span><span>TV, téléphone, tablette ou ordinateur</span><span>Sur TV : un téléphone à côté</span></div>
@@ -797,17 +859,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
     <div class="compat-box" id="compatibilite">
       <h3>Avant tout : ce que ton appareil sait lire</h3>
       <p>Valable pour <b>tous les addons de sources</b> : Lumio, StreamFusion, Torrentio et WAStream. Dans chacun, exclus les qualités et les formats que ton appareil ne gère pas. Sinon : <b>écran vert ou violet</b>, <b>image saccadée</b> ou <b>pas de son</b>.</p>
-      <label class="keyfield choix-appareil" for="appareil"><span>L'appareil où tu regardes</span>
-        <select id="appareil"><option value="">Choisis ton appareil…</option>${Object.entries(APPAREILS).map(([id, a]) => `<option value="${id}">${esc(a.nom + (a.exemples ? " : " + a.exemples : ""))}</option>`).join("")}</select></label>
-      <p class="small">Le guide s'en sert pour préparer le lien de Torrentio et te dire quoi cocher dans les autres addons. Tu ne connais pas ton modèle ? Regarde sous la box ou dans <span class="path">Paramètres → À propos</span> ; dans le doute, prends « Box 4K sans Dolby Vision ».</p>
-      <div class="compat">
-        <table>
-          <thead><tr><th>Ton appareil</th><th>Qualité max</th><th>À exclure</th></tr></thead>
-          <tbody>
-            ${Object.entries(APPAREILS).map(([id, a]) => `<tr data-appareil="${id}"><td>${esc(a.nom)}${a.exemples ? `<small>${esc(a.exemples)}</small>` : ""}</td><td>${esc(a.qualite)}</td><td>${esc(a.exclure)}</td></tr>`).join("\n            ")}
-          </tbody>
-        </table>
-      </div>
+      ${appareilsHTML()}
       <ul class="tips">
         <li><b>Écran vert ou violet</b> : la vidéo est en Dolby Vision et l'appareil ne le gère pas. Exclus Dolby Vision (ou garde seulement « DV + HDR10 »).</li>
         <li><b>Pas de son</b> : la piste est en DTS, DTS-HD ou TrueHD, que la plupart des Fire TV et des TV ne décodent pas sans ampli ou barre de son compatible. Exclus ces formats audio et garde AAC, AC3 ou E-AC3 (Dolby Digital Plus, qui inclut Atmos).</li>
@@ -922,7 +974,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
 
   <section class="act" id="ranger">
     <header><span class="num">10</span><span class="label">Mise en scène</span><h2>Ranger l'accueil</h2></header>
-    <p><button type="button" class="voir-resultat" data-resultat>Voir à quoi ressemble l'accueil terminé</button></p>
+    <p><button type="button" class="voir-resultat" data-resultat>${ICONE_APERCU}Voir à quoi ressemble l'accueil terminé</button></p>
     <p><span class="path">Paramètres → Réorganiser les catalogues de l'accueil</span> → active <b>Suivre l'ordre des addons</b>.</p>
     <p class="note">C'est tout : le reste est déjà dans le bon ordre. Plateformes est épinglée tout en haut, puis viennent les rangées du Catalogue FR, puis Genres, J'ai envie de…, Sagas et Studios. Une collection n'est pas à sa place (importée avec une ancienne version) ? Déplace-la dans ce même écran, ou depuis le téléphone, onglet « Disposition de l'accueil ».</p>
     <p class="note">Tu as réinstallé le Catalogue FR et ses rangées sont passées tout en bas, sous les collections ? C'est normal : Nuvio range l'accueil addon par addon, et pour lui c'est un nouvel addon. Dans ce même écran, fais descendre d'un cran <b>Studios</b>, puis <b>Sagas</b>, puis <b>J'ai envie de…</b>, puis <b>Genres</b> : chacune saute sous les rangées du Catalogue FR, et l'ordre est rétabli.</p>
@@ -1021,7 +1073,14 @@ const garde = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.re
   if (!Object.keys(o).length) return;
   addEventListener("load", () => { document.getElementById("tes-liens").scrollIntoView(); toast("Clés reçues : tes liens sont prêts."); });
 })();
-const adInput = document.getElementById("ad-key"), appSel = document.getElementById("appareil");
+const adInput = document.getElementById("ad-key");
+// L’appareil : les cartes radio de l’étape 6 (une seule cochée). Une fois choisi, la liste se replie sur lui.
+const appRadios = [...document.querySelectorAll("input[name=appareil]")];
+const appSel = {
+  get value() { const r = appRadios.find((x) => x.checked); return r ? r.value : ""; },
+  set value(v) { appRadios.forEach((x) => { x.checked = x.value === v; }); },
+};
+let caOuvert = false, caClavier = false;
 const tmdbInputs = [document.getElementById("tmdb-key"), document.getElementById("tmdb-key-8")];
 adInput.value = lit("ad-key");
 tmdbInputs.forEach((i) => { i.value = lit("tmdb-key"); });
@@ -1029,9 +1088,11 @@ appSel.value = APPAREILS[lit("guide-appareil")] ? lit("guide-appareil") : "";
 const $id = (id) => document.getElementById(id);
 const setInstall = (id) => {
   document.querySelectorAll('[data-installe="' + id + '"]').forEach((a) => {
-    const u = installUrl($id(id).textContent.trim()); a.hidden = !u; if (u) a.href = u;
+    const u = installUrl($id(id).textContent.trim()); a.hidden = !u || SANS_INSTALL; if (u) a.href = u;
   });
 };
+const SANS_INSTALL = sansInstall(navigator.userAgent);
+document.querySelectorAll("[data-installe]").forEach((a) => setInstall(a.dataset.installe));
 // Programmation perso faite en salle 2 dans cet onglet : son lien remplace celui par défaut.
 let perso = "";
 try { perso = basePerso(sessionStorage.getItem("programmation") || "", ORIG); } catch (e) {}
@@ -1087,7 +1148,12 @@ document.querySelectorAll("[data-consigne] span").forEach((s) => { s.dataset.vid
 function majCles() {
   const ad = cleAllDebrid(adInput.value), tmdb = tmdbInputs[0].value.trim().replace(/[^A-Za-z0-9]/g, ""), a = APPAREILS[appSel.value];
   $id("u-poster").textContent = TEMPLATE.replace("TA_CLE_TMDB", tmdb || "TA_CLE_TMDB");
-  document.querySelectorAll("tr[data-appareil]").forEach((tr) => tr.classList.toggle("choisi", tr.dataset.appareil === appSel.value));
+  const replie = !!a && !caOuvert;
+  $id("choix-appareil").classList.toggle("replie", replie);
+  document.querySelectorAll(".ca-carte").forEach((c) => { const on = c.dataset.appareil === appSel.value; c.classList.toggle("on", on); c.hidden = replie && !on; });
+  document.querySelectorAll(".ca-famille").forEach((p) => { p.hidden = replie; });
+  $id("ma-conf").hidden = !a;
+  if (a) { $id("mc-q").textContent = a.qualite; $id("mc-x").textContent = a.exclure; }
   const t = torrentioUrl(ad, appSel.value);
   $id("u-torrentio").textContent = t;
   $id("torrentio-pret").hidden = !t;
@@ -1113,7 +1179,11 @@ tmdbInputs.forEach((i) => i.addEventListener("input", () => {
 // L'appareil : choisi à la main, ou déduit de l'onglet cliqué à l'étape 2 tant qu'on n'a rien choisi
 // (sauf TV et Fire TV : TV ou box, HD ou 4K, Dolby Vision ou non, seule la personne le sait).
 let appAuto = !appSel.value;
-appSel.addEventListener("change", () => { appAuto = false; garde("guide-appareil", appSel.value); majCles(); });
+// Au clavier, les flèches parcourent la liste sans la replier ; un clic (ou Entrée) choisit et replie.
+$id("choix-appareil").addEventListener("keydown", (e) => { caClavier = e.key.indexOf("Arrow") === 0; if (e.key === "Enter" && e.target.name === "appareil") { caOuvert = false; majCles(); e.target.focus(); } });
+$id("choix-appareil").addEventListener("pointerdown", () => { caClavier = false; });
+$id("choix-appareil").addEventListener("change", () => { appAuto = false; if (!caClavier) caOuvert = false; garde("guide-appareil", appSel.value); majCles(); });
+$id("ca-changer").addEventListener("click", () => { caOuvert = true; majCles(); const r = appRadios.find((x) => x.checked) || appRadios[0]; r.focus(); });
 document.querySelectorAll(".appareils button").forEach((b) => b.addEventListener("click", (e) => {
   if (!e.isTrusted || !appAuto) return;
   appSel.value = { android: "ecran", ios: "ecran", pc: "ecran", linux: "ecran" }[b.dataset.tab] || "";

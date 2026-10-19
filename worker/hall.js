@@ -4,7 +4,7 @@
  * Au mur, les films à l'affiche cette semaine, tirés du Catalogue FR.
  */
 import { STAGE_HEAD, STAGE_CSS, stageTop, BEAM_HTML, CREDITS_HTML, STAGE_JS } from "./stage.js";
-import { APERCU_CSS, apercuJS } from "./apercu.js";
+import { APERCU_CSS, ICONE_APERCU, apercuJS } from "./apercu.js";
 import { POSTER_URL } from "./guide.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -133,7 +133,7 @@ ${stageTop({ here: "hall", origin })}
     ${porte(2, origin + "/configure", "J'ai déjà Nuvio", "Compose ton accueil : rangées, plateformes, filtres et collections, avec un aperçu en direct.", " data-programmation")}
   </nav>
 
-  <button type="button" class="apercu-lien" data-resultat><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="3.5" width="16" height="10.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 17h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8.5 6.6v4.4l3.8-2.2z" fill="currentColor"/></svg>Voir l'accueil que tu auras à la fin</button>
+  <button type="button" class="apercu-lien" data-resultat>${ICONE_APERCU}Voir l'accueil que tu auras à la fin</button>
 
   <section class="mur" aria-labelledby="a-laffiche">
     <h2 id="a-laffiche">Actuellement à l'affiche</h2>

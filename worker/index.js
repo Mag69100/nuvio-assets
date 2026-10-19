@@ -1583,6 +1583,12 @@ export default {
       return new Response(r.body, { status: r.status, headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } });
     }
     if (!env.TMDB_API_KEY) return json({ error: "Secret TMDB_API_KEY manquant" }, 0);
+    // Diagnostics (/debug) : ils dépensent la clé Gemini de l'instance, donc réservés à l'hébergeur,
+    // depuis son propre lien (celui qui contient cette clé) : /<config>/debug/…
+    if (path.startsWith("/debug/") && !(env.GEMINI_API_KEY && cfg.k === env.GEMINI_API_KEY)) {
+      return new Response(JSON.stringify({ error: "Réservé à l'hébergeur : ouvre /debug depuis ton lien d'addon (celui qui contient la clé Gemini de l'instance)." }),
+        { status: 403, headers: { ...HEADERS, "Cache-Control": "no-store" } });
+    }
     // Détail d'une recherche (formes essayées, correction, classement) : /debug/search/<movie|series>/<requête>
     // ?model=gemini-… pour essayer un autre modèle, ?thinking=low… pour un autre niveau de réflexion,
     // ?fresh=1 pour reposer la question à Gemini.

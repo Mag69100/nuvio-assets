@@ -1,6 +1,6 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { aiEnv, aiProfile, aiTitles, aiMiss } from "../worker/ai.js";
+import { aiEnv, aiProfile, aiProfiles, aiTitles, aiMiss } from "../worker/ai.js";
 
 // Cache Cloudflare simulé (clé = adresse) et fetch espion : chaque test choisit ce que répond Gemini.
 let store, calls, answer;
@@ -99,4 +99,25 @@ test("limite_bonus_par_cle", async () => {
   assert.equal(refused.error, "trop de demandes cette minute");
   const other = await aiProfile({ GEMINI_API_KEY: "LIMIT-KEY-B" }, null, "limit-b-1", "…");
   assert.equal(other.pourQui, "Pour toi");
+});
+
+const row = (n) => [{ key: `movie-${n}`, id: n, text: "Film : « Test »" }];
+
+test("rangee_sans_cle", async () => {
+  const r = await aiProfiles({ GEMINI_API_KEY: "" }, row(900));
+  assert.equal(r.asked, 0);
+  assert.equal(calls.length, 0);
+});
+
+test("rangee_repos_par_cle", async () => {
+  answer = () => new Response("{}", { status: 429 });
+  await aiProfiles({ GEMINI_API_KEY: "ROW-KEY-AAAAAAAA" }, row(901));
+  calls = [];
+  await aiProfiles({ GEMINI_API_KEY: "ROW-KEY-AAAAAAAA" }, row(903));
+  assert.equal(calls.length, 0);
+  answer = () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ items: [{ id: 902, pour_qui: "Pour B", a_savoir: "" }] }) }] } }] }));
+  calls = [];
+  const r = await aiProfiles({ GEMINI_API_KEY: "ROW-KEY-BBBBBBBB" }, row(902));
+  assert.equal(calls[0].key, "ROW-KEY-BBBBBBBB");
+  assert.equal(r.saved, 1);
 });

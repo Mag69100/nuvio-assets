@@ -270,7 +270,8 @@ export async function aiRecap(env, ctx, id, prompt) {
 const PROFILE_PROMPT = `Tu aides des spectateurs français à choisir un film ou une série. Pour l'œuvre décrite, réponds :
 - pour_qui : une seule phrase de 25 mots au plus, qui commence par « Pour » et dit à qui l'œuvre va plaire et, si c'est utile, à qui elle ne plaira pas (« Pour les fans de thrillers lents et d'ambiances pesantes ; à éviter si tu cherches de l'action. »). Tutoie, sans rien dévoiler de l'histoire.
 - a_savoir : ce qui peut choquer ou gêner, en une phrase courte et factuelle : violence, gore, sexe ou nudité, langage cru, drogue, peur (jump scares), thèmes durs (suicide, maltraitance…). Seulement ce qui est vraiment présent ; s'il n'y a rien de notable, « Rien de choquant ».
-N'invente rien. Si tu ne connais pas l'œuvre, appuie-toi sur le résumé, les genres, les mots-clés et la classification ; si tu ne peux pas savoir ce qu'elle montre, renvoie un texte vide pour a_savoir.`;
+N'invente rien. Si tu ne connais pas l'œuvre, appuie-toi sur le résumé, les genres, les mots-clés et la classification ; si tu ne peux pas savoir ce qu'elle montre, renvoie un texte vide pour a_savoir.
+Écris dans un français sans aucune faute d'orthographe ni de conjugaison (« si tu sursautes facilement », pas « si tu surotes ») ; dans le doute sur un mot, choisis-en un plus simple.`;
 const PROFILE_SCHEMA = {
   type: "OBJECT",
   properties: { pour_qui: { type: "STRING" }, a_savoir: { type: "STRING" } },
@@ -289,7 +290,7 @@ export async function aiProfile(env, ctx, id, prompt) {
     if (BROKEN.test(value.pourQui + value.aSavoir)) throw Object.assign(new Error("texte abîmé"), { status: -1 });
     return value;
   };
-  const r = await cachedAsk(env, ctx, `https://cache.local/profile/v2/${id}`, RECAP_CACHE_S, ask, { optional: true });
+  const r = await cachedAsk(env, ctx, `https://cache.local/profile/v3/${id}`, RECAP_CACHE_S, ask, { optional: true });
   return { ...r, ...(r.value || { pourQui: "", aSavoir: "" }) };
 }
 
@@ -403,11 +404,12 @@ const PROFILES_SCHEMA = {
 
 /**
  * « Pour qui » et « À savoir » de toute une rangée en une seule question à Gemini, rangés comme ceux
- * d'aiProfile (même clé de cache) : à l'ouverture de la fiche, ils sont déjà prêts.
+ * d'aiProfile (même clé de cache). Un peu plus de réflexion qu'à l'ouverture d'une fiche : c'est en
+ * arrière-plan, et le français en est plus soigné : à l'ouverture de la fiche, ils sont déjà prêts.
  * items → [{ key: « movie-438631 », id: identifiant TMDB, text: l'œuvre }] ; ceux déjà en cache sont sautés.
  */
 export async function aiProfiles(env, items) {
-  const keyOf = (it) => new Request(`https://cache.local/profile/v2/${it.key}`);
+  const keyOf = (it) => new Request(`https://cache.local/profile/v3/${it.key}`);
   const known = await Promise.all(items.map((it) => caches.default.match(keyOf(it)).then(Boolean, () => false)));
   const todo = items.filter((_, i) => !known[i]).slice(0, 20);
   if (!todo.length) return { asked: 0 };
@@ -416,7 +418,7 @@ export async function aiProfiles(env, items) {
   const tried = [];
   for (const model of modelsFor(env, { optional: true })) {
     try {
-      const r = JSON.parse((await geminiText(env, model, PROFILES_PROMPT, prompt, { schema: PROFILES_SCHEMA, timeout: 20000 })) || "{}");
+      const r = JSON.parse((await geminiText(env, model, PROFILES_PROMPT, prompt, { schema: PROFILES_SCHEMA, thinking: "low", timeout: 20000 })) || "{}");
       const byId = new Map((r.items || []).map((x) => [Number(x.id), x]));
       const saved = await Promise.all(todo.map(async (it) => {
         const x = byId.get(it.id);

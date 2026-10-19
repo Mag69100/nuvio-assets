@@ -36,7 +36,7 @@ import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.23.6";
+const VERSION = "5.23.7";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -44,6 +44,9 @@ const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas en
 // Gemini, et SEARCH_BUDGET pour chercher dans TMDB : au-delà, ses appels renvoient vide.
 const SEARCH_BUDGET = 22;
 const ASSETS = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main";
+// Version du logo (logo/addon.png) : Nuvio garde les images en cache selon leur adresse, donc un nouveau
+// logo n'apparaît que si son adresse change. À augmenter à chaque nouveau logo.
+const LOGO_V = 2;
 const NOISE_TV = ["10763", "10764", "10766", "10767"]; // actualité, téléréalité, soap, talk-show
 
 const CACHE_CATALOG_S = 3 * 3600;  // une page de catalogue reste 3 h dans le cache Cloudflare
@@ -195,7 +198,7 @@ function manifest(today, cfg, cfgSeg, url, alerts) {
     version: VERSION,
     name: cfg.n,
     description: "Rangées d'accueil, Découvrir et saison en cours, en français, en direct depuis TMDB.",
-    logo: `${ASSETS}/logo/addon.png`,
+    logo: `${ASSETS}/logo/addon.png?v=${LOGO_V}`,
     resources: ["catalog", { name: "meta", types: ["movie", "series"], idPrefixes: ["tt", "tmdb:", ...(alerts ? ["maj:"] : [])] }],
     types: ["movie", "series"],
     idPrefixes: ["tt", "tmdb:"],

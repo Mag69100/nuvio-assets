@@ -344,3 +344,9 @@ test("adresse_du_site_douteuse_refusee", async () => {
   assert.equal((await at('http://a"b.exemple:8787/guide')).status, 400);
   assert.equal((await at("http://192.168.1.10:8787/manifest.json")).status, 200);
 });
+
+// Nouveau logo : son adresse change avec lui, sinon Nuvio garde l'ancien en cache.
+test("logo_versionne", async () => {
+  const m = await (await at("https://nuvio-assets.xnzxflix.workers.dev/manifest.json")).json();
+  assert.match(m.logo, /\/logo\/addon\.png\?v=\d+$/);
+});

@@ -108,7 +108,8 @@ Sur Cloudflare, ces variables survivent aux redéploiements (`keep_vars` dans `w
 Ta copie compare sa version à celle de ce dépôt et ne te propose que les vrais paliers (5.23 → 5.24), jamais
 chaque correction. Rien ne change sans ton accord.
 
-- **Sur le site** : salle 2 → Espace hébergeur. Tu y vois la nouvelle version, ses nouveautés, et deux boutons :
+- **Sur le site** : sur **ton** site, salle 2 → onglet « Hébergeur » (raccourci : `https://ton-adresse/configure#s-hote`),
+  connexion avec `ADMIN_PASSWORD`. Tu y vois la nouvelle version, ses nouveautés, et deux boutons :
   « Mettre à jour » (Cloudflare : « Sync fork » sur GitHub, puis redéploiement automatique ;
   Docker : `docker compose pull && docker compose up -d`) et « Plus tard » (plus rien jusqu'au palier suivant).
 - **Dans Nuvio** : coche « Alertes de mise à jour dans Nuvio » dans l'espace hébergeur et réinstalle ton lien.

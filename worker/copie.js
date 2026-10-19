@@ -56,6 +56,8 @@ p { margin: 0; }
 pre { margin: 0; overflow: auto; padding: 12px 14px; border-radius: 12px; background: #0f080c; border: 1px solid var(--seat); font: .8rem/1.45 "Courier Prime", monospace; color: #f0e2cf; }
 code { font: .9em "Courier Prime", monospace; background: #0f080c; padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
 .copier { justify-self: start; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--cream); background: var(--cream); color: var(--ink); font: 800 .88rem "Figtree"; cursor: pointer; }
+.apres { display: grid; gap: 10px; padding: 18px; border-radius: 16px; background: var(--velvet-2); border: 1px solid var(--bulb); }
+.apres ol { margin: 0; padding-left: 1.3em; display: grid; gap: 8px; }
 .maj { display: grid; gap: 8px; padding: 18px; border-radius: 16px; border: 1px solid var(--red); background: var(--velvet-2); }
 .fin { display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: space-between; font-weight: 800; }
 @media (max-width: 680px) { .salles { grid-template-columns: 1fr; } }
@@ -105,9 +107,20 @@ code { font: .9em "Courier Prime", monospace; background: #0f080c; padding: 1px 
     </article>
   </section>
 
+  <section class="apres" aria-labelledby="t-apres">
+    <h2 id="t-apres">Une fois ta salle montée : ton espace hébergeur</h2>
+    <p class="dim">C'est ta page d'administration. Elle n'existe que sur ta copie, pas sur ce site-ci.</p>
+    <ol>
+      <li>Ouvre <b>ton</b> site (l'adresse de ton Worker, ou celle de ton serveur).</li>
+      <li>Va en <b>salle 2</b>, puis clique sur l'onglet <b>«&nbsp;Hébergeur&nbsp;»</b> en haut. Raccourci : ajoute <code>/configure#s-hote</code> au bout de ton adresse.</li>
+      <li>Connecte-toi avec ton mot de passe, celui de <code>ADMIN_PASSWORD</code>.</li>
+      <li>Facultatif : coche «&nbsp;Alertes de mise à jour dans Nuvio&nbsp;», puis réinstalle ton lien dans Nuvio pour être prévenu sur ton accueil.</li>
+    </ol>
+  </section>
+
   <section class="maj" aria-labelledby="t-maj">
     <h2 id="t-maj">Les mises à jour, c'est toi qui décides</h2>
-    <p>Ta copie te prévient quand une nouvelle version sort, dans la salle 2 (Espace hébergeur) et, si tu veux, par une rangée « Mise à jour » sur ton accueil Nuvio. Tu choisis « Mettre à jour » ou « Plus tard » : rien ne change sans ton accord.</p>
+    <p>Ta copie te prévient quand une nouvelle version sort, dans ton espace hébergeur et, si tu veux, par une rangée « Mise à jour » sur ton accueil Nuvio. Tu choisis « Mettre à jour » ou « Plus tard » : rien ne change sans ton accord.</p>
   </section>
 
   <p class="dim">Tous les détails (variables, accès de l'extérieur, sécurité) sont dans le <a href="${REPO}#héberger-ta-propre-copie" target="_blank" rel="noopener">mode d'emploi sur GitHub</a>.</p>

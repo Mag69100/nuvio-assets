@@ -3,7 +3,7 @@
 - genres/<slug>.jpg et seasons/<slug>.jpg : cartes 1280x720 (image + dégradé + titre)
 - gifs/<groupe>/<slug>.gif : animations jouées au survol (480x270)
     * genres, saisons, sagas : un reflet lumineux traverse la carte
-    * plateformes, studios : logo qui « respire » sur fond blanc
+    * plateformes, studios : vraies intros des marques, faites par scripts/make_intros.py
 
 Usage : python scripts/make_assets.py [dossier_images_locales]
 Sans argument, les images sont téléchargées depuis TMDB.
@@ -141,31 +141,6 @@ def sheen(card: Image.Image, out: Path) -> None:
     save_gif(frames, out, [40] * steps + [1500], sample)
 
 
-LOGO_FRAMES = 50      # 25 images/s sur une boucle de 2 s
-LOGO_FRAME_MS = 40
-SUPERSAMPLE = 4      # calcul en haute résolution puis réduction : pas de saccade d'un pixel
-
-
-def breathing_logo(path: str, out: Path) -> None:
-    """Le logo grossit puis rétrécit doucement, centré au sous-pixel près."""
-    logo = fetch(path, "original")
-    w, h = GIF
-    big_w, big_h = w * SUPERSAMPLE, h * SUPERSAMPLE
-    fit = min(330 / logo.width, 145 / logo.height) * SUPERSAMPLE
-    frames = []
-    for i in range(LOGO_FRAMES):
-        s = fit * (1.0 + 0.08 * (1 - math.cos(2 * math.pi * i / LOGO_FRAMES)) / 2)
-        # Transformation affine en flottant : échelle et centrage continus.
-        cx, cy = logo.width / 2, logo.height / 2
-        matrix = (1 / s, 0, cx - big_w / 2 / s, 0, 1 / s, cy - big_h / 2 / s)
-        layer = logo.transform((big_w, big_h), Image.AFFINE, matrix, resample=Image.BICUBIC,
-                               fillcolor=(255, 255, 255, 0))
-        frame = Image.new("RGBA", (big_w, big_h), (255, 255, 255, 255))
-        frame.alpha_composite(layer)
-        frames.append(frame.convert("RGB").resize((w, h), Image.LANCZOS))
-    save_gif(frames, out, LOGO_FRAME_MS, frames[LOGO_FRAMES // 2])
-
-
 # ---------- logos et titres pour le grand carrousel ----------
 KEEP_COLORS = set(ASSETS.get("keep_logo_colors", []))
 LIGHTEN_DARK = set(ASSETS.get("lighten_dark_logos", []))
@@ -231,10 +206,6 @@ def main() -> None:
     for slug, _label, path in ASSETS["sagas"]:
         sheen(cover(fetch(path), *GIF), ROOT / "gifs" / "sagas" / f"{slug}.gif")
         print("ok sagas", slug)
-    for group in ("platforms", "studios"):
-        for slug, _label, path in ASSETS[group]:
-            breathing_logo(path, ROOT / "gifs" / group / f"{slug}.gif")
-            print("ok", group, slug)
 
 
 if __name__ == "__main__":

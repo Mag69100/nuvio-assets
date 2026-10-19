@@ -97,6 +97,18 @@ test("guide_scripts_valides", () => {
   assert.ok(html.includes('href="nuvio://nuvio-assets.xnzxflix.workers.dev/manifest.json"'));
 });
 
+test("panneau_de_la_cabine", () => {
+  // Étape 12 : chaque panne est rangée sous au moins un voyant, et chaque voyant allume au moins une panne.
+  const html = guidePage({ origin: O, season: "" });
+  const voyants = [...html.matchAll(/class="voyant" data-moment="([a-z]+)"/g)].map((m) => m[1]);
+  const pannes = [...html.matchAll(/<details data-moment="([a-z ]+)">/g)].map((m) => m[1].split(" "));
+  assert.equal(voyants.length, 5);
+  assert.ok(pannes.length >= 10);
+  for (const p of pannes) assert.ok(p.every((m) => voyants.includes(m)), p.join(" "));
+  for (const v of voyants) assert.ok(pannes.some((p) => p.includes(v)), v);
+  for (const id of ["pupitre", "pu-etat", "rembobinage", "rb-fin"]) assert.ok(html.includes('id="' + id + '"'), id);
+});
+
 test("installer_sans_stremio_ni_windows", () => {
   // nuvio:// : Stremio ne le prend pas ; sous Windows, Nuvio Desktop n'enregistre aucun lien, donc pas de bouton.
   assert.match(installUrl("https://torrentio.strem.fun/language=french/manifest.json"), /^nuvio:[/][/]torrentio/);

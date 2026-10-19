@@ -359,15 +359,15 @@ html.s2-ouverte, html.s2-ouverte body { overflow: hidden; }
 .faq details { border-bottom: 1px solid var(--seat); padding: 12px 0; }
 .faq summary { cursor: pointer; font-weight: 800; }
 .faq details p { margin: 8px 0 0; color: #d9c8be; }
-/* Le panneau de la cabine (étape 12) : on allume le voyant de l'endroit où ça coince, les autres pannes s'effacent. */
-.cabine { display: grid; gap: 12px; padding: 18px 20px 16px; border-radius: 14px;
+/* Le pupitre de la cabine (étape 12) : on allume le voyant de l'endroit où ça coince, les autres pannes s'effacent. */
+.pupitre { display: grid; gap: 12px; padding: 18px 20px 16px; border-radius: 14px;
   background: radial-gradient(circle at 10px 10px, #7a654f 0 2.5px, transparent 3px), radial-gradient(circle at calc(100% - 10px) 10px, #7a654f 0 2.5px, transparent 3px),
     radial-gradient(circle at 10px calc(100% - 10px), #7a654f 0 2.5px, transparent 3px), radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #7a654f 0 2.5px, transparent 3px), linear-gradient(#2b2226, #1b1418);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.06), inset 0 0 0 1px rgba(0,0,0,.5), 0 10px 26px rgba(0,0,0,.35); }
 /* L'étiquette de la plaque : du ruban à lettres en relief, collé un peu de travers. */
-.cab-plaque { justify-self: start; margin: 0; padding: 4px 10px 3px; border-radius: 3px; transform: rotate(-1deg); font: 700 .74rem var(--type); letter-spacing: .18em; text-transform: uppercase;
+.pu-plaque { justify-self: start; margin: 0; padding: 4px 10px 3px; border-radius: 3px; transform: rotate(-1deg); font: 700 .74rem var(--type); letter-spacing: .18em; text-transform: uppercase;
   color: #f4f0e6; background: #0d0a0b; text-shadow: 0 -1px 0 #000; box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 1px 0 rgba(0,0,0,.6); }
-.cab-voyants { display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr)); gap: 10px; }
+.pu-voyants { display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr)); gap: 10px; }
 .voyant { display: grid; justify-items: center; gap: 4px; padding: 14px 8px 11px; border-radius: 12px; border: 1px solid #0c090a; cursor: pointer; text-align: center; color: var(--cream);
   background: linear-gradient(#30272b, #221a1e); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 3px 0 #0c090a; transition: transform .1s ease, box-shadow .1s ease, border-color .2s ease; }
 .voyant:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 1px 0 #0c090a; }
@@ -380,7 +380,7 @@ html.s2-ouverte, html.s2-ouverte body { overflow: hidden; }
   box-shadow: 0 0 0 3px #c99a4a, 0 0 0 4px #000, 0 0 18px 5px rgba(255,80,60,.55); animation: allume .6s; }
 /* L'ampoule grésille avant de tenir. */
 @keyframes allume { 0%, 18%, 36% { opacity: .35; } 10%, 26%, 100% { opacity: 1; } }
-.cab-etat { margin: 0; font-size: .9rem; color: var(--dim); }
+.pu-etat { margin: 0; font-size: .9rem; color: var(--dim); }
 .faq details.revient { animation: rise .35s ease both; }
 /* Le grand rembobinage : chaque geste coché remet de la pellicule sur la bobine. */
 .rembobinage { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px 20px; align-items: start; margin-top: 6px; padding: 18px 20px; border-radius: 14px; border: 1px dashed rgba(255,207,107,.4); background: rgba(255,207,107,.04); }
@@ -399,7 +399,7 @@ html.s2-ouverte, html.s2-ouverte body { overflow: hidden; }
 .rb-gestes input:checked::after { opacity: 1; }
 .rb-gestes input:checked + span { color: var(--dim); text-decoration: line-through; text-decoration-color: rgba(95,211,154,.6); }
 .rb-fin { font: italic 400 1.3rem/1.3 var(--serif); color: var(--green); animation: rise .4s ease both; }
-@media (max-width: 520px) { .cabine, .rembobinage { padding: 16px; } .rembobinage { grid-template-columns: minmax(0, 1fr); } .rb-bobine { width: 60px; height: 60px; } }
+@media (max-width: 520px) { .pupitre, .rembobinage { padding: 16px; } .rembobinage { grid-template-columns: minmax(0, 1fr); } .rb-bobine { width: 60px; height: 60px; } }
 @media (prefers-reduced-motion: reduce) { .voyant[aria-pressed="true"] .lampe, .faq details.revient, .rb-fin { animation: none; } .rb-film, .rb-tourne { transition: none; } }
 .cta { display: flex; flex-wrap: wrap; gap: 10px; }
 .btn { display: inline-block; font: 800 .95rem var(--body); text-decoration: none; padding: 12px 18px; border-radius: 10px; background: var(--bulb); color: var(--ink); }
@@ -1034,17 +1034,17 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
 
   <section class="act faq" id="depannage">
     <header><span class="num">12</span><span class="label">Coulisses</span><h2>En cas de souci</h2></header>
-    <div class="cabine" id="cabine" hidden>
-      <p class="cab-plaque">Panneau de la cabine · où ça coince ?</p>
+    <div class="pupitre" id="pupitre" hidden>
+      <p class="pu-plaque">Panneau de la cabine · où ça coince ?</p>
       <p class="lead">Un incident de projection ? Allume le voyant de l'endroit où ça coince : seules les pannes qui s'y produisent restent à l'écran.</p>
-      <div class="cab-voyants" role="group" aria-label="Où ça coince ?">
+      <div class="pu-voyants" role="group" aria-label="Où ça coince ?">
         <button type="button" class="voyant" data-moment="accueil" aria-pressed="false"><i class="lampe"></i><b>À l'accueil</b><small></small></button>
         <button type="button" class="voyant" data-moment="fiche" aria-pressed="false"><i class="lampe"></i><b>Sur une fiche</b><small></small></button>
         <button type="button" class="voyant" data-moment="recherche" aria-pressed="false"><i class="lampe"></i><b>En cherchant</b><small></small></button>
         <button type="button" class="voyant" data-moment="lecture" aria-pressed="false"><i class="lampe"></i><b>Pour regarder</b><small></small></button>
         <button type="button" class="voyant" data-moment="profils" aria-pressed="false"><i class="lampe"></i><b>Sur un autre profil</b><small></small></button>
       </div>
-      <p class="cab-etat" id="cab-etat" aria-live="polite"></p>
+      <p class="pu-etat" id="pu-etat" aria-live="polite"></p>
     </div>
     <details data-moment="fiche"><summary>« Aucun addon installé ne fournit de métadonnées pour… » en ouvrant un film</summary><p>Les fiches viennent du Catalogue FR : retire-le et rajoute-le (étape 6) pour que Nuvio voie qu'il fournit maintenant les fiches. Si tu avais un autre addon de fiches (TMDB Discover Plus, Cinemeta), tu peux le garder ou le supprimer.</p></details>
     <details data-moment="recherche"><summary>« Aucun catalogue de recherche trouvé dans les addons installés »</summary><p>La recherche vient du Catalogue FR (addon n° 1 de l'étape 6) : vérifie qu'il est bien installé. Si tu viens de le mettre à jour, retire-le et rajoute-le pour que Nuvio voie ses catalogues de recherche.</p></details>
@@ -1501,6 +1501,37 @@ document.getElementById("cles-tel").addEventListener("click", () => {
     popcorn(pot); draw();
   });
   draw();
+})();
+
+// ---------- Le pupitre de la cabine (étape 12) : on allume le voyant de l'endroit où ça coince ----------
+(() => {
+  const pu = $id("pupitre"), etat = $id("pu-etat"), voyants = [...pu.querySelectorAll(".voyant")];
+  const pannes = [...document.querySelectorAll("#depannage details[data-moment]")];
+  const de = (p, m) => p.dataset.moment.split(" ").includes(m);
+  const nb = (n, mot) => n + " " + mot + (n > 1 ? "s" : "");
+  voyants.forEach((v) => { v.querySelector("small").textContent = nb(pannes.filter((p) => de(p, v.dataset.moment)).length, "panne"); });
+  const allumer = (m) => {
+    voyants.forEach((v) => v.setAttribute("aria-pressed", String(v.dataset.moment === m)));
+    const vues = pannes.filter((p) => !m || de(p, m));
+    pannes.forEach((p) => p.classList.remove("revient")); void pu.offsetWidth;
+    pannes.forEach((p) => { const on = vues.includes(p); p.hidden = !on; if (!on) p.open = false; else if (m) p.classList.add("revient"); });
+    if (vues.length === 1) vues[0].open = true;
+    const nom = m ? voyants.find((v) => v.dataset.moment === m).querySelector("b").textContent : "";
+    etat.textContent = m ? "Voyant « " + nom + " » allumé : " + vues.length + (vues.length > 1 ? " pannes possibles" : " panne possible") + ". Rappuie dessus pour tout revoir."
+      : "Tous les voyants sont éteints : voici toutes les pannes connues.";
+  };
+  voyants.forEach((v) => v.addEventListener("click", () => { sfx.click(); allumer(v.getAttribute("aria-pressed") === "true" ? "" : v.dataset.moment); }));
+  allumer(""); pu.hidden = false;
+
+  // Le grand rembobinage : chaque geste coché remet de la pellicule sur la bobine.
+  const rb = $id("rembobinage"), cases = [...rb.querySelectorAll("input")], bobine = rb.querySelector(".rb-bobine");
+  rb.addEventListener("change", () => {
+    const n = cases.filter((c) => c.checked).length, fini = n === cases.length, r = 12 + n * 5.5;
+    const film = rb.querySelector(".rb-film"); film.setAttribute("r", String(r)); film.style.setProperty("r", r + "px");
+    rb.querySelector(".rb-tourne").style.transform = "rotate(" + (-n * 140) + "deg)";
+    if (fini && $id("rb-fin").hidden) { sfx.applause(); popcorn(bobine); } else sfx.tick();
+    $id("rb-fin").hidden = !fini;
+  });
 })();
 
 // ---------- Le diplôme de projectionniste (image 1600 × 1130) ----------

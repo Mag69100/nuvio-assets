@@ -7,6 +7,8 @@
  *
  * Les mesures viennent du code de Nuvio TV (écran de référence 960 × 540 dp) : 1 dp = 1/9,6 cqw.
  */
+import { parametresNuvio } from "./reglages.js";
+
 export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cramoisi) ---------- */
 .nvo { position: absolute; inset: 0; overflow: hidden; background: #0D0D0D; color: #fff; font-family: Inter, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 .nvo button { font-family: inherit; }
@@ -180,7 +182,7 @@ export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cram
 .nvo-rech input:focus { border-color: #FF5252; box-shadow: 0 0 0 .104cqw #FF5252; }
 .nvo-etat { height: 41.667cqw; display: grid; place-content: center; justify-items: center; text-align: center; }
 .nvo-etat svg { width: 8.333cqw; height: 8.333cqw; fill: #808080; }
-.nvo-etat b { margin-top: 2.5cqw; font: 400 2.5cqw/3.333cqw Inter, sans-serif; color: #fff; }
+.nvo-etat b { margin-top: 2.5cqw; font: 400 2.5cqw/3.333cqw Roboto, "Segoe UI", system-ui, sans-serif; color: #fff; }
 .nvo-etat span { margin-top: .833cqw; font: 400 1.458cqw/2.083cqw Inter, sans-serif; color: #B3B3B3; }
 .nvo-res { margin-top: 1.667cqw; }
 .nvo-res header { padding: 0 5cqw; margin-bottom: 1.25cqw; }
@@ -228,11 +230,202 @@ export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cram
 .nvo-biblio .filtres i { font-style: normal; color: #B3B3B3; font-size: 1.667cqw; }
 .nvo-biblio .grille { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1.667cqw 1.25cqw; margin-top: 2.5cqw; }
 .nvo-biblio .nvo-etat { height: 30cqw; }
-@media (prefers-reduced-motion: reduce) { .nvo-menu { animation: none; } .nvo-carte.attente > .reflet { animation: none; } }
+/* ---------- Découvrir (DiscoverScreen) : titre, trois listes et la ligne d'infos fixes, la grille défile dessous ---------- */
+.nvo-vue.nvo-dec { display: flex; flex-direction: column; gap: 1.25cqw; padding: 1.667cqw 5cqw 0; overflow: hidden; outline: none; }
+.nvo-dec h3 { flex: none; margin: 0; font: 600 2.5cqw/3.333cqw Inter, sans-serif; }
+.nvo-dec .filtres { flex: none; display: flex; gap: 1.25cqw; }
+.nvo-dec .choix { box-sizing: border-box; flex: 1 1 0; min-width: 0; height: 6.25cqw; padding: 1.042cqw 1.458cqw; display: flex; flex-direction: column; gap: .208cqw; border-radius: 1.458cqw; border: max(1px, .104cqw) solid #333; background: #241A1A; color: #fff; text-align: left; cursor: pointer; outline: none; }
+.nvo-dec .choix small { font: 500 1.042cqw/1.458cqw Inter, sans-serif; letter-spacing: .052cqw; color: #808080; }
+.nvo-dec .choix > span { display: flex; align-items: center; justify-content: space-between; gap: .833cqw; min-width: 0; }
+.nvo-dec .choix b { min-width: 0; font: 500 1.667cqw/2.5cqw Inter, sans-serif; letter-spacing: .016cqw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nvo-dec .choix i { flex: none; display: flex; }
+.nvo-dec .choix svg { width: 2.083cqw; height: 2.083cqw; fill: #B3B3B3; }
+.nvo-dec .choix.focus { background: #3D1A1A; border-color: #FF5252; box-shadow: inset 0 0 0 max(1px, .104cqw) #FF5252; }
+.nvo-dec .choix.focus svg { fill: #FF5252; }
+.nvo-dec .infos { flex: none; margin: 0; font: 400 1.25cqw/1.667cqw Inter, sans-serif; letter-spacing: .042cqw; color: #B3B3B3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nvo-dec .infos:empty { display: none; }
+/* La grille (6 colonnes adaptatives de 126 dp, 10 dp entre les colonnes, 16 dp entre les lignes) */
+.nvo-dec .defile { position: relative; flex: 1; min-height: 0; margin: 0 -5cqw; padding: 0 5cqw; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+.nvo-dec .defile::-webkit-scrollbar { display: none; }
+.nvo-dec .grille { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); column-gap: 1.042cqw; row-gap: 1.667cqw; align-items: start; padding-bottom: 3.333cqw; }
+.nvo.paysage .nvo-dec .grille { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.nvo-dec .nvo-item { width: 13.125cqw; padding-top: .3125cqw; }
+.nvo.paysage .nvo-dec .nvo-carte { height: 7.374cqw; }
+.nvo-dec .nvo-item b { padding: 0 .208cqw; }
+.nvo-dec .nvo-item b span { display: inline; }
+.nvo-dec .nvo-item:hover .nvo-carte { transform: none; }
+.nvo-dec .nvo-item:hover .nvo-carte::after { opacity: 0; }
+.nvo-dec .nvo-item.focus .nvo-carte { transform: scale(1.02); }
+.nvo-dec .nvo-item.focus .nvo-carte::after { opacity: 1; }
+/* Le titre trop long défile quand l'affiche est sélectionnée (45 dp/s, 3 passages) */
+.nvo-dec .nvo-item b.defil { text-overflow: clip; }
+.nvo-dec .nvo-item b.defil span { display: inline-block; padding-right: var(--g); animation: nvo-defil var(--t) linear 1.2s 3; }
+@keyframes nvo-defil { to { transform: translateX(var(--x)); } }
+/* « Charger plus » : une carte de la taille d'une affiche */
+.nvo-dec .action { box-sizing: border-box; width: 13.125cqw; height: 19.6875cqw; margin-top: .3125cqw; padding: 0; border: 0; border-radius: 1.667cqw; display: grid; place-items: center; background: #241A1A; color: #fff; font: 500 1.667cqw/2.5cqw Inter, sans-serif; letter-spacing: .016cqw; cursor: pointer; outline: none; transition: transform .18s ease; }
+.nvo.paysage .nvo-dec .action { height: 7.374cqw; }
+.nvo-dec .action.focus { background: #3D1A1A; box-shadow: inset 0 0 0 .208cqw #FF5252; transform: scale(1.02); }
+.nvo-dec .action:disabled { cursor: default; }
+.nvo-dec .charge { grid-column: 1 / -1; display: grid; place-items: center; padding: 2.917cqw 0; }
+.nvo-dec .grille > .nvo-etat { grid-column: 1 / -1; }
+.nvo-spin { width: 5cqw; height: 5cqw; animation: nvo-tourne 2s linear infinite; }
+.nvo-spin circle { fill: none; stroke: #E53935; stroke-width: 5.1; stroke-linecap: round; stroke-dasharray: 1 97; animation: nvo-arc 2s ease-in-out infinite; }
+@keyframes nvo-tourne { to { transform: rotate(360deg); } }
+@keyframes nvo-arc { 0% { stroke-dasharray: 1 97; stroke-dashoffset: 0; } 50% { stroke-dasharray: 70 97; stroke-dashoffset: -14; } 100% { stroke-dasharray: 1 97; stroke-dashoffset: -96; } }
+/* La liste ouverte (DropdownMenu) : sous la case, de sa largeur, 320 dp au plus */
+.nvo-liste { position: absolute; z-index: 3; box-sizing: border-box; max-height: 33.333cqw; padding: .833cqw 0; overflow-y: auto; scrollbar-width: none; border-radius: 1.458cqw; border: max(1px, .104cqw) solid #333; background: #241A1A;
+  box-shadow: 0 .833cqw 2.5cqw rgba(0,0,0,.55); transform-origin: top center; animation: nvo-liste .12s ease-out both; }
+.nvo-liste::-webkit-scrollbar { display: none; }
+@keyframes nvo-liste { from { opacity: 0; transform: scale(.8); } }
+.nvo .nvo-liste button { display: block; box-sizing: border-box; width: calc(100% - 1.25cqw); min-height: 5cqw; margin: .208cqw .625cqw; padding: 0 1.25cqw; border: 0; border-radius: 1.042cqw; background: transparent; color: #fff; text-align: left; cursor: pointer; outline: none;
+  font: 400 1.458cqw/5cqw Roboto, "Segoe UI", system-ui, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nvo .nvo-liste button[aria-selected="true"] { background: #3D1A1A; }
+.nvo .nvo-liste button.focus { background: #E53935; }
+/* ---------- Paramètres (SettingsScreen, style « Par défaut ») : une carte de 28 dp, rubriques à gauche (220 dp), écran à droite ---------- */
+.nvo-vue.nvo-par { box-sizing: border-box; padding: 2.5cqw 3.333cqw; overflow: hidden; outline: none; }
+.np-surf { box-sizing: border-box; height: 100%; display: flex; gap: 1.667cqw; padding: 2.083cqw; border-radius: 2.917cqw; background: #1A1A1A; border: max(1px, .104cqw) solid #333; }
+.np-surf svg { flex: none; fill: currentColor; }
+.np-rail { position: relative; flex: none; width: 22.917cqw; display: flex; flex-direction: column; min-height: 0; }
+.np-rliste { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: safe center; gap: 1.042cqw; overflow-y: auto; scrollbar-width: none; }
+.np-rliste::-webkit-scrollbar { display: none; }
+.np-sep { flex: none; height: max(1px, .104cqw); margin: 0 1.875cqw; background: #333; }
+.nvo .np-ru { box-sizing: border-box; flex: none; display: flex; align-items: center; gap: 1.042cqw; min-height: 5.833cqw; margin: .208cqw 0; padding: 0 1.875cqw; border: 0; border-radius: 99px; background: #0D0D0D; color: #B3B3B3; cursor: pointer; outline: none; text-align: left;
+  font: 500 1.667cqw/2.5cqw Inter, sans-serif; letter-spacing: .016cqw; }
+.np-ru .np-ico { width: 1.875cqw; height: 1.875cqw; }
+.np-ru span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-ru .np-chev { width: 1.875cqw; height: 1.875cqw; color: #808080; }
+.nvo .np-ru.sel { background: #241A1A; color: #fff; font-weight: 600; box-shadow: inset 0 0 0 max(1px, .104cqw) #FF5252; }
+.nvo .np-ru.focus { background: #241A1A; color: #fff; font-weight: 600; box-shadow: inset 0 0 0 .208cqw #FF5252; }
+.nvo .np-rail.actif .np-ru.sel:not(.focus) { background: #0D0D0D; box-shadow: none; }
+.np-fl { position: absolute; left: 50%; width: 3.333cqw; height: 3.333cqw; margin-left: -1.667cqw; color: rgba(179,179,179,.55); opacity: 0; transition: opacity .15s; pointer-events: none; }
+.np-fl svg { width: 100%; height: 100%; }
+.np-fl.haut { top: .208cqw; } .np-fl.bas { bottom: .208cqw; } .np-fl.on { opacity: 1; }
+/* L'écran de droite */
+.np-pane { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 1.458cqw; }
+.np-pane.tout { overflow-y: auto; scrollbar-width: none; }
+.np-pane [tabindex] { outline: none; }
+.np-pane.tout > * { flex: none; }
+.np-pane::-webkit-scrollbar, .np-defile::-webkit-scrollbar, .np-swatches::-webkit-scrollbar { display: none; }
+.np-tete { flex: none; display: grid; gap: .625cqw; }
+.np-tete h3 { margin: 0; font: 600 2.5cqw/3.333cqw Inter, sans-serif; }
+.np-tete p { margin: 0; font: 400 1.458cqw/2.083cqw Inter, sans-serif; letter-spacing: .026cqw; color: #B3B3B3; }
+.np-corps { display: flex; flex-direction: column; gap: 1.458cqw; }
+.np-pane:not(.tout) .np-corps { flex: 1; min-height: 0; }
+.np-pane:not(.tout) .np-corps > .np-group { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+/* Carte de groupe : 18 dp, fond des cartes, liseré, 14 dp de marge, 10 dp entre les lignes */
+.np-group { box-sizing: border-box; display: flex; flex-direction: column; gap: 1.042cqw; padding: 1.458cqw; border-radius: 1.875cqw; background: #241A1A; border: max(1px, .104cqw) solid #333; }
+.np-group > *, .np-kbox > * { flex: none; }
+.np-gh { margin: 0; display: grid; gap: .208cqw; }
+.np-gh b { font: 500 1.667cqw/2.5cqw Inter, sans-serif; letter-spacing: .016cqw; }
+.np-gh small { font: 400 1.25cqw/1.667cqw Inter, sans-serif; letter-spacing: .042cqw; color: #B3B3B3; }
+/* Une ligne : pilule sur le fond de l'appli, 62 dp de haut ; liseré rouge de 2 dp quand elle est sélectionnée */
+.np-row { box-sizing: border-box; display: flex; align-items: center; gap: 1.25cqw; min-height: 6.458cqw; padding: 1.25cqw 1.875cqw; border-radius: 99px; background: #0D0D0D; cursor: pointer; outline: none; }
+.np-row.focus, .np-url.focus { box-shadow: inset 0 0 0 .208cqw #FF5252; }
+.np-row > .np-ico { width: 2.5cqw; height: 2.5cqw; margin-right: .417cqw; color: #B3B3B3; }
+.np-row.focus > .np-ico { color: #fff; }
+.np-row > .np-logo { width: 2.5cqw; height: 2.5cqw; margin-right: .417cqw; }
+.np-row > .np-logo.grand { width: 4.167cqw; height: 4.167cqw; }
+.np-row.dim { opacity: .4; cursor: default; }
+.np-txt { flex: 1; min-width: 0; display: grid; gap: .208cqw; }
+.np-txt b { font: 400 1.667cqw/2.5cqw Inter, sans-serif; letter-spacing: .052cqw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-txt small { font: 400 1.25cqw/1.667cqw Inter, sans-serif; letter-spacing: .042cqw; color: #B3B3B3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.np-val { flex: none; display: flex; align-items: center; gap: 1.042cqw; max-width: 27.083cqw; margin-left: -.208cqw; font: 500 1.458cqw/2.083cqw Inter, sans-serif; color: #B3B3B3; white-space: nowrap; }
+.np-val .np-chev { width: 1.875cqw; height: 1.875cqw; color: #808080; }
+/* Interrupteur : rail de 46 × 24 dp, bouton blanc de 20 dp ; activé = rail rouge à 35 % */
+.np-tg { position: relative; flex: none; box-sizing: border-box; width: 4.792cqw; height: 2.5cqw; border-radius: 99px; background: #333; transition: background .15s; }
+.np-tg::after { content: ""; position: absolute; top: .208cqw; left: .208cqw; width: 2.083cqw; height: 2.083cqw; border-radius: 50%; background: #fff; transition: left .15s; }
+.np-tg.on { background: rgba(229,57,53,.35); }
+.np-tg.on::after { left: calc(100% - 2.292cqw); }
+.np-dot { flex: none; width: 2.5cqw; height: 2.5cqw; border-radius: 50%; box-shadow: 0 0 0 max(1px, .104cqw) #333; }
+/* Curseur : valeur en gris clair, rail de 8 dp, boutons ronds − et + de 38 dp */
+.np-row.np-slider { display: grid; gap: 1.042cqw; border-radius: 1.875cqw; }
+.np-sl-top { display: flex; align-items: center; gap: 1.25cqw; }
+.np-sl-top .np-val { font: 400 1.667cqw/2.5cqw Inter, sans-serif; letter-spacing: .052cqw; color: #9E9E9E; }
+.np-sl { display: flex; align-items: center; gap: 1.25cqw; }
+.np-sl > i { flex: none; width: 3.958cqw; height: 3.958cqw; border-radius: 50%; display: grid; place-items: center; background: #1A1A1A; }
+.np-sl > i svg { width: 2.083cqw; height: 2.083cqw; }
+.np-track { flex: 1; height: .833cqw; border-radius: .417cqw; background: #1A1A1A; overflow: hidden; }
+.np-track span { display: block; height: 100%; border-radius: inherit; background: #9E9E9E; }
+/* Sections repliables (« Fermé › » / « Ouvert ⌄ ») : le contenu dans une carte en retrait de 16 dp */
+.np-sec .np-chev { transition: transform .2s; }
+.np-secw.open .np-sec .np-chev { transform: rotate(90deg); }
+.np-kids { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .2s ease; }
+.np-secw.open .np-kids { grid-template-rows: 1fr; }
+.np-kin { min-height: 0; overflow: hidden; }
+.np-kbox { display: flex; flex-direction: column; gap: 1.042cqw; margin: 1.042cqw 0 .208cqw 1.667cqw; padding: 1.458cqw; border-radius: 1.875cqw; border: max(1px, .104cqw) solid #333; background: #241A1A; }
+.np-h { margin: 1.25cqw 1.875cqw .208cqw; display: grid; gap: .208cqw; font: 500 1.25cqw/1.667cqw Inter, sans-serif; letter-spacing: .125cqw; text-transform: uppercase; color: #808080; }
+.np-h small { font: 400 1.25cqw/1.667cqw Inter, sans-serif; letter-spacing: .042cqw; text-transform: none; color: #B3B3B3; }
+.np-h small.warn { color: #FFB74D; }
+.np-p { margin: 0; font: 400 1.25cqw/1.667cqw Inter, sans-serif; letter-spacing: .042cqw; color: #B3B3B3; }
+.np-note { margin: 0; padding: 0 1.25cqw; font: 400 1.25cqw/1.667cqw Inter, sans-serif; letter-spacing: .042cqw; color: #808080; }
+.np-url { padding: 1.042cqw 1.458cqw; border-radius: 1.25cqw; background: #0D0D0D; font: 400 1.146cqw/1.6 ui-monospace, Consolas, monospace; color: #B3B3B3; word-break: break-all; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
+/* Bouton « Connexion par code QR » (Compte) : il grossit un peu quand il est sélectionné */
+.np-row.np-bouton { min-height: 0; padding: 1.042cqw 1.458cqw; border-radius: .833cqw; background: #241A1A; transition: transform .15s; }
+.np-row.np-bouton > .np-ico { width: 2.292cqw; height: 2.292cqw; }
+.np-bouton .np-txt b { font: 500 1.458cqw/2.083cqw Inter, sans-serif; letter-spacing: .026cqw; }
+.np-bouton .np-txt small { font-size: 1.146cqw; }
+.np-row.np-bouton.focus { background: #3D1A1A; transform: scale(1.02); }
+/* Puces (largeur, rayon, réglages « Apply to ») : la choisie sur fond rouge à 20 % avec un liseré */
+.np-chips, .np-apply { display: grid; gap: .833cqw; padding: .208cqw 0; }
+.np-chips > span:first-child { padding: 0 .833cqw; font: 400 1.667cqw/2.5cqw Inter, sans-serif; letter-spacing: .052cqw; }
+.np-apply > span:first-child { padding: 0 .833cqw; font: 500 1.25cqw/1.667cqw Inter, sans-serif; letter-spacing: .125cqw; color: #808080; }
+.np-chip-row { display: flex; flex-wrap: wrap; gap: .833cqw; }
+.np-chip-row i { font-style: normal; display: inline-flex; align-items: center; gap: .833cqw; padding: 1.042cqw 1.667cqw; border-radius: 99px; background: #0D0D0D; color: #B3B3B3; cursor: pointer; font: 500 1.25cqw/1.667cqw Inter, sans-serif; letter-spacing: .052cqw; }
+.np-chip-row i.sel { background: rgba(255,82,82,.2); color: #fff; box-shadow: inset 0 0 0 max(1px, .104cqw) #FF5252; }
+.np-chip-row i.focus { color: #fff; box-shadow: inset 0 0 0 max(1px, .104cqw) #FF5252; }
+.np-apply .np-tg { width: 3.333cqw; height: 1.875cqw; }
+.np-apply .np-tg::after { width: 1.458cqw; height: 1.458cqw; }
+.np-apply .np-tg.on::after { left: calc(100% - 1.667cqw); }
+/* Cartes à choisir (style des paramètres, disposition de l'accueil, Continuer à regarder) */
+.np-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.042cqw; }
+.np-card { position: relative; display: grid; gap: .417cqw; align-content: start; padding: 1.25cqw; border-radius: 1.875cqw; background: #0D0D0D; cursor: pointer; }
+.np-card b { display: flex; align-items: center; justify-content: space-between; gap: .417cqw; font: 500 1.458cqw/2.083cqw Inter, sans-serif; }
+.np-card small { font: 400 1.25cqw/1.667cqw Inter, sans-serif; letter-spacing: .042cqw; color: #808080; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.np-card.sel { box-shadow: inset 0 0 0 max(1px, .104cqw) #FF5252; }
+.np-card.focus { box-shadow: inset 0 0 0 .208cqw #FF5252; }
+.np-coche { display: none; color: #E53935; }
+.np-coche svg { width: 1.667cqw; height: 1.667cqw; }
+.np-card.sel .np-coche { display: inline-flex; }
+.np-layout .np-card { padding: 1.042cqw; }
+.np-layout .np-card.sel .np-coche { color: #FF5252; }
+.np-art { display: grid; gap: .313cqw; height: 6cqw; padding: .521cqw; border-radius: 1.042cqw; background: #1A1A1A; }
+.np-layout .np-art { height: 11.667cqw; }
+.np-art i { border-radius: .313cqw; background: #2D2D2D; }
+.np-layout .np-card:nth-child(1) .np-art { grid-template-columns: repeat(4, 1fr); grid-template-rows: 1.6fr 1fr; }
+.np-layout .np-card:nth-child(1) .np-art i:first-child { grid-column: span 4; background: #3A3A3A; }
+.np-layout .np-card:nth-child(2) .np-art { grid-template-columns: repeat(5, 1fr); }
+.np-layout .np-card:nth-child(3) .np-art { grid-template-columns: repeat(4, 1fr); }
+.np-cw .np-art { justify-items: center; align-items: center; }
+.np-cw .np-card:nth-child(1) .np-art { grid-template-columns: 1.4fr 1fr; }
+.np-cw .np-card:nth-child(1) .np-art i { width: 100%; height: 80%; }
+.np-cw .np-card:nth-child(2) .np-art i { width: 90%; height: 70%; }
+.np-cw .np-card:nth-child(3) .np-art i { width: 30%; height: 100%; }
+/* Nuancier : cartes de 96 dp, rond de 40 dp avec une coche sur le thème choisi */
+.np-swatches { position: relative; display: flex; gap: 1.042cqw; padding: .417cqw; overflow-x: auto; scrollbar-width: none; }
+.np-sw { flex: none; box-sizing: border-box; width: 10cqw; padding: 1.25cqw .833cqw; display: grid; justify-items: center; gap: .833cqw; border-radius: 1.875cqw; background: #0D0D0D; color: #B3B3B3; cursor: pointer;
+  font: 500 1.25cqw/1.667cqw Inter, sans-serif; letter-spacing: .052cqw; }
+.np-sw i { width: 4.167cqw; height: 4.167cqw; border-radius: 50%; display: grid; place-items: center; }
+.np-sw i svg { width: 2.083cqw; height: 2.083cqw; }
+.np-sw.sel { color: #fff; }
+.np-sw.focus { color: #fff; box-shadow: inset 0 0 0 .208cqw #FF5252; }
+/* À propos */
+.np-about { display: grid; justify-items: center; gap: 1.042cqw; padding: .417cqw 0 .208cqw; text-align: center; }
+.np-about img { height: 4.167cqw; width: auto; }
+.np-about b { font: 700 2.5cqw/4.167cqw Inter, sans-serif; letter-spacing: .2cqw; }
+.np-about small { font: 500 1.042cqw/1.458cqw Inter, sans-serif; letter-spacing: .052cqw; color: #B3B3B3; }
+@media (prefers-reduced-motion: reduce) { .nvo-menu, .nvo-liste { animation: none; } .nvo-carte.attente > .reflet { animation: none; } }
 `;
 
+// Les écrans de Paramètres (ceux du motion design de l'étape 9) pour l'aperçu : classes « np- », sans les bulles,
+// et sans « < » brut (le script est écrit dans la page).
+const parametresJSON = (posterUrl) => {
+  const { rubriques, pages } = parametresNuvio(posterUrl);
+  const net = (h) => h.replace(/ data-[an]="[^"]*"/g, "").replace(/\bnv-/g, "np-");
+  return JSON.stringify({ rubriques, pages: pages.map((p) => ({ ...p, body: net(p.body) })) }).replace(/</g, "\\u003c");
+};
+
 /** Le script commun : window.NV. origin = l'adresse de l'addon ; posterUrl = le réglage PostersPlus conseillé (« TA_CLE_TMDB » à la place de la clé). */
-export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringify(origin) + ", NV_PP = " + JSON.stringify(posterUrl) + ";\n" + `window.NV = (() => {
+export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringify(origin) + ", NV_PP = " + JSON.stringify(posterUrl) + ", NV_PAR = " + parametresJSON(posterUrl) + ";\n" + `window.NV = (() => {
   const mkd = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
   const cssUrl = (u) => "url('" + String(u).replace(/'/g, "%27") + "')";
   // Fonds envoyés en w1920 (ou original, w1280 selon la version de l'addon) : on demande la taille utile.
@@ -562,7 +755,8 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
     reglages: '<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M14.28 2.15C13.91 2 13.44 2 12.5 2s-1.41 0-1.78.15c-.49.2-.89.6-1.09 1.08-.09.23-.13.49-.14.87-.02.56-.31 1.07-.8 1.35-.49.28-1.08.27-1.58.01-.34-.18-.58-.28-.82-.31-.53-.07-1.07.07-1.49.4-.32.24-.55.64-1.02 1.45-.47.81-.71 1.21-.76 1.6-.07.53.07 1.06.4 1.48.15.19.36.35.68.55.48.3.78.8.78 1.36s-.3 1.06-.78 1.36c-.32.2-.53.36-.68.56-.33.42-.47.95-.4 1.48.05.39.29.79.76 1.6.47.81.7 1.21 1.02 1.45.42.32.96.47 1.49.4.24-.03.49-.13.82-.31.5-.26 1.09-.27 1.58.01.49.28.78.79.8 1.35.01.38.05.64.14.87.2.49.6.88 1.09 1.08.37.15.84.15 1.78.15s1.41 0 1.78-.15c.49-.2.89-.59 1.09-1.08.09-.23.13-.49.14-.87.02-.56.31-1.07.8-1.35.49-.28 1.08-.27 1.58-.01.34.18.58.28.82.31.53.07 1.07-.07 1.49-.4.32-.24.55-.64 1.02-1.45.47-.81.71-1.21.76-1.6.07-.53-.07-1.06-.4-1.48-.15-.19-.36-.35-.68-.55-.48-.3-.78-.8-.78-1.36s.3-1.06.78-1.36c.32-.2.53-.36.68-.56.33-.42.47-.95.4-1.48-.05-.39-.29-.79-.76-1.6-.47-.81-.7-1.21-1.02-1.45-.42-.32-.96-.47-1.49-.4-.24.03-.49.13-.82.31-.5.26-1.09.27-1.58-.01-.49-.28-.78-.79-.8-1.35-.01-.38-.05-.64-.14-.87-.2-.49-.6-.88-1.09-1.08zM12.5 15c1.67 0 3.02-1.34 3.02-3s-1.35-3-3.02-3-3.02 1.34-3.02 3 1.35 3 3.02 3z"/></svg>',
   };
   const MENU = [["accueil", "Accueil"], ["decouvrir", "Découvrir"], ["recherche", "Rechercher"], ["biblio", "Bibliothèque"], ["reglages", "Paramètres"]];
-  const LOGO_NUVIO = "https://raw.githubusercontent.com/NuvioMedia/NuvioTV/1.1.0-beta.7/app/src/main/res/drawable/app_logo_wordmark.png";
+  const VERSION_TV = "1.1.0-beta.7";
+  const LOGO_NUVIO = "https://raw.githubusercontent.com/NuvioMedia/NuvioTV/" + VERSION_TV + "/app/src/main/res/drawable/app_logo_wordmark.png";
   // menu(ecran, vue courante, aller(vue)) : ouvre le panneau ; « Retour » ou un clic à côté le referme.
   const menu = (ecran, courante, aller, possibles) => {
     if (ecran.querySelector(".nvo-menu")) return;
@@ -835,6 +1029,428 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
     const g = mkd("div", "grille"); l.forEach((m) => g.append(item(m, ouvrir))); vue.append(g);
   };
 
+  // Outils communs à Découvrir et aux Paramètres
+  const proche = (liste, x) => liste.reduce((a, c) => Math.abs(c.getBoundingClientRect().left - x) < Math.abs(a.getBoundingClientRect().left - x) ? c : a);
+  // Fait défiler zone pour que x soit visible (sans toucher à la page autour, contrairement à scrollIntoView).
+  const montreDans = (zone, x, part) => {
+    const z = zone.getBoundingClientRect(), r = x.getBoundingClientRect(), m = zone.clientHeight * .06;
+    let d = 0;
+    if (part != null) d = r.top + r.height / 2 - z.top - zone.clientHeight * part;
+    else if (r.top < z.top + m) d = r.top - z.top - m;
+    else if (r.bottom > z.bottom - m) d = r.bottom - z.bottom + m;
+    if (d) zone.scrollTo({ top: Math.max(0, zone.scrollTop + d), behavior: calme() ? "auto" : "smooth" });
+  };
+  // Une fiche ouverte depuis une vue : à sa fermeture, la sélection revient où elle était.
+  const ouvreDepuis = (ouvrir, m, revient) => {
+    const f = ouvrir(m); if (!f || !f.parentNode) return;
+    const mo = new MutationObserver(() => { if (!f.isConnected) { mo.disconnect(); revient(); } });
+    mo.observe(f.parentNode, { childList: true });
+  };
+
+  // ---------- Découvrir (DiscoverScreen ; « Emplacement de Découvrir » : panneau latéral) ----------
+  // Fixes en haut : le titre, les listes Type, Catalogue et Genre, et la ligne « Catalogue FR • Action » (sans le
+  // type : « Afficher le type de catalogue » est désactivé). Dessous, la grille du catalogue choisi défile seule ;
+  // la carte sélectionnée reste à 42 % de sa hauteur. Rien ne se passe au survol d'une affiche (pas de fond).
+  const FL_BAS = '<svg viewBox="0 0 24 24"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>';
+  const FL_HAUT = '<svg viewBox="0 0 24 24"><path d="M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>';
+  const ROND = '<svg class="nvo-spin" viewBox="0 0 48 48" role="img" aria-label="Chargement"><circle cx="24" cy="24" r="15.4"/></svg>';
+  const manifestes = new Map();
+  const manifeste = (base) => {
+    if (!manifestes.has(base)) manifestes.set(base, fetch(base + "/manifest.json").then((r) => r.json()).catch((e) => { manifestes.delete(base); throw e; }));
+    return manifestes.get(base);
+  };
+  const nomType = (t) => t === "movie" ? "Film" : t === "series" ? "Série" : t === "tv" ? "TV" : String(t).charAt(0).toUpperCase() + String(t).slice(1);
+  const decouvrir = (vue, base, ouvrir, menuG, retourEcran) => {
+    vue.textContent = ""; vue.className = "nvo-vue nvo-dec"; vue.tabIndex = -1;
+    const filtres = mkd("div", "filtres"), infos = mkd("p", "infos"), zone = mkd("div", "defile"), grille = mkd("div", "grille");
+    zone.append(grille); vue.append(mkd("h3", null, "Découvrir"), filtres, infos, zone);
+    let cats = [], addon = "", type = "movie", cle = null, genre = null;
+    let n = 0, page = 1, plus = false, charge = false, sel = null, ouverte = null, action = null, versNouveau = false;
+    const cat = () => cats.find((c) => c.key === cle) || null;
+    const etat = (t, s) => { const e = mkd("div", "nvo-etat"); e.innerHTML = SVG.loupe; e.append(mkd("b", null, t), mkd("span", null, s)); return e; };
+
+    // Le titre trop long d'une affiche sélectionnée défile (45 dp/s, 3 passages, un tiers de largeur d'écart).
+    const defil = (it) => {
+      const t = it.querySelector("b"); if (!t || calme() || t.scrollWidth <= t.clientWidth + 1) return;
+      const w = t.firstChild.getBoundingClientRect().width, g = t.clientWidth / 3, dp = vue.clientWidth / 960;
+      t.style.setProperty("--g", g + "px"); t.style.setProperty("--x", -(w + g) + "px"); t.style.setProperty("--t", ((w + g) / (45 * dp)) + "s");
+      t.append(mkd("span", null, t.firstChild.textContent)); t.classList.add("defil");
+    };
+    const finDefil = (it) => { const t = it.querySelector("b.defil"); if (t) { t.classList.remove("defil"); t.lastChild.remove(); } };
+    const choisit = (x, clavier) => {
+      if (!x) return;
+      if (x !== sel) {
+        if (sel) { sel.classList.remove("focus"); finDefil(sel); }
+        sel = x; x.classList.add("focus");
+        if (x._m) defil(x);
+      }
+      x.focus({ preventScroll: true });
+      if (clavier && zone.contains(x)) montreDans(zone, x, .42);
+    };
+
+    // Les trois listes (DropdownMenu sous la case, l'option choisie sélectionnée à l'ouverture)
+    const fermeListe = () => {
+      if (!ouverte) return;
+      const { l, b } = ouverte; ouverte = null; l.remove(); b._fl.innerHTML = FL_BAS; b._ferme = Date.now(); choisit(b);
+    };
+    const ouvreListe = (b) => {
+      fermeListe();
+      const opts = b._options(); if (!opts.length) return;
+      const l = mkd("div", "nvo-liste"); l.setAttribute("role", "listbox"); l.setAttribute("aria-label", b._nom);
+      l.style.left = b.offsetLeft + "px"; l.style.top = (b.offsetTop + b.offsetHeight) + "px"; l.style.width = b.offsetWidth + "px";
+      let cur = null;
+      const met = (o) => {
+        if (!o) return; if (cur) cur.classList.remove("focus"); cur = o; o.classList.add("focus"); o.focus({ preventScroll: true });
+        if (o.offsetTop < l.scrollTop) l.scrollTop = o.offsetTop - o.offsetHeight / 4;
+        else if (o.offsetTop + o.offsetHeight > l.scrollTop + l.clientHeight) l.scrollTop = o.offsetTop + o.offsetHeight * 1.25 - l.clientHeight;
+      };
+      opts.forEach((o) => {
+        const x = mkd("button", null, o.label); x.type = "button"; x.setAttribute("role", "option"); x.setAttribute("aria-selected", String(o.value === b._valeur()));
+        x.addEventListener("click", () => { fermeListe(); if (o.value !== b._valeur()) b._change(o.value); });
+        l.append(x);
+      });
+      l.addEventListener("pointermove", (e) => { if (e.pointerType !== "mouse") return; const x = e.target.closest("button"); if (x && x !== cur) met(x); });
+      l.addEventListener("keydown", (e) => {
+        const xs = [...l.children], i = xs.indexOf(cur);
+        if (e.key === "ArrowDown") met(xs[Math.min(i + 1, xs.length - 1)]);
+        else if (e.key === "ArrowUp") met(xs[Math.max(i - 1, 0)]);
+        else if (e.key === "Enter" || e.key === " ") { if (cur) cur.click(); }
+        else if (["Escape", "Backspace", "ArrowLeft", "ArrowRight"].includes(e.key)) fermeListe();
+        else return;
+        e.preventDefault(); e.stopPropagation();
+      });
+      // Pendant que la liste est ouverte, la case reprend son aspect normal (flèche vers le haut, grise).
+      b._fl.innerHTML = FL_HAUT; b.classList.remove("focus"); sel = null;
+      vue.append(l); ouverte = { l, b };
+      met(l.querySelector('[aria-selected="true"]') || l.firstChild);
+      if (window.sfx) sfx.click();
+    };
+    vue.addEventListener("pointerdown", (e) => { if (ouverte && !ouverte.l.contains(e.target)) fermeListe(); }, true);
+    const caseListe = (nom, options, valeur, change) => {
+      const b = mkd("button", "choix"), v = mkd("b"), fl = mkd("i"), l = mkd("span"); b.type = "button"; b.tabIndex = -1;
+      fl.innerHTML = FL_BAS; l.append(v, fl); b.append(mkd("small", null, nom), l);
+      Object.assign(b, { _nom: nom, _options: options, _valeur: valeur, _change: change, _texte: v, _fl: fl });
+      b.addEventListener("click", () => { if (Date.now() - (b._ferme || 0) > 250) ouvreListe(b); });
+      filtres.append(b); return b;
+    };
+    // Changer de type prend le premier catalogue de ce type ; changer de catalogue remet le genre « Par défaut ».
+    const cType = caseListe("Type", () => [...new Set(cats.map((c) => c.type))].map((t) => ({ label: nomType(t), value: t })), () => type, (t) => {
+      const c = cats.find((x) => x.key === cle && x.type === t) || cats.find((x) => x.type === t);
+      type = t; cle = c ? c.key : null; genre = null; relance();
+    });
+    const cCat = caseListe("Catalogue", () => cats.filter((c) => c.type === type).map((c) => ({ label: c.name, value: c.key })), () => cle, (k) => {
+      const c = cats.find((x) => x.key === k); if (!c) return;
+      cle = k; type = c.type; genre = null; relance();
+    });
+    const cGenre = caseListe("Genre", () => [{ label: "Par défaut", value: "" }].concat(((cat() || {}).genres || []).map((g) => ({ label: g, value: g }))), () => genre || "", (g) => { genre = g || null; relance(); });
+    const cases = [cType, cCat, cGenre];
+    const etiquettes = () => {
+      cType._texte.textContent = nomType(type);
+      cCat._texte.textContent = cat() ? cat().name : "Sélectionner";
+      cGenre._texte.textContent = genre || "Par défaut";
+      infos.textContent = cat() ? [addon, genre].filter(Boolean).join(" • ") : "";
+    };
+
+    // La grille : une page du catalogue à la fois ; la suivante arrive quand on approche du bas.
+    const carteDec = (m) => {
+      const b = mkd("button", "nvo-item"), t = mkd("b"); b.type = "button"; b.tabIndex = -1; b.setAttribute("aria-label", m.name || "");
+      const c = carte(null); c.removeAttribute("aria-label"); remplit(c, m);
+      t.append(mkd("span", null, m.name || "")); b.append(c, t); b._m = m;
+      return b;
+    };
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting) && plus && !charge) suite(); }, { root: zone, rootMargin: "0px 0px 30% 0px" });
+    const suite = () => {
+      const c = cat(); if (!c || charge) return;
+      charge = true; const k = n, pas = c.pageSize || 100, ex = [];
+      if (action) { if (sel === action) sel = null; action.disabled = true; action.classList.remove("focus"); action.innerHTML = ROND; }
+      if (genre) ex.push("genre=" + encodeURIComponent(genre));
+      if (page > 1) ex.push("skip=" + (page - 1) * pas);
+      const avant = grille.querySelectorAll(".nvo-item").length;
+      fetch(base + "/catalog/" + c.type + "/" + encodeURIComponent(c.id) + (ex.length ? "/" + ex.join("&") : "") + ".json").then((r) => r.json()).then((d) => {
+        if (k !== n) return;
+        grille.querySelectorAll(".charge, .action").forEach((x) => { io.unobserve(x); x.remove(); }); action = null;
+        const vus = new Set([...grille.querySelectorAll(".nvo-item")].map((x) => x._m.id));
+        const recus = (d && d.metas) || [];
+        recus.filter((m) => m && m.id && !vus.has(m.id)).forEach((m) => { vus.add(m.id); grille.append(carteDec(m)); });
+        page++; plus = c.pageSize ? recus.length >= c.pageSize : recus.length > 0;
+        if (!avant && !grille.querySelector(".nvo-item")) { plus = false; grille.append(etat("Aucun contenu trouvé", "Essayez un autre genre ou catalogue")); return; }
+        if (plus) { action = mkd("button", "action", "Charger plus"); action.type = "button"; action.tabIndex = -1; grille.append(action); io.observe(action); }
+        if (versNouveau) { versNouveau = false; const it = grille.querySelectorAll(".nvo-item")[avant]; if (it) choisit(it, true); }
+      }).catch(() => {
+        if (k !== n) return;
+        grille.querySelectorAll(".charge").forEach((x) => x.remove());
+        if (action) { action.disabled = false; action.textContent = "Charger plus"; }
+        else if (!grille.querySelector(".nvo-item")) grille.append(etat("Aucun contenu trouvé", "Essayez un autre genre ou catalogue"));
+      }).finally(() => { if (k === n) charge = false; });
+    };
+    const relance = () => {
+      etiquettes(); if (cle) ecrit("apercu-decouvrir", cle);
+      n++; page = 1; plus = false; charge = false; action = null; versNouveau = false;
+      if (sel && grille.contains(sel)) sel = null;
+      grille.querySelectorAll(".action").forEach((x) => io.unobserve(x));
+      grille.textContent = ""; zone.scrollTop = 0;
+      if (!cat()) { grille.append(etat("Sélectionnez un catalogue", "Choisissez un catalogue à parcourir")); return; }
+      const ch = mkd("div", "charge"); ch.innerHTML = ROND; grille.append(ch);
+      suite();
+    };
+
+    // La télécommande : les flèches vont des listes à la grille ; « Gauche » au bord ouvre la barre latérale.
+    const cartes = () => [...grille.querySelectorAll(".nvo-item, .action:not(:disabled)")];
+    vue.addEventListener("keydown", (e) => {
+      if (ouverte) return;
+      const k = e.key;
+      if (k === "Backspace") { e.preventDefault(); e.stopPropagation(); retourEcran(); return; }
+      if (k === "Enter" || k === " ") { if (sel && sel.isConnected) { e.preventDefault(); sel.click(); } return; }
+      if (!/^Arrow/.test(k)) return;
+      e.preventDefault();
+      if (!sel || !sel.isConnected) { choisit(cType, true); return; }
+      if (filtres.contains(sel)) {
+        const i = cases.indexOf(sel);
+        if (k === "ArrowLeft") { if (i > 0) choisit(cases[i - 1], true); else menuG(); }
+        else if (k === "ArrowRight") { if (i < cases.length - 1) choisit(cases[i + 1], true); }
+        else if (k === "ArrowDown") { const cs = cartes(), cols = getComputedStyle(grille).gridTemplateColumns.split(" ").length; if (cs.length) choisit(proche(cs.slice(0, cols), sel.getBoundingClientRect().left), true); }
+        return;
+      }
+      const cs = cartes(), i = cs.indexOf(sel); if (i < 0) return;
+      const cols = getComputedStyle(grille).gridTemplateColumns.split(" ").length || 1, col = i % cols;
+      if (k === "ArrowLeft") { if (col === 0) menuG(); else choisit(cs[i - 1], true); }
+      else if (k === "ArrowRight") { if (col < cols - 1 && cs[i + 1]) choisit(cs[i + 1], true); }
+      else if (k === "ArrowDown") { if (cs[i + cols]) choisit(cs[i + cols], true); else if (Math.floor(i / cols) < Math.floor((cs.length - 1) / cols)) choisit(cs[cs.length - 1], true); }
+      else if (k === "ArrowUp") { if (i >= cols) choisit(cs[i - cols], true); else choisit(proche(cases, sel.getBoundingClientRect().left), true); }
+    });
+    // La souris déplace la sélection seulement quand elle bouge vraiment (pas pendant le défilement).
+    let mx = -1, my = -1;
+    vue.addEventListener("pointermove", (e) => {
+      if (e.pointerType !== "mouse" || ouverte || (e.screenX === mx && e.screenY === my)) return;
+      mx = e.screenX; my = e.screenY;
+      const x = e.target.closest(".choix, .nvo-item, .action:not(:disabled)"); if (x && x !== sel) choisit(x);
+    });
+    grille.addEventListener("click", (e) => {
+      const it = e.target.closest(".nvo-item");
+      if (it) { choisit(it); ouvreDepuis(ouvrir, it._m, () => { if (sel && sel.isConnected) sel.focus({ preventScroll: true }); }); return; }
+      const a = e.target.closest(".action"); if (a && !a.disabled) { versNouveau = true; suite(); }
+    });
+    // « Retour » : d'abord ferme la liste ouverte, puis remonte de la grille à la liste « Type ».
+    vue._retour = () => { if (ouverte) { fermeListe(); return true; } if (sel && zone.contains(sel)) { choisit(cType, true); return true; } return false; };
+
+    etiquettes();
+    const ch = mkd("div", "charge"); ch.innerHTML = ROND; grille.append(ch);
+    manifeste(base).then((man) => {
+      if (!vue.isConnected) return;
+      addon = man.name || "";
+      // Tous les catalogues de l'addon, sauf ceux qui ne servent qu'à la recherche
+      cats = (man.catalogs || []).filter((c) => !(c.extra || []).some((x) => x.name === "search" && x.isRequired) && !(c.extraRequired || []).includes("search"))
+        .map((c) => ({ key: c.type + "/" + c.id, type: c.type, id: c.id, name: c.name || c.id, pageSize: c.pageSize, genres: ((c.extra || []).find((x) => x.name === "genre") || {}).options || c.genres || [] }));
+      const c0 = cats.find((c) => c.key === lit("apercu-decouvrir")) || cats[0];
+      cle = c0 ? c0.key : null; type = c0 ? c0.type : "movie";
+      relance();
+    }).catch(() => { grille.textContent = ""; grille.append(etat("Aperçu indisponible", "Vérifie ta connexion et réessaie.")); });
+    setTimeout(() => { if (!sel) vue.focus({ preventScroll: true }); }, 0);
+  };
+
+  // ---------- Paramètres (SettingsScreen, style « Par défaut ») ----------
+  // Les écrans du motion design de l'étape 9 (mêmes valeurs), dessinés comme dans Nuvio TV : les rubriques à gauche,
+  // l'écran à droite sur une grande carte. La rubrique suit la sélection au bout de 140 ms ; « Droite » ou OK entre
+  // dans l'écran, « Gauche » ou « Retour » en ressort. Les interrupteurs, puces et sections répondent, sans rien garder.
+  const MI = {
+    person: "M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z",
+    people: "M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z",
+    groups: "M12 12.75c1.63 0 3.07.39 4.24.9 1.08.48 1.76 1.56 1.76 2.73V17c0 .55-.45 1-1 1H7c-.55 0-1-.45-1-1v-.61c0-1.18.68-2.26 1.76-2.73 1.17-.52 2.61-.91 4.24-.91zM4 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm1.13 1.1c-.37-.06-.74-.1-1.13-.1-.99 0-1.93.21-2.78.58C.48 14.9 0 15.62 0 16.43V17c0 .55.45 1 1 1h3.5v-1.61c0-.83.23-1.61.63-2.29zM20 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm4 3.43c0-.81-.48-1.53-1.22-1.85-.85-.37-1.79-.58-2.78-.58-.39 0-.76.04-1.13.1.4.68.63 1.46.63 2.29V18H23c.55 0 1-.45 1-1v-.57zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z",
+    palette: "M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z",
+    grille: "M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z",
+    explore: "M12 10.9c-.61 0-1.1.49-1.1 1.1s.49 1.1 1.1 1.1 1.1-.49 1.1-1.1-.49-1.1-1.1-1.1zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm2.19 12.19L6 18l3.81-8.19L18 6l-3.81 8.19z",
+    lecture: "M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18c.62-.39.62-1.29 0-1.69L9.54 5.98C8.87 5.55 8 6.03 8 6.82z",
+    lien: "M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z",
+    sync: "M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z",
+    build: "M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z",
+    info: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z",
+    droite: "M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z",
+    haut: "M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6z",
+    bas: "M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z",
+    check: "M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
+    plus: "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z",
+    moins: "M19 13H5v-2h14v2z",
+    ext: "M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z",
+    dashboard: "M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z",
+    agenda: "M20 13H3c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h17c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zm0-10H3c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h17c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1z",
+    sidebar: "M16 20H2V4h14v16zm2-12h4V4h-4v4zm0 12h4v-4h-4v4zm0-6h4v-4h-4v4z",
+    history: "M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z",
+    centre: "M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm-7 7H3v4c0 1.1.9 2 2 2h4v-2H5v-4zM5 5h4V3H5c-1.1 0-2 .9-2 2v4h2V5zm14-2h-4v2h4v4h2V5c0-1.1-.9-2-2-2zm0 16h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4z",
+    coin: "M19 19h2v2h-2v-2zm0-2h2v-2h-2v2zM3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm0-4h2V3H3v2zm4 0h2V3H7v2zm8 16h2v-2h-2v2zm-4 0h2v-2h-2v2zm4 0h2v-2h-2v2zm-8 0h2v-2H7v2zm-4 0h2v-2H3v2zM21 8c0-2.76-2.24-5-5-5h-5v2h5c1.65 0 3 1.35 3 3v5h2V8z",
+    ar: "M18.25 7.6l-5.5-3.18c-.46-.27-1.04-.27-1.5 0L5.75 7.6c-.46.27-.75.76-.75 1.3v6.35c0 .54.29 1.03.75 1.3l5.5 3.18c.46.27 1.04.27 1.5 0l5.5-3.18c.46-.27.75-.76.75-1.3V8.9c0-.54-.29-1.03-.75-1.3zM7 14.96v-4.62l4 2.32v4.61l-4-2.31zm5-4.03L8 8.61l4-2.31 4 2.31-4 2.32zm1 6.34v-4.61l4-2.32v4.62l-4 2.31zM7 2H3.5C2.67 2 2 2.67 2 3.5V7h2V4h3V2zm10 0h3.5c.83 0 1.5.67 1.5 1.5V7h-2V4h-3V2zM7 22H3.5c-.83 0-1.5-.67-1.5-1.5V17h2v3h3v2zm10 0h3.5c.83 0 1.5-.67 1.5-1.5V17h-2v3h-3v2z",
+    photos: "M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z",
+    doc: "M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z",
+    liste: "M3 14h4v-4H3v4zm0 5h4v-4H3v4zM3 9h4V5H3v4zm5 5h13v-4H8v4zm0 5h13v-4H8v4zM8 5v4h13V5H8z",
+    ecran: "M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM9.5 16.5v-9l7 4.5-7 4.5z",
+    playlist: "M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v8l6-4z",
+    suivant: "M21 3H3c-1.11 0-2 .89-2 2v12c0 1.1.89 2 2 2h5v2h8v-2h2v-2H3V5h18v8h2V5c0-1.11-.9-2-2-2zm-8 7V7h-2v3H8v2h3v3h2v-3h3v-2h-3zm11 8l-4.5 4.5L18 21l3-3-3-3 1.5-1.5L24 18z",
+    avance: "M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z",
+    calques: "M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z",
+    son: "M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z",
+    stt: "M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM4 12h4v2H4v-2zm10 6H4v-2h10v2zm6 0h-4v-2h4v2zm0-4H10v-2h10v2z",
+    video: "M3 6h18v5h2V6c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h9v-2H3V6zm12 6L9 8v8l6-4zm7.71 6.06c.02-.2.04-.4.04-.6s-.02-.4-.04-.6l1.08-.85c.1-.08.12-.21.06-.32l-1.02-1.77c-.06-.11-.19-.15-.31-.11l-1.28.5c-.27-.2-.55-.37-.86-.5l-.19-1.35c-.02-.12-.12-.21-.25-.21h-2.05c-.13 0-.23.09-.25.21l-.19 1.35c-.31.13-.6.3-.86.5l-1.28-.5c-.12-.05-.25 0-.31.11l-1.02 1.77c-.06.11-.04.24.06.32l1.08.85c-.02.2-.03.4-.03.6s.02.4.04.6l-1.08.85c-.1.08-.12.21-.06.32l1.02 1.77c.06.11.19.15.31.11l1.27-.5c.27.2.55.37.86.5l.19 1.35c.02.12.12.21.25.21h2.05c.13 0 .23-.09.25-.21l.19-1.35c.31-.13.6-.3.86-.5l1.27.5c.12.05.25 0 .31-.11l1.02-1.77c.06-.11.04-.24-.06-.32l-1.07-.85zM19 19.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z",
+    reseau: "M15.9 5c-.17 0-.32.09-.41.23l-.07.15-5.18 11.65c-.16.29-.26.61-.26.96 0 1.11.9 2.01 2.01 2.01.96 0 1.77-.68 1.96-1.59l.01-.03L16.4 5.5c0-.28-.22-.5-.5-.5zM1 9l2 2c2.88-2.88 6.79-4.08 10.53-3.62l1.19-2.68C9.89 3.84 4.74 5.27 1 9zm20 2l2-2c-1.64-1.64-3.55-2.82-5.59-3.57l-.53 2.82c1.5.62 2.9 1.53 4.12 2.75zm-4 4l2-2c-.8-.8-1.7-1.42-2.66-1.89l-.55 2.92c.42.27.83.59 1.21.97zM5 13l2 2c1.13-1.13 2.56-1.79 4.03-2l1.28-2.88c-2.63-.08-5.3.87-7.31 2.88z",
+    hub: "M8.4 18.2c.38.5.6 1.12.6 1.8 0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3c.44 0 .85.09 1.23.26l1.41-1.77c-.92-1.03-1.29-2.39-1.09-3.69l-2.03-.68c-.54.83-1.46 1.38-2.52 1.38-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3v.2l2.03.68c.64-1.21 1.82-2.09 3.22-2.32V5.91C9.96 5.57 9 4.4 9 3c0-1.66 1.34-3 3-3s3 1.34 3 3c0 1.4-.96 2.57-2.25 2.91v2.16c1.4.23 2.58 1.11 3.22 2.32L18 9.71V9.5c0-1.66 1.34-3 3-3s3 1.34 3 3-1.34 3-3 3c-1.06 0-1.98-.55-2.52-1.37l-2.03.68c.2 1.29-.16 2.65-1.09 3.69l1.41 1.77c.38-.17.79-.27 1.23-.27 1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3c0-.68.22-1.3.6-1.8l-1.41-1.77c-1.35.75-3.01.76-4.37 0L8.4 18.2z",
+    nuage: "M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z",
+    cle: "M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z",
+    extension: "M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z",
+    dns: "M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zM7 19c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zM7 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z",
+    prise: "M16.01 7L16 3h-2v4h-4V3H8v4h-.01C7 6.99 6 7.99 6 8.99v5.49L9.5 18v3h5v-3l3.5-3.51v-5.5c0-1-1-2-1.99-1.99z",
+  };
+  const mi = (n, cls) => '<svg class="' + (cls || "np-ico") + '" viewBox="0 0 24 24" aria-hidden="true"><path d="' + MI[n] + '"/></svg>';
+  // Icônes au trait du motion design (data-ico) → icônes Material de Nuvio TV
+  const ICO = { home: "dashboard", rows: "agenda", nav: "sidebar", play2: "history", target: "centre", card: "coin", depth: "ar", image: "photos", doc: "doc", list: "liste",
+    player: "ecran", stream: "playlist", next: "suivant", skip: "avance", layers: "calques", audio: "son", cc: "stt", screen: "video", wifi: "reseau", p2p: "hub",
+    cloud: "nuage", key: "cle", puzzle: "extension", server: "dns", plug: "prise", users: "groups" };
+  const RAIL_ICO = { user: "person", users: "people", palette: "palette", grid: "grille", compass: "explore", play: "lecture", link: "lien", sync: "sync", wrench: "build", info: "info" };
+  const txtSvg = (fond, lettre, taille) => '<svg class="np-logo' + (taille ? " grand" : "") + '" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5" fill="' + fond + '"/><text x="12" y="16.4" text-anchor="middle" font-family="Inter,sans-serif" font-size="11.5" font-weight="800" fill="#fff">' + lettre + '</text></svg>';
+  const LOGOS = {
+    trakt: '<svg class="np-logo grand" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#ED1C24"/><circle cx="12" cy="12" r="7.6" fill="none" stroke="#fff" stroke-width="1.5"/><path d="M8.7 11.4l2.4 2.4 4.9-4.9" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    simkl: txtSvg("#000", "S", true), mdblist: txtSvg("#0E5FA8", "M", true), mdblistPetit: txtSvg("#0E5FA8", "M"),
+    tmdb: '<svg class="np-logo" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="nvo-tmdb" x1="0" x2="1"><stop offset="0" stop-color="#90CEA1"/><stop offset=".56" stop-color="#3CBEC9"/><stop offset="1" stop-color="#00B3E5"/></linearGradient></defs><rect x="1" y="6" width="22" height="12" rx="3.5" fill="url(#nvo-tmdb)"/><text x="12" y="14.6" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.6" font-weight="800" fill="#0D253F">TMDB</text></svg>',
+  };
+  // Couleurs des thèmes de Nuvio TV (ThemeAccess)
+  const THEMES = { Custom: "#EC70A9", Blanc: "#F5F5F5", Cramoisi: "#E53935", "Océan": "#1E88E5", Violet: "#8E24AA", "Émeraude": "#43A047", Ambre: "#FB8C00", Rose: "#D81B60" };
+  const SEL_F = ".np-row:not(.dim), .np-sw, .np-card, .np-chip-row i, .np-url";
+  const parametres = (vue, menuG, retourEcran) => {
+    vue.textContent = ""; vue.className = "nvo-vue nvo-par"; vue.tabIndex = -1;
+    const surf = mkd("div", "np-surf"), rail = mkd("nav", "np-rail"), rl = mkd("div", "np-rliste"), pane = mkd("div", "np-pane");
+    const fh = mkd("i", "np-fl haut"), fb = mkd("i", "np-fl bas"); fh.innerHTML = mi("haut", "fl"); fb.innerHTML = mi("bas", "fl");
+    rail.setAttribute("aria-label", "Rubriques des paramètres"); rail.append(rl, fh, fb); surf.append(rail, pane); vue.append(surf);
+    const items = [];
+    NV_PAR.rubriques.forEach((r) => {
+      if (!r) { rl.append(mkd("i", "np-sep")); return; }
+      const b = mkd("button", "np-ru"); b.type = "button"; b.tabIndex = -1; b._i = items.length;
+      b.innerHTML = mi(r[0] === "Watch party" ? "groups" : RAIL_ICO[r[1]]); b.append(mkd("span", null, r[0])); b.insertAdjacentHTML("beforeend", mi("droite", "np-chev"));
+      rl.append(b); items.push(b);
+    });
+    const fleches = () => { fh.classList.toggle("on", rl.scrollTop > 2); fb.classList.toggle("on", rl.scrollTop + rl.clientHeight < rl.scrollHeight - 2); };
+    rl.addEventListener("scroll", fleches, { passive: true });
+    const pageDe = (i) => NV_PAR.pages.find((p) => p.side === i && !p.parent);
+    const pageId = (id) => NV_PAR.pages.find((p) => p.id === id);
+    let selI = 0, courante = null, f = null, zone = "rail", t140 = 0;
+
+    // L'écran de droite : en-tête, puis une seule carte qui défile (Disposition, Lecture…) ou des cartes qui défilent avec l'en-tête.
+    const habille = (c) => {
+      c.querySelectorAll(SEL_F).forEach((x) => { x.tabIndex = -1; });
+      c.querySelectorAll(".np-ext .np-val svg").forEach((s) => { s.outerHTML = mi("ext", "np-chev ext"); });
+      c.querySelectorAll("svg.np-chev:not(.ext)").forEach((s) => { s.outerHTML = mi("droite", "np-chev"); });
+      c.querySelectorAll("svg[data-ico]").forEach((s) => {
+        const n = s.dataset.ico;
+        const h = s.closest('[data-enter="tmdb"]') ? LOGOS.tmdb : n === "star" ? LOGOS.mdblistPetit : LOGOS[n] || (ICO[n] ? mi(ICO[n]) : "");
+        if (h) s.outerHTML = h;
+      });
+      c.querySelectorAll(".np-sw").forEach((s) => { const i = s.querySelector("i"), nom = s.textContent.trim(); if (THEMES[nom]) i.style.background = THEMES[nom]; i.style.color = nom === "Blanc" ? "#111" : "#fff"; });
+      coche(c);
+      c.querySelectorAll(".np-card").forEach((k) => { const s = mkd("span", "np-coche"); s.innerHTML = mi("check"); (k.querySelector("b") || k).append(s); });
+      c.querySelectorAll(".np-sl > i").forEach((i) => { i.innerHTML = mi(i.textContent.trim() === "+" ? "plus" : "moins"); });
+      c.querySelectorAll(".np-about").forEach((a) => {
+        const im = mkd("img"); im.alt = "Nuvio"; im.src = LOGO_NUVIO; im.onerror = () => im.replaceWith(mkd("b", null, "NUVIO"));
+        a.append(im, mkd("small", null, "Fait avec ❤️ par Tapframe et ses amis"), mkd("small", null, "Version " + VERSION_TV));
+      });
+    };
+    const coche = (c) => c.querySelectorAll(".np-sw i").forEach((i) => { i.innerHTML = i.parentNode.classList.contains("sel") ? mi("check") : ""; });
+    const dessine = (p) => {
+      if (!p) return;
+      courante = p; pane.textContent = ""; pane.className = "np-pane";
+      const tete = mkd("div", "np-tete"), corps = mkd("div", "np-corps");
+      tete.append(mkd("h3", null, p.title), mkd("p", null, p.sub)); corps.innerHTML = p.body;
+      pane.append(tete, corps);
+      const seule = corps.children.length === 1 && corps.firstElementChild.classList.contains("np-group") && !corps.querySelector(":scope > .np-group > .np-gh");
+      if (seule) corps.firstElementChild.classList.add("np-defile"); else pane.classList.add("tout", "np-defile");
+      habille(corps);
+      if (f && !f.isConnected) f = null;
+    };
+
+    // La sélection : dans la barre de gauche (zone « rail ») ou dans l'écran (zone « pane »)
+    const metFocus = (x) => {
+      if (!x) return;
+      if (f !== x) { if (f) f.classList.remove("focus"); f = x; x.classList.add("focus"); }
+      x.focus({ preventScroll: true });
+      const d = x.closest(".np-defile, .np-rliste"); if (d) montreDans(d, x);
+      const h = x.closest(".np-swatches"); if (h) { if (x.offsetLeft < h.scrollLeft) h.scrollLeft = x.offsetLeft - 8; else if (x.offsetLeft + x.offsetWidth > h.scrollLeft + h.clientWidth) h.scrollLeft = x.offsetLeft + x.offsetWidth - h.clientWidth + 8; }
+    };
+    const marque = () => { items.forEach((b, i) => b.classList.toggle("sel", i === selI)); rail.classList.toggle("actif", zone === "rail"); };
+    const railFocus = (b) => {
+      zone = "rail"; metFocus(b); marque(); fleches();
+      clearTimeout(t140);
+      t140 = setTimeout(() => { if (selI !== b._i || (courante && courante.parent)) { selI = b._i; marque(); dessine(pageDe(selI)); } }, 140);
+    };
+    const focusables = () => [...pane.querySelectorAll(SEL_F)].filter((x) => !x.closest(".np-secw:not(.open) .np-kids"));
+    const premier = () => pane.querySelector(".np-sw.sel") || focusables()[0];
+    const entre = (i) => {
+      clearTimeout(t140);
+      if (selI !== i || !courante || courante.side !== i) { selI = i; dessine(pageDe(i)); }
+      montreDans(rl, items[i]);
+      const c = premier(); if (!c) return;
+      zone = "pane"; marque(); metFocus(c);
+      if (window.sfx) sfx.click();
+    };
+    const versRail = () => { zone = "pane"; railFocus(items[selI]); };
+    const groupe = (x) => x && x.closest(".np-swatches, .np-cards, .np-chip-row");
+    const bouge = (k) => {
+      const fs = focusables(), i = fs.indexOf(f);
+      if (i < 0) { metFocus(fs[0]); return; }
+      const g = groupe(f);
+      if (k === "ArrowLeft" || k === "ArrowRight") {
+        const s = g ? (k === "ArrowLeft" ? f.previousElementSibling : f.nextElementSibling) : null;
+        if (s) metFocus(s); else if (k === "ArrowLeft") versRail();
+        return;
+      }
+      const d = k === "ArrowDown" ? 1 : -1;
+      let j = i + d; while (fs[j] && g && groupe(fs[j]) === g) j += d;
+      const c = fs[j]; if (!c) return;
+      const g2 = groupe(c);
+      metFocus(g2 ? proche(fs.filter((x) => groupe(x) === g2), f.getBoundingClientRect().left) : c);
+    };
+    const active = (x) => {
+      if (x.classList.contains("np-sec")) {
+        if (x.hasAttribute("data-keep")) return;
+        const o = x.closest(".np-secw").classList.toggle("open"); x.querySelector(".np-etat").textContent = o ? "Ouvert" : "Fermé";
+      } else if (x.dataset.enter) { dessine(pageId(x.dataset.enter)); metFocus(premier()); }
+      else if (x.classList.contains("np-sw") || x.classList.contains("np-card")) { [...x.parentNode.children].forEach((s) => s.classList.toggle("sel", s === x)); coche(pane); }
+      else if (x.matches(".np-chip-row i")) { const t = x.querySelector(".np-tg"); if (t) t.classList.toggle("on"); else [...x.parentNode.children].forEach((s) => s.classList.toggle("sel", s === x)); }
+      else { const t = x.querySelector(":scope > .np-tg"); if (t) { const on = t.classList.toggle("on"); t.setAttribute("aria-label", on ? "activé" : "désactivé"); } }
+      if (window.sfx) sfx.click();
+    };
+
+    vue.addEventListener("keydown", (e) => {
+      const k = e.key;
+      if (k === "Backspace") { e.preventDefault(); e.stopPropagation(); retourEcran(); return; }
+      if (k === "Enter" || k === " ") { e.preventDefault(); if (zone === "rail" && f) entre(f._i); else if (f) active(f); return; }
+      if (!/^Arrow/.test(k)) return;
+      e.preventDefault();
+      if (!f || !f.isConnected) { railFocus(items[selI]); return; }
+      if (zone === "rail") {
+        const i = items.indexOf(f);
+        if (k === "ArrowUp" && i > 0) railFocus(items[i - 1]);
+        else if (k === "ArrowDown" && i < items.length - 1) railFocus(items[i + 1]);
+        else if (k === "ArrowRight") entre(i);
+        else if (k === "ArrowLeft") menuG();
+      } else bouge(k);
+    });
+    let mx = -1, my = -1;
+    vue.addEventListener("pointermove", (e) => {
+      if (e.pointerType !== "mouse" || (e.screenX === mx && e.screenY === my)) return;
+      mx = e.screenX; my = e.screenY;
+      const b = e.target.closest(".np-ru"); if (b) { if (b !== f) railFocus(b); return; }
+      const x = e.target.closest(SEL_F);
+      if (x && x !== f && pane.contains(x)) { zone = "pane"; marque(); metFocus(x); }
+    });
+    vue.addEventListener("click", (e) => {
+      const b = e.target.closest(".np-ru"); if (b) { entre(b._i); return; }
+      const x = e.target.closest(SEL_F); if (x && pane.contains(x)) { zone = "pane"; marque(); metFocus(x); active(x); }
+    });
+    // « Retour » : d'une sous-page (TMDB) vers Intégrations, puis de l'écran vers la barre de gauche.
+    vue._retour = () => {
+      if (zone !== "pane") return false;
+      if (courante && courante.parent) { const de = courante.id; dessine(pageId(courante.parent)); metFocus(pane.querySelector('[data-enter="' + de + '"]') || premier()); return true; }
+      versRail(); return true;
+    };
+    marque(); dessine(pageDe(0)); railFocus(items[0]);
+    requestAnimationFrame(fleches);
+  };
+
   // ---------- L'écran complet : accueil, recherche, bibliothèque, fiche, barre latérale ----------
   // ecran(hote) crée .nvo dans hote. L'appelant remplit l'accueil avec rangee() puis appelle pret().
   const ecran = (hote, opts = {}) => {
@@ -846,11 +1462,13 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
       if (vueEl) { vueEl.remove(); vueEl = null; }
       vue = v; h.stopVideo();
       if (v === "recherche" || v === "biblio") { vueEl = mkd("div"); el.append(vueEl); (v === "recherche" ? recherche : bibliotheque)(vueEl, ouvrir); }
+      else if (v === "decouvrir") { vueEl = mkd("div"); el.append(vueEl); decouvrir(vueEl, opts.base ? opts.base() : NV_ORIG, ouvrir, ouvreMenu, retour); }
+      else if (v === "reglages") { vueEl = mkd("div"); el.append(vueEl); parametres(vueEl, ouvreMenu, retour); }
       else if (v === "dossier") { vueEl = mkd("div"); el.append(vueEl); dossier(vueEl, tuileOuverte, opts.base ? opts.base() : NV_ORIG, ouvrir); }
       else { const c = p.sel; if (c) c.focus({ preventScroll: true }); }
       if (window.sfx) sfx.click();
     };
-    const ouvreMenu = () => menu(el, vue, aller, ["accueil", "recherche", "biblio"]);
+    const ouvreMenu = () => menu(el, vue, aller);
     const p = pilote(el, h, { menu: ouvreMenu });
     bord.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse" && !el.querySelector(".nvo-fiche")) ouvreMenu(); });
     el.addEventListener("click", (e) => {
@@ -862,6 +1480,7 @@ export const nuvioJS = (origin, posterUrl) => "const NV_ORIG = " + JSON.stringif
     const retour = () => {
       const m = el.querySelector(".nvo-menu"); if (m) { m.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); return true; }
       const f = el.querySelector(".nvo-fiche"); if (f) { f._retour(); return true; }
+      if (vueEl && vueEl._retour && vueEl._retour()) return true;
       if (vue !== "accueil") { aller("accueil"); return true; }
       ouvreMenu(); return true;
     };

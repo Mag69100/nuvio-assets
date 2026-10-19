@@ -42,8 +42,15 @@ const ICONS = {
   p2p: "M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4",
   cloud: "M7 18a5 5 0 0 1-.6-10A6 6 0 0 1 18 9a4.5 4.5 0 0 1 0 9zM12 11v5M9.5 13.5L12 16l2.5-2.5",
   star: "M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z",
+  key: "M8 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h9M18 12v3M21 12v3",
+  puzzle: "M5 7h4V5a2 2 0 1 1 4 0v2h4v4h-2a2 2 0 1 0 0 4h2v4H5z",
+  server: "M4 4h16v6H4zM4 14h16v6H4zM8 7v.01M8 17v.01",
+  plug: "M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4",
+  ext: "M14 4h6v6M20 4l-9 9M18 14v6H4V6h6",
+  ring: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z",
 };
-const ico = (name) => `<svg class="nv-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
+// data-ico : l'aperçu de Nuvio (nuvio.js) remplace ces icônes au trait par celles de l'appli.
+const ico = (name) => `<svg class="nv-ico" data-ico="${name}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
 const CHEV = `<svg class="nv-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
 
 // ---------- Les briques d'un écran de paramètres ----------
@@ -86,8 +93,9 @@ const SIDE_HTML = SIDE.map((it) => it === "sep" ? `<li class="sep" aria-hidden="
 const sideIndex = (name) => SIDE.filter((it) => it !== "sep").findIndex((it) => it[0] === name);
 
 // ---------- Les écrans, dans l'ordre de la visite ----------
-const page = (id, chap, side, title, sub, body, parent) =>
-  `<div class="nv-page" data-page="${id}" data-chap="${esc(chap)}" data-side="${sideIndex(side)}"${parent ? ` data-parent="${parent}"` : ""}>
+const page = (id, chap, side, title, sub, body, parent) => ({ id, chap, side: sideIndex(side), title, sub, body, parent });
+const pageHTML = ({ id, chap, side, title, sub, body, parent }) =>
+  `<div class="nv-page" data-page="${id}" data-chap="${esc(chap)}" data-side="${side}"${parent ? ` data-parent="${parent}"` : ""}>
   <div class="nv-head"><h4>${esc(title)}</h4><p>${esc(sub)}</p></div>
   <div class="nv-vp"><div class="nv-ct">${body}<i class="nv-ring" aria-hidden="true"></i></div></div>
 </div>`;
@@ -325,13 +333,63 @@ const PAGES = (posterUrl) => [
   ].join("")),
 ];
 
+// ---------- L'écran Paramètres de l'aperçu (nuvio.js) ----------
+// Les écrans de la visite (valeurs du guide), plus les rubriques qu'elle ne montre pas, telles que Nuvio TV
+// les affiche sans compte connecté. Textes repris de Nuvio TV (en anglais quand l'appli n'est pas traduite).
+const PAGES_EN_PLUS = [
+  page("compte", "", "Compte", "Compte", "Compte et état de la synchronisation", G(null, null, [
+    P("Synchronisez votre bibliothèque, votre progression, vos addons et plugins entre vos appareils."),
+    `<p class="nv-note">La synchronisation n’est pas en temps réel entre les appareils actifs. Redémarrez cet appareil après vous être connecté ou pour récupérer les modifications effectuées ailleurs.</p>`,
+    `<div class="nv-row nv-bouton" data-f>${ico("key")}${txt("Connexion par code QR", "Scannez un code QR et complétez la connexion par e-mail sur votre téléphone")}</div>`,
+  ])),
+  page("profils", "", "Profils", "Profils", "Gérer les profils utilisateurs pour ce compte", G(null, null, [V("Gérer les profils", "", "")])),
+  page("party", "", "Watch party", "Watch party", "Join friends with a party code", G(null, null, [
+    V("Join a watch party", "Sign in to your Nuvio account to use watch parties.", "", { icon: "users" }),
+  ])),
+  page("contenu", "", "Contenu et déc…", "Contenu et découverte", "Addons, plugins, catalogues et sources de découverte", G(null, null, [
+    V("Addons", "Gérer les addons, l’ordre des catalogues et les collections", "", { icon: "puzzle" }),
+    V("Media servers", "Connect Jellyfin or Emby to browse and play your own library.", "", { icon: "server" }),
+    V("Plugins", "Gérer les dépôts et les fournisseurs de flux", "", { icon: "plug" }),
+  ])),
+  page("tracking", "", "Tracking", "Tracking", "Connect tracking providers and choose which one powers your Library and Continue Watching.", [
+    G("Accounts", "Connect and manage tracking services", [
+      V("Trakt", "Synchronisez votre liste de suivi, votre progression, vos visionnages en cours, vos scrobbles et vos listes personnelles avec Trakt.", "Not connected", { icon: "ring" }).replace('data-ico="ring"', 'data-ico="trakt"'),
+      V("Simkl", "Connect Simkl to sync lists, watched history, playback progress, and scrobbles.", "Not connected", { icon: "ring" }).replace('data-ico="ring"', 'data-ico="simkl"'),
+      V("MDBList", "Sync watched history and playback progress across devices", "Not connected", { icon: "ring" }).replace('data-ico="ring"', 'data-ico="mdblist"'),
+    ]),
+    G("Sources", "Choose where Nuvio reads your library and watch progress. Playback scrobbles to every connected service.", [
+      V("Source de la bibliothèque", "Choisir quelle bibliothèque utiliser pour enregistrer et afficher votre collection", "Bibliothèque Nuvio"),
+      V("Progression", "Choisir quelle source de progression alimente la reprise et Continuer à regarder", "Nuvio Sync"),
+    ]),
+  ].join("")),
+  page("apropos", "", "À propos", "À propos", "Informations sur l’application, mises à jour et liens légaux", G(null, null, [
+    `<div class="nv-about"></div>`,
+    V("Update channel", "Choose the type of app updates to receive", "Beta"),
+    T("Automatic update banner", "Show a banner when a new version is available", true),
+    V("Vérifier les mises à jour", "Télécharger la dernière version", "").replace("nv-row", "nv-row nv-ext"),
+    V("Politique de confidentialité", "Consulter notre politique de confidentialité", "").replace("nv-row", "nv-row nv-ext"),
+    V("Support Nuvio", "Remerciements et crédits du projet", ""),
+    V("Licences & attributions", "Sources de données, remerciements et licences Android", ""),
+  ])),
+];
+const TESTS_RESEAU = G("Network tests", null, [V("Lancer le test de débit", "", ""), V("Lancer un test de débit du dernier flux lu", "", "")]);
+
+/** Les rubriques de la barre de gauche (null = séparateur) et leurs écrans, dans l'ordre de Nuvio TV. */
+export const parametresNuvio = (posterUrl) => {
+  const pages = [...PAGES(posterUrl).map((p) => p.id === "avance" ? { ...p, body: p.body + TESTS_RESEAU } : p), ...PAGES_EN_PLUS];
+  return {
+    rubriques: SIDE.map((it) => it === "sep" ? null : [it[0] === "Contenu et déc…" ? "Contenu et découverte" : it[0], it[1]]),
+    pages: pages.map(({ id, side, title, sub, body, parent }) => ({ id, side, title, sub, parent: parent || null, body })),
+  };
+};
+
 const CHAPITRES = ["Apparence", "Disposition", "Lecture", "Enrichissement TMDB", "Avancé"];
 
 export const reglagesHTML = (posterUrl) => `<div class="nv" id="nv">
   <div class="nv-tv">
     <div class="nv-screen" tabindex="0" role="group" aria-roledescription="animation" aria-label="Les réglages de Nuvio, écran par écran. Flèches gauche et droite : réglage précédent ou suivant. Espace : pause.">
       <nav class="nv-side" aria-hidden="true"><ul>${SIDE_HTML}</ul></nav>
-      <div class="nv-main">${PAGES(posterUrl).join("")}</div>
+      <div class="nv-main">${PAGES(posterUrl).map(pageHTML).join("")}</div>
       <div class="nv-cap" aria-live="off"><span class="nv-tag"></span><span class="nv-ctxt"></span></div>
       <span class="nv-pause" aria-hidden="true">En pause</span>
     </div>

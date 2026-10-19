@@ -84,7 +84,7 @@ export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cram
 .nvo-menu > img { width: 72%; height: 3.75cqw; margin-top: 1.25cqw; object-fit: contain; }
 .nvo-menu nav { flex: 1; width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: .625cqw; margin-top: -1.25cqw; }
 .nvo-menu nav button { width: 92%; display: flex; align-items: center; gap: 1.458cqw; padding: 1.042cqw 1.458cqw; border: 0; border-radius: 99px; background: transparent; color: #fff; cursor: pointer; text-align: left;
-  font: 400 max(1.667cqw, 10px) Inter, sans-serif; letter-spacing: .052cqw; white-space: nowrap; transition: transform .18s ease, background .18s ease; outline: none; }
+  font: 400 1.667cqw Inter, sans-serif; letter-spacing: .052cqw; white-space: nowrap; transition: transform .18s ease, background .18s ease; outline: none; }
 .nvo-menu nav button span { flex: none; width: 3.542cqw; height: 3.542cqw; display: grid; place-items: center; }
 .nvo-menu nav button svg { width: 2.292cqw; height: 2.292cqw; fill: currentColor; }
 .nvo-menu nav button[aria-current="page"] { background: rgba(229,57,53,.15); color: #E53935; }

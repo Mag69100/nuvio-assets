@@ -42,7 +42,7 @@ import { NUVIO_CSS, nuvioJS } from "./nuvio.js";
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 export function configurePage({ origin, cfg, rows, discover, providers, collections, defaults, regions, genres, languages, sorts, seasons, maxCustom, season }) {
-  const plain = (c) => ({ n: c.n, r: c.r, p: c.p, d: c.d, c: c.c, o: c.o, x: c.x, g: c.g, e: c.e, m: c.m, a: c.a, f: c.f, h: c.h, t: c.t, u: c.u });
+  const plain = (c) => ({ n: c.n, r: c.r, p: c.p, d: c.d, c: c.c, o: c.o, x: c.x, g: c.g, e: c.e, m: c.m, a: c.a, f: c.f, h: c.h, t: c.t, u: c.u, k: c.k });
   const data = {
     origin, maxCustom,
     cfg: plain(cfg),
@@ -231,7 +231,7 @@ aside.long .stage:not(.big) { position: sticky; top: var(--stage-top, 18px); }
   .dock-billet i { font-style: normal; color: var(--bulb); margin-left: 4px; }
   .dock .btn { border-color: var(--cream); background: var(--cream); color: var(--ink); flex: none; min-height: 46px; }
   /* Clavier ouvert : la barre du bas cacherait le champ qu'on remplit. */
-  body:has(:is(input[type=text], input[type=number], input[type=search], select):focus) .dock { display: none; }
+  body:has(:is(input[type=text], input[type=password], input[type=number], input[type=search], select):focus) .dock { display: none; }
 }
 @media (max-width: 520px) {
   .frame { grid-template-columns: 22px auto minmax(0, 1fr); }
@@ -274,8 +274,12 @@ aside.long .stage:not(.big) { position: sticky; top: var(--stage-top, 18px); }
 .builder { border: 1px solid var(--bulb); border-radius: 14px; padding: 18px; display: grid; gap: 16px; background: linear-gradient(180deg, #2a1720, #1d0f16); }
 .builder h3 { margin: 0; font: 400 1.6rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
 .field { display: grid; gap: 8px; }
+.ai-key { display: flex; gap: 8px; }
+.ai-key input { flex: 1; min-width: 0; }
+.ai-key button { flex: none; padding: 0 12px; border-radius: 8px; border: 1px solid var(--seat); background: var(--velvet); color: var(--cream); cursor: pointer; }
+#ai-key-hint { color: var(--dim); min-height: 1.2em; }
 .field > span { font: 700 .72rem var(--body); letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
-.field input[type=text].plain, select, input[type=number] { font: 600 1rem var(--body); letter-spacing: 0; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--seat); background: var(--velvet); color: var(--cream); }
+.field input:is([type=text], [type=password]).plain, select, input[type=number] { font: 600 1rem var(--body); letter-spacing: 0; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--seat); background: var(--velvet); color: var(--cream); }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .seg { display: inline-flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--seat); border-radius: 10px; overflow: hidden; justify-self: start; }
 .seg button { font: 700 .88rem var(--body); padding: 9px 14px; border: 0; background: var(--velvet); color: var(--dim); cursor: pointer; border-right: 1px solid var(--seat); }
@@ -469,7 +473,7 @@ ${NUVIO_CSS}
   .reset { padding: 12px 0; }
   .add-row { min-height: 48px; }
   .coll details summary { padding-block: 11px; }
-  .nvo-rech input, .rename input, .field input[type=text].plain, select, input[type=number] { font-size: 16px; }
+  .nvo-rech input, .rename input, .field input:is([type=text], [type=password]).plain, select, input[type=number] { font-size: 16px; }
   .act { scroll-margin-top: 76px; }
 }
 @media (prefers-reduced-motion: reduce) { body::after, .frame::after, .frame .pos, .screen::before, .nv *, .fiche, .fiche * { animation: none !important; } .ticket { transform: none; } .nv, .nv-track { scroll-behavior: auto; } }
@@ -491,7 +495,7 @@ ${NUVIO_CSS}
     <main>
       <nav class="nav" aria-label="Sections">
         <a href="#s-nom">Nom</a><a href="#s-pays">Pays</a><a href="#s-rangees">Rangées</a><a href="#s-saison">Saison</a>
-        <a href="#s-plateformes">Plateformes</a><a href="#s-filtres">Filtres</a><a href="#s-decouvrir">Découvrir</a><a href="#s-collections">Collections</a><a href="#s-mode">Installer</a>
+        <a href="#s-plateformes">Plateformes</a><a href="#s-filtres">Filtres</a><a href="#s-ia">IA</a><a href="#s-decouvrir">Découvrir</a><a href="#s-collections">Collections</a><a href="#s-mode">Installer</a>
       </nav>
 
       <section class="act" id="s-nom">
@@ -551,6 +555,20 @@ ${NUVIO_CSS}
         </div>
         <label class="switch"><input type="checkbox" id="g-family"><span><b>Mode famille</b><small>Films tous publics ou -10 ans seulement, pas d'horreur, séries pour la famille et les enfants.</small></span></label>
         <label class="switch"><input type="checkbox" id="g-unreleased"><span><b>Tendances : seulement ce qu'on peut déjà regarder</b><small>TMDB y met aussi les films encore au cinéma ou pas encore sortis. Ils passent dans « Bientôt dispo » et « Les plus attendus ».</small></span></label>
+      </section>
+
+      <section class="act" id="s-ia">
+        <header><span>Projectionniste</span><h2>La recherche par IA</h2></header>
+        <p class="sub">L'IA comprend les recherches du genre « le film où un mec revit la même journée » et écrit dans les fiches « pour qui », « à savoir » et le rappel avant une suite. Elle marche avec ta propre clé Gemini, gratuite : crée-la en 2 minutes sur <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>, puis colle-la ici.</p>
+        <div class="field">
+          <span>Ta clé Gemini (facultatif)</span>
+          <div class="ai-key">
+            <input type="password" id="ai-key" class="plain" autocomplete="off" spellcheck="false" enterkeyhint="done" placeholder="AIza…" aria-label="Ta clé Gemini" aria-describedby="ai-key-hint">
+            <button type="button" id="ai-key-eye" aria-label="Afficher la clé" aria-pressed="false">👁</button>
+          </div>
+          <small id="ai-key-hint" aria-live="polite"></small>
+        </div>
+        <p class="sub">Ta clé est rangée dans ton lien d'installation : ne partage pas ce lien. Sans clé, tu profites quand même des réponses déjà écrites pour les autres.</p>
       </section>
 
       <section class="act" id="s-decouvrir">
@@ -674,6 +692,7 @@ function compact(st) {
   if (st.a) o.a = st.a;
   if (st.f) o.f = 1;
   if (st.u) o.u = 1;
+  if (st.k) o.k = st.k;
   if (!same(st.h, df.h)) o.h = mask(st.h, D.seasons.map(s => s[0]));
   const t = {};
   D.collections.forEach((c, i) => { if (st.t[c.id] && st.t[c.id].length) t[i] = st.t[c.id]; });
@@ -997,6 +1016,7 @@ function renderCollections() {
 }
 function renderAll() {
   $("name").value = state.n;
+  $("ai-key").value = state.k || ""; aiKeyHint();
   resetOrder(); renderRows();
   seg($("regions"), D.regions.map(r => r.name), D.regions.findIndex(r => r.id === state.g), (i) => { state.g = D.regions[i].id; renderAll(); });
   ["providers", "disc-movie", "disc-series", "seasons", "excl"].forEach(id => { $(id).textContent = ""; });
@@ -1034,6 +1054,19 @@ $("dock-billet").addEventListener("click", () => $("ticket").scrollIntoView({ be
 // Le billet est à l'écran : la barre du bas ferait doublon (et cacherait ses boutons).
 if ("IntersectionObserver" in window) new IntersectionObserver(([e]) => document.querySelector(".dock").classList.toggle("cache", e.isIntersecting), { threshold: .15 }).observe($("ticket"));
 $("name").addEventListener("input", update);
+// Clé Gemini : nettoyée à la saisie ; l'indication dit si elle a la forme d'une clé.
+function aiKeyHint() {
+  const k = state.k || "";
+  $("ai-key-hint").textContent = !k ? "" : /^[A-Za-z0-9_-]{30,60}$/.test(k) ? "Clé reconnue ✓" : "Ça ne ressemble pas à une clé Gemini";
+}
+$("ai-key").addEventListener("input", () => { state.k = $("ai-key").value.trim(); aiKeyHint(); update(); });
+$("ai-key").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } });
+$("ai-key-eye").addEventListener("click", (e) => {
+  const show = $("ai-key").type === "password";
+  $("ai-key").type = show ? "text" : "password";
+  e.currentTarget.setAttribute("aria-pressed", String(show));
+  e.currentTarget.setAttribute("aria-label", show ? "Masquer la clé" : "Afficher la clé");
+});
 // « OK » du clavier : on referme le clavier au lieu de rester dans le champ.
 $("name").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } });
 $("reset").addEventListener("click", () => { Object.assign(state, clone(D.defaults)); $("builder").hidden = true; renderAll(); });

@@ -36,7 +36,7 @@ import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, UPDATE_CATALOG } from "./hote.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.23.4";
+const VERSION = "5.23.5";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -867,7 +867,7 @@ function trailersOf(videos) {
 
 // Bande-annonce en VF quand TMDB n'en a pas (séries, films moins connus) : Allociné dit si une VF
 // existe et donne son titre exact, YouTube la fournit (Nuvio ne lit que YouTube).
-const VF_CACHE_S = 7 * 86400;  // VF trouvée : 7 jours
+const VF_CACHE_S = 30 * 86400; // VF trouvée : 30 jours (elle ne change presque jamais ; moins de recherches YouTube)
 const VF_MISS_S = 2 * 86400;   // pas de VF : on réessaie dans 2 jours (elle sort souvent peu avant le titre)
 const VF_WAIT_MS = 2000;       // attente maximale à l'ouverture d'une fiche
 const BROWSER_HEADERS = {

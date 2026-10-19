@@ -263,3 +263,11 @@ test("route_copie", async () => {
   assert.match(res.headers.get("Content-Type"), /text\/html/);
   assert.match(await res.text(), /docker compose up -d/);
 });
+
+// Bande-annonce VF trouvée : gardée 30 jours (elle ne change presque jamais ; moins de recherches sur
+// YouTube, qui peut bloquer les serveurs de Cloudflare). Pas de VF : revérifié tous les 2 jours.
+test("vf_gardee_30_jours", () => {
+  const src = readFileSync("worker/index.js", "utf8");
+  assert.match(src, /^const VF_CACHE_S = 30 \* 86400;/m);
+  assert.match(src, /^const VF_MISS_S = 2 \* 86400;/m);
+});

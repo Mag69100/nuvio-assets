@@ -39,10 +39,70 @@ const PROVIDER_COLORS = {
 import { STAGE_HEAD, STAGE_CSS, stageTop, secretsHTML, BEAM_HTML, SEATS_HTML, CREDITS_HTML, STAGE_JS } from "./stage.js";
 import { NUVIO_CSS, nuvioJS } from "./nuvio.js";
 
+// Espace hébergeur d'une copie auto-hébergée (absent de l'instance principale) : connexion avec le mot de
+// passe ADMIN_PASSWORD, lien avec alertes (rangée « Mise à jour » dans Nuvio), bannière de mise à jour.
+const HOTE_HTML = `
+      <section class="act" id="s-hote">
+        <header><span>Cabine</span><h2>Espace hébergeur</h2></header>
+        <p class="sub">Tu héberges ta propre copie du Catalogue FR. Connecte-toi avec ton mot de passe (le secret ADMIN_PASSWORD de ta copie) pour voir les nouvelles versions et recevoir les alertes dans Nuvio.</p>
+        <div id="hote-box" class="hote-box"></div>
+      </section>`;
+const HOTE_JS = `
+// ---------- espace hébergeur ----------
+let hote = null;
+function hoteCall(path, body) {
+  return fetch(D.origin + path, body === undefined ? { credentials: "same-origin" }
+    : { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+}
+async function hoteRefresh() {
+  try { hote = await (await hoteCall("/hote/etat")).json(); } catch (e) { hote = { hote: false }; }
+  hoteRender();
+}
+function hoteRender() {
+  const box = $("hote-box"); box.textContent = "";
+  if (!hote || !hote.hote) {
+    const pw = el("input", { type: "password", id: "hote-mdp", autocomplete: "current-password", placeholder: "Mot de passe", "aria-label": "Mot de passe de l'hébergeur" });
+    const msg = el("small", { class: "hote-msg", "aria-live": "polite" });
+    const go = async () => {
+      const r = await hoteCall("/hote/connexion", { motDePasse: pw.value }).catch(() => null);
+      if (r && r.ok) hoteRefresh(); else msg.textContent = "Mot de passe incorrect (ou ADMIN_PASSWORD pas défini sur ta copie).";
+    };
+    pw.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go(); } });
+    box.append(el("div", { class: "hote-ligne" }, pw, el("button", { type: "button", class: "hote-btn", text: "Se connecter", onclick: go })), msg);
+    return;
+  }
+  const alertes = el("input", { type: "checkbox", id: "hote-alertes" });
+  alertes.checked = state.al === hote.jeton;
+  alertes.addEventListener("change", () => { state.al = alertes.checked ? hote.jeton : ""; update(); });
+  box.append(el("label", { class: "switch" }, alertes, el("span", {},
+    el("b", { text: "Alertes de mise à jour dans Nuvio" }),
+    el("small", { text: "Ajoute à ton lien une rangée « Mise à jour », en tête de l'accueil, visible seulement quand une nouvelle version est sortie. Réinstalle ton lien après l'avoir coché, et ne coche pas pour les liens que tu donnes aux autres." }))));
+  box.append(hote.maj ? hoteBanner(hote.maj) : el("p", { class: "sub", text: "Ta copie est à jour (ou tu as repoussé la dernière version)." }));
+  box.append(el("button", { type: "button", class: "hote-btn line", text: "Se déconnecter", onclick: async () => { await hoteCall("/hote/deconnexion", {}); hoteRefresh(); } }));
+}
+function hoteBanner(maj) {
+  const b = el("div", { class: "hote-maj", role: "status" }, el("b", { text: "Version " + maj.version + " disponible" }));
+  if (maj.notes.length) b.append(el("ul", {}, maj.notes.map((n) => el("li", { text: n }))));
+  b.append(el("a", { href: maj.history, target: "_blank", rel: "noopener", text: "Tout l'historique des changements" }));
+  const how = el("div", { class: "hote-how", hidden: "" });
+  if (hote.installation === "docker") {
+    how.append(el("p", { text: "Sur ton serveur, dans le dossier de ta copie, lance :" }), el("code", { text: "docker compose pull && docker compose up -d" }));
+  } else {
+    how.append(el("p", { text: "Sur GitHub, ouvre ta copie du dépôt et clique sur « Sync fork », puis « Update branch » : Cloudflare redéploie ta copie tout seul, en une minute environ." }));
+    if (hote.depot) how.append(el("a", { href: "https://github.com/" + hote.depot, target: "_blank", rel: "noopener", text: "Ouvrir github.com/" + hote.depot }));
+  }
+  b.append(el("div", { class: "hote-ligne" },
+    el("button", { type: "button", class: "hote-btn", text: "Mettre à jour", onclick: () => { how.hidden = false; } }),
+    el("button", { type: "button", class: "hote-btn line", text: "Plus tard", onclick: async () => { await hoteCall("/hote/plus-tard", {}); hote.maj = null; hoteRender(); } })), how);
+  return b;
+}
+hoteRefresh();
+`;
+
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-export function configurePage({ origin, cfg, rows, discover, providers, collections, defaults, regions, genres, languages, sorts, seasons, maxCustom, season }) {
-  const plain = (c) => ({ n: c.n, r: c.r, p: c.p, d: c.d, c: c.c, o: c.o, x: c.x, g: c.g, e: c.e, m: c.m, a: c.a, f: c.f, h: c.h, t: c.t, u: c.u, k: c.k });
+export function configurePage({ origin, cfg, rows, discover, providers, collections, defaults, regions, genres, languages, sorts, seasons, maxCustom, season, copy = false }) {
+  const plain = (c) => ({ n: c.n, r: c.r, p: c.p, d: c.d, c: c.c, o: c.o, x: c.x, g: c.g, e: c.e, m: c.m, a: c.a, f: c.f, h: c.h, t: c.t, u: c.u, k: c.k, al: c.al });
   const data = {
     origin, maxCustom,
     cfg: plain(cfg),
@@ -280,6 +340,19 @@ aside.long .stage:not(.big) { position: sticky; top: var(--stage-top, 18px); }
 #ai-key-hint { color: var(--dim); min-height: 1.2em; }
 /* Clé masquée sans champ « mot de passe » (Chrome proposerait de l'enregistrer). */
 #ai-key.masque { -webkit-text-security: disc; text-security: disc; }
+/* Espace hébergeur (copies auto-hébergées seulement). */
+.hote-box { display: grid; gap: 12px; }
+.hote-ligne { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.hote-ligne input { flex: 1; min-width: 0; font: 600 1rem var(--body); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--seat); background: var(--velvet); color: var(--cream); }
+.hote-btn { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--cream); background: var(--cream); color: var(--ink); font: 700 .9rem var(--body); cursor: pointer; }
+.hote-btn.line { background: transparent; color: var(--cream); justify-self: start; }
+.hote-msg { color: var(--dim); min-height: 1.2em; }
+.hote-maj { border: 1px solid var(--red); border-radius: 12px; padding: 14px 16px; display: grid; gap: 10px; background: var(--velvet-2); }
+.hote-maj ul { margin: 0; padding-left: 1.2em; color: var(--dim); }
+.hote-maj a { color: var(--cream); }
+.hote-how { display: grid; gap: 8px; color: var(--dim); }
+.hote-how p { margin: 0; }
+.hote-how code { display: block; padding: 8px 10px; border-radius: 6px; background: var(--velvet); color: var(--cream); user-select: all; overflow-wrap: anywhere; }
 .field > span { font: 700 .72rem var(--body); letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
 .field input:is([type=text], [type=password]).plain, select, input[type=number] { font: 600 1rem var(--body); letter-spacing: 0; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--seat); background: var(--velvet); color: var(--cream); }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -497,7 +570,7 @@ ${NUVIO_CSS}
     <main>
       <nav class="nav" aria-label="Sections">
         <a href="#s-nom">Nom</a><a href="#s-pays">Pays</a><a href="#s-rangees">Rangées</a><a href="#s-saison">Saison</a>
-        <a href="#s-plateformes">Plateformes</a><a href="#s-filtres">Filtres</a><a href="#s-ia">IA</a><a href="#s-decouvrir">Découvrir</a><a href="#s-collections">Collections</a><a href="#s-mode">Installer</a>
+        <a href="#s-plateformes">Plateformes</a><a href="#s-filtres">Filtres</a><a href="#s-ia">IA</a><a href="#s-decouvrir">Découvrir</a><a href="#s-collections">Collections</a>${copy ? '<a href="#s-hote">Hébergeur</a>' : ""}<a href="#s-mode">Installer</a>
       </nav>
 
       <section class="act" id="s-nom">
@@ -586,6 +659,7 @@ ${NUVIO_CSS}
         <div id="collections" style="display:grid;gap:10px"></div>
       </section>
 
+${copy ? HOTE_HTML : ""}
       <section class="act" id="s-mode">
         <header><span>Mode d'emploi</span><h2>Installer sur ta TV sans rien taper</h2></header>
         <ol class="steps-howto">
@@ -695,6 +769,7 @@ function compact(st) {
   if (st.f) o.f = 1;
   if (st.u) o.u = 1;
   if (st.k) o.k = st.k;
+  if (st.al) o.al = st.al;
   if (!same(st.h, df.h)) o.h = mask(st.h, D.seasons.map(s => s[0]));
   const t = {};
   D.collections.forEach((c, i) => { if (st.t[c.id] && st.t[c.id].length) t[i] = st.t[c.id]; });
@@ -964,7 +1039,7 @@ function update() {
   currentBase = base;
   // L'adresse de la page suit les réglages : on peut revenir, recharger ou partager sans rien perdre.
   configureUrl = base + "/configure";
-  const shared = compact({ ...state, k: "" });
+  const shared = compact({ ...state, k: "", al: "" });
   shareUrl = D.origin + (Object.keys(shared).length ? "/" + enc(shared) : "") + "/configure";
   try { if (location.protocol.startsWith("http") && location.href !== configureUrl) history.replaceState(null, "", configureUrl); } catch (e) {}
   try { sessionStorage.setItem("programmation", configureUrl); } catch (e) {}
@@ -1247,6 +1322,7 @@ function spyNav() {
 addEventListener("scroll", () => { if (!navTick) { navTick = true; requestAnimationFrame(spyNav); } }, { passive: true });
 spyNav();
 { const i = navLinks.findIndex((a) => a.getAttribute("href") === hashDepart); if (i >= 0) setTimeout(() => navLinks[i].click(), 500); }
+${copy ? HOTE_JS : ""}
 </script>
 <script>${STAGE_JS}</script>
 </body>

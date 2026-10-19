@@ -1575,10 +1575,10 @@ export default {
       return html(configurePage({
         origin: url.origin, cfg, rows, discover: DEFS.discover, providers: PROVIDERS, collections: cols,
         defaults: defaults(rows, DEFS.discover), regions: REGIONS, genres: GENRES, languages: LANGUAGES,
-        sorts: SORTS, seasons: SEASON_KEYS, maxCustom: MAX_CUSTOM, season: decorSaison(url, today),
+        sorts: SORTS, seasons: SEASON_KEYS, maxCustom: MAX_CUSTOM, season: decorSaison(url, today), copy: isCopy(url),
       }));
     }
-    if (path === "") return html(hallPage({ origin: url.origin, season: decorSaison(url, today) }));   // le hall : choisir sa salle
+    if (path === "") return html(hallPage({ origin: url.origin, season: decorSaison(url, today), copy: isCopy(url) }));   // le hall : choisir sa salle
     if (path === "/guide") return html(guidePage({ origin: url.origin, season: decorSaison(url, today) }));
     if (path === "/lien") return html(lienPage({ origin: url.origin }));   // ouvert par les QR codes du guide
     if (path === "/tv") return Response.redirect(NUVIO_TV_APK, 302);   // adresse courte pour Downloader : télécharge l'APK

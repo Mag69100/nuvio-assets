@@ -9,7 +9,7 @@ import { POSTER_URL } from "./guide.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-export function hallPage({ origin, season }) {
+export function hallPage({ origin, season, copy = false }) {
   const LOGO = origin + "/logo.png";
   const porte = (n, href, titre, texte, extra) => `
     <a class="porte" href="${esc(href)}"${extra || ""}>
@@ -160,6 +160,17 @@ fetch(${JSON.stringify(origin)} + "/catalog/movie/accueil-top10.json").then((r) 
   });
 }).catch(() => { document.querySelector(".mur").hidden = true; });
 </script>
+${copy ? `<script>
+// Copie auto-hébergée : bandeau pour l'hébergeur connecté quand une nouvelle version est sortie.
+fetch(${JSON.stringify(origin)} + "/hote/etat", { credentials: "same-origin" }).then((r) => r.json()).then((e) => {
+  if (!e.hote || !e.maj) return;
+  const a = document.createElement("a");
+  a.href = ${JSON.stringify(origin)} + "/configure#s-hote";
+  a.textContent = "🔔 Version " + e.maj.version + " disponible : voir dans la salle 2";
+  a.style.cssText = "position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:99;padding:10px 16px;border-radius:999px;background:#f3e6cf;color:#2a1a14;font:700 .9rem system-ui,sans-serif;text-decoration:none;box-shadow:0 6px 20px rgba(0,0,0,.4);max-width:calc(100vw - 32px)";
+  document.body.append(a);
+}).catch(() => {});
+</script>` : ""}
 </body>
 </html>`;
 }

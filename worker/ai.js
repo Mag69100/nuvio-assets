@@ -14,8 +14,9 @@
  *     recherche classique seule, comme avant.
  *   - plusieurs modèles : chacun a son propre quota gratuit ; un modèle à court de quota ou
  *     surchargé passe la main au suivant (et reste au repos quelques minutes).
- * Secret facultatif : GEMINI_API_KEY (sans lui, rien ne change). Variable facultative : GEMINI_MODEL
- * (modèle à essayer en premier).
+ * Clé : celle que l'utilisateur colle dans la salle 2 (rangée dans son lien), sinon GEMINI_API_KEY de
+ * l'instance si GEMINI_PUBLIC=on (voir aiEnv). Sans clé : lecture des réponses déjà en cache seulement,
+ * jamais d'appel à Gemini. Variable facultative : GEMINI_MODEL (modèle à essayer en premier).
  */
 import { norm, scoreOf, isExact, similarity } from "./search.js";
 
@@ -142,11 +143,23 @@ async function geminiJSON(env, model, system, user, schema, thinking) {
   return JSON.parse((await geminiText(env, model, system, user, { schema, thinking })) || "{}");
 }
 
+/**
+ * L'env d'une requête, avec la clé Gemini à utiliser : celle collée par l'utilisateur dans la salle 2
+ * (cfg.k), sinon celle de l'instance si elle est partagée (GEMINI_PUBLIC=on), sinon aucune (lecture
+ * des réponses déjà en cache seulement). L'env d'origine n'est pas modifié.
+ */
+export function aiEnv(env, cfg) {
+  const key = (cfg && cfg.k) || (env.GEMINI_PUBLIC === "on" ? env.GEMINI_API_KEY || "" : "");
+  return { ...env, GEMINI_API_KEY: key };
+}
+
 // Deux requêtes qui posent la même question en même temps (les catalogues Films et Séries d'une
 // recherche) : une seule part.
 const PENDING = new Map();
-// Modèle → moment où on peut le solliciter de nouveau.
+// Clé + modèle → moment où on peut le solliciter de nouveau. Par clé : un utilisateur à court de
+// quota (ou dont la clé est refusée) ne bloque pas les autres.
 const RESTING = new Map();
+const restKey = (env, model) => `${String(env.GEMINI_API_KEY).slice(-8)}|${model}`;
 
 /** Millisecondes jusqu'à minuit, heure du Pacifique (remise à zéro des quotas journaliers de Gemini). */
 function untilPacificMidnight() {
@@ -158,23 +171,26 @@ function untilPacificMidnight() {
 
 /**
  * Repos d'un modèle après une erreur : quota du jour épuisé → jusqu'à minuit (Pacifique) ; quota de
- * la minute → le délai que donne Gemini (une minute par défaut) ; surchargé ou muet → une minute.
+ * la minute → le délai que donne Gemini (une minute par défaut) ; clé fausse ou refusée → 10 min ;
+ * surchargé ou muet → une minute.
  */
 function restFor(e) {
   if (e.status === 429) return e.daily ? untilPacificMidnight() : Math.max(e.retryMs || 60e3, 5e3);
+  if ([400, 401, 403].includes(e.status)) return 10 * 60e3;
   return e.status >= 500 || !e.status ? 60e3 : 0;
 }
 
-// Appels de la dernière minute (par instance de l'addon) : bonus de fiche, et rangées préparées.
-const OPTIONAL_CALLS = [], BATCH_CALLS = [];
-function allowed(calls, max) {
-  const now = Date.now();
-  while (calls.length && calls[0] < now - 60e3) calls.shift();
+// Appels de la dernière minute, par clé (par instance de l'addon) : bonus de fiche, et rangées préparées.
+const OPTIONAL_CALLS = new Map(), BATCH_CALLS = new Map();
+function allowed(store, env, max) {
+  const now = Date.now(), tag = String(env.GEMINI_API_KEY).slice(-8);
+  const calls = (store.get(tag) || []).filter((t) => t >= now - 60e3);
+  store.set(tag, calls);
   if (calls.length >= max) return false;
   calls.push(now);
   return true;
 }
-const optionalAllowed = () => allowed(OPTIONAL_CALLS, OPTIONAL_PER_MIN);
+const optionalAllowed = (env) => allowed(OPTIONAL_CALLS, env, OPTIONAL_PER_MIN);
 
 /**
  * Modèles à essayer, dans l'ordre ; ceux au repos sont sautés. S'ils le sont tous : tous quand
@@ -184,7 +200,7 @@ function modelsFor(env, opts) {
   if (opts.model) return [opts.model];
   const chain = env.GEMINI_MODEL ? [env.GEMINI_MODEL, ...MODELS.filter((m) => m !== env.GEMINI_MODEL)] : MODELS;
   const all = opts.optional ? chain.filter((m) => !SEARCH_ONLY.has(m)) : chain;
-  const ready = all.filter((m) => !(RESTING.get(m) > Date.now()));
+  const ready = all.filter((m) => !(RESTING.get(restKey(env, m)) > Date.now()));
   return ready.length || opts.optional ? ready : all;
 }
 
@@ -196,15 +212,19 @@ function modelsFor(env, opts) {
  */
 function cachedAsk(env, ctx, cacheUrl, ttl, ask, opts = {}) {
   const key = new Request(cacheUrl);
-  if (PENDING.has(key.url) && !opts.model) return PENDING.get(key.url);
+  // Sans clé : lecture seule (réponse déjà en cache ou rien), jamais partagée avec une vraie demande.
+  const readOnly = !env.GEMINI_API_KEY;
+  const pendingKey = `${key.url}|${readOnly ? 0 : 1}`;
+  if (PENDING.has(pendingKey) && !opts.model) return PENDING.get(pendingKey);
   const start = Date.now();
   const job = (async () => {
     const hit = opts.fresh ? null : await caches.default.match(key);
     if (hit) return { value: await hit.json(), cached: true, ms: Date.now() - start };
+    if (readOnly) return { value: null, cached: false, ms: Date.now() - start, readOnly: true };
     const tried = [];
     const models = modelsFor(env, opts);
     // Bonus de fiche : pas plus de OPTIONAL_PER_MIN appels par minute (la recherche passe avant).
-    if (opts.optional && models.length && !optionalAllowed()) {
+    if (opts.optional && models.length && !optionalAllowed(env)) {
       return { value: null, cached: false, ms: Date.now() - start, tried, error: "trop de demandes cette minute" };
     }
     for (const model of models) {
@@ -217,13 +237,13 @@ function cachedAsk(env, ctx, cacheUrl, ttl, ask, opts = {}) {
       } catch (e) {
         tried.push(`${model} : ${e.name === "TimeoutError" ? "pas de réponse en 5 s" : e.message}`);
         const rest = restFor(e);
-        if (rest) RESTING.set(model, Date.now() + rest);
+        if (rest) RESTING.set(restKey(env, model), Date.now() + rest);
       }
     }
     if (tried.length) console.warn("Gemini :", tried.join(" / "));
     return { value: null, cached: false, ms: Date.now() - start, tried, error: tried.join(" / ") || "tous les modèles au repos" };
-  })().finally(() => { if (PENDING.get(key.url) === job) PENDING.delete(key.url); });
-  if (!opts.model) PENDING.set(key.url, job);
+  })().finally(() => { if (PENDING.get(pendingKey) === job) PENDING.delete(pendingKey); });
+  if (!opts.model) PENDING.set(pendingKey, job);
   if (ctx) ctx.waitUntil(job);
   return job;
 }
@@ -412,8 +432,9 @@ export async function aiProfiles(env, items) {
   const keyOf = (it) => new Request(`https://cache.local/profile/v3/${it.key}`);
   const known = await Promise.all(items.map((it) => caches.default.match(keyOf(it)).then(Boolean, () => false)));
   const todo = items.filter((_, i) => !known[i]).slice(0, 20);
-  if (!todo.length) return { asked: 0 };
-  if (!allowed(BATCH_CALLS, BATCH_PER_MIN)) return { asked: 0, error: "trop de demandes cette minute" };
+  // Sans clé : rien à préparer (on ne lit que ce qui est déjà en cache).
+  if (!todo.length || !env.GEMINI_API_KEY) return { asked: 0 };
+  if (!allowed(BATCH_CALLS, env, BATCH_PER_MIN)) return { asked: 0, error: "trop de demandes cette minute" };
   const prompt = todo.map((it) => `id ${it.id}\n${it.text}`).join("\n\n");
   const tried = [];
   for (const model of modelsFor(env, { optional: true })) {
@@ -433,7 +454,7 @@ export async function aiProfiles(env, items) {
     } catch (e) {
       tried.push(`${model} : ${e.name === "TimeoutError" ? "pas de réponse" : e.message}`);
       const rest = restFor(e);
-      if (rest) RESTING.set(model, Date.now() + rest);
+      if (rest) RESTING.set(restKey(env, model), Date.now() + rest);
     }
   }
   return { asked: todo.length, saved: 0, error: tried.join(" / ") || "tous les modèles au repos" };

@@ -38,7 +38,7 @@ test("aiEnv_sans_cle_public", () => {
 });
 
 test("lecture_seule_en_cache", async () => {
-  store.set("https://cache.local/profile/v2/movie-1", JSON.stringify({ pourQui: "Pour toi", aSavoir: "" }));
+  store.set("https://cache.local/profile/v3/movie-1", JSON.stringify({ pourQui: "Pour toi", aSavoir: "" }));
   const r = await aiProfile({ GEMINI_API_KEY: "" }, null, "movie-1", "…");
   assert.equal(r.pourQui, "Pour toi");
   assert.equal(r.cached, true);

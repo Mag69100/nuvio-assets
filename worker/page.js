@@ -722,8 +722,8 @@ ${copy ? HOTE_HTML : ""}
           <li><span><b>Colle les liens de ton billet</b> : l'addon dans l'onglet Addons, les collections dans l'onglet Collections → Importer → URL.</span></li>
           <li><span><b>Mets Nuvio en français</b> : langue de l'appli et langue TMDB (Paramètres → Enrichissement TMDB).</span></li>
         </ol>
-        <p class="sub">Nuvio est sur ton téléphone, ta tablette ou ton ordinateur ? Pas besoin de QR code : colle directement les liens de ton billet dans l'appli (Addons, puis Collections → Importer → URL).</p>
-        <p class="sub">Pour retrouver tes réglages plus tard, ouvre ton lien d'addon en remplaçant « manifest.json » par « configure ». Avec un lien fixe, fais-le sur l'appareil qui l'a créé (ou avec son lien pour modifier) : tes changements arrivent dans Nuvio sans réinstaller, avec « Actualiser les addons ». Les collections, elles, sont importées : après un changement de tuiles, supprime-les dans Nuvio et réimporte leur lien (Collections → Importer → URL). Tu pars de zéro ? <a href="${origin}/guide">Le guide complet</a> installe Nuvio et tous les addons, dans l'ordre.</p>
+        <p class="sub">Nuvio est sur ton téléphone, ta tablette ou ton ordinateur ? Pas besoin de QR code : colle directement les liens de ton billet dans l'appli (Addons, puis Collections → Importer → URL). Sur ordinateur, Nuvio demande le contenu des collections, pas leur lien : bouton « Copier le contenu (PC) » du billet, puis colle-le dans Collections → Importer.</p>
+        <p class="sub">Pour retrouver tes réglages plus tard, ouvre ton lien d'addon en remplaçant « manifest.json » par « configure ». Avec un lien fixe, fais-le sur l'appareil qui l'a créé (ou avec son lien pour modifier) : tes changements arrivent dans Nuvio sans réinstaller, avec « Actualiser les addons ». Les collections, elles, sont importées : après un changement de tuiles, supprime-les dans Nuvio et réimporte-les (Collections → Importer : le lien, ou sur PC son contenu). Tu pars de zéro ? <a href="${origin}/guide">Le guide complet</a> installe Nuvio et tous les addons, dans l'ordre.</p>
       </section>
 
       <button type="button" class="reset" id="reset">Revenir à la programmation d'origine</button>
@@ -768,7 +768,7 @@ ${copy ? HOTE_HTML : ""}
           </div>
           <div class="t-label">Collections · Collections → Importer → URL</div>
           <div class="t-url" id="u-collections"></div>
-          <div class="t-btns"><button type="button" class="btn solid full" id="copy-collections">Copier</button></div>
+          <div class="t-btns"><button type="button" class="btn solid" id="copy-collections">Copier</button><button type="button" class="btn line" id="copy-collections-pc" title="Sur PC, Nuvio importe le contenu du lien, pas le lien">Copier le contenu (PC)</button></div>
           <div class="t-btns">
             <button type="button" class="btn line" id="qr-btn" aria-expanded="false" aria-controls="qr">Continuer sur le téléphone</button>
             <button type="button" class="btn line" id="share-btn">Offrir ce billet</button>
@@ -1282,6 +1282,19 @@ function copy(btn, node, label) {
 }
 $("copy-manifest").addEventListener("click", e => copy(e.currentTarget, $("u-manifest"), "Copier"));
 $("copy-collections").addEventListener("click", e => copy(e.currentTarget, $("u-collections"), "Copier"));
+// Sur PC, Nuvio importe les collections en collant leur contenu (le JSON), pas leur lien. Le texte est
+// demandé pendant le clic (ClipboardItem) : le navigateur garde l'autorisation de copier.
+$("copy-collections-pc").addEventListener("click", (e) => {
+  const btn = e.currentTarget, url = $("u-collections").textContent.trim();
+  const texte = fetch(url).then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); });
+  const ecrit = window.ClipboardItem
+    ? navigator.clipboard.write([new ClipboardItem({ "text/plain": texte.then((t) => new Blob([t], { type: "text/plain" })) })])
+    : texte.then((t) => navigator.clipboard.writeText(t));
+  ecrit.then(() => { btn.textContent = "Contenu copié ✓"; setTimeout(() => btn.textContent = "Copier le contenu (PC)", 1500); popcorn(btn); }, () => {
+    window.open(url, "_blank", "noopener");
+    toast("Copie impossible : le lien s'ouvre dans un onglet, sélectionne tout (Ctrl+A) et copie (Ctrl+C).", true);
+  });
+});
 $("dock-copy").addEventListener("click", e => copy(e.currentTarget, $("u-manifest"), "Copier mon lien"));
 $("dock-billet").addEventListener("click", () => $("ticket").scrollIntoView({ behavior: "smooth", block: "start" }));
 // Le billet est à l'écran : la barre du bas ferait doublon (et cacherait ses boutons).

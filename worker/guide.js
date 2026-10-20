@@ -223,6 +223,8 @@ a { color: var(--bulb); font-weight: 700; text-underline-offset: 3px; }
 .copy .qr-btn { display: none; min-width: 0; padding: 0 12px; background: #2a1520; color: var(--bulb); border-left: 1px solid var(--seat); }
 .copy .qr-btn:hover { background: #3a1d2b; }
 .copy .qr-btn svg { width: 20px; height: 20px; display: block; }
+.contenu-pc { justify-self: start; font: 800 .86rem var(--body); padding: 8px 14px; border-radius: 99px; border: 1px solid rgba(255,207,107,.45); background: transparent; color: var(--bulb); cursor: pointer; }
+.contenu-pc:hover { background: rgba(255,207,107,.1); }
 .vers-tel { display: none; font: 800 .86rem var(--body); padding: 8px 14px; border-radius: 99px; border: 1px solid rgba(255,207,107,.45); background: transparent; color: var(--bulb); cursor: pointer; }
 @media (hover: hover) and (pointer: fine) and (min-width: 700px) {
   .copy { grid-template-columns: minmax(0, 1fr) auto auto; }
@@ -990,10 +992,12 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
     <header><span class="num">07</span><span class="label">Grand écran</span><h2>Importer les collections</h2></header>
     <p class="lead">Les grandes tuiles en haut de l'accueil : Plateformes, Genres, J'ai envie de…, Sagas et Studios.</p>
     <ol>
-      <li>Sur le téléphone (étape 4), onglet <b>Collections → Importer → URL</b>. Sur PC : <span class="path">Collections → Importer → URL</span>.</li>
-      <li>Colle ce lien et valide. Si tu as personnalisé ton catalogue à l'étape 6, le guide a déjà mis ton lien perso.</li>
+      <li>Sur le téléphone (étape 4), onglet <b>Collections → Importer → URL</b>, puis colle ce lien et valide.</li>
+      <li>Sur PC, Nuvio demande le <b>contenu</b> du lien, pas le lien : <span class="path">Collections → Importer</span>, puis colle ce que copie le bouton « Copier le contenu (PC) ».</li>
+      <li>Si tu as personnalisé ton catalogue à l'étape 6, le guide a déjà mis ton lien perso.</li>
     </ol>
     ${copyBox("u-coll", origin + "/collections.json")}
+    <button type="button" class="contenu-pc" data-copy-contenu="u-coll">Copier le contenu (PC)</button>
     <p class="small perso" data-perso hidden>C'est ton lien perso, repris de ta programmation (étape 6).</p>
   </section>
 
@@ -1055,7 +1059,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
     <details data-moment="lecture"><summary>L'image saccade pendant les mouvements de caméra</summary><p>Si les travellings avancent par à-coups, sans rond de chargement, c'est du <b>judder</b> : le film est en 24 images/s (23,976) et la TV l'affiche en 60 Hz, alors les images sont répétées de façon inégale. Sur Fire TV : <span class="path">Paramètres → Affichage et sons → Affichage → Faire correspondre la fréquence d'images d'origine</span> → activé. Dans Nuvio, active aussi <b>Frame Rate Matching</b> (étape 9).</p><p>Si l'image se fige avec un rond de chargement, c'est autre chose : le fichier est trop lourd pour ta connexion (voir l'encadré de l'étape 6).</p></details>
     <details data-moment="accueil fiche"><summary>C'est écrit « Movie » au lieu de « Film »</summary><p>La langue de l'appli est en anglais : <span class="path">Paramètres → Langue de l'application → Français</span> (étape 3).</p></details>
     <details data-moment="accueil fiche"><summary>Les bandes-annonces sont en anglais</summary><p>Dans <span class="path">Paramètres → Enrichissement TMDB</span>, <b>désactive Bandes-annonces</b> (étape 3), puis force l'arrêt de Nuvio et relance-le. Activé, ce réglage fait passer les bandes-annonces de TMDB, souvent en anglais, avant celles du Catalogue FR, qui va chercher la VF sur TMDB, Allociné et YouTube.</p><p>Si un titre reste en version originale, c'est qu'aucune VF n'a été trouvée (fréquent pour les animés et les séries étrangères). Une VF trouvée en ouvrant la fiche arrive sur l'accueil dans les 3 heures.</p></details>
-    <details data-moment="accueil"><summary>Une rangée ou une modification n'apparaît pas</summary><p>Nuvio garde la liste des rangées d'un addon pendant 6 h. Pas besoin de réinstaller : dans <span class="path">Addons</span>, appuie sur <b>Actualiser les addons</b>, qui récupère tout de suite leurs dernières modifications.</p><p>Si tu as changé tes réglages en salle 2 avec un lien habituel, ton lien d'addon a changé : là, il faut bien remplacer l'ancien Catalogue FR par le nouveau lien de ton billet. Avec un lien fixe, rien à remplacer : « Actualiser les addons » suffit.</p><p>Les collections (les grandes tuiles du haut) ne bougent pas avec « Actualiser les addons » : Nuvio les a importées. Pour voir un changement de tuiles, supprime-les dans l'onglet Collections, puis réimporte leur lien (<span class="path">Collections → Importer → URL</span>, étape 7).</p></details>
+    <details data-moment="accueil"><summary>Une rangée ou une modification n'apparaît pas</summary><p>Nuvio garde la liste des rangées d'un addon pendant 6 h. Pas besoin de réinstaller : dans <span class="path">Addons</span>, appuie sur <b>Actualiser les addons</b>, qui récupère tout de suite leurs dernières modifications.</p><p>Si tu as changé tes réglages en salle 2 avec un lien habituel, ton lien d'addon a changé : là, il faut bien remplacer l'ancien Catalogue FR par le nouveau lien de ton billet. Avec un lien fixe, rien à remplacer : « Actualiser les addons » suffit.</p><p>Les collections (les grandes tuiles du haut) ne bougent pas avec « Actualiser les addons » : Nuvio les a importées. Pour voir un changement de tuiles, supprime-les dans l'onglet Collections, puis réimporte-les (<span class="path">Collections → Importer</span>, étape 7 : le lien, ou sur PC son contenu).</p></details>
     <details data-moment="recherche"><summary>La recherche affiche « TMDB Search » ou des résultats en double</summary><p>Ton installation date d’avant le passage de la recherche dans le Catalogue FR. <b>1.</b> Retire le Catalogue FR et remets-le (lien de l’étape 6) pour que Nuvio voie sa recherche et ses fiches. <b>2.</b> Dans Addons, supprime <b>TMDB Discover Plus</b> : il ne sert plus, le Catalogue FR fait maintenant la recherche et les fiches. <b>3.</b> Vérifie que « Afficher le type de catalogue » est désactivé (étape 9).</p></details>
     <details data-moment="accueil fiche"><summary>Un film à venir n’affiche pas sa date de dispo</summary><p>Pour un film pas encore regardable, l’addon envoie la date où il arrive chez toi (sortie numérique, ou une estimation) : c’est elle que le grand carrousel affiche, pas la sortie au cinéma. Le rappel « 📅 Dispo le 17 nov. » en tête du résumé n’apparaît que si <span class="path">Paramètres → Intégrations → Enrichissement TMDB → Infos</span> est désactivé (étape 3) : sinon, Nuvio remplace le résumé par celui de TMDB. Nuvio garde l’ancienne version environ 5 minutes : si rien ne change, ferme et relance l’appli.</p></details>
     <details data-moment="profils"><summary>Un autre profil n'a pas les addons</summary><p>Chaque profil Nuvio a sa propre liste d'addons. Ouvre <span class="path">Paramètres → Profils → Gérer les profils</span>, choisis le profil, puis <b>Modifier</b>, et active <b>Utiliser les addons principaux</b> : il reprend alors exactement les addons du profil principal, et suivra chacune de tes modifications.</p></details>
@@ -1262,6 +1266,20 @@ document.querySelectorAll("[data-copy]").forEach((btn) => btn.addEventListener("
   const fallback = () => { const r = document.createRange(); r.selectNodeContents(node); const s = getSelection(); s.removeAllRanges(); s.addRange(r); done("Sélectionné"); };
   try { navigator.clipboard.writeText(node.textContent).then(() => done("Copié ✓"), fallback); } catch (e) { fallback(); }
 }));
+// Sur PC, Nuvio importe les collections en collant leur contenu (le JSON), pas leur lien.
+document.querySelectorAll("[data-copy-contenu]").forEach((btn) => btn.addEventListener("click", () => {
+  const url = document.getElementById(btn.dataset.copyContenu).textContent.trim(), label = btn.textContent;
+  copierContenu(url).then(() => { btn.textContent = "Contenu copié ✓"; setTimeout(() => { btn.textContent = label; }, 1500); popcorn(btn); }, () => {
+    window.open(url, "_blank", "noopener");
+    toast("Copie impossible : le lien s'ouvre dans un onglet, sélectionne tout (Ctrl+A) et copie (Ctrl+C).", true);
+  });
+}));
+// Le texte est demandé pendant le clic (ClipboardItem) : le navigateur garde l'autorisation de copier.
+function copierContenu(url) {
+  const texte = fetch(url).then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); });
+  if (window.ClipboardItem) return navigator.clipboard.write([new ClipboardItem({ "text/plain": texte.then((t) => new Blob([t], { type: "text/plain" })) })]);
+  return texte.then((t) => navigator.clipboard.writeText(t));
+}
 </script>
 ${scripts("scene.js")}
 <script>${apercuDonnees(origin)}</script>

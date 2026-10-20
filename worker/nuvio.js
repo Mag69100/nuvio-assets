@@ -7,7 +7,7 @@
  *
  * Les mesures viennent du code de Nuvio TV (écran de référence 960 × 540 dp) : 1 dp = 1/9,6 cqw.
  */
-import { parametresNuvio, POSTER_URL } from "./reglages.js";
+import { parametresNuvio, POSTER_URL, APERCU_V } from "./reglages.js";
 import { creerLienAffiches } from "./lien-affiches.js";
 
 export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cramoisi) ---------- */
@@ -484,6 +484,7 @@ export const NUVIO_JS = "var __name = function (f) { return f; };\nconst NV_PP =
     const q = new URLSearchParams(), s = LA.ecrireReglages(propres);
     if (imdb && imdb !== id) q.set("imdb", imdb);
     if (s) q.set("s", "1." + s);
+    q.set("v", "${APERCU_V}");   // version du dessin : un aperçu de l'ancienne version ne ressort pas du cache
     return NV_ORIG + "/affiche/" + (m.type === "series" ? "series" : "movie") + "/" + forme + "/" + encodeURIComponent(id) + (String(q) ? "?" + q : "");
   };
 

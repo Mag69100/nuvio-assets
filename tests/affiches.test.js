@@ -118,3 +118,12 @@ test("reglages_paysage_a_part", async () => {
   // Aperçu en paysage sans réglages donnés : ceux du paysage s'il y en a.
   assert.match(NUVIO_JS, /forme === "landscape" && reglages\.affichesPaysage/);
 });
+
+// Les aperçus (/affiche/…) sont gardés un jour par le navigateur : leur adresse porte la version du dessin,
+// pour qu'une nouvelle version ne montre jamais une image dessinée par l'ancienne.
+test("apercus_versionnes", async () => {
+  const { NUVIO_JS } = await import("../worker/nuvio.js");
+  const { APERCU_V } = await import("../worker/reglages.js");
+  assert.ok(APERCU_V);
+  assert.ok(NUVIO_JS.includes(`q.set("v", "${APERCU_V}")`));
+});

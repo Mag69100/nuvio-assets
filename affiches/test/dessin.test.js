@@ -17,7 +17,7 @@ function images(map) {
   };
 }
 
-const STYLES = { statut: "texte", tendance: "fleche", qualite: "texte", titre: "m", note: "etoile", texte: "m", sep: "point", fondu: { couleur: "noir", force: "m" } };
+const STYLES = { statut: "texte", tendance: "fleche", qualite: "texte", titre: 1, note: "etoile", texte: 1, sep: "point", haut: 1, fondu: { couleur: "noir", force: "m" } };
 const base = { shape: "poster", image: "/base.jpg", full: true, gris: false, logo: "/logo.png", line: { genre: "SF", note: "8,4", annee: "2024" }, statut: null, rank: 4, quality: { extra: "DV" }, styles: STYLES };
 const f = images({
   "/base.jpg": { corps: () => gris(500, 750), type: "image/jpeg" },
@@ -161,8 +161,8 @@ test("styles : chaque choix se dessine", async () => {
     { styles: { ...STYLES, tendance: "ruban" } },
     { styles: { ...STYLES, qualite: "pastille" } }, { quality: { extra: null } },
     { styles: { ...STYLES, note: "nu" } }, { styles: { ...STYLES, note: "grand" } }, { line: { note: "8,4" }, styles: { ...STYLES, note: "grand" } },
-    { styles: { ...STYLES, texte: "s", sep: "barre" } }, { styles: { ...STYLES, texte: "l", sep: "puce" } },
-    { styles: { ...STYLES, titre: "s" } }, { styles: { ...STYLES, titre: "l" } },
+    { styles: { ...STYLES, texte: 0.7, sep: "barre" } }, { styles: { ...STYLES, texte: 1.4, sep: "puce" } },
+    { styles: { ...STYLES, titre: 0.6 } }, { styles: { ...STYLES, haut: 1.4 } }, { styles: { ...STYLES, titre: 1.4 } },
   ];
   for (const e of essais) {
     for (const shape of ["poster", "landscape"]) {
@@ -202,4 +202,15 @@ test("paysage : logo à gauche, ligne à droite", async () => {
   assert.ok(await blancs(0, 300) > 2000, "logo absent à gauche");
   assert.ok(await blancs(400, 180) < 50, "le milieu doit rester libre");
   assert.ok(await blancs(560, 240) > 150, "ligne absente à droite");
+});
+
+test("taille des badges du haut réglable à la main", async () => {
+  const largeur = async (haut) => {
+    const buf = await draw({ ...base, logo: null, line: null, quality: null, rank: 4, styles: { ...STYLES, haut } }, f);
+    const { data, info } = await pixels(buf, 0, 0, 200, 80);
+    let max = -1;
+    for (let y = 0; y < info.height; y++) for (let x = 0; x < info.width; x++) { const i = (y * info.width + x) * info.channels; if (data[i] > 225 && data[i + 1] > 225 && data[i + 2] > 225) max = Math.max(max, x); }
+    return max;
+  };
+  assert.ok(await largeur(1.4) > await largeur(0.6) + 20);
 });

@@ -29,7 +29,7 @@ test("defaut_comme_avant", () => {
   assert.deepEqual(c.quality, { extra: "DV" });
   assert.equal(c.statut, null);
   assert.equal(c.gris, false);
-  assert.deepEqual(c.styles, { statut: "texte", tendance: "fleche", qualite: "texte", titre: "m", note: "etoile", texte: "m", sep: "point", fondu: { couleur: "noir", force: "m" } });
+  assert.deepEqual(c.styles, { statut: "texte", tendance: "fleche", qualite: "texte", titre: 1, note: "etoile", texte: 1, sep: "point", haut: 1, fondu: { couleur: "noir", force: "m" } });
 });
 
 test("sans image sans texte ou sans logo : affiche normale, bas intact", () => {
@@ -147,7 +147,7 @@ test("etag_change", () => {
   const a = contenu(facts, plein), b = contenu(facts, plein);
   assert.equal(contentKey(a), contentKey(b));
   assert.match(contentKey(a), /^[0-9a-f]{40}$/);
-  for (const s of ["T0", "tr", "kp", "ls", "en", "pb", "xl", "fa", "il", "se"]) {
+  for (const s of ["T0", "tr", "kp", "la", "en", "pb", "xq", "zq", "fa", "il", "se"]) {
     assert.notEqual(contentKey(contenu(facts, plein, "poster", reglages(s))), contentKey(a), s);
   }
 });

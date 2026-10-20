@@ -26,11 +26,10 @@ const MESURES = {
   // Paysage : logo en bas à gauche, ligne du bas plus petite en bas à droite, alignés sur le même bas.
   landscape: { texte: 29, marge: 22, haut: 20, ligneBas: 26, logoL: 0.45, logoH: 0.34, cote: true, ligne: 0.72 },
 };
-const TAILLE = { s: 0.85, m: 1, l: 1.15 };
-const LOGO = { s: 0.8, m: 1, l: 1.15 };
+// Tailles réglées à la main (0,6 à 1,4) : un facteur appliqué à la mesure de base.
 const FORCE = { s: 0.7, m: 0.88, l: 0.96 };
 const SEPARATEURS = { point: "·", barre: "|", puce: "•" };
-const STYLES_DEFAUT = { statut: "texte", tendance: "fleche", qualite: "texte", titre: "m", note: "etoile", texte: "m", sep: "point", fondu: { couleur: "noir", force: "m" } };
+const STYLES_DEFAUT = { statut: "texte", tendance: "fleche", qualite: "texte", titre: 1, note: "etoile", texte: 1, sep: "point", haut: 1, fondu: { couleur: "noir", force: "m" } };
 
 async function telecharger(url, fetchImpl) {
   const res = await fetchImpl(url, { signal: AbortSignal.timeout(DELAI_MS) });
@@ -55,13 +54,13 @@ const fleche = (t) => ({
 /** Hauteur occupée par la ligne du bas (pour poser le logo juste au-dessus). */
 function hauteurLigne(content, m) {
   if (!content.line) return 0;
-  const t = m.texte * TAILLE[content.styles.texte];
+  const t = m.texte * (Number(content.styles.texte) || 1);
   return content.styles.note === "grand" && content.line.note ? t * 2.45 : t * 1.2;
 }
 
 /** La ligne du bas : genre · note · année, ou la note en grand chiffre entre le genre et l'année. */
 function ligneDuBas(content, m) {
-  const st = content.styles, t = m.texte * (m.ligne || 1) * TAILLE[st.texte], { genre, note, annee } = content.line;
+  const st = content.styles, t = m.texte * (m.ligne || 1) * (Number(st.texte) || 1), { genre, note, annee } = content.line;
   const grand = st.note === "grand" && note;
   const morceaux = [];
   if (grand) {
@@ -93,7 +92,7 @@ function ligneDuBas(content, m) {
 
 /** En haut à gauche : le statut, puis le rang de tendance dessous. */
 function hautGauche(content, m) {
-  const st = content.styles, t = m.texte, pile = [];
+  const st = content.styles, t = m.texte * (Number(st.haut) || 1), pile = [];
   if (content.statut) {
     pile.push(st.statut === "etiquette"
       ? h("div", { display: "flex", background: CREME, color: ENCRE, borderRadius: 5, padding: "4px 8px", fontSize: t * 0.62, fontWeight: 800, letterSpacing: t * 0.05 }, content.statut)
@@ -112,7 +111,7 @@ function hautGauche(content, m) {
 
 /** En haut à droite : la qualité (« 4K | DV »), en texte nu ou en pastille claire. */
 function hautDroite(content, m) {
-  const t = m.texte, pastille = content.styles.qualite === "pastille";
+  const t = m.texte * (Number(content.styles.haut) || 1), pastille = content.styles.qualite === "pastille";
   const q = [h("span", {}, "4K")];
   if (content.quality.extra) {
     q.push(h("div", { display: "flex", width: 3, height: t * 0.92, background: pastille ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.55)", margin: `0 ${t * 0.45}px` }));
@@ -180,8 +179,9 @@ export const imageUrls = (content) => [urlFond(content), urlLogo(content)].filte
 async function calqueLogo(content, [w, hgt], m, fetchImpl) {
   const url = urlLogo(content);
   if (!url) return null;
-  const echelle = LOGO[content.styles.titre] || 1;
-  const boiteL = Math.round(w * m.logoL * echelle), boiteH = Math.round(hgt * m.logoH * echelle);
+  const echelle = Number(content.styles.titre) || 1;
+  // Agrandi à la main, le logo reste dans l'affiche : jamais plus large qu'elle (marges comprises) ni plus haut que sa moitié.
+  const boiteL = Math.min(Math.round(w * m.logoL * echelle), w - 2 * m.marge), boiteH = Math.min(Math.round(hgt * m.logoH * echelle), Math.round(hgt * 0.5));
   const svgLogo = /\.svg$/i.test(content.logo);
   const brut = await telecharger(url, fetchImpl);
   // Marges transparentes retirées : seule la partie visible du logo compte pour sa taille et sa place.

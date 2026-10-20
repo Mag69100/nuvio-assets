@@ -13,14 +13,18 @@ export const DEFAUT_REGLAGES = geler({
   statut: { on: true, style: "texte" },
   tendance: { on: true, style: "fleche" },
   qualite: { on: true, montrer: "plus", style: "texte" },
-  titre: { on: true, taille: "m" },
+  titre: { on: true, taille: 1 },
   note: { on: true, source: "imdb", style: "etoile" },
   genre: { on: true, forme: "court" },
   annee: { on: true },
-  texte: { taille: "m", sep: "point" },
+  texte: { taille: 1, sep: "point", haut: 1 },
   fondu: { on: true, couleur: "noir", force: "m" },
   sortie: { nb: true, salle: false, cacherNote: true },
 });
+
+// Tailles réglables à la main : de 60 % à 140 % par pas de 5 %, une lettre par cran (a = 0,6, i = 1, q = 1,4).
+export const TAILLES = Object.freeze(Object.fromEntries([..."abcdefghijklmnopq"].map((c, i) => [c, Math.round(60 + i * 5) / 100])));
+const cranDe = (v) => Object.keys(TAILLES).reduce((a, c) => (Math.abs(TAILLES[c] - v) < Math.abs(TAILLES[a] - v) ? c : a));
 
 // Chaque code : [lettre, voie, champ, { caractère: valeur }, quand l'écrire]. L'ordre du tableau est l'ordre du lien.
 const titreOn = (r) => r.titre.on;
@@ -33,15 +37,16 @@ const CODES = [
   ["q", "qualite", "montrer", { 4: "4k" }, (r) => r.qualite.on],
   ["k", "qualite", "style", { p: "pastille" }, (r) => r.qualite.on],
   ["L", "titre", "on", { 0: false }],
-  ["l", "titre", "taille", { s: "s", l: "l" }, titreOn],
+  ["l", "titre", "taille", TAILLES, titreOn],
   ["N", "note", "on", { 0: false }, titreOn],
   ["n", "note", "source", { t: "tmdb" }, (r) => r.titre.on && r.note.on],
   ["e", "note", "style", { n: "nu", g: "grand" }, (r) => r.titre.on && r.note.on],
   ["G", "genre", "on", { 0: false }, titreOn],
   ["g", "genre", "forme", { c: "complet" }, (r) => r.titre.on && r.genre.on],
   ["A", "annee", "on", { 0: false }, titreOn],
-  ["x", "texte", "taille", { s: "s", l: "l" }, titreOn],
+  ["x", "texte", "taille", TAILLES, titreOn],
   ["p", "texte", "sep", { b: "barre", u: "puce" }, titreOn],
+  ["z", "texte", "haut", TAILLES, (r) => r.statut.on || r.tendance.on || r.qualite.on],
   ["F", "fondu", "on", { 0: false }, titreOn],
   ["f", "fondu", "couleur", { a: "affiche" }, (r) => r.titre.on && r.fondu.on],
   ["i", "fondu", "force", { s: "s", l: "l" }, (r) => r.titre.on && r.fondu.on],
@@ -74,9 +79,10 @@ export function ecrireReglages(r) {
   for (const [lettre, voie, champ, valeurs, quand] of CODES) {
     if (quand && !quand(r)) continue;
     const v = r[voie][champ];
-    if (v === DEFAUT_REGLAGES[voie][champ]) continue;
-    const car = Object.keys(valeurs).find((k) => valeurs[k] === v);
-    if (car !== undefined) s += lettre + car;
+    // Une taille est ramenée au cran le plus proche ; au cran de 100 %, c'est le défaut.
+    const car = valeurs === TAILLES ? cranDe(Number(v) || 1) : Object.keys(valeurs).find((k) => valeurs[k] === v);
+    if (car === undefined || valeurs[car] === DEFAUT_REGLAGES[voie][champ]) continue;
+    s += lettre + car;
   }
   return s;
 }

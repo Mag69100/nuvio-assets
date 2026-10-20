@@ -20,10 +20,10 @@ const CHOIX = {
   "statut.on": [true, false], "statut.style": ["texte", "etiquette"],
   "tendance.on": [true, false], "tendance.style": ["fleche", "ruban"],
   "qualite.on": [true, false], "qualite.montrer": ["plus", "4k"], "qualite.style": ["texte", "pastille"],
-  "titre.on": [true, false], "titre.taille": ["s", "m", "l"],
+  "titre.on": [true, false], "titre.taille": [0.6, 0.85, 1, 1.25, 1.4],
   "note.on": [true, false], "note.source": ["imdb", "tmdb"], "note.style": ["etoile", "nu", "grand"],
   "genre.on": [true, false], "genre.forme": ["court", "complet"], "annee.on": [true, false],
-  "texte.taille": ["s", "m", "l"], "texte.sep": ["point", "barre", "puce"],
+  "texte.taille": [0.7, 0.95, 1, 1.1, 1.4], "texte.sep": ["point", "barre", "puce"], "texte.haut": [0.6, 1, 1.15, 1.4],
   "fondu.on": [true, false], "fondu.couleur": ["noir", "affiche"], "fondu.force": ["s", "m", "l"],
   "sortie.nb": [true, false], "sortie.salle": [true, false], "sortie.cacherNote": [true, false],
 };
@@ -40,6 +40,18 @@ test("aller_retour", () => {
     const s = ecrireReglages(x);
     assert.equal(ecrireReglages(lire(s ? "s=1." + s : "")), s, s);
   }
+});
+
+// Tailles réglables à la main : de 60 % à 140 % par pas de 5 %, une lettre par cran (a = 60 %, i = 100 %, q = 140 %).
+test("tailles_libres", () => {
+  assert.equal(lire("s=1.la").titre.taille, 0.6);
+  assert.equal(lire("s=1.lq").titre.taille, 1.4);
+  assert.equal(lire("s=1.xm").texte.taille, 1.2);
+  assert.equal(lire("s=1.zc").texte.haut, 0.7);
+  assert.equal(ecrit("s=1.li"), "");                // 100 % = défaut
+  assert.equal(ecrit("s=1.lz"), "");                // hors plage : ignoré
+  const x = clone(DEFAUT_REGLAGES); x.titre.taille = 1.23; x.texte.haut = 0.66;
+  assert.equal(ecrireReglages(x), "lnzb");          // arrondi au cran le plus proche
 });
 
 test("ordre_canonique", () => {

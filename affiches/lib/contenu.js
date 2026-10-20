@@ -67,7 +67,7 @@ export function posterContent(facts, { imdbRating, rank, quality }, shape, r = D
     quality: r.qualite.on && quality && quality.uhd ? { extra: r.qualite.montrer === "4k" ? null : quality.extra || null } : null,
     styles: {
       statut: r.statut.style, tendance: r.tendance.style, qualite: r.qualite.style, titre: r.titre.taille,
-      note: r.note.style, texte: r.texte.taille, sep: r.texte.sep,
+      note: r.note.style, texte: r.texte.taille, sep: r.texte.sep, haut: r.texte.haut,
       fondu: full && r.fondu.on ? { couleur: r.fondu.couleur, force: r.fondu.force } : null,
     },
   };

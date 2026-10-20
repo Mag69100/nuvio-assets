@@ -147,7 +147,7 @@ test("etag_change", () => {
   const a = contenu(facts, plein), b = contenu(facts, plein);
   assert.equal(contentKey(a), contentKey(b));
   assert.match(contentKey(a), /^[0-9a-f]{40}$/);
-  for (const s of ["T0", "tp", "kp", "ls", "en", "pb", "xl", "fa", "il", "se"]) {
+  for (const s of ["T0", "tr", "kp", "ls", "en", "pb", "xl", "fa", "il", "se"]) {
     assert.notEqual(contentKey(contenu(facts, plein, "poster", reglages(s))), contentKey(a), s);
   }
 });

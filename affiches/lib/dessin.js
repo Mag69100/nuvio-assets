@@ -11,7 +11,7 @@ import satori from "satori";
 export const SIZES = { poster: [400, 600], landscape: [800, 450] };
 const IMG = "https://image.tmdb.org/t/p/";
 const DELAI_MS = 3000;
-const OR = "#f5c518", OR_PASTILLE = "#d4a53c", ENCRE = "#120b0e", CREME = "#f3ead7";
+const OR = "#f5c518", ENCRE = "#120b0e", CREME = "#f3ead7";
 
 const police = (fichier) => readFileSync(new URL(`../fonts/${fichier}`, import.meta.url));
 const FONTS = [
@@ -23,7 +23,8 @@ const FONTS = [
 // Mesures par forme (en pixels de l'affiche), puis facteurs des réglages.
 const MESURES = {
   poster: { texte: 26, marge: 20, haut: 18, ligneBas: 24, logoL: 0.8, logoH: 0.24 },
-  landscape: { texte: 29, marge: 22, haut: 20, ligneBas: 27, logoL: 0.55, logoH: 0.3 },
+  // Paysage : logo en bas à gauche, ligne du bas plus petite en bas à droite, alignés sur le même bas.
+  landscape: { texte: 29, marge: 22, haut: 20, ligneBas: 26, logoL: 0.45, logoH: 0.34, cote: true, ligne: 0.72 },
 };
 const TAILLE = { s: 0.85, m: 1, l: 1.15 };
 const LOGO = { s: 0.8, m: 1, l: 1.15 };
@@ -60,7 +61,7 @@ function hauteurLigne(content, m) {
 
 /** La ligne du bas : genre · note · année, ou la note en grand chiffre entre le genre et l'année. */
 function ligneDuBas(content, m) {
-  const st = content.styles, t = m.texte * TAILLE[st.texte], { genre, note, annee } = content.line;
+  const st = content.styles, t = m.texte * (m.ligne || 1) * TAILLE[st.texte], { genre, note, annee } = content.line;
   const grand = st.note === "grand" && note;
   const morceaux = [];
   if (grand) {
@@ -81,8 +82,11 @@ function ligneDuBas(content, m) {
       morceaux.push(p);
     });
   }
+  const place = m.cote
+    ? { right: m.marge, justifyContent: "flex-end", alignItems: "flex-end" }
+    : { left: 0, right: 0, justifyContent: "center", alignItems: "center" };
   return h("div", {
-    position: "absolute", left: 0, right: 0, bottom: m.ligneBas, display: "flex", justifyContent: "center", alignItems: "center",
+    position: "absolute", bottom: m.ligneBas, display: "flex", ...place,
     fontSize: t, fontWeight: 600, color: "rgba(255,255,255,0.9)", textShadow: OMBRE,
   }, morceaux);
 }
@@ -96,9 +100,7 @@ function hautGauche(content, m) {
       : h("div", { display: "flex", fontSize: t * 0.7, fontWeight: 800, letterSpacing: t * 0.08, color: "#fff", textShadow: OMBRE }, content.statut));
   }
   if (content.rank) {
-    if (st.tendance === "pastille") {
-      pile.push(h("div", { display: "flex", background: "rgba(14,14,16,0.8)", border: `1.5px solid ${OR_PASTILLE}`, borderRadius: 9, padding: "4px 10px", fontSize: t * 0.8, fontWeight: 800, color: "#fff" }, `#${content.rank} Aujourd'hui`));
-    } else if (st.tendance === "ruban") {
+    if (st.tendance === "ruban") {
       pile.push(h("div", { display: "flex", background: OR, color: ENCRE, marginLeft: -m.marge, borderRadius: "0 6px 6px 0", padding: `4px 12px 4px ${m.marge}px`, fontSize: t * 0.92, fontWeight: 800 }, `N°${content.rank}`));
     } else {
       pile.push(h("div", { display: "flex", alignItems: "center", fontSize: t, fontWeight: 800, color: "#fff", textShadow: OMBRE }, [fleche(t), h("span", {}, `N°${content.rank}`)]));
@@ -194,8 +196,13 @@ async function calqueLogo(content, [w, hgt], m, fetchImpl) {
   const { data, info } = await sharp(source).extract(zone)
     .resize({ width: boiteL, height: boiteH, fit: "inside" })
     .png().toBuffer({ resolveWithObject: true });
-  // Centré sur sa partie pleine (les lettres) : halos et traînées semi-transparents ne le décalent pas.
+  // Placé d'après sa partie pleine (les lettres) : halos et traînées semi-transparents ne le décalent pas.
   const plein = cadreVisible(await sharp(data).raw().toBuffer({ resolveWithObject: true }), 128);
+  if (m.cote) {
+    // Paysage : les lettres commencent à la marge de gauche, et le logo descend jusqu'au bas de la ligne.
+    const left = Math.min(Math.max(Math.round(m.marge - plein.left), 0), w - info.width);
+    return { input: data, left, top: Math.max(0, Math.round(hgt - m.ligneBas - info.height)) };
+  }
   const centre = plein.left + plein.width / 2;
   const left = Math.min(Math.max(Math.round(w / 2 - centre), 0), w - info.width);
   const bas = m.ligneBas + hauteurLigne(content, m) + m.texte * 0.65;

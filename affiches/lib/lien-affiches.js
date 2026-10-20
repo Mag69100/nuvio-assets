@@ -28,7 +28,7 @@ const CODES = [
   ["S", "statut", "on", { 0: false }],
   ["s", "statut", "style", { e: "etiquette" }, (r) => r.statut.on],
   ["T", "tendance", "on", { 0: false }],
-  ["t", "tendance", "style", { p: "pastille", r: "ruban" }, (r) => r.tendance.on],
+  ["t", "tendance", "style", { r: "ruban" }, (r) => r.tendance.on],
   ["Q", "qualite", "on", { 0: false }],
   ["q", "qualite", "montrer", { 4: "4k" }, (r) => r.qualite.on],
   ["k", "qualite", "style", { p: "pastille" }, (r) => r.qualite.on],

@@ -18,7 +18,7 @@ test("defaut_vide", () => {
 function hasard(graine) { let s = graine; return () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648; }
 const CHOIX = {
   "statut.on": [true, false], "statut.style": ["texte", "etiquette"],
-  "tendance.on": [true, false], "tendance.style": ["fleche", "pastille", "ruban"],
+  "tendance.on": [true, false], "tendance.style": ["fleche", "ruban"],
   "qualite.on": [true, false], "qualite.montrer": ["plus", "4k"], "qualite.style": ["texte", "pastille"],
   "titre.on": [true, false], "titre.taille": ["s", "m", "l"],
   "note.on": [true, false], "note.source": ["imdb", "tmdb"], "note.style": ["etoile", "nu", "grand"],
@@ -44,6 +44,8 @@ test("aller_retour", () => {
 
 test("ordre_canonique", () => {
   assert.equal(ecrit("s=1.Q0T0"), "T0Q0");
+  // La pastille de tendance a été retirée (le propriétaire ne l'aimait pas) : son code est ignoré.
+  assert.equal(ecrit("s=1.tp"), "");
 });
 
 test("sous_reglages_ignores", () => {

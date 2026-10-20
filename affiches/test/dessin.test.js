@@ -158,7 +158,7 @@ test("fondu aux couleurs de l'affiche", async () => {
 test("styles : chaque choix se dessine", async () => {
   const essais = [
     { statut: "NOUVEAU", styles: { ...STYLES, statut: "texte" } }, { statut: "EN SALLE", styles: { ...STYLES, statut: "etiquette" } },
-    { styles: { ...STYLES, tendance: "pastille" } }, { styles: { ...STYLES, tendance: "ruban" } },
+    { styles: { ...STYLES, tendance: "ruban" } },
     { styles: { ...STYLES, qualite: "pastille" } }, { quality: { extra: null } },
     { styles: { ...STYLES, note: "nu" } }, { styles: { ...STYLES, note: "grand" } }, { line: { note: "8,4" }, styles: { ...STYLES, note: "grand" } },
     { styles: { ...STYLES, texte: "s", sep: "barre" } }, { styles: { ...STYLES, texte: "l", sep: "puce" } },
@@ -188,4 +188,18 @@ test("grand chiffre : centré en bas", async () => {
   assert.ok(max > 0, "chiffre absent");
   assert.ok(Math.abs((min + max) / 2 - 200) <= 10, `centre ${(min + max) / 2}`);
   assert.ok(max - min > 60, `trop petit : ${max - min}`);
+});
+
+// Paysage : le logo en bas à gauche, la ligne du bas en petit en bas à droite (comme une carte de plateforme).
+test("paysage : logo à gauche, ligne à droite", async () => {
+  const buf = await draw({ ...base, shape: "landscape", image: "/large.jpg", rank: null, quality: null }, f);
+  const blancs = async (left, width) => {
+    const { data, info } = await pixels(buf, left, 300, width, 150);
+    let n = 0;
+    for (let i = 0; i < data.length; i += info.channels) if (data[i] > 225 && data[i + 1] > 225 && data[i + 2] > 225) n++;
+    return n;
+  };
+  assert.ok(await blancs(0, 300) > 2000, "logo absent à gauche");
+  assert.ok(await blancs(400, 180) < 50, "le milieu doit rester libre");
+  assert.ok(await blancs(560, 240) > 150, "ligne absente à droite");
 });

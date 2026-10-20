@@ -111,9 +111,35 @@ function blocNotes(content, t, accent) {
 
 // ---------- La ligne du bas ----------
 
+/**
+ * Largeur estimée de la ligne du bas, en multiples de la taille du texte (une lettre ≈ 0,56 ; Bebas ≈ 0,42) :
+ * assez juste pour réduire le texte d'une ligne trop chargée avant qu'elle ne déborde ou ne passe à la ligne.
+ */
+function largeurLigne(l, st, police) {
+  const c = police === "Bebas Neue" ? 0.44 : 0.6, mots = (x) => (x ? String(x).length * c : 0);
+  if (st.note === "grand" && l.note) return mots(l.genre) * 0.77 + mots(l.note) * 2.45 + mots(l.annee) * 0.77 + mots(l.duree) * 0.77 + 2;
+  const parts = [l.genre, l.note || (l.notes && l.notes.length), l.annee, l.duree].filter(Boolean).length;
+  let em = mots(l.genre) + mots(l.annee) + mots(l.duree) + Math.max(0, parts - 1) * (0.7 + c);
+  if (l.note) em += mots(l.note) + (st.note === "badge" ? 4 * c * 0.6 + 0.75 : st.note === "etoile" ? 1.05 : 0);
+  for (const x of l.notes || []) em += 1.35 + 0.22 + mots(x.v) + 0.45;
+  if (l.age) em += 0.4 + (String(l.age).length + 1) * c * 0.72 + 0.55;
+  if (l.plateforme) em += 1.55;
+  return em;
+}
+
 /** La ligne du bas : genre · notes · année · durée (dans l'ordre choisi), ou la note en grand chiffre, puis l'âge et la plateforme. */
-function ligneDuBas(content, m, accent, images) {
-  const st = content.styles, t = m.texte * (m.ligne || 1) * (Number(st.texte) || 1), l = content.line;
+function ligneDuBas(content, m, accent, images, [w]) {
+  const st = content.styles;
+  // Ligne trop chargée pour sa place : le texte rapetisse (jusqu'à 55 %) au lieu de déborder ; si elle ne tient
+  // toujours pas, le genre, puis la durée, puis l'année laissent la place (un texte plus petit ne se lirait plus).
+  const place0 = (m.disposition === "cote" ? w * 0.5 : w - 2 * m.marge) - 4;
+  let t = m.texte * (m.ligne || 1) * (Number(st.texte) || 1), l = content.line;
+  for (const k of ["genre", "duree", "annee"]) {
+    if (largeurLigne(l, st, m.police) * t * 0.55 <= place0) break;
+    l = { ...l };
+    delete l[k];
+  }
+  t *= Math.max(0.55, Math.min(1, place0 / (largeurLigne(l, st, m.police) * t)));
   const grand = st.note === "grand" && l.note;
   const morceaux = [];
   // L'âge conseillé, dans un petit cadre au bout de la ligne (sans séparateur).
@@ -148,7 +174,7 @@ function ligneDuBas(content, m, accent, images) {
     gauche: { left: m.marge, justifyContent: "flex-start", alignItems: "center" },
   }[m.disposition];
   return h("div", {
-    position: "absolute", bottom: m.ligneBas, display: "flex", ...place,
+    position: "absolute", bottom: m.ligneBas, display: "flex", ...place, whiteSpace: "nowrap",
     fontSize: t, fontWeight: 600, color: "rgba(255,255,255,0.9)", textShadow: OMBRE,
   }, morceaux);
 }
@@ -256,7 +282,7 @@ const descenteBandeau = (content, [w]) => Math.round(Math.min(w, 600) * 0.5 * 0.
 /** Calque des textes et badges, en SVG transparent de la taille de l'affiche. */
 async function calqueTexte(content, taille, m, accent, images) {
   const [w, hgt] = taille, st = content.styles, enfants = [];
-  if (content.line) enfants.push(ligneDuBas(content, m, accent, images));
+  if (content.line) enfants.push(ligneDuBas(content, m, accent, images, taille));
   if (content.line && st.barre === "fine" && content.full) enfants.push(barreFine(content, m, taille, accent));
   const [coteStatut, coteQualite] = st.inverse ? ["right", "left"] : ["left", "right"];
   const coinBandeau = content.bandeau ? (content.bandeau.coin === "g" ? "left" : "right") : null;

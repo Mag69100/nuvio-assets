@@ -400,3 +400,18 @@ test("v2_qualite_complete", async () => {
   const buf = await draw({ ...seul, line: null, quality: { label: "1080p", extra: null, atmos: true } }, f);
   assert.equal((await sharp(buf).metadata()).width, 400);
 });
+
+// Une ligne chargée (genre long, plusieurs notes, durée, âge) reste sur une seule ligne, dans les marges :
+// le texte rapetisse au besoin plutôt que de passer à la ligne ou de sortir de l'affiche.
+test("v2_ligne_chargee_tient", async () => {
+  const line = { genre: "Science-fiction", note: "8,7", notes: [{ s: "rt", v: "94 %", n: 9.4 }, { s: "mc", v: "81", n: 8.1 }], annee: "2014", duree: "2 h 49", age: "12" };
+  for (const styles of [STYLES, { ...STYLES, note: "badge" }, { ...STYLES, texte: 1.4 }]) {
+    const buf = await draw({ ...seul, line, styles }, f);
+    assert.equal(await compte(buf, [0, 480, 14, 120], blanc), 0, "déborde à gauche");
+    assert.equal(await compte(buf, [386, 480, 14, 120], blanc), 0, "déborde à droite");
+    const { data, info } = await pixels(buf, 0, 440, 400, 160);
+    const lignes = new Set();
+    for (let y = 0; y < info.height; y++) for (let x = 0; x < info.width; x++) { const i = (y * info.width + x) * info.channels; if (blanc(data[i], data[i + 1], data[i + 2])) lignes.add(y); }
+    assert.ok(Math.max(...lignes) - Math.min(...lignes) < 40, `sur plusieurs lignes : ${Math.max(...lignes) - Math.min(...lignes)} px`);
+  }
+});

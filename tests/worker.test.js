@@ -412,3 +412,14 @@ test("tendances_du_jour_dans_l_ordre_meme_avec_les_films_a_venir", async () => {
   const { metas } = await (await get(`/${seg({ u: 1 })}/catalog/series/accueil-tendances-series.json`)).json();
   assert.deepEqual(metas.map((m) => m.id), ["tmdb:3", "tmdb:1", "tmdb:2"]);
 });
+
+test("collections_ordre_des_tuiles", async () => {
+  const folders = ["a", "b", "c", "d"].map((id) => ({ id, title: id.toUpperCase() }));
+  globalThis.fetch = async (url) => new Response(String(url).endsWith("/collections/collections.json")
+    ? JSON.stringify([{ id: "genres", title: "Genres", folders }]) : "{}", { headers: { "Content-Type": "application/json" } });
+  const ids = async (cfg) => (await (await get(`/${seg(cfg)}/collections.json`)).json())[0].folders.map((f) => f.id);
+  // Ordre choisi d'abord, les tuiles absentes de la liste ensuite dans l'ordre du fichier, les masquées retirées.
+  assert.deepEqual(await ids({ to: { 2: [2, 0] } }), ["c", "a", "b", "d"]);
+  assert.deepEqual(await ids({ to: { 2: [2, 0] }, t: { 2: [1] } }), ["c", "a", "d"]);
+  assert.deepEqual(await ids({ t: { 2: [3] } }), ["a", "b", "c"]);
+});

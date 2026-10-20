@@ -51,3 +51,11 @@ test("jeton_alerte", () => {
   assert.equal(decodeConfig(seg({ al: "zz" }), rows, discover).al, "");
   assert.equal(decodeConfig("", rows, discover).al, "");
 });
+
+test("ordre_des_tuiles", () => {
+  const cfg = decodeConfig(seg({ to: { 2: [3, 0, 3, "x", -1, 1] }, t: { 2: [1] } }), rows, discover);
+  assert.deepEqual(cfg.to, { genres: [3, 0, 1] });
+  assert.deepEqual(cfg.t, { genres: [1] });
+  assert.deepEqual(decodeConfig(seg({ to: [1, 2] }), rows, discover).to, {});
+  assert.deepEqual(decodeConfig("", rows, discover).to, {});
+});

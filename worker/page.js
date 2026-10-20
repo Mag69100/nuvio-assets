@@ -114,7 +114,7 @@ hoteRefresh();
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 export function configurePage({ origin, cfg, rows, discover, providers, collections, defaults, regions, genres, languages, sorts, seasons, maxCustom, season, copy = false, fixed = "", fixedOk = false }) {
-  const plain = (c) => ({ n: c.n, r: c.r, p: c.p, d: c.d, c: c.c, o: c.o, x: c.x, g: c.g, e: c.e, m: c.m, a: c.a, f: c.f, h: c.h, t: c.t, u: c.u, k: c.k, al: c.al });
+  const plain = (c) => ({ n: c.n, r: c.r, p: c.p, d: c.d, c: c.c, o: c.o, x: c.x, g: c.g, e: c.e, m: c.m, a: c.a, f: c.f, h: c.h, t: c.t, to: c.to || {}, u: c.u, k: c.k, al: c.al });
   const data = {
     origin, maxCustom, fixed, fixedOk,
     cfg: plain(cfg),
@@ -444,6 +444,11 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .coll-head .switch b { font-weight: 800; }
 .coll details summary { cursor: pointer; color: var(--bulb); font-weight: 700; font-size: .88rem; }
 .coll details .chips { margin-top: 10px; }
+/* Tuiles d'une collection : une ligne chacune, la pastille les montre ou les cache, les flèches les déplacent. */
+.tiles { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; max-width: 460px; }
+.tiles li { display: flex; align-items: center; gap: 4px; }
+.tiles .chip { flex: 1; min-width: 0; margin-right: 4px; }
+.tiles .chip span { display: flex; }
 .coll .chip span { padding: 6px 11px; font-size: .84rem; }
 .coll.off { opacity: .55; }
 /* Repère : sur l'accueil de Nuvio, les rangées du Catalogue FR passent entre Plateformes et les autres collections. */
@@ -687,7 +692,7 @@ ${copy ? "" : `        <p class="sub">Le lien partagé sature ? <a href="${origi
 
       <section class="act" id="s-collections">
         <header><span>Grand écran</span><h2>Les collections</h2></header>
-        <p class="sub">Les grandes tuiles de l'accueil, à importer avec le second lien de ton billet. Plateformes reste tout en haut ; les autres viennent après tes rangées. Choisis les collections, puis les tuiles de chacune.</p>
+        <p class="sub">Les grandes tuiles de l'accueil, à importer avec le second lien de ton billet. Plateformes reste tout en haut ; les autres viennent après tes rangées. Choisis les collections, puis les tuiles de chacune et leur ordre.</p>
         <div id="collections" style="display:grid;gap:10px"></div>
       </section>
 
@@ -811,8 +816,13 @@ function compact(st) {
   if (st.al) o.al = st.al;
   if (!same(st.h, df.h)) o.h = mask(st.h, D.seasons.map(s => s[0]));
   const t = {};
-  D.collections.forEach((c, i) => { if (st.t[c.id] && st.t[c.id].length) t[i] = st.t[c.id]; });
+  const to = {};
+  D.collections.forEach((c, i) => {
+    if (st.t[c.id] && st.t[c.id].length) t[i] = st.t[c.id];
+    if (st.to[c.id] && st.to[c.id].length) to[i] = st.to[c.id];
+  });
   if (Object.keys(t).length) o.t = t;
+  if (Object.keys(to).length) o.to = to;
   return o;
 }
 function enc(obj) {
@@ -1125,28 +1135,61 @@ function renderCollections() {
   const box = $("collections"); box.textContent = "";
   byPos(D.collections).forEach(c => {
     const on = state.c.includes(c.id);
-    const hidden = new Set(state.t[c.id] || []);
+    const hidden = state.t[c.id] || [];
     const cb = el("input", { type: "checkbox", id: "col-" + c.id }); cb.checked = on;
     cb.addEventListener("change", () => { toggle("c", c.id, cb.checked, D.collections.map(x => x.id)); renderCollections(); });
-    const count = c.folders.length - hidden.size;
+    const count = c.folders.length - hidden.length;
     const head = el("div", { class: "coll-head" }, el("label", { class: "switch" }, cb, el("span", null, el("b", { text: c.name }), el("small", { text: count + " tuile" + (count > 1 ? "s" : "") + " sur " + c.folders.length }))));
     const wrap = el("div", { class: "coll" + (on ? "" : " off") }, head);
     if (c.folders.length) {
-      const chipsBox = el("div", { class: "chips" });
-      c.folders.forEach(({ title, i }) => chip(chipsBox, "tile-" + c.id + "-" + i, title, !hidden.has(i), (keep) => {
-        const set = new Set(state.t[c.id] || []); keep ? set.delete(i) : set.add(i);
-        if (set.size) state.t[c.id] = [...set].sort((a, b) => a - b); else delete state.t[c.id];
-        const small = head.querySelector("small"); const n = c.folders.length - set.size;
-        small.textContent = n + " tuile" + (n > 1 ? "s" : "") + " sur " + c.folders.length;
-        update();
-      }));
-      const det = el("details", null, el("summary", { text: "Choisir les tuiles" }), chipsBox);
+      const list = el("ol", { class: "tiles" });
+      drawTiles(c, list, head);
+      const det = el("details", null, el("summary", { text: "Choisir les tuiles et leur ordre" }), list);
       if (c.id === "plateformes-streaming") det.append(el("p", { class: "sub", style: "margin:8px 0 0", text: "Les tuiles des plateformes suivent aussi tes abonnements." }));
       wrap.append(det);
     }
     box.append(wrap);
     if (c.id === "plateformes-streaming") box.append(el("p", { class: "coll-rangees" }, "↓ Ici, sur l'accueil : ", el("b", { text: "tes rangées du Catalogue FR" }), " ↓"));
   });
+}
+// Tuiles d'une collection dans l'ordre choisi (positions dans le fichier) ; les autres suivent, ordre habituel.
+function tileOrder(c) {
+  const o = state.to[c.id] || [];
+  const rank = (f) => { const k = o.indexOf(f.i); return k < 0 ? o.length : k; };
+  return [...c.folders].sort((a, b) => rank(a) - rank(b));
+}
+function drawTiles(c, list, head, moved) {
+  list.textContent = "";
+  const hidden = new Set(state.t[c.id] || []);
+  const tiles = tileOrder(c);
+  tiles.forEach(({ title, i }, k) => {
+    const li = el("li", { "data-i": String(i) });
+    chip(li, "tile-" + c.id + "-" + i, title, !hidden.has(i), (keep) => {
+      const set = new Set(state.t[c.id] || []); keep ? set.delete(i) : set.add(i);
+      if (set.size) state.t[c.id] = [...set].sort((a, b) => a - b); else delete state.t[c.id];
+      const n = c.folders.length - set.size;
+      head.querySelector("small").textContent = n + " tuile" + (n > 1 ? "s" : "") + " sur " + c.folders.length;
+      update();
+    });
+    [["↑", -1, "Monter"], ["↓", 1, "Descendre"]].forEach(([t, d, a]) => {
+      const j = k + d;
+      const bt = el("button", { type: "button", class: "arrow", text: t, "aria-label": a + " " + title });
+      bt.disabled = j < 0 || j >= tiles.length;
+      bt.addEventListener("click", () => {
+        const ids = tiles.map(f => f.i); [ids[k], ids[j]] = [ids[j], ids[k]];
+        if (same(ids, c.folders.map(f => f.i))) delete state.to[c.id]; else state.to[c.id] = ids;
+        drawTiles(c, list, head, { i, a }); update();
+      });
+      li.append(bt);
+    });
+    list.append(li);
+  });
+  // La flèche suit la tuile déplacée (l'autre flèche quand elle arrive au bout).
+  if (moved) {
+    const arrows = [...list.querySelectorAll('li[data-i="' + moved.i + '"] .arrow')];
+    const again = arrows.find(b => b.getAttribute("aria-label").startsWith(moved.a) && !b.disabled) || arrows.find(b => !b.disabled);
+    if (again) again.focus();
+  }
 }
 function renderAll() {
   $("name").value = state.n;

@@ -1564,6 +1564,12 @@ function displayOrder(c, folders) {
   const rank = (f) => { const i = PLATFORM_ORDER.indexOf(f.id); return i < 0 ? PLATFORM_ORDER.length : i; };
   return [...folders].sort((a, b) => rank(a) - rank(b));
 }
+/** Ordre choisi sur la page (positions dans le fichier) ; les tuiles absentes gardent l'ordre habituel, après. */
+function userOrder(order, folders, pos) {
+  if (!order || !order.length) return folders;
+  const rank = (f) => { const k = order.indexOf(pos(f)); return k < 0 ? order.length : k; };
+  return [...folders].sort((a, b) => rank(a) - rank(b));
+}
 
 /** Collections Nuvio filtrées : collections, plateformes et tuiles choisies, filtres appliqués. */
 async function collections(cfg) {
@@ -1575,7 +1581,7 @@ async function collections(cfg) {
     .filter((c) => cfg.c.includes(c.id))
     .map((c) => {
       const hidden = new Set(cfg.t[c.id] || []);
-      const folders = displayOrder(c, c.folders)
+      const folders = userOrder(cfg.to[c.id], displayOrder(c, c.folders), (f) => c.folders.indexOf(f))
         .filter((f) => !hidden.has(c.folders.indexOf(f)))
         .filter((f) => c.id !== "plateformes-streaming" || !platformFolders.has(f.id) || chosenFolders.has(f.id))
         .map((f) => (filtered && f.sources ? { ...f, sources: f.sources.map((src) => filterSource(src, cfg)) } : f));

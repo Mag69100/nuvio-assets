@@ -93,6 +93,7 @@ export function defaults(rows, discover) {
     f: false,         // mode famille
     h: SEASON_KEYS.map(([k]) => k),   // fêtes suivies
     t: {},            // tuiles masquées par collection : { idCollection: [positions] }
+    to: {},           // ordre des tuiles par collection : { idCollection: [positions dans l'ordre voulu] }
     u: false,         // titres pas encore regardables dans les Tendances (masqués par défaut)
     k: "",            // clé Gemini personnelle (IA avec le quota de l'utilisateur)
     al: "",           // jeton d'alerte : lien de l'hébergeur d'une copie (rangée « Mise à jour »)
@@ -139,6 +140,7 @@ function cleanCustom(x) {
  *   p plateformes · d Découvrir (masque) · c collections (masque) · o noms personnalisés
  *   x rangées sur mesure · g pays · e genres masqués · m note mini · a année mini
  *   f mode famille · h fêtes (masque) · t tuiles masquées par collection
+ *   to ordre des tuiles par collection (positions dans le fichier ; les autres suivent dans l'ordre habituel)
  *   u titres pas encore regardables gardés dans les Tendances
  *   k clé Gemini personnelle (l'IA tourne avec le quota de l'utilisateur ; hors clé de cache)
  *   al jeton d'alerte de l'hébergeur d'une copie (voir hote.js ; hors clé de cache)
@@ -170,13 +172,18 @@ export function decodeConfig(segment, rows, discover) {
       if (id && rowIds.includes(id) && name) o[id] = name;
     }
   }
-  const t = {};
-  if (raw.t && typeof raw.t === "object") {
-    for (const [k, v] of Object.entries(raw.t)) {
-      const col = COLLECTIONS[Number(k)];
-      if (col && Array.isArray(v)) t[col.id] = [...new Set(v.map(Number).filter((i) => Number.isInteger(i) && i >= 0 && i < 64))];
+  // Tuiles par collection : { position de la collection: [positions des tuiles dans le fichier] }.
+  const tiles = (v) => {
+    const out = {};
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      for (const [k, list] of Object.entries(v)) {
+        const col = COLLECTIONS[Number(k)];
+        if (col && Array.isArray(list)) out[col.id] = [...new Set(list.map(Number).filter((i) => Number.isInteger(i) && i >= 0 && i < 64))];
+      }
     }
-  }
+    return out;
+  };
+  const t = tiles(raw.t), to = tiles(raw.to);
   const region = REGIONS.find((r) => r.id === raw.g);
   const genreNames = GENRES.map(([n]) => n);
 
@@ -186,7 +193,7 @@ export function decodeConfig(segment, rows, discover) {
     p: fromList(raw.p, PROVIDERS.map((it) => it.id)) ?? base.p,
     d: fromMask(raw.d, discover.map((it) => it.id)) ?? base.d,
     c: fromMask(raw.c, COLLECTIONS.map((it) => it.id)) ?? base.c,
-    o, x, t,
+    o, x, t, to,
     g: region ? region.id : base.g,
     e: fromList(raw.e, genreNames) ?? base.e,
     m: Math.min(9, Math.max(0, Number(raw.m) || 0)),

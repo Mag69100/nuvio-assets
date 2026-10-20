@@ -1,8 +1,8 @@
 /**
  * Liens fixes : /f<identifiant>/manifest.json au lieu des réglages écrits dans l'adresse. Les réglages
  * restent dans la base D1 (LIENS) : la page de personnalisation les modifie sans changer le lien, et
- * Nuvio, qui relit le manifest de ses addons toutes les 6 heures, voit les nouvelles rangées sans
- * réinstallation.
+ * Nuvio voit les nouvelles rangées sans réinstallation : tout de suite avec « Actualiser les addons »,
+ * sinon quand il relit de lui-même le manifest de ses addons (toutes les 6 heures).
  *
  * Rien de lisible dans la base : la ligne est rangée sous une empreinte de l'identifiant et chiffrée
  * avec une clé tirée de lui (les réglages contiennent parfois une clé Gemini). Seul qui a le lien

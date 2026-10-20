@@ -4,7 +4,6 @@
  * donne null, et l'affiche part sans badge plutôt qu'avec un badge faux.
  */
 export const TORRENTIO = "https://torrentio.strem.fun";
-export const QUALITE_ACTIVE = process.env.QUALITE !== "off";
 const DELAI_MS = 2500;
 const GARDE_MS = 3 * 86400 * 1000, GARDE_ECHEC_MS = 3600 * 1000;
 

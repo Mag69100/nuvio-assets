@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/:type/:shape/:id.jpg", "destination": "/api/affiche?type=:type&shape=:shape&id=:id" }
+  ],
+  "functions": {
+    "api/affiche.js": { "includeFiles": "fonts/**" }
+  },
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- ."
+}

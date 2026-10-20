@@ -4,7 +4,7 @@
     { "source": "/:type/:shape/:id.jpg", "destination": "/api/affiche?type=:type&shape=:shape&id=:id" }
   ],
   "functions": {
-    "api/affiche.js": { "includeFiles": "fonts/**" }
+    "api/affiche.js": { "includeFiles": "{fonts/**,node_modules/harfbuzzjs/hb.wasm,node_modules/satori/yoga.wasm}" }
   },
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- ."
 }

@@ -15,8 +15,24 @@ Les affiches sont en portrait ou en paysage, au format JPEG.
 Dans Nuvio : Paramètres → Disposition → Custom Poster Source, coller :
 
 ```
-https://<projet>.vercel.app/{type}/{shape}/{id}.jpg?imdb={imdb_id?}
+https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?imdb={imdb_id?}
 ```
+
+Mesures à la mise en ligne (2026-10-20) :
+- **Affiche jamais demandée :** 0,6 à 1,5 s, démarrage à froid compris.
+- **Affiche déjà servie :** environ 0,3 s, depuis le cache de Vercel.
+- **Revalidation par `ETag` :** une réponse 304, sans redessiner.
+- **Poids :** 30 à 70 Ko par affiche.
+- **Torrentio depuis Vercel :** 20 films connus en 4K sur 20 ont reçu leur badge.
+
+Caches :
+- **Nuvio** garde une affiche une semaine, puis revérifie son `ETag`.
+- **Le CDN de Vercel** la garde un jour, puis la redessine en arrière-plan.
+
+Estimation pour environ 300 personnes actives par jour : 600 000 à 900 000 requêtes et 2 à 3 h de calcul par mois,
+près des limites gratuites. Il faut regarder la consommation après quelques jours.
+- **Requêtes trop hautes :** allonger le `max-age` de Nuvio dans `api/affiche.js`.
+- **Calcul trop haut :** allonger `Vercel-CDN-Cache-Control`.
 
 ## Variables (projet Vercel)
 

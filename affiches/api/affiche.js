@@ -136,7 +136,8 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       }
       const etag = `"${contentKey(content)}"`;
       // Classée, presque classée ou avec un statut : jusqu'au changement de photo des tendances (voir cacheDe).
-      const cache = cacheDe({ enRetard, place, statut: content.statut });
+      // Un bandeau qui porte le statut (une date) suit la même règle que le statut.
+      const cache = cacheDe({ enRetard, place, statut: content.statut || (content.bandeau && reglages.bandeau.porte === "statut") });
       const headers = { ...CORS, ...cache, ETag: etag };
       if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });
       const jpg = await draw(content, images);

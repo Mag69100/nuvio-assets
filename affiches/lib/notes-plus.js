@@ -10,10 +10,14 @@ const SOURCES = { tomatoes: "rt", metacritic: "mc", letterboxd: "lb" };
 let memo = new Map();   // imdb → { promesse, until }
 export function resetMemo() { memo = new Map(); }
 
-/** { rt (%), mc (sur 100), lb (sur 5) } d'une réponse MDBList ; null pour une note absente. */
+/**
+ * { rt (%), mc (sur 100), lb (sur 5) } d'une réponse MDBList (null pour une note absente) ; null pour une réponse
+ * sans tableau de notes (clé refusée, quota, titre inconnu) : elle ne doit pas être gardée comme « aucune note ».
+ */
 export function parseMdblist(d) {
+  if (!d || d.response === false || !Array.isArray(d.ratings)) return null;
   const out = { rt: null, mc: null, lb: null };
-  for (const r of (d && d.ratings) || []) {
+  for (const r of d.ratings) {
     const cle = SOURCES[r && r.source], v = Number(r && r.value);
     if (cle && v > 0) out[cle] = v;
   }

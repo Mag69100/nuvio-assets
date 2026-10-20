@@ -268,3 +268,8 @@ test("v2_styles_hors_defaut_seulement", () => {
   assert.deepEqual(st.badges, { style: "verre", forme: "pilule", opacite: "s", couleur: "or" });
   assert.equal(st.fondu.hauteur, "long");
 });
+
+test("revue_image_du_film_marque_fond_large", () => {
+  assert.equal(contenu(v2, plein, "poster", reglages("Uf")).fondLarge, true);
+  assert.equal(contenu(v2, plein).fondLarge, undefined);
+});

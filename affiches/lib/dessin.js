@@ -134,12 +134,15 @@ function ligneDuBas(content, m, accent, images, [w]) {
   // toujours pas, le genre, puis la durée, puis l'année laissent la place (un texte plus petit ne se lirait plus).
   const place0 = (m.disposition === "cote" ? w * 0.5 : w - 2 * m.marge) - 4;
   let t = m.texte * (m.ligne || 1) * (Number(st.texte) || 1), l = content.line;
-  for (const k of ["genre", "duree", "annee"]) {
+  // Seulement pour une ligne qui porte des éléments v2 (autres notes, durée, plateforme) : une ligne d'avant garde
+  // exactement son dessin (même ETag, même image).
+  const chargee = !!((l.notes && l.notes.length) || l.duree || l.plateforme);
+  for (const k of chargee ? ["genre", "duree", "annee"] : []) {
     if (largeurLigne(l, st, m.police) * t * 0.55 <= place0) break;
     l = { ...l };
     delete l[k];
   }
-  t *= Math.max(0.55, Math.min(1, place0 / (largeurLigne(l, st, m.police) * t)));
+  if (chargee) t *= Math.max(0.55, Math.min(1, place0 / (largeurLigne(l, st, m.police) * t)));
   const grand = st.note === "grand" && l.note;
   const morceaux = [];
   // L'âge conseillé, dans un petit cadre au bout de la ligne (sans séparateur).
@@ -369,7 +372,8 @@ async function calquesBarreVerre(base, content, taille, m) {
 // ---------- Images ----------
 
 // Adresses des images d'une affiche : le fond (w780 suffit pour 800 px de large), le logo, la plateforme.
-const urlFond = (content) => IMG + (content.shape === "landscape" ? "w780" : "w500") + content.image;
+// Image du film recadrée en portrait (fondLarge) : un fond 16:9 dont on ne garde qu'un tiers, demandé en w1280.
+const urlFond = (content) => IMG + (content.fondLarge ? "w1280" : content.shape === "landscape" ? "w780" : "w500") + content.image;
 const urlLogo = (content) => (content.full && content.logo ? IMG + (/\.svg$/i.test(content.logo) ? "original" : "w500") + content.logo : null);
 const cheminsPlateforme = (content) => [content.line && content.line.plateforme, content.coin].filter(Boolean);
 const urlPlateforme = (chemin) => IMG + "w92" + chemin;

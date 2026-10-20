@@ -385,7 +385,7 @@ test("v2_image_du_film_recadree_verifiee", async () => {
   const film2 = { ...film, images: { ...film.images, backdrops: [{ iso_639_1: null, file_path: "/texte-bd.jpg" }, { iso_639_1: null, file_path: "/bdnu.jpg" }] } };
   const f = internet({ detail: json(film2) });
   await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.Uf"));
-  assert.ok(f.calls.includes("https://image.tmdb.org/t/p/w500/bdnu.jpg"), f.calls.join("\n"));
+  assert.ok(f.calls.includes("https://image.tmdb.org/t/p/w1280/bdnu.jpg"), f.calls.join("\n"));
 });
 
 test("v2_bandeau_seul_pas_redirige", async () => {
@@ -393,4 +393,11 @@ test("v2_bandeau_seul_pas_redirige", async () => {
   const film3 = { ...film, "watch/providers": { results: { FR: { flatrate: [{ display_priority: 1, provider_name: "Netflix", logo_path: "/n.png" }] } } } };
   const res = await makeHandler({ fetchImpl: internet({ detail: json(film3) }), env })(req("type=movie&shape=poster&id=tt15239678&s=1.S0T0Q0L0P1vcB0"));
   assert.equal(res.status, 200);
+});
+
+// Revue : un bandeau qui porte le statut (une date) expire au changement quotidien, comme le statut lui-même.
+test("revue_bandeau_statut_cache_court", async () => {
+  const res = await makeHandler({ fetchImpl: internet({ detail: avecSorties([4, jour(-5)]) }), env })(req("type=movie&shape=poster&id=tt15239678&s=1.J1"));
+  assert.equal(res.status, 200);
+  assert.ok(age(res, "Cache-Control") <= secondesAvantBascule(), res.headers.get("Cache-Control"));
 });

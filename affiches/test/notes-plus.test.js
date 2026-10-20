@@ -15,7 +15,7 @@ const json = (o, status = 200) => new Response(JSON.stringify(o), { status });
 test("parse_mdblist", () => {
   assert.deepEqual(parseMdblist(MDB), { rt: 94, mc: 81, lb: 4.1 });
   assert.deepEqual(parseMdblist({ ratings: [{ source: "tomatoes", value: null }, { source: "metacritic", value: 0 }] }), { rt: null, mc: null, lb: null });
-  assert.deepEqual(parseMdblist(null), { rt: null, mc: null, lb: null });
+  assert.equal(parseMdblist(null), null);
 });
 
 test("lire_mdblist", async () => {
@@ -42,8 +42,7 @@ test("relais_notes", async () => {
   assert.equal(ok.headers.get("Cache-Control"), "public, max-age=86400");
   assert.equal((await makeNotes({ fetchImpl: async () => json(MDB), env: { MDBLIST_API_KEY: "cle" } })(req("imdb=abc"))).status, 404);
   const sansCle = await makeNotes({ fetchImpl: async () => json(MDB), env: {} })(req("imdb=tt15239678"));
-  assert.equal(sansCle.status, 503);
-  assert.equal(sansCle.headers.get("Cache-Control"), "no-store");
+  assert.equal(sansCle.status, 200);
 });
 
 test("notes_plus_par_le_relais", async () => {
@@ -54,4 +53,23 @@ test("notes_plus_par_le_relais", async () => {
   assert.deepEqual(calls, ["https://affiches.test/notes/tt15239678.json"]);
   assert.equal(await notesPlus("tt2", async () => new Response("", { status: 503 }), "https://affiches.test"), null);
   assert.equal(await notesPlus("", f, "https://affiches.test"), null);
+});
+
+// Revue : réponse MDBList sans notes (clé refusée, quota, titre inconnu) : null, pas des notes vides gardées 7 jours.
+test("revue_mdblist_reponse_bizarre", async () => {
+  assert.equal(parseMdblist({ response: false, error: "Invalid API key" }), null);
+  assert.equal(parseMdblist({ title: "x" }), null);
+  assert.equal(await lireMdblist({ MDBLIST_API_KEY: "cle" }, "tt1", async () => json({ response: false, error: "limit" })), null);
+});
+
+// Revue : sans clé, le relais répond « aucune note » gardé 1 h (pas un échec en boucle) ; une panne est gardée 10 min au CDN.
+test("revue_relais_sans_cle_et_panne", async () => {
+  const req = (q) => new Request("https://affiches.test/api/notes?" + q);
+  const sansCle = await makeNotes({ fetchImpl: async () => json(MDB), env: {} })(req("imdb=tt15239678"));
+  assert.equal(sansCle.status, 200);
+  assert.deepEqual(await sansCle.json(), { rt: null, mc: null, lb: null });
+  assert.equal(sansCle.headers.get("Vercel-CDN-Cache-Control"), "max-age=3600");
+  const panne = await makeNotes({ fetchImpl: async () => json({}, 500), env: { MDBLIST_API_KEY: "cle" } })(req("imdb=tt15239678"));
+  assert.equal(panne.status, 503);
+  assert.equal(panne.headers.get("Vercel-CDN-Cache-Control"), "max-age=600");
 });

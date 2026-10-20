@@ -174,6 +174,7 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
   // Clés ajoutées seulement quand elles servent (même raison : l'ETag des autres affiches ne bouge pas).
   if (bandeau) content.bandeau = bandeau;
   if (plateforme && r.plateforme.place === "coin") content.coin = plateforme;
+  if (source === "fond" && full) content.fondLarge = true;
   return content;
 }
 

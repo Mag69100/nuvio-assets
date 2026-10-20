@@ -10,8 +10,13 @@ export function makeNotes({ fetchImpl = fetch, env = process.env } = {}) {
     if (!/^tt\d{1,10}$/.test(imdb)) {
       return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" } });
     }
+    // Sans clé (MDBList pas encore configuré) : « aucune note », gardé 1 h, pour ne pas redessiner sans fin.
+    if (!env.MDBLIST_API_KEY) {
+      return new Response(JSON.stringify({ rt: null, mc: null, lb: null }), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" } });
+    }
     const notes = await lireMdblist(env, imdb, fetchImpl);
-    if (!notes) return new Response(null, { status: 503, headers: { "Cache-Control": "no-store" } });
+    // Panne ou quota : gardée 10 min au CDN, pour qu'une rafale de demandes ne vide pas le quota.
+    if (!notes) return new Response(null, { status: 503, headers: { "Cache-Control": "no-store", "Vercel-CDN-Cache-Control": "max-age=600" } });
     return new Response(JSON.stringify(notes), {
       headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=86400", "Vercel-CDN-Cache-Control": "max-age=604800" },
     });

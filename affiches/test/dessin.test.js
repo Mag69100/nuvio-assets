@@ -415,3 +415,19 @@ test("v2_ligne_chargee_tient", async () => {
     assert.ok(Math.max(...lignes) - Math.min(...lignes) < 40, `sur plusieurs lignes : ${Math.max(...lignes) - Math.min(...lignes)} px`);
   }
 });
+
+// Revue : une ligne sans élément v2 (genre long, comme avant) n'est jamais réduite : le dessin par défaut ne change pas.
+test("revue_ligne_par_defaut_pas_reduite", async () => {
+  const buf = await draw({ ...seul, line: { genre: "Science-fiction", note: "8,4", annee: "2024" } }, f);
+  const { data, info } = await pixels(buf, 0, 540, 400, 60);
+  let min = 400, max = -1;
+  for (let y = 0; y < info.height; y++) for (let x = 0; x < info.width; x++) { const i = (y * info.width + x) * info.channels; if (blanc(data[i], data[i + 1], data[i + 2])) { min = Math.min(min, x); max = Math.max(max, x); } }
+  assert.ok(max - min >= 270, "ligne réduite : " + (max - min) + " px");   // 284 px sans réduction, ~230 réduite
+});
+
+// Revue : l'image du film en portrait vient d'un fond 16:9 ; en w500 elle serait floue une fois recadrée.
+test("revue_image_du_film_nette", async () => {
+  const urls = [];
+  await draw({ ...base, image: "/large.jpg", fondLarge: true }, async (u, o) => { urls.push(String(u)); return f(u, o); });
+  assert.ok(urls.some((u) => u.endsWith("/w1280/large.jpg")), urls.join(" "));
+});

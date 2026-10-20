@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["cdg1"],
   "rewrites": [
     { "source": "/:type/:shape/:id.jpg", "destination": "/api/affiche?type=:type&shape=:shape&id=:id" }
   ],

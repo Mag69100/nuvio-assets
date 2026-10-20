@@ -47,6 +47,12 @@ test("taille paysage", async () => {
   assert.deepEqual([m.width, m.height], [800, 450]);
 });
 
+test("paysage : image de fond en w780 (assez pour 800 px, 3 fois plus léger que w1280)", async () => {
+  const urls = [];
+  await draw({ ...base, shape: "landscape", image: "/large.jpg" }, async (u, o) => { urls.push(String(u)); return f(u, o); });
+  assert.ok(urls.some((u) => u.endsWith("/w780/large.jpg")), urls.join(" "));
+});
+
 test("logo svg", async () => {
   const buf = await draw({ ...base, logo: "/logo.svg" }, f);
   assert.equal((await sharp(buf).metadata()).format, "jpeg");

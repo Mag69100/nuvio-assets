@@ -95,6 +95,39 @@ test("Torrentio en panne : affiche sans badge qualité, à temps", async () => {
   assert.equal(res.headers.get("ETag"), `"${attendu}"`);
 });
 
+const lent = (ms, corps) => () => new Promise((ok) => setTimeout(() => ok(json(corps)), ms));
+
+test("Torrentio lent : pas plus d'1 s d'attente, cache court", async () => {
+  const t0 = Date.now();
+  const res = await makeHandler({ fetchImpl: internet({ torrentio: lent(2000, { streams: [{ name: "4k" }] }) }), env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(res.status, 200);
+  assert.ok(Date.now() - t0 < 1500, `trop long : ${Date.now() - t0} ms`);
+  assert.equal(res.headers.get("Cache-Control"), "public, max-age=3600");
+  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=600");
+});
+
+test("images téléchargées pendant qu'on attend Torrentio", async () => {
+  let torrentioFini = null, premiereImage = null;
+  const base = internet();
+  const f = async (url, opts) => {
+    const u = String(url);
+    if (u.includes("torrentio")) { await new Promise((ok) => setTimeout(ok, 400)); torrentioFini = Date.now(); return json({ streams: [] }); }
+    if (u.includes("image.tmdb.org") && !premiereImage) premiereImage = Date.now();
+    return base(url, opts);
+  };
+  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(res.status, 200);
+  assert.ok(premiereImage && premiereImage < torrentioFini, "les images attendent Torrentio");
+});
+
+test("notes et tendances demandées en même temps que TMDB", async () => {
+  const f = internet();
+  await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678"));
+  const ordre = (motif) => f.calls.findIndex((u) => u.includes(motif));
+  assert.ok(ordre("imdb-ratings.bin") < ordre("/movie/693134"), f.calls.join("\n"));
+  assert.ok(ordre("/trending/") < ordre("/movie/693134"), f.calls.join("\n"));
+});
+
 test("qualité désactivée : Torrentio jamais appelé", async () => {
   const f = internet();
   const res = await makeHandler({ fetchImpl: f, env: { ...env, QUALITE: "off" } })(req("type=movie&shape=poster&id=tt15239678"));

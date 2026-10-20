@@ -97,11 +97,19 @@ function calqueDegrades(content, [w, hgt]) {
 </svg>`);
 }
 
+// Adresses des images d'une affiche : le fond (w780 suffit pour 800 px de large) et le logo.
+const urlFond = (content) => IMG + (content.shape === "landscape" ? "w780" : "w500") + content.image;
+const urlLogo = (content) => (content.full && content.logo ? IMG + (/\.svg$/i.test(content.logo) ? "original" : "w500") + content.logo : null);
+
+/** Les images que draw() téléchargera : on peut les demander en avance. */
+export const imageUrls = (content) => [urlFond(content), urlLogo(content)].filter(Boolean);
+
 /** Le logo du titre, réduit dans sa boîte et centré au-dessus de la ligne. */
 async function calqueLogo(content, [w, hgt], m, fetchImpl) {
-  if (!content.full || !content.logo) return null;
+  const url = urlLogo(content);
+  if (!url) return null;
   const svgLogo = /\.svg$/i.test(content.logo);
-  const brut = await telecharger(IMG + (svgLogo ? "original" : "w500") + content.logo, fetchImpl);
+  const brut = await telecharger(url, fetchImpl);
   const { data, info } = await sharp(brut, svgLogo ? { density: 300 } : {})
     .resize({ width: Math.round(w * m.logoL), height: Math.round(hgt * m.logoH), fit: "inside" })
     .png().toBuffer({ resolveWithObject: true });
@@ -113,7 +121,7 @@ export async function draw(content, fetchImpl = fetch) {
   const taille = SIZES[content.shape], m = MESURES[content.shape];
   const [w, hgt] = taille;
   const [fond, logo, texte] = await Promise.all([
-    telecharger(IMG + (content.shape === "landscape" ? "w1280" : "w500") + content.image, fetchImpl),
+    telecharger(urlFond(content), fetchImpl),
     calqueLogo(content, taille, m, fetchImpl).catch(() => null),
     calqueTexte(content, taille, m),
   ]);

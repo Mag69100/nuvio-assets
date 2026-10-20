@@ -695,7 +695,7 @@ ${copy ? HOTE_HTML : ""}
           <li><span><b>Mets Nuvio en français</b> : langue de l'appli et langue TMDB (Paramètres → Enrichissement TMDB).</span></li>
         </ol>
         <p class="sub">Nuvio est sur ton téléphone, ta tablette ou ton ordinateur ? Pas besoin de QR code : colle directement les liens de ton billet dans l'appli (Addons, puis Collections → Importer → URL).</p>
-        <p class="sub">Pour retrouver tes réglages plus tard, ouvre ton lien d'addon en remplaçant « manifest.json » par « configure ». Avec un lien fixe, fais-le sur l'appareil qui l'a créé (ou avec son lien pour modifier) : tes changements arrivent dans Nuvio sans réinstaller. Tu pars de zéro ? <a href="${origin}/guide">Le guide complet</a> installe Nuvio et tous les addons, dans l'ordre.</p>
+        <p class="sub">Pour retrouver tes réglages plus tard, ouvre ton lien d'addon en remplaçant « manifest.json » par « configure ». Avec un lien fixe, fais-le sur l'appareil qui l'a créé (ou avec son lien pour modifier) : tes changements arrivent dans Nuvio sans réinstaller, avec « Actualiser les addons ». Tu pars de zéro ? <a href="${origin}/guide">Le guide complet</a> installe Nuvio et tous les addons, dans l'ordre.</p>
       </section>
 
       <button type="button" class="reset" id="reset">Revenir à la programmation d'origine</button>
@@ -1241,7 +1241,7 @@ function dessineFixe(seg) {
     txt.append(el("b", { text: "Lien fixe : " }), "plus besoin de réinstaller l'addon quand tu changes tes réglages, Nuvio les reprend tout seul.");
   } else if (fixe.modif) {
     const etat = { attente: "Changements en attente…", envoi: "Enregistrement…", ok: "Enregistré ✓" }[etatFixe] || "";
-    txt.append(el("b", { text: "Lien fixe. " }), "Tes changements s'enregistrent tout seuls : Nuvio les reprend dans les 6 heures (tout de suite si tu retires et remets l'addon). ");
+    txt.append(el("b", { text: "Lien fixe. " }), "Tes changements s'enregistrent tout seuls. Dans Nuvio, « Actualiser les addons » les affiche tout de suite (sinon, Nuvio les reprend de lui-même dans les 6 heures). ");
     if (etat) txt.append(el("span", { class: "etat", text: etat }));
   } else if (seg === segDepart) {
     txt.append(el("b", { text: "Lien fixe. " }), "Pour le modifier, ouvre cette page sur l'appareil qui l'a créé, ou avec son « lien pour modifier ».");
@@ -1269,7 +1269,7 @@ $("fixe-creer").addEventListener("click", async (e) => {
     fixeGarde(j.id, j.modif);
     fixe = { id: j.id, modif: j.modif }; segDepart = dernierEnvoye = seg; etatFixe = "ok";
     update(); popcorn(btn); sfx.punch();
-    toast("Ton lien fixe est prêt : installe-le une fois, tes changements suivront tout seuls.");
+    toast("Ton lien fixe est prêt : installe-le une fois, ensuite « Actualiser les addons » dans Nuvio suffit.");
   } catch (err) {
     fixeErreur(err && err.message && !/fetch|network/i.test(err.message) ? err.message : "Création impossible : vérifie ta connexion.");
   }

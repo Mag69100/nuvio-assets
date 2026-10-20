@@ -16,40 +16,72 @@ export function creerLienAffiches() {
     statut: { on: true, style: "texte" },
     tendance: { on: true, style: "fleche" },
     qualite: { on: true, montrer: "plus", style: "texte" },
-    titre: { on: true, taille: 1, place: "auto" },
-    note: { on: true, source: "imdb", style: "etoile" },
+    // Badges du haut : « auto » = le style propre à chaque badge (ci-dessus) ; sinon un style commun.
+    haut: { inverse: false, style: "auto", forme: "arrondi", opacite: "l", couleur: "blanc" },
+    bandeau: { on: false, porte: "statut", coin: "d" },
+    titre: { on: true, taille: 1, place: "auto", langue: "fr", monte: 0, large: 1 },
+    note: { on: true, source: "imdb", style: "etoile", rt: false, mc: false, lb: false, couleur: "non" },
     genre: { on: true, forme: "court" },
     annee: { on: true },
+    duree: { on: false },
     age: { on: false },
+    plateforme: { on: false, place: "ligne" },
+    ligne: { ordre: "gna", barre: "aucune" },
     texte: { taille: 1, sep: "point", haut: 1, police: "inter" },
-    fondu: { on: true, couleur: "noir", force: "m", flou: false },
+    image: { source: "sanstexte" },
+    fondu: { on: true, couleur: "noir", force: "m", flou: false, hauteur: "normal" },
+    ambiance: { voile: "m", vignette: false, accent: "or" },
     sortie: { nb: true, cacherNote: true },
   });
 
   // Tailles réglables à la main : de 60 % à 140 % par pas de 5 %, une lettre par cran (a = 0,6, i = 1, q = 1,4).
   const TAILLES = Object.freeze(Object.fromEntries([..."abcdefghijklmnopq"].map((c, i) => [c, Math.round(60 + i * 5) / 100])));
   const cranDe = (v) => Object.keys(TAILLES).reduce((a, c) => (Math.abs(TAILLES[c] - v) < Math.abs(TAILLES[a] - v) ? c : a));
+  // Hauteur du titre : remonté de 0 à 30 % de la hauteur de l'image, par pas de 5 %.
+  const MONTEES = Object.freeze({ a: 0, b: 0.05, c: 0.1, d: 0.15, e: 0.2, f: 0.25, g: 0.3 });
 
   // Chaque code : [lettre, voie, champ, { caractère: valeur }, quand l'écrire]. L'ordre du tableau est l'ordre du lien.
   const titreOn = (r) => r.titre.on;
+  const noteOn = (r) => r.titre.on && r.note.on;
+  const styleCommun = (r) => r.haut.style !== "auto";
   const CODES = [
     ["S", "statut", "on", { 0: false }],
     ["s", "statut", "style", { e: "etiquette" }, (r) => r.statut.on],
     ["T", "tendance", "on", { 0: false }],
     ["t", "tendance", "style", { r: "ruban" }, (r) => r.tendance.on],
     ["Q", "qualite", "on", { 0: false }],
-    ["q", "qualite", "montrer", { 4: "4k" }, (r) => r.qualite.on],
+    ["q", "qualite", "montrer", { 4: "4k", t: "tout" }, (r) => r.qualite.on],
     ["k", "qualite", "style", { p: "pastille" }, (r) => r.qualite.on],
+    ["I", "haut", "inverse", { 1: true }],
+    ["H", "haut", "style", { p: "plein", v: "verre", c: "contour" }],
+    ["y", "haut", "forme", { c: "carre", p: "pilule" }, styleCommun],
+    ["a", "haut", "opacite", { s: "s", m: "m" }, styleCommun],
+    ["C", "haut", "couleur", { o: "or", n: "noir" }, styleCommun],
+    ["J", "bandeau", "on", { 1: true }],
+    ["K", "bandeau", "porte", { t: "tendance" }, (r) => r.bandeau.on],
+    ["E", "bandeau", "coin", { g: "g" }, (r) => r.bandeau.on],
     ["L", "titre", "on", { 0: false }],
     ["l", "titre", "taille", TAILLES, titreOn],
     ["o", "titre", "place", { g: "gauche", c: "centre" }, titreOn],
+    ["u", "titre", "langue", { e: "en", v: "vo" }, titreOn],
+    ["m", "titre", "monte", MONTEES, titreOn],
+    ["j", "titre", "large", TAILLES, titreOn],
     ["N", "note", "on", { 0: false }, titreOn],
-    ["n", "note", "source", { t: "tmdb" }, (r) => r.titre.on && r.note.on],
-    ["e", "note", "style", { n: "nu", g: "grand", b: "badge" }, (r) => r.titre.on && r.note.on],
+    ["n", "note", "source", { t: "tmdb" }, noteOn],
+    ["e", "note", "style", { n: "nu", g: "grand", b: "badge" }, noteOn],
+    ["R", "note", "rt", { 1: true }, noteOn],
+    ["M", "note", "mc", { 1: true }, noteOn],
+    ["b", "note", "lb", { 1: true }, noteOn],
+    ["c", "note", "couleur", { o: "oui", h: "halo" }, noteOn],
     ["G", "genre", "on", { 0: false }, titreOn],
     ["g", "genre", "forme", { c: "complet" }, (r) => r.titre.on && r.genre.on],
     ["A", "annee", "on", { 0: false }, titreOn],
+    ["D", "duree", "on", { 1: true }, titreOn],
     ["Y", "age", "on", { 1: true }, titreOn],
+    ["P", "plateforme", "on", { 1: true }],
+    ["v", "plateforme", "place", { c: "coin" }, (r) => r.plateforme.on],
+    ["O", "ligne", "ordre", { n: "nga", a: "agn" }, titreOn],
+    ["r", "ligne", "barre", { v: "verre", f: "fine" }, titreOn],
     ["x", "texte", "taille", TAILLES, titreOn],
     ["p", "texte", "sep", { b: "barre", u: "puce" }, titreOn],
     ["z", "texte", "haut", TAILLES, (r) => r.statut.on || r.tendance.on || r.qualite.on],
@@ -58,6 +90,11 @@ export function creerLienAffiches() {
     ["f", "fondu", "couleur", { a: "affiche" }, (r) => r.titre.on && r.fondu.on],
     ["i", "fondu", "force", { s: "s", l: "l" }, (r) => r.titre.on && r.fondu.on],
     ["d", "fondu", "flou", { 1: true }, (r) => r.titre.on && r.fondu.on],
+    ["W", "fondu", "hauteur", { c: "court", l: "long" }, (r) => r.titre.on && r.fondu.on],
+    ["U", "image", "source", { o: "officielle", f: "fond" }, titreOn],
+    ["V", "ambiance", "voile", { 0: "0", s: "s", l: "l" }],
+    ["X", "ambiance", "vignette", { 1: true }],
+    ["Z", "ambiance", "accent", { b: "blanc", r: "rouge", u: "bleu", a: "affiche" }],
     ["B", "sortie", "nb", { 0: false }],
     ["h", "sortie", "cacherNote", { 0: false }, (r) => r.titre.on && r.note.on],
   ];
@@ -74,6 +111,13 @@ export function creerLienAffiches() {
     cine: de((r) => {
       r.texte.police = "bebas"; r.note.style = "badge"; r.fondu.flou = true; r.age.on = true; r.statut.style = "etiquette";
     }),
+    // Façon Posters+ : plusieurs notes colorées, ligne sur une bande de verre, statut en bandeau, badges en verre.
+    postersPlus: de((r) => {
+      r.note.rt = true; r.note.mc = true; r.note.couleur = "oui"; r.ligne.barre = "verre"; r.bandeau.on = true;
+      r.haut.style = "verre"; r.haut.forme = "pilule";
+    }),
+    // La plateforme où regarder le titre, la note en badge et la durée.
+    plateforme: de((r) => { r.plateforme.on = true; r.note.style = "badge"; r.duree.on = true; }),
     nue: de((r) => {
       for (const v of ["statut", "tendance", "qualite", "titre", "note", "genre", "annee", "fondu"]) r[v].on = false;
       r.sortie.nb = false;
@@ -116,10 +160,19 @@ export function creerLienAffiches() {
     return r;
   }
 
-  /** Le lien à coller dans Nuvio (Paramètres → Disposition → Custom Poster Source). */
-  function lienAffiches(r) {
-    const s = ecrireReglages(r || DEFAUT_REGLAGES);
-    return "https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?imdb={imdb_id?}" + (s ? "&s=1." + s : "");
+  /** Réglages du paysage : sp s'il y en a (réglages à part), sinon les mêmes que le portrait (s). */
+  function lireReglagesPaysage(params) {
+    const sp = params.get("sp");
+    return sp === null ? lireReglages(params) : lireReglages(new URLSearchParams({ s: sp }));
+  }
+
+  /**
+   * Le lien à coller dans Nuvio (Paramètres → Disposition → Custom Poster Source). rp : réglages à part pour le
+   * paysage, écrits dans sp seulement s'ils diffèrent du portrait.
+   */
+  function lienAffiches(r, rp) {
+    const s = ecrireReglages(r || DEFAUT_REGLAGES), sp = rp ? ecrireReglages(rp) : s;
+    return "https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?imdb={imdb_id?}" + (s ? "&s=1." + s : "") + (sp !== s ? "&sp=1." + sp : "");
   }
 
   /** Le nom de la mémoire qui correspond à ces réglages, ou null (réglage perso). */
@@ -128,7 +181,7 @@ export function creerLienAffiches() {
     return Object.keys(MEMOIRES).find((nom) => ecrireReglages(MEMOIRES[nom]) === s) || null;
   }
 
-  return { DEFAUT_REGLAGES, TAILLES, MEMOIRES, ecrireReglages, lireReglages, lienAffiches, memoireDe };
+  return { DEFAUT_REGLAGES, TAILLES, MONTEES, MEMOIRES, ecrireReglages, lireReglages, lireReglagesPaysage, lienAffiches, memoireDe };
 }
 
-export const { DEFAUT_REGLAGES, TAILLES, MEMOIRES, ecrireReglages, lireReglages, lienAffiches, memoireDe } = creerLienAffiches();
+export const { DEFAUT_REGLAGES, TAILLES, MONTEES, MEMOIRES, ecrireReglages, lireReglages, lireReglagesPaysage, lienAffiches, memoireDe } = creerLienAffiches();

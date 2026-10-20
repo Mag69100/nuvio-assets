@@ -53,7 +53,7 @@ test("scripts_salle_2_et_commun_valides", async () => {
 // dans le navigateur, creerLienAffiches doit tourner quand même (le script commun déclare __name).
 test("script_commun_supporte_name", async () => {
   const { NUVIO_JS } = await import("../worker/nuvio.js");
-  const tete = NUVIO_JS.split("window.NV = ")[0].replace("function lienAffiches(r) {", "function lienAffiches(r) { __name(lienAffiches, \"lienAffiches\");");
+  const tete = NUVIO_JS.split("window.NV = ")[0].replace("function lienAffiches(r, rp) {", "function lienAffiches(r, rp) { __name(lienAffiches, \"lienAffiches\");");
   assert.ok(tete.includes("__name(lienAffiches"));
   const LA = new Function(tete + "; return LA;")();
   assert.equal(LA.lienAffiches(LA.MEMOIRES.essentiel), lienAffiches(MEMOIRES.essentiel));

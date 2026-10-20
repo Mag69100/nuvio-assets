@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { DEFAUT_REGLAGES, MEMOIRES, lireReglages, ecrireReglages, lienAffiches, memoireDe } from "../worker/lien-affiches.js";
+import { DEFAUT_REGLAGES, MEMOIRES, lireReglages, lireReglagesPaysage, ecrireReglages, lienAffiches, memoireDe } from "../worker/lien-affiches.js";
 
 const DEFAUT_LIEN = "https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?imdb={imdb_id?}";
 const lire = (q) => lireReglages(new URLSearchParams(q));
@@ -19,13 +19,23 @@ function hasard(graine) { let s = graine; return () => (s = (s * 1103515245 + 12
 const CHOIX = {
   "statut.on": [true, false], "statut.style": ["texte", "etiquette"],
   "tendance.on": [true, false], "tendance.style": ["fleche", "ruban"],
-  "qualite.on": [true, false], "qualite.montrer": ["plus", "4k"], "qualite.style": ["texte", "pastille"],
+  "qualite.on": [true, false], "qualite.montrer": ["plus", "4k", "tout"], "qualite.style": ["texte", "pastille"],
   "titre.on": [true, false], "titre.taille": [0.6, 0.85, 1, 1.25, 1.4], "titre.place": ["auto", "gauche", "centre"],
   "note.on": [true, false], "note.source": ["imdb", "tmdb"], "note.style": ["etoile", "nu", "grand", "badge"],
   "genre.on": [true, false], "genre.forme": ["court", "complet"], "annee.on": [true, false], "age.on": [true, false],
   "texte.taille": [0.7, 0.95, 1, 1.1, 1.4], "texte.sep": ["point", "barre", "puce"], "texte.haut": [0.6, 1, 1.15, 1.4],
   "texte.police": ["inter", "bebas"],
   "fondu.on": [true, false], "fondu.couleur": ["noir", "affiche"], "fondu.force": ["s", "m", "l"], "fondu.flou": [false, true],
+  "fondu.hauteur": ["court", "normal", "long"],
+  "titre.langue": ["fr", "en", "vo"], "titre.monte": [0, 0.05, 0.3], "titre.large": [0.6, 1, 1.4],
+  "note.rt": [false, true], "note.mc": [false, true], "note.lb": [false, true], "note.couleur": ["non", "oui", "halo"],
+  "duree.on": [false, true], "ligne.ordre": ["gna", "nga", "agn"], "ligne.barre": ["aucune", "verre", "fine"],
+  "plateforme.on": [false, true], "plateforme.place": ["ligne", "coin"],
+  "haut.inverse": [false, true], "haut.style": ["auto", "plein", "verre", "contour"], "haut.forme": ["arrondi", "carre", "pilule"],
+  "haut.opacite": ["s", "m", "l"], "haut.couleur": ["blanc", "or", "noir"],
+  "bandeau.on": [false, true], "bandeau.porte": ["statut", "tendance"], "bandeau.coin": ["d", "g"],
+  "image.source": ["sanstexte", "officielle", "fond"],
+  "ambiance.voile": ["0", "s", "m", "l"], "ambiance.vignette": [false, true], "ambiance.accent": ["or", "blanc", "rouge", "bleu", "affiche"],
   "sortie.nb": [true, false], "sortie.cacherNote": [true, false],
 };
 
@@ -82,6 +92,40 @@ test("nouveaux_reglages", () => {
   assert.equal(ecrit("s=1.F0d1"), "F0");
 });
 
+// Régie v2 : ~25 réglages de plus, chacun un code de 2 caractères, toujours écrit dans le même ordre.
+const V2 = "uvmcjqR1M1b1coD1OnrvP1vcI1HvypasCoJ1KtEgqtUfWlV0X1Za";
+test("regie_v2_codes", () => {
+  const x = lire("s=1." + V2);
+  assert.deepEqual([x.titre.langue, x.titre.monte, x.titre.large], ["vo", 0.1, 1.4]);
+  assert.deepEqual([x.note.rt, x.note.mc, x.note.lb, x.note.couleur], [true, true, true, "oui"]);
+  assert.deepEqual([x.duree.on, x.ligne.ordre, x.ligne.barre, x.plateforme.on, x.plateforme.place], [true, "nga", "verre", true, "coin"]);
+  assert.deepEqual([x.haut.inverse, x.haut.style, x.haut.forme, x.haut.opacite, x.haut.couleur], [true, "verre", "pilule", "s", "or"]);
+  assert.deepEqual([x.bandeau.on, x.bandeau.porte, x.bandeau.coin], [true, "tendance", "g"]);
+  assert.deepEqual([x.qualite.montrer, x.image.source, x.fondu.hauteur], ["tout", "fond", "long"]);
+  assert.deepEqual([x.ambiance.voile, x.ambiance.vignette, x.ambiance.accent], ["0", true, "affiche"]);
+  // Même réglage, codes dans un autre ordre : même lien.
+  const paires = V2.match(/../g);
+  assert.equal(ecrit("s=1." + [...paires].reverse().join("")), ecrit("s=1." + V2));
+  assert.equal(ecrit("s=1." + ecrit("s=1." + V2)), ecrit("s=1." + V2));
+  // Sous-réglages d'une voie éteinte (ou d'un style « auto ») : pas écrits.
+  assert.equal(ecrit("s=1.N0R1M1co"), "N0");
+  assert.equal(ecrit("s=1.ypasCo"), "");
+  assert.equal(ecrit("s=1.KtEg"), "");
+  assert.equal(ecrit("s=1.vc"), "");
+  assert.equal(ecrit("s=1.L0uvmcD1OnUf"), "L0");
+});
+
+// Paysage à part : un second jeu de réglages dans sp, écrit seulement s'il diffère du portrait.
+test("paysage_a_part", () => {
+  assert.equal(lienAffiches(DEFAUT_REGLAGES, DEFAUT_REGLAGES), DEFAUT_LIEN);
+  assert.equal(lienAffiches(DEFAUT_REGLAGES, MEMOIRES.essentiel), DEFAUT_LIEN + "&sp=1.S0T0G0A0");
+  assert.equal(lienAffiches(MEMOIRES.essentiel, MEMOIRES.essentiel), DEFAUT_LIEN + "&s=1.S0T0G0A0");
+  const p = lireReglagesPaysage(new URLSearchParams("s=1.T0&sp=1.Q0"));
+  assert.equal(p.qualite.on, false);
+  assert.equal(p.tendance.on, true);
+  assert.equal(lireReglagesPaysage(new URLSearchParams("s=1.T0")).tendance.on, false);
+});
+
 test("codes_inconnus_ignores", () => {
   assert.equal(ecrit("s=1.zz9yT0"), "T0");
   assert.equal(ecrit("s=2.T0"), "");
@@ -104,6 +148,10 @@ test("memoires", () => {
   assert.deepEqual([n.statut.on, n.tendance.on, n.qualite.on, n.titre.on, n.note.on, n.note.style, n.genre.on, n.annee.on, n.fondu.on, n.sortie.nb], [false, false, false, true, true, "grand", false, false, true, true]);
   const u = MEMOIRES.nue;
   assert.deepEqual([u.statut.on, u.tendance.on, u.qualite.on, u.titre.on, u.note.on, u.genre.on, u.annee.on, u.fondu.on, u.sortie.nb], [false, false, false, false, false, false, false, false, false]);
+  const pp = MEMOIRES.postersPlus;
+  assert.deepEqual([pp.note.rt, pp.note.mc, pp.note.couleur, pp.ligne.barre, pp.bandeau.on, pp.haut.style, pp.haut.forme], [true, true, "oui", "verre", true, "verre", "pilule"]);
+  const pf = MEMOIRES.plateforme;
+  assert.deepEqual([pf.plateforme.on, pf.note.style, pf.duree.on], [true, "badge", true]);
   const c = MEMOIRES.cine;
   assert.deepEqual([c.texte.police, c.note.style, c.fondu.flou, c.age.on, c.statut.style], ["bebas", "badge", true, true, "etiquette"]);
   for (const [nom, r] of Object.entries(MEMOIRES)) assert.equal(memoireDe(r), nom);

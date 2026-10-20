@@ -22,8 +22,6 @@ const LINKS = {
   altstore: "https://altstore.io/",
   sidestore: "https://sidestore.io/",
   downloader: "https://www.amazon.fr/s?k=downloader+aftvnews",
-  tmdbSignup: "https://www.themoviedb.org/signup",
-  tmdbApi: "https://www.themoviedb.org/settings/api",
   lumio: "https://mylumio.tv/configure",
   streamFusion: "https://streamfusion.stremio-epsilon.ca/configure",
   torrentio: "https://torrentio.strem.fun/configure",
@@ -604,7 +602,7 @@ ${secretsHTML("guide")}
 
   <nav class="toc" aria-label="Étapes">
     <a href="#avant">Avant de commencer</a><a href="#installer">Installer Nuvio</a><a href="#francais">Premier lancement (Avancé, français)</a>
-    <a href="#telephone">Piloter depuis le téléphone</a><a href="#comptes">Créer tes clés (TMDB, AllDebrid)</a><a href="#addons">Ajouter les addons</a>
+    <a href="#telephone">Piloter depuis le téléphone</a><a href="#comptes">Créer ta clé AllDebrid</a><a href="#addons">Ajouter les addons</a>
     <a href="#collections">Importer les collections</a><a href="#affiches">Les affiches perso</a><a href="#reglages">Les réglages conseillés</a><a href="#ranger">Ranger l'accueil</a>
     <a href="#tester">Lancer un premier film</a><a href="#depannage">En cas de souci</a>
   </nav>
@@ -615,7 +613,7 @@ ${secretsHTML("guide")}
       <span class="r-etoile" aria-hidden="true">Garanti !</span><span class="r-tampon" aria-hidden="true">Réclame</span>
     </article>
     <article class="reclame" aria-roledescription="diapositive" aria-label="Réclame 2 sur 3" aria-hidden="true">
-      <p class="r-sur">Le chic à la française</p><h3>Les affiches PostersPlus</h3><p class="r-slogan">Notes, badges et qualité, d'un seul coup d'œil. Vos amis en seront verts de jalousie.</p><a class="r-cta" href="#affiches" tabindex="-1">Voir l'étape 8</a>
+      <p class="r-sur">Le chic à la française</p><h3>Les affiches maison</h3><p class="r-slogan">Note, genre, année, tendance et qualité, d'un seul coup d'œil. Vos amis en seront verts de jalousie.</p><a class="r-cta" href="#affiches" tabindex="-1">Voir l'étape 8</a>
       <span class="r-etoile" aria-hidden="true">Luxe !</span><span class="r-tampon" aria-hidden="true">Réclame</span>
     </article>
     <article class="reclame" aria-roledescription="diapositive" aria-label="Réclame 3 sur 3" aria-hidden="true">
@@ -630,7 +628,6 @@ ${secretsHTML("guide")}
     <ul>
       <li><b>Un appareil</b> : une TV Android ou Google TV, un Fire TV, un téléphone ou une tablette (Android, iPhone, iPad), ou un ordinateur (Windows, Mac, Linux).</li>
       <li><b>Sur TV, un téléphone</b> sur le même Wi-Fi : il sert à coller les liens au lieu de les taper à la télécommande.</li>
-      <li><b>Un compte TMDB</b> (gratuit) : il donne une clé pour les affiches perso de l'étape 8. On la crée à l'étape 5.</li>
       <li><b>Un compte AllDebrid premium</b> (payant, quelques euros par mois) : Lumio, StreamFusion, Torrentio et WAStream s'en servent pour fournir des sources rapides. On le crée à l'étape 5. ${link(LINKS.realDebrid, "Real-Debrid")} ou ${link(LINKS.torbox, "TorBox")} marchent aussi.</li>
     </ul>
     <p class="note">Nuvio est un lecteur : il n'héberge rien. Ce que tu regardes dépend des addons que tu ajoutes. Respecte la loi de ton pays sur les contenus.</p>
@@ -879,14 +876,8 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
   </section>
 
   <section class="act" id="comptes">
-    <header><span class="num">05</span><span class="label">Comptes</span><h2>Créer tes clés</h2></header>
-    <h3 class="sub-h" id="cle-tmdb">A · La clé TMDB (gratuite)</h3>
-    <ol>
-      <li>Crée un compte sur ${link(LINKS.tmdbSignup, "themoviedb.org")} et confirme ton adresse e-mail.</li>
-      <li>Va dans ${link(LINKS.tmdbApi, "Paramètres → API")} et demande une clé : type <b>Développeur</b>, usage <b>personnel</b>. Remplis le formulaire simplement (nom de l'appli : « Nuvio perso »).</li>
-      <li>Copie la <b>Clé d'API</b> (une suite de 32 lettres et chiffres) et colle-la dans <a href="#trousseau">ton trousseau, juste en dessous</a> : elle sert à l'étape 8 (affiches).</li>
-    </ol>
-    <h3 class="sub-h">B · AllDebrid premium et sa clé API</h3>
+    <header><span class="num">05</span><span class="label">Comptes</span><h2>Créer ta clé</h2></header>
+    <h3 class="sub-h">A · AllDebrid premium et sa clé API</h3>
     <p>Les addons de sources (Lumio, StreamFusion, Torrentio, WAStream) passent par un débrideur. Il t'en faut <b>au moins un</b> pour regarder quelque chose : les autres sont là au cas où le premier ne trouve rien. Le guide utilise AllDebrid.</p>
     <ol>
       <li>Crée un compte sur ${link(LINKS.allDebrid, "alldebrid.com")} et confirme ton adresse e-mail.</li>
@@ -896,12 +887,11 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
     </ol>
     <p class="note">Certains addons proposent aussi « Se connecter avec AllDebrid » : tu valides un code sur alldebrid.com au lieu de coller la clé. Les deux marchent.</p>
     <div class="trousseau" id="trousseau">
-      <h3 class="sub-h">C · Ton trousseau</h3>
-      <p>Colle tes deux clés ici, une seule fois : le guide les insère dans les liens des étapes suivantes. Elles restent sur cet appareil, rien n'est envoyé.</p>
+      <h3 class="sub-h">B · Ton trousseau</h3>
+      <p>Colle ta clé ici, une seule fois : le guide l'insère dans les liens des étapes suivantes. Elle reste sur cet appareil, rien n'est envoyé.</p>
       <label class="keyfield" for="ad-key"><span>Ta clé AllDebrid</span><input id="ad-key" type="text" placeholder="la clé nommée « Nuvio »" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
-      <label class="keyfield" for="tmdb-key"><span>Ta clé TMDB</span><input id="tmdb-key" type="text" placeholder="ta clé de 32 caractères" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
       <p class="etat-cles" id="etat-cles" role="status"></p>
-      <button type="button" class="vers-tel" id="cles-tel">Envoyer mes clés sur mon téléphone (QR code)</button>
+      <button type="button" class="vers-tel" id="cles-tel">Envoyer ma clé sur mon téléphone (QR code)</button>
     </div>
     <p class="note warn">Tes clés sont personnelles : ne les publie pas et ne les envoie à personne. Ne partage pas non plus tes liens d'installation d'addons, ils contiennent ta clé AllDebrid.</p>
   </section>
@@ -1006,10 +996,9 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
   </section>
 
   <section class="act" id="affiches">
-    <header><span class="num">08</span><span class="label">Finitions</span><h2>Les affiches perso</h2></header>
-    <p class="lead">Les affiches avec badges (classement, note IMDb, qualité, genre, année) du réglage conseillé.</p>
-    <label class="keyfield" for="tmdb-key-8"><span>Ta clé TMDB (reprise de ton trousseau)</span><input id="tmdb-key-8" type="text" placeholder="ta clé de 32 caractères" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
-    <p class="note">Ta clé reste sur ton appareil : elle est seulement insérée dans le lien ci-dessous, rien n'est envoyé.</p>
+    <header><span class="num">08</span><span class="label">Finitions</span><h2>Les affiches maison</h2></header>
+    <p class="lead">Le logo du titre, sa note, son genre et son année, et quand il y a lieu son rang dans les tendances du jour et sa qualité (4K, DV, HDR). Le lien est le même pour tout le monde.</p>
+    <p class="note">Envie de choisir ce qui s'affiche dessus ? Règle-les en salle 2, section <a href="${esc(origin)}/configure#s-affiches">« Tes affiches »</a> : le lien ci-dessous devient alors le tien, sur cet appareil.</p>
     <div class="copy long"><code id="u-poster">${esc(POSTER_URL)}</code><button type="button" data-copy="u-poster">Copier</button></div>
     <ol>
       <li>Dans Nuvio : <span class="path">Paramètres → Disposition → Custom Poster Source</span>. Le plus simple : <b>Configure via Phone</b>, puis colle le lien depuis ton téléphone.</li>
@@ -1137,7 +1126,6 @@ document.querySelectorAll(".modes button").forEach((b) => b.addEventListener("cl
   if (tab) document.querySelector('.appareils button[data-tab="' + tab + '"]').click();
 })();
 // ---------- Le trousseau : clés et appareil, gardés dans le navigateur (rien n'est envoyé) ----------
-const TEMPLATE = ${JSON.stringify(POSTER_URL)};
 const ORIG = ${JSON.stringify(origin)};
 const lit = (k) => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
 const garde = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} };
@@ -1148,10 +1136,9 @@ const garde = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.re
   try { const b = location.hash.slice(6).replace(/-/g, "+").replace(/_/g, "/"); o = lirePaquet(atob(b)); } catch (e) {}
   history.replaceState(null, "", location.pathname);
   // N'importe qui peut fabriquer ce lien : des clés déjà rangées ici ne sont remplacées qu'avec accord.
-  const autres = [["ad", "ad-key"], ["tmdb", "tmdb-key"]].some(([k, s]) => o[k] && lit(s) && lit(s) !== o[k]);
-  if (autres && !confirm("Ce lien remplace les clés déjà enregistrées sur cet appareil (AllDebrid, TMDB). Continuer ? Annule si tu ne viens pas de le scanner toi-même.")) return;
+  const autres = o.ad && lit("ad-key") && lit("ad-key") !== o.ad;
+  if (autres && !confirm("Ce lien remplace la clé AllDebrid déjà enregistrée sur cet appareil. Continuer ? Annule si tu ne viens pas de le scanner toi-même.")) return;
   if (o.ad) garde("ad-key", o.ad);
-  if (o.tmdb) garde("tmdb-key", o.tmdb);
   if (o.app) garde("guide-appareil", o.app);
   if (!Object.keys(o).length) return;
   addEventListener("load", () => { document.getElementById("addons").scrollIntoView(); toast("Clés reçues : tes liens sont prêts."); });
@@ -1164,9 +1151,7 @@ const appSel = {
   set value(v) { appRadios.forEach((x) => { x.checked = x.value === v; }); },
 };
 let caOuvert = false, caClavier = false;
-const tmdbInputs = [document.getElementById("tmdb-key"), document.getElementById("tmdb-key-8")];
 adInput.value = lit("ad-key");
-tmdbInputs.forEach((i) => { i.value = lit("tmdb-key"); });
 appSel.value = APPAREILS[lit("guide-appareil")] ? lit("guide-appareil") : "";
 const $id = (id) => document.getElementById(id);
 const setInstall = (id) => {
@@ -1221,8 +1206,7 @@ document.querySelectorAll("[data-perso-retour]").forEach((b) => b.addEventListen
 // Ce qu'il faut régler sur le site de chaque addon, selon l'appareil.
 document.querySelectorAll("[data-consigne] span").forEach((s) => { s.dataset.vide = s.textContent; });
 function majCles() {
-  const ad = cleAllDebrid(adInput.value), tmdb = tmdbInputs[0].value.trim().replace(/[^A-Za-z0-9]/g, ""), a = APPAREILS[appSel.value];
-  $id("u-poster").textContent = TEMPLATE.replace("TA_CLE_TMDB", tmdb || "TA_CLE_TMDB");
+  const ad = cleAllDebrid(adInput.value), a = APPAREILS[appSel.value];
   const replie = !!a && !caOuvert;
   $id("choix-appareil").classList.toggle("replie", replie);
   document.querySelectorAll(".ca-carte").forEach((c) => { const on = c.dataset.appareil === appSel.value; c.classList.toggle("on", on); c.hidden = replie && !on; });
@@ -1242,14 +1226,9 @@ function majCles() {
   const brut = adInput.value.trim();
   $id("etat-cles").className = "etat-cles";
   if (brut && !ad) { $id("etat-cles").textContent = "Cette clé AllDebrid paraît incomplète : recopie-la depuis la page des clés API."; $id("etat-cles").classList.add("erreur", "alerte"); }
-  else if (tmdb && tmdb.length !== 32) { $id("etat-cles").textContent = "Une clé TMDB fait 32 caractères : prends bien la « Clé d'API », pas le « Jeton d'accès en lecture »."; $id("etat-cles").classList.add("erreur", "alerte"); }
-  else $id("etat-cles").textContent = ad && tmdb ? "Clés gardées sur cet appareil ✓" : ad || tmdb ? "Clé gardée sur cet appareil ✓" : "";
+  else $id("etat-cles").textContent = ad ? "Clé gardée sur cet appareil ✓" : "";
 }
 adInput.addEventListener("input", () => { garde("ad-key", adInput.value.trim().replace(/[^A-Za-z0-9]/g, "")); majCles(); });
-tmdbInputs.forEach((i) => i.addEventListener("input", () => {
-  tmdbInputs.forEach((x) => { if (x !== i) x.value = i.value; });
-  garde("tmdb-key", i.value.trim().replace(/[^A-Za-z0-9]/g, "")); majCles();
-}));
 // L'appareil : choisi à la main, ou déduit de l'onglet cliqué à l'étape 2 tant qu'on n'a rien choisi
 // (sauf TV et Fire TV : TV ou box, HD ou 4K, Dolby Vision ou non, seule la personne le sait).
 let appAuto = !appSel.value;
@@ -1295,6 +1274,10 @@ function copierContenu(texte) {
 ${scripts("scene.js")}
 <script>${apercuDonnees(origin)}</script>
 ${scripts("nuvio.js", "apercu.js", "reglages.js")}
+<script>
+// Étape 8 : le lien d'affiches de cet appareil, avec ce qui a été choisi en salle 2 (« Tes affiches »).
+if (window.NV) document.getElementById("u-poster").textContent = NV.lienPerso();
+</script>
 <script>
 // Amorce : le secteur balaie le cercle une fois, la première fois qu'on arrive sur l'étape.
 const acts = [...document.querySelectorAll("section.act")];
@@ -1432,10 +1415,10 @@ document.getElementById("vers-tel").addEventListener("click", () => {
 });
 // Le trousseau sur le téléphone : les clés et l'appareil voyagent dans le QR code, après le #.
 document.getElementById("cles-tel").addEventListener("click", () => {
-  const o = paquetCles({ ad: adInput.value, tmdb: tmdbInputs[0].value, appareil: appSel.value });
-  if (!o.ad && !o.tmdb) { toast("Colle d'abord tes clés dans le trousseau."); adInput.focus(); return; }
+  const o = paquetCles({ ad: adInput.value, appareil: appSel.value });
+  if (!o.ad) { toast("Colle d'abord ta clé dans le trousseau."); adInput.focus(); return; }
   const b = btoa(JSON.stringify(o)).replace(/[+]/g, "-").replace(/[/]/g, "_").replace(/=+$/, "");
-  montrerQr("Tes clés sur ton téléphone", "Scanne avec l'appareil photo : le guide s'ouvre sur le téléphone, avec tes clés et tes liens prêts.", ORIGINE + "/guide#cles=" + b, "Elles passent de cet écran au téléphone par l'image, sans être envoyées sur internet.");
+  montrerQr("Ta clé sur ton téléphone", "Scanne avec l'appareil photo : le guide s'ouvre sur le téléphone, avec ta clé et tes liens prêts.", ORIGINE + "/guide#cles=" + b, "Elle passe de cet écran au téléphone par l'image, sans être envoyée sur internet.");
 });
 // Arrivée sur le téléphone avec un lien envoyé depuis le PC : on le montre avec un gros bouton Copier.
 (() => {

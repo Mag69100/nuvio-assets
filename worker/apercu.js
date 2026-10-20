@@ -1,6 +1,6 @@
 /**
  * L'aperçu de l'accueil final (« Voir l'accueil que tu auras à la fin ») : un écran de TV avec l'accueil
- * Nuvio obtenu en suivant le guide (réglages conseillés, vrais films du moment, affiches PostersPlus),
+ * Nuvio obtenu en suivant le guide (réglages conseillés, vrais films du moment, affiches maison),
  * dessiné par l'écran Nuvio commun (nuvio.js). Partagé par le hall et le guide.
  * Les boutons [data-resultat] l'ouvrent ; une arrivée avec « #apercu » l'ouvre directement.
  */
@@ -109,10 +109,10 @@ export const APERCU_JS = `// ---------- L'accueil qu'on aura à la fin du guide 
     const E = NV.ecran(ecran);
     E.paysage(NV.reglages.format === "l"); E.pp();
     const legende = mkd("p", "legende");
-    legende.innerHTML = "Ton accueil Nuvio une fois le guide terminé : réglages conseillés, affiches PostersPlus et vrais films du moment. " + (NV.tactile ? "Touche une affiche pour ouvrir sa fiche ; « Retour » ouvre le menu." : "Passe la souris sur une affiche (ou utilise les flèches du clavier) comme avec la télécommande ; « Retour » ouvre le menu.") + " Tu pourras choisir tes rangées, tes plateformes et tes filtres en <a href='" + ORIG_AP + "/configure'>salle 2</a>" + (location.pathname.indexOf("/guide") === 0 ? "." : ", ou suivre le guide en <a href='" + ORIG_AP + "/guide'>salle 1</a>.");
+    legende.innerHTML = "Ton accueil Nuvio une fois le guide terminé : réglages conseillés, affiches maison et vrais films du moment. " + (NV.tactile ? "Touche une affiche pour ouvrir sa fiche ; « Retour » ouvre le menu." : "Passe la souris sur une affiche (ou utilise les flèches du clavier) comme avec la télécommande ; « Retour » ouvre le menu.") + " Tu pourras choisir tes rangées, tes plateformes et tes filtres en <a href='" + ORIG_AP + "/configure'>salle 2</a>" + (location.pathname.indexOf("/guide") === 0 ? "." : ", ou suivre le guide en <a href='" + ORIG_AP + "/guide'>salle 1</a>.");
     // La télécommande et les réglages d'affichage (les mêmes qu'en salle 2)
     const outils = mkd("div", "r-outils"), seg = mkd("div", "seg");
-    const bRet = mkd("button", "retour", "◀ Retour"), bV = mkd("button", null, "Affiches verticales"), bP = mkd("button", null, "Paysage"), bPP = mkd("button", "pp", "Affiches PostersPlus");
+    const bRet = mkd("button", "retour", "◀ Retour"), bV = mkd("button", null, "Affiches verticales"), bP = mkd("button", null, "Paysage"), bPP = mkd("button", "pp", "Affiches maison");
     [bRet, bV, bP, bPP].forEach((b) => { b.type = "button"; });
     bRet.title = "Le bouton Retour de la télécommande (touche Retour arrière du clavier)";
     const boutons = () => { bV.setAttribute("aria-pressed", String(NV.reglages.format === "p")); bP.setAttribute("aria-pressed", String(NV.reglages.format === "l")); bPP.setAttribute("aria-pressed", String(NV.reglages.pp)); };

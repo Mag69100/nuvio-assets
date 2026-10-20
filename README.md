@@ -7,6 +7,7 @@ Un addon Nuvio / Stremio en français, servi en direct depuis TMDB, avec son sit
 |---|---|
 | Le site (hall, guide, personnalisation) | https://nuvio-assets.xnzxflix.workers.dev |
 | L'addon à installer dans Nuvio | `https://nuvio-assets.xnzxflix.workers.dev/manifest.json` |
+| Les affiches (Nuvio : Paramètres → Disposition → Custom Poster Source ; à régler en salle 2, « Tes affiches ») | `https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?imdb={imdb_id?}` |
 | Les collections (copier tout son contenu, puis dans Nuvio, onglet Collections, bouton presse-papiers en haut à droite, sur téléphone comme sur PC ; sur téléphone, le lien marche aussi par Importer → URL) | `https://nuvio-assets.xnzxflix.workers.dev/collections.json` |
 
 Le plus simple : ouvrir le site, salle 1 (le guide) si tu n'as pas encore Nuvio, salle 2 pour régler ton lien.
@@ -143,6 +144,7 @@ chaque correction. Rien ne change sans ton accord.
 | Dossier / fichier | Contenu |
 |---|---|
 | `worker/` | L'addon et le site (Cloudflare Worker, point d'entrée `worker/index.js`) |
+| `affiches/` | Le service des affiches maison, sur Vercel (voir `affiches/README.md`) |
 | `worker/search.js`, `worker/ai.js` | Recherche classique et recherche par IA |
 | `worker/hote.js` | Copies auto-hébergées : version, espace hébergeur, alertes |
 | `worker/stage.js`, `worker/statique.js` | Mise en scène commune et feuilles de style partagées |
@@ -166,7 +168,8 @@ comme le fait Cloudflare).
 
 ### Déploiement et tâches automatiques
 
-Le Worker est déployé par Cloudflare (Workers Builds) à chaque push sur `main`.
+Le Worker est déployé par Cloudflare (Workers Builds) à chaque push sur `main`. Le service des affiches
+(`affiches/`) est déployé par Vercel, seulement quand ce dossier change.
 
 | Workflow | Quand | Ce qu'il fait |
 |---|---|---|

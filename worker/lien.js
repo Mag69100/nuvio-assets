@@ -1,7 +1,7 @@
 /**
  * Page « Sur ton téléphone » (servie sur /lien) : ce qu'on ouvre en scannant un QR code du guide.
  * Le lien voyage dans l'ancre (#u=…&nom=…), qui n'est jamais envoyée au serveur : les liens qui
- * contiennent une clé (affiches PostersPlus) restent sur le téléphone.
+ * contiennent une clé (AllDebrid) restent sur le téléphone.
  * On choisit : copier le lien, ou copier le contenu du fichier (une configuration JSON, par exemple).
  */
 export function lienPage({ origin }) {

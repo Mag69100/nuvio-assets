@@ -1,13 +1,13 @@
 /**
  * L'écran Nuvio des aperçus, recopié de Nuvio TV 1.1.0-beta.7 (la version du guide) avec les réglages
  * conseillés de l'étape 9 : Vue moderne, thème Cramoisi, police Inter, cartes « Équilibré » à coins
- * « Pilule », Card Depth Effect, barre latérale moderne cachée (Hide Floating Pill), affiches PostersPlus.
+ * « Pilule », Card Depth Effect, barre latérale moderne cachée (Hide Floating Pill), affiches maison.
  * Partagé par l'aperçu du hall et du guide (apercu.js) et par celui de la salle 2 (page.js) : les gens
  * voient partout le même accueil, celui qu'ils auront à la fin.
  *
  * Les mesures viennent du code de Nuvio TV (écran de référence 960 × 540 dp) : 1 dp = 1/9,6 cqw.
  */
-import { parametresNuvio, POSTER_URL } from "./reglages.js";
+import { parametresNuvio, POSTER_URL, lienAffiches } from "./reglages.js";
 
 export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cramoisi) ---------- */
 .nvo { position: absolute; inset: 0; overflow: hidden; background: #0D0D0D; color: #fff; font-family: Inter, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
@@ -68,7 +68,7 @@ export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cram
 .nvo-carte.attente > .reflet { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, transparent 0, rgba(255,255,255,.07) 40%, rgba(255,255,255,.13) 50%, rgba(255,255,255,.07) 60%, transparent 100%) no-repeat;
   background-size: 31.25cqw 100%; animation: nvo-reflet 1.6s linear infinite; }
 @keyframes nvo-reflet { from { background-position: -52cqw 0; } to { background-position: 52cqw 0; } }
-/* Carte paysage sans PostersPlus : dégradé et logo en bas à gauche */
+/* Carte paysage sans affiches maison : dégradé et logo en bas à gauche */
 .nvo-carte .sur { position: absolute; inset: 0; z-index: 1; display: none; border-radius: inherit; background: linear-gradient(rgba(0,0,0,0) 58%, rgba(0,0,0,.75)); }
 .nvo.paysage:not(.pp) .nvo-carte.img .sur { display: block; }
 .nvo-carte .sur img { position: absolute; left: 1.042cqw; bottom: .833cqw; max-width: 62%; max-height: 34%; object-fit: contain; object-position: left bottom; }
@@ -428,9 +428,9 @@ const parametresJSON = (posterUrl) => {
 /** La donnée du script commun propre au site qui sert la page : origin = l'adresse de l'addon. */
 export const nuvioDonnees = (origin) => "const NV_ORIG = " + JSON.stringify(origin) + ";";
 
-/** Le script commun : window.NV, avec le réglage PostersPlus conseillé (« TA_CLE_TMDB » à la place de la clé) et les écrans
+/** Le script commun : window.NV, avec le lien des affiches maison (lienAffiches, repris de reglages.js) et les écrans
  *  des Paramètres. Servi à part (statique.js, gardé en cache par le navigateur), après nuvioDonnees. */
-export const NUVIO_JS = "const NV_PP = " + JSON.stringify(POSTER_URL) + ", NV_PAR = " + parametresJSON(POSTER_URL) + ";\n" + `window.NV = (() => {
+export const NUVIO_JS = "const NV_PP = " + JSON.stringify(POSTER_URL) + ", NV_PAR = " + parametresJSON(POSTER_URL) + ";\n" + lienAffiches + "\n" + `window.NV = (() => {
   const mkd = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
   const cssUrl = (u) => "url('" + String(u).replace(/'/g, "%27") + "')";
   // Fonds envoyés en w1920 (ou original, w1280 selon la version de l'addon) : on demande la taille utile.
@@ -441,27 +441,30 @@ export const NUVIO_JS = "const NV_PP = " + JSON.stringify(POSTER_URL) + ", NV_PA
   const calme = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // ---------- Réglages de l'aperçu (les mêmes partout : hall, guide, salle 2) ----------
-  // Affiches PostersPlus : activées d'office (c'est le réglage de l'étape 8). Sans clé TMDB du visiteur,
-  // le worker les demande avec la sienne (/affiche/…).
+  // Affiches maison : activées d'office (c'est le réglage de l'étape 8), avec les options choisies en
+  // salle 2 (« Tes affiches », gardées dans ce navigateur), demandées au worker (/affiche/…).
   const reglages = {
     get format() { return lit("apercu-format") === "l" ? "l" : "p"; },
     set format(v) { ecrit("apercu-format", v === "l" ? "l" : "p"); },
     get pp() { return lit("apercu-pp-v2") !== "0"; },
     set pp(v) { ecrit("apercu-pp-v2", v ? "1" : "0"); },
+    get affiches() {
+      try { const a = JSON.parse(lit("affiches-v1") || "{}"); return { o: typeof a.o === "string" ? a.o : "", r: a.r === "tmdb" ? "tmdb" : "imdb" }; }
+      catch (e) { return { o: "", r: "imdb" }; }
+    },
+    set affiches(a) { ecrit("affiches-v1", JSON.stringify({ o: a.o || "", r: a.r === "tmdb" ? "tmdb" : "imdb" })); },
   };
-  const cle = () => (lit("tmdb-key") || "").trim();
+  /** Le lien d'affiches à coller dans Nuvio, avec les options de ce navigateur. */
+  const lienPerso = () => lienAffiches(reglages.affiches);
   const ppSrc = (m, forme) => {
     if (!reglages.pp || !m || !m.id) return "";
     const id = String(m.id), imdb = m.imdb_id || (id.startsWith("tt") ? id : "");
-    const k = cle();
-    if (/^[A-Fa-f0-9]{32}$/.test(k)) {
-      const vals = { "{tmdb_id?}": id.startsWith("tmdb:") ? id.slice(5) : "", "{imdb_id?}": imdb, "{id}": id, "{type}": m.type || "movie", "{shape}": forme };
-      let u = NV_PP.replace("TA_CLE_TMDB", encodeURIComponent(k));
-      for (const [a, b] of Object.entries(vals)) u = u.split(a).join(encodeURIComponent(b));
-      return u;
-    }
     if (!/^(tt\\d+|tmdb:\\d+)$/.test(id)) return "";
-    return NV_ORIG + "/affiche/" + (m.type === "series" ? "series" : "movie") + "/" + forme + "/" + encodeURIComponent(id) + (imdb && imdb !== id ? "?imdb=" + imdb : "");
+    const q = new URLSearchParams(), a = reglages.affiches;
+    if (imdb && imdb !== id) q.set("imdb", imdb);
+    if (a.o) q.set("o", a.o);
+    if (a.r === "tmdb") q.set("r", "tmdb");
+    return NV_ORIG + "/affiche/" + (m.type === "series" ? "series" : "movie") + "/" + forme + "/" + encodeURIComponent(id) + (String(q) ? "?" + q : "");
   };
 
   // ---------- Données de l'addon (fiches, bandes-annonces), gardées en mémoire ----------
@@ -1548,7 +1551,7 @@ export const NUVIO_JS = "const NV_PP = " + JSON.stringify(POSTER_URL) + ", NV_PA
     };
   };
 
-  return { mkd, cssUrl, imgW, lit, ecrit, tactile, calme, reglages, cle, ppSrc, fiche, baCle, youtube, typeGenre, duree, dateSortie, lignesInfos, imdbEl,
+  return { mkd, cssUrl, imgW, lit, ecrit, tactile, calme, reglages, lienPerso, ppSrc, fiche, baCle, youtube, typeGenre, duree, dateSortie, lignesInfos, imdbEl,
     hero, carte, remplit, peint, tuile, gif, pilote, glisse, vientDeGlisser, menu, MENU, liste, dansListe, basculeListe, ouvreFiche, item, ecran };
 })();
 `;

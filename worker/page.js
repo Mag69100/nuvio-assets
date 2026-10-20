@@ -35,6 +35,7 @@ const PROVIDER_COLORS = {
 
 import { STAGE_HEAD, stageTop, secretsHTML, BEAM_HTML, SEATS_HTML, CREDITS_HTML } from "./stage.js";
 import { nuvioDonnees } from "./nuvio.js";
+import { ELEMENTS_AFFICHES, POSTER_URL } from "./reglages.js";
 import { feuilles, scripts } from "./statique.js";
 
 // Espace hébergeur d'une copie auto-hébergée (absent de l'instance principale) : connexion avec le mot de
@@ -441,6 +442,7 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .switch input:checked { background: var(--red); }
 .switch input:checked::after { transform: translateX(20px); }
 .switch small { display: block; color: var(--dim); }
+.aff-elements { display: grid; gap: 12px; }
 
 .coll { border: 1px solid var(--seat); border-radius: 12px; padding: 12px 14px; display: grid; gap: 10px; background: var(--velvet); }
 .coll-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -508,7 +510,7 @@ body::after { content: ""; position: fixed; inset: -50%; pointer-events: none; z
 .screen-fun { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .stage .screen-tools { justify-content: center; }
 #pp-btn[aria-pressed="true"] { background: var(--cream); border-color: var(--cream); color: var(--ink); }
-/* PostersPlus n'est qu'un aperçu ici : le vrai réglage se fait dans Nuvio (étape 8 du guide). */
+/* Les affiches maison se règlent plus haut (« Tes affiches ») ; le lien va dans Nuvio (étape 8 du guide). */
 .pp-note { margin: 10px auto 0; max-width: 46ch; text-align: center; color: var(--dim); font-size: .82rem; }
 .pp-ouvrir { padding: 0; border: 0; background: none; font: inherit; color: var(--bulb); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 /* L'étape 8 du guide en fenêtre : clé TMDB, lien à copier, où le coller dans Nuvio. */
@@ -626,7 +628,7 @@ ${feuilles("scene.css", "nuvio.css")}
     <main>
       <nav class="nav" aria-label="Sections">
         <a href="#s-nom">Nom</a><a href="#s-pays">Pays</a><a href="#s-rangees">Rangées</a><a href="#s-saison">Saison</a>
-        <a href="#s-plateformes">Plateformes</a><a href="#s-filtres">Filtres</a><a href="#s-ia">IA</a><a href="#s-decouvrir">Découvrir</a><a href="#s-collections">Collections</a>${copy ? '<a href="#s-hote">Hébergeur</a>' : ""}<a href="#s-mode">Installer</a>
+        <a href="#s-plateformes">Plateformes</a><a href="#s-filtres">Filtres</a><a href="#s-ia">IA</a><a href="#s-decouvrir">Découvrir</a><a href="#s-collections">Collections</a><a href="#s-affiches">Affiches</a>${copy ? '<a href="#s-hote">Hébergeur</a>' : ""}<a href="#s-mode">Installer</a>
       </nav>
 
       <section class="act" id="s-nom">
@@ -716,13 +718,23 @@ ${copy ? "" : `        <p class="sub">Le lien partagé sature ? <a href="${origi
         <div id="collections" style="display:grid;gap:10px"></div>
       </section>
 
+      <section class="act" id="s-affiches">
+        <header><span>Vitrine</span><h2>Tes affiches</h2></header>
+        <p class="sub">Les affiches des cartes de Nuvio : choisis ce qui s'affiche dessus. L'écran montre le résultat en direct. Ces réglages ne touchent pas à ton lien d'addon : ils vont dans le lien « Affiches » de ton billet, à coller dans Nuvio (Paramètres → Disposition → Custom Poster Source). Ils restent gardés dans ce navigateur.</p>
+        <div class="field"><span>Styles tout prêts</span><div class="seg" id="aff-styles" role="group" aria-label="Styles d'affiches"></div></div>
+        <div class="aff-elements">
+${ELEMENTS_AFFICHES.map(([k, nom, aide]) => `          <label class="switch"><input type="checkbox" data-aff="${k}"><span><b>${nom}</b><small>${aide}</small></span></label>`).join("\n")}
+        </div>
+        <div class="field"><span>La note</span><div class="seg" id="aff-note" role="group" aria-label="Source de la note"></div></div>
+      </section>
+
 ${copy ? HOTE_HTML : ""}
       <section class="act" id="s-mode">
         <header><span>Mode d'emploi</span><h2>Installer sur ta TV sans rien taper</h2></header>
         <ol class="steps-howto">
           <li><span><b>Sur la TV</b>, dans Nuvio : Addons → <b>Gérer depuis le téléphone</b>. Un QR code s'affiche.</span></li>
           <li><span><b>Scanne-le avec ton téléphone</b>, connecté au même Wi-Fi que la TV.</span></li>
-          <li><span><b>Colle les liens de ton billet</b> : l'addon dans l'onglet Addons, les collections avec « Copier le contenu (PC/TEL) », puis le bouton presse-papiers en haut à droite de l'onglet Collections.</span></li>
+          <li><span><b>Colle les liens de ton billet</b> : l'addon dans l'onglet Addons, les collections avec « Copier le contenu (PC/TEL) », puis le bouton presse-papiers en haut à droite de l'onglet Collections, et les affiches dans Paramètres → Disposition → Custom Poster Source.</span></li>
           <li><span><b>Mets Nuvio en français</b> : langue de l'appli et langue TMDB (Paramètres → Enrichissement TMDB).</span></li>
         </ol>
         <p class="sub">Nuvio est sur ton téléphone, ta tablette ou ton ordinateur ? Pas besoin de QR code : colle directement le lien d'addon de ton billet dans l'onglet Addons. Pour les collections, « Copier le contenu (PC/TEL) » copie tout le contenu de leur lien : dans Nuvio, onglet Collections, appuie sur le bouton presse-papiers en haut à droite, sur téléphone comme sur ordinateur.</p>
@@ -741,9 +753,9 @@ ${copy ? HOTE_HTML : ""}
         <div class="screen-tools">
           <button type="button" class="mini" id="ret-btn" title="Le bouton Retour de la télécommande (touche Retour arrière du clavier)">◀ Retour</button>
           <div class="seg" id="fmt" role="group" aria-label="Format des affiches"></div>
-          <button type="button" class="mini" id="pp-btn" aria-pressed="false">Affiches PostersPlus</button>
+          <button type="button" class="mini" id="pp-btn" aria-pressed="false">Affiches maison</button>
         </div>
-        <p class="pp-note" id="pp-note" hidden>Aperçu seulement : ces affiches ne se règlent pas ici. <button type="button" class="pp-ouvrir" id="pp-ouvrir">Les avoir dans Nuvio</button></p>
+        <p class="pp-note" id="pp-note" hidden>Tes affiches se règlent dans « Tes affiches », plus haut. <button type="button" class="pp-ouvrir" id="pp-ouvrir">Les avoir dans Nuvio</button></p>
         <div class="screen-fun">
           <button type="button" class="mini" id="zoom" aria-pressed="false">Agrandir l'écran</button>
         </div>
@@ -773,6 +785,9 @@ ${copy ? HOTE_HTML : ""}
           <div class="t-url" id="u-collections"></div>
           <div class="t-btns"><button type="button" class="btn solid" id="copy-collections">Copier</button><button type="button" class="btn line" id="copy-collections-contenu" title="Tout le contenu du lien, à coller dans Nuvio (sur PC, Nuvio ne prend que le contenu)">Copier le contenu (PC/TEL)</button></div>
           <textarea class="t-url t-contenu" id="contenu-collections" readonly hidden aria-label="Contenu du lien des collections"></textarea>
+          <div class="t-label">Affiches · Paramètres → Disposition → Custom Poster Source</div>
+          <div class="t-url" id="u-affiches">${POSTER_URL.replace(/&/g, "&amp;")}</div>
+          <div class="t-btns"><button type="button" class="btn solid full" id="copy-affiches">Copier</button></div>
           <div class="t-btns">
             <button type="button" class="btn line" id="qr-btn" aria-expanded="false" aria-controls="qr">Continuer sur le téléphone</button>
             <button type="button" class="btn line" id="share-btn">Offrir ce billet</button>
@@ -1071,22 +1086,40 @@ window.ajouterRangee = (r) => {
   return "ok";
 };
 
-// ---------- outils : télécommande, format des affiches, PostersPlus, grand écran ----------
+// ---------- outils : télécommande, format des affiches, affiches maison, grand écran ----------
 $("ret-btn").addEventListener("click", () => E.retour());
 function drawPP() { $("pp-btn").setAttribute("aria-pressed", String(NV.reglages.pp)); $("pp-note").hidden = !NV.reglages.pp; }
 $("pp-btn").addEventListener("click", () => { NV.reglages.pp = !NV.reglages.pp; drawPP(); E.pp(); if (window.sfx) sfx.click(); });
 drawPP();
-// Les affiches PostersPlus dans Nuvio : l'étape 8 du guide, en fenêtre. La clé TMDB est celle du
-// trousseau du guide (même site, même « tmdb-key ») et reste dans le navigateur.
+
+// ---------- Tes affiches : ce qui s'affiche dessus (lettres retirées dans le lien, note IMDb ou TMDB) ----------
+const STYLES_AFFICHES = [["Complet", ""], ["Essentiel", "tga"], ["Nue", "tqngal"]];
+function drawAffiches() {
+  const a = NV.reglages.affiches;
+  document.querySelectorAll("[data-aff]").forEach((c) => { c.checked = !a.o.includes(c.dataset.aff); });
+  const coupe = "tqngal".split("").filter((k) => a.o.includes(k)).join("");
+  seg($("aff-styles"), STYLES_AFFICHES.map((s) => s[0]), STYLES_AFFICHES.findIndex((s) => s[1] === coupe),
+    (i) => majAffiches({ ...a, o: STYLES_AFFICHES[i][1] }));
+  seg($("aff-note"), ["IMDb", "TMDB"], a.r === "tmdb" ? 1 : 0, (i) => majAffiches({ ...NV.reglages.affiches, r: i ? "tmdb" : "imdb" }));
+  $("u-affiches").textContent = NV.lienPerso();
+}
+function majAffiches(a) {
+  NV.reglages.affiches = a;
+  drawAffiches();
+  if (!NV.reglages.pp) { NV.reglages.pp = true; drawPP(); }
+  E.pp();
+  if (window.sfx) sfx.click();
+}
+document.querySelectorAll("[data-aff]").forEach((c) => c.addEventListener("change", () => {
+  const coupe = [...document.querySelectorAll("[data-aff]")].filter((x) => !x.checked).map((x) => x.dataset.aff).join("");
+  majAffiches({ ...NV.reglages.affiches, o: coupe });
+}));
+drawAffiches();
+$("copy-affiches").addEventListener("click", (e) => copy(e.currentTarget, $("u-affiches"), "Copier"));
+
+// Les affiches maison dans Nuvio : l'étape 8 du guide, en fenêtre, avec le lien réglé ici.
 function ppFenetre() {
-  const lit = () => { try { return localStorage.getItem("tmdb-key") || ""; } catch (e) { return ""; } };
-  const cle = el("input", { type: "text", placeholder: "ta clé de 32 caractères", autocomplete: "off", spellcheck: "false", autocapitalize: "off" });
-  const url = el("code");
-  const majUrl = () => {
-    const k = cle.value.trim().replace(/[^A-Za-z0-9]/g, "");
-    url.textContent = NV_PP.replace("TA_CLE_TMDB", k || "TA_CLE_TMDB");
-    try { k ? localStorage.setItem("tmdb-key", k) : localStorage.removeItem("tmdb-key"); } catch (e) {}
-  };
+  const url = el("code", { text: NV.lienPerso() });
   const copier = el("button", { type: "button", text: "Copier", onclick: () => {
     const fait = () => { copier.textContent = "Copié ✓"; setTimeout(() => copier.textContent = "Copier", 1500); };
     const choisir = () => { const r = document.createRange(); r.selectNodeContents(url); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
@@ -1096,20 +1129,16 @@ function ppFenetre() {
   const ov = el("div", { class: "pp-modal", role: "dialog", "aria-modal": "true", "aria-labelledby": "pp-titre" },
     el("div", { class: "boite" },
       el("button", { type: "button", class: "fermer", "aria-label": "Fermer", text: "×", onclick: () => fermer() }),
-      el("h2", { id: "pp-titre", text: "Les affiches perso" }),
-      el("p", { text: "Les affiches avec badges de l'aperçu (classement, note IMDb, qualité, genre, année). Elles se règlent dans l'appli Nuvio, pas dans ton lien d'addon." }),
-      el("label", null, "Ta clé TMDB", cle),
-      el("p", { class: "pp-mini" }, "Pas encore de clé ? Elle est gratuite : ", el("a", { href: "https://www.themoviedb.org/settings/api", target: "_blank", rel: "noopener", text: "themoviedb.org → Paramètres → API" }), ". Elle reste sur ton appareil, seulement insérée dans le lien."),
+      el("h2", { id: "pp-titre", text: "Les affiches maison" }),
+      el("p", { text: "Les affiches de l'aperçu, avec ce que tu as choisi dans « Tes affiches ». Elles se règlent dans l'appli Nuvio, pas dans ton lien d'addon." }),
       el("div", { class: "pp-lien" }, url, copier),
       el("ol", null,
         el("li", null, "Dans Nuvio : ", el("b", { text: "Paramètres → Disposition → Custom Poster Source" }), ". Le plus simple : ", el("b", { text: "Configure via Phone" }), ", puis colle le lien depuis ton téléphone."),
         el("li", null, "En dessous, dans « Apply to », laisse tout activé (Home, Collections, Library, Search, Details Screen…). Les affiches se mettent à jour au fil de la navigation."))));
   ov.addEventListener("click", (e) => { if (e.target === ov) fermer(); });
   ov.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); fermer(); } });
-  cle.value = lit(); majUrl();
-  cle.addEventListener("input", majUrl);
   document.body.append(ov);
-  cle.focus();
+  copier.focus();
 }
 $("pp-ouvrir").addEventListener("click", ppFenetre);
 function drawFmt() {

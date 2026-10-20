@@ -28,7 +28,8 @@ import {
   decodeConfig, defaults, langOf, contentKey, hasGlobalFilters,
 } from "./config.js";
 import { configurePage } from "./page.js";
-import { guidePage, NUVIO_TV_APK, POSTER_URL } from "./guide.js";
+import { guidePage, NUVIO_TV_APK } from "./guide.js";
+import { AFFICHES_URL } from "./reglages.js";
 import { lienPage } from "./lien.js";
 import { copiePage } from "./copie.js";
 import { hallPage } from "./hall.js";
@@ -612,9 +613,7 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
   if (def.endpoint) {
     const params = { ...(def.params || {}) };
     if (params.region) params.region = opts.region;
-    // Tendances du jour, films pas encore sortis compris (réglage « u ») : aussi dans l'ordre de Posters+.
-    const [d, ranks] = await Promise.all([tmdb(env, def.endpoint, { ...params, page }, opts.lang), trendingRanks(def, kind)]);
-    data = d.results ? { ...d, results: byRank(d.results, ranks, page) } : d;
+    data = await tmdb(env, def.endpoint, { ...params, page }, opts.lang);
   } else {
     const endpoint = `/discover/${kind === "series" ? "tv" : "movie"}`;
     const params = discoverParams(def, kind, today, opts);
@@ -641,12 +640,10 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
  */
 const MAX_CHECKED = 40;   // fiches TMDB lues au plus par page (limite d'appels de Cloudflare)
 async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
-  const [ranks, ...lists] = await Promise.all([
-    trendingRanks(def, kind),
-    ...[page, page + 1].map((p) => tmdb(env, def.endpoint, { ...(def.params || {}), page: p }, opts.lang)),
-  ]);
+  // Dans l'ordre de TMDB : le même que le « N° » des affiches maison (affiches/lib/tendances.js).
+  const lists = await Promise.all([page, page + 1].map((p) => tmdb(env, def.endpoint, { ...(def.params || {}), page: p }, opts.lang)));
   // Un titre passé d'une page de TMDB à l'autre entre deux lectures n'est gardé qu'une fois.
-  const released = byRank(lists.flatMap((d) => d.results || []), ranks, page)
+  const released = lists.flatMap((d) => d.results || [])
     .filter((it, i, all) => all.findIndex((x) => x.id === it.id) === i)
     .filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; });
   let picked = released.slice(0, PAGE);
@@ -667,49 +664,6 @@ async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
   if (!picked.length) return [];
   const metas = await toMetas(env, ctx, picked, kind, opts, today);
   return metas.map(({ _digital, _guess, _vf, ...m }) => m);
-}
-
-/**
- * Rang de chaque titre (identifiant TMDB → 1, 2, 3…) dans le classement « TMDB aujourd'hui » de
- * Posters+, celui de son badge « #1 aujourd'hui » sur les affiches : les Tendances du jour suivent
- * cet ordre plutôt que celui de TMDB, qui a déjà bougé quand Posters+ relit le sien. Les animés
- * (classés par AniList) n'y sont pas. Posters+ injoignable : liste vide, l'ordre de TMDB reste.
- */
-const PP_TRENDING = "https://postersplus.stremio.ru/trending/catalog";
-const trendingRanks = (def, kind) => (/^[/]trending[/].+[/]day$/.test(def.endpoint || "") ? postersPlusRanks(kind) : Promise.resolve(new Map()));
-/** Titres d'une page (page N de TMDB et suivantes) dans l'ordre de Posters+. Sans rang chez lui : sa place
- *  chez TMDB, juste après le rang égal (pas la fin de la liste, d'où il sortirait de la page). */
-function byRank(results, ranks, page) {
-  if (!ranks.size) return results;
-  const pos = new Map(results.map((it, i) => [it, ranks.get(it.id) || (page - 1) * PAGE + i + 1.5]));
-  return [...results].sort((a, b) => pos.get(a) - pos.get(b));
-}
-/** Classement gardé aussi en mémoire de l'addon (15 min, 2 min s'il est vide) : Posters+ répond
- *  lentement (¾ s) et le cache Cloudflare, propre à chaque centre de données, le redemande souvent.
- *  Toutes les pages des Tendances qui se préparent en même temps attendent la même réponse. */
-const PP_KEEP_MS = 15 * 60 * 1000, PP_EMPTY_MS = 2 * 60 * 1000;
-let ppMemo = new Map();
-export function resetPostersPlus() { ppMemo = new Map(); }
-function postersPlusRanks(kind) {
-  const now = Date.now(), hit = ppMemo.get(kind);
-  if (hit && now < hit.until) return hit.ranks;
-  const ranks = readPostersPlus(kind);
-  const memo = { ranks, until: now + PP_KEEP_MS };
-  ppMemo.set(kind, memo);
-  ranks.then((r) => { if (!r.size) memo.until = Date.now() + PP_EMPTY_MS; });
-  return ranks;
-}
-async function readPostersPlus(kind) {
-  const url = `${PP_TRENDING}/${kind === "series" ? "series/pp.trending.series" : "movie/pp.trending.movie"}.json`;
-  // Plus de 4 s sans réponse : l'ordre de TMDB, plutôt qu'une rangée qui tarde à s'afficher.
-  const d = await fetch(url, { cf: { cacheTtl: 3600, cacheEverything: true }, signal: AbortSignal.timeout(4000) })
-    .then((res) => (res.ok ? res.json() : null), () => null).catch(() => null);
-  const ranks = new Map();
-  ((d && d.metas) || []).forEach((m, i) => {
-    const id = /^tmdb:(\d+)$/.exec(m.id || "");
-    if (id && !ranks.has(Number(id[1]))) ranks.set(Number(id[1]), i + 1);
-  });
-  return ranks;
 }
 
 /** Film regardable chez soi : sorti en numérique (ou salle + 45 jours passés). Sans infos : gardé. */
@@ -1771,20 +1725,24 @@ const app = {
       const r = (await renewalOf(env, ctx, d, follow.season, today)) || { error: "pas d'article Wikipédia" };
       return json({ wikipedia: await wikiNews(d.external_ids.wikidata_id), ...r, note: r.status ? renewalNote(r, follow.season) : follow.text }, 0);
     }
-    // Affiche PostersPlus de l'aperçu (réglage conseillé de l'étape 8) avec la clé TMDB du worker :
-    // le visiteur voit les affiches qu'il aura à la fin sans coller la sienne. /affiche/<type>/<poster|landscape>/<id>
+    // Affiche maison des aperçus du site (et du Plan B Stremio), relayée depuis le service d'affiches
+    // (dossier affiches/, sur Vercel) avec les options de la salle 2 (o, r), gardée un jour dans le cache.
+    // /affiche/<type>/<poster|landscape>/<id>?imdb=tt…&o=…&r=tmdb
     const af = path.match(/^\/affiche\/(movie|series)\/(poster|landscape)\/(tt\d{1,10}|tmdb%3A\d{1,10}|tmdb:\d{1,10})$/);
     if (af) {
       const id = decodeURIComponent(af[3]), imdb = url.searchParams.get("imdb") || "";
-      const vals = { "{tmdb_id?}": id.startsWith("tmdb:") ? id.slice(5) : "", "{imdb_id?}": /^tt\d{1,10}$/.test(imdb) ? imdb : (id.startsWith("tt") ? id : ""), "{id}": id, "{type}": af[1], "{shape}": af[2] };
-      let src = POSTER_URL.replace("TA_CLE_TMDB", encodeURIComponent(env.TMDB_API_KEY));
-      for (const [k, v] of Object.entries(vals)) src = src.split(k).join(encodeURIComponent(v));
-      const key = new Request(`https://cache.local/affiche/${af[1]}/${af[2]}/${id}?imdb=${vals["{imdb_id?}"]}`);
+      const o = "tqngal".split("").filter((k) => (url.searchParams.get("o") || "").includes(k)).join("");
+      const q = new URLSearchParams();
+      if (/^tt\d{1,10}$/.test(imdb)) q.set("imdb", imdb);
+      if (o) q.set("o", o);
+      if (url.searchParams.get("r") === "tmdb") q.set("r", "tmdb");
+      const src = `${AFFICHES_URL}/${af[1]}/${af[2]}/${id}.jpg${q.size ? "?" + q : ""}`;
+      const key = new Request(`https://cache.local/affiche-v2/${af[1]}/${af[2]}/${id}?${q}`);
       const hitA = await caches.default.match(key);
       if (hitA) return hitA;
-      const r = await fetch(src, { cf: { cacheTtl: 7 * 86400, cacheEverything: true } }).catch(() => null);
+      const r = await fetch(src, { cf: { cacheTtl: 86400, cacheEverything: true } }).catch(() => null);
       if (!r || !r.ok || !/^image\//.test(r.headers.get("Content-Type") || "")) return new Response(null, { status: 404, headers: { ...HEADERS, "Cache-Control": "public, max-age=3600" } });
-      const out = new Response(r.body, { headers: { "Access-Control-Allow-Origin": "*", "Content-Type": r.headers.get("Content-Type"), "Cache-Control": "public, max-age=604800" } });
+      const out = new Response(r.body, { headers: { "Access-Control-Allow-Origin": "*", "Content-Type": r.headers.get("Content-Type"), "Cache-Control": "public, max-age=86400" } });
       ctx.waitUntil(caches.default.put(key, out.clone()));
       return out;
     }

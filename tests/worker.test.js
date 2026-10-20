@@ -1,6 +1,6 @@
 import { test, beforeEach, mock } from "node:test";
 import assert from "node:assert/strict";
-import worker, { resetPostersPlus } from "../worker/index.js";
+import worker from "../worker/index.js";
 import { resetFails } from "../worker/hote.js";
 
 // Worker appelé comme par Cloudflare, avec un cache en mémoire et TMDB / Gemini simulés.
@@ -9,7 +9,6 @@ beforeEach(() => {
   store = new Map();
   calls = [];
   resetFails();
-  resetPostersPlus();
   globalThis.caches = {
     default: {
       match: async (req) => (store.has(req.url) ? new Response(store.get(req.url)) : undefined),
@@ -352,32 +351,19 @@ test("logo_versionne", async () => {
   assert.match(m.logo, /\/logo\/addon\.png\?v=\d+$/);
 });
 
-// Tendances du jour : dans l'ordre du classement de Posters+ (le badge « #1 aujourd'hui » des affiches).
-// Sans rang chez lui (la 2) : sa place chez TMDB, ici 2e, donc juste après le rang 2. La 3, passée
-// en page 2 de TMDB entre deux lectures, n'apparaît qu'une fois.
-test("tendances_du_jour_dans_l_ordre_de_posters_plus", async () => {
+// Tendances du jour : dans l'ordre de TMDB, le même que le « N° » des affiches maison. Posters+ n'est
+// plus lu. La 3, passée en page 2 de TMDB entre deux lectures, n'apparaît qu'une fois.
+test("tendances_du_jour_dans_l_ordre_tmdb", async () => {
   const serie = (id) => ({ id, name: `Série ${id}`, first_air_date: "2020-01-01" });
   globalThis.fetch = async (url) => {
     const u = String(url);
     calls.push(u);
-    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: u.includes("page=1") ? [serie(1), serie(2), serie(3)] : [serie(3)], page: 1, total_pages: 2 }));
-    if (u.includes("postersplus")) return new Response(JSON.stringify({ metas: [{ id: "tmdb:3" }, { id: "tmdb:77" }, { id: "anilist:9" }, { id: "tmdb:1" }] }));
+    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: u.includes("page=1") ? [serie(3), serie(77), serie(1)] : [serie(1)], page: 1, total_pages: 2 }));
     return new Response("{}");
   };
   const { metas } = await (await get("/catalog/series/accueil-tendances-series.json")).json();
-  assert.deepEqual(metas.map((m) => m.id), ["tmdb:3", "tmdb:2", "tmdb:1"]);
-});
-
-test("tendances_du_jour_sans_posters_plus", async () => {
-  const serie = (id) => ({ id, name: `Série ${id}`, first_air_date: "2020-01-01" });
-  globalThis.fetch = async (url) => {
-    const u = String(url);
-    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: u.includes("page=1") ? [serie(1), serie(2), serie(3)] : [], page: 1, total_pages: 1 }));
-    if (u.includes("postersplus")) return new Response("panne", { status: 502 });
-    return new Response("{}");
-  };
-  const { metas } = await (await get("/catalog/series/accueil-tendances-series.json")).json();
-  assert.deepEqual(metas.map((m) => m.id), ["tmdb:1", "tmdb:2", "tmdb:3"]);
+  assert.deepEqual(metas.map((m) => m.id), ["tmdb:3", "tmdb:77", "tmdb:1"]);
+  assert.ok(!calls.some((u) => u.includes("postersplus")));
 });
 
 // Télé-réalité : masquée de toutes les rangées de séries, sauf d'une rangée sur mesure qui la demande.
@@ -402,48 +388,49 @@ test("rangee_sur_mesure_tele_realite", async () => {
   assert.ok(discover().every((u) => u.searchParams.get("without_genres").split("|").includes("10764")));
 });
 
-// Classement de Posters+ gardé en mémoire : les autres pages et les autres liens ne le redemandent pas.
-// Vide (Posters+ en panne) : redemandé ensuite, sans attendre 15 min.
-test("tendances_du_jour_posters_plus_lu_une_fois", async () => {
-  const serie = (id) => ({ id, name: `Série ${id}`, first_air_date: "2020-01-01" });
-  let pp = () => new Response("panne", { status: 502 });
-  globalThis.fetch = async (url) => {
-    const u = String(url);
-    calls.push(u);
-    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: [serie(1), serie(2)], page: 1, total_pages: 1 }));
-    if (u.includes("postersplus")) return pp();
-    return new Response("{}");
-  };
-  const ppCalls = () => calls.filter((u) => u.includes("postersplus")).length;
-  const ids = async (path) => (await (await get(path)).json()).metas.map((m) => m.id);
-  assert.deepEqual(await ids("/catalog/series/accueil-tendances-series.json"), ["tmdb:1", "tmdb:2"]);
-  assert.equal(ppCalls(), 1);
-  pp = () => new Response(JSON.stringify({ metas: [{ id: "tmdb:2" }, { id: "tmdb:1" }] }));
-  const realNow = Date.now;
-  Date.now = () => realNow() + 3 * 60 * 1000;
-  try {
-    assert.deepEqual(await ids(`/${seg({ u: 1 })}/catalog/series/accueil-tendances-series.json`), ["tmdb:2", "tmdb:1"]);
-    assert.equal(ppCalls(), 2);
-    await Promise.all([
-      get(`/${seg({ u: 2 })}/catalog/series/accueil-tendances-series.json`),
-      get(`/${seg({ u: 3 })}/catalog/series/accueil-tendances-series.json`),
-    ]);
-    assert.equal(ppCalls(), 2);
-  } finally {
-    Date.now = realNow;
-  }
-});
-
-test("tendances_du_jour_dans_l_ordre_meme_avec_les_films_a_venir", async () => {
+test("tendances_du_jour_dans_l_ordre_tmdb_meme_avec_les_films_a_venir", async () => {
   const serie = (id) => ({ id, name: `Série ${id}`, first_air_date: "2099-01-01" });
   globalThis.fetch = async (url) => {
     const u = String(url);
-    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: [serie(1), serie(2), serie(3)], page: 1, total_pages: 1 }));
-    if (u.includes("postersplus")) return new Response(JSON.stringify({ metas: [{ id: "tmdb:3" }, { id: "tmdb:1" }] }));
+    calls.push(u);
+    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: [serie(3), serie(1), serie(2)], page: 1, total_pages: 1 }));
     return new Response("{}");
   };
   const { metas } = await (await get(`/${seg({ u: 1 })}/catalog/series/accueil-tendances-series.json`)).json();
   assert.deepEqual(metas.map((m) => m.id), ["tmdb:3", "tmdb:1", "tmdb:2"]);
+  assert.ok(!calls.some((u) => u.includes("postersplus")));
+});
+
+// /affiche (aperçus du site, Plan B Stremio) : relaie l'affiche maison de Vercel, options comprises,
+// sans jamais envoyer la clé TMDB du worker.
+test("affiche_relaie_le_service_maison", async () => {
+  const { AFFICHES_URL } = await import("../worker/reglages.js");
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    return new Response(new Uint8Array([0xff, 0xd8, 0xff]), { headers: { "Content-Type": "image/jpeg" } });
+  };
+  const res = await get("/affiche/movie/poster/tt15239678?o=tq&r=tmdb");
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("Content-Type"), "image/jpeg");
+  const u = new URL(calls[0]);
+  assert.equal(u.origin + u.pathname, `${AFFICHES_URL}/movie/poster/tt15239678.jpg`);
+  assert.equal(u.searchParams.get("o"), "tq");
+  assert.equal(u.searchParams.get("r"), "tmdb");
+  assert.ok(!calls[0].includes("api_key") && !calls[0].includes("tmdb_key"));
+});
+
+test("affiche_options_nettoyees", async () => {
+  globalThis.fetch = async (url) => { calls.push(String(url)); return new Response(new Uint8Array([0xff]), { headers: { "Content-Type": "image/jpeg" } }); };
+  await get("/affiche/series/landscape/tmdb:94605?imdb=tt11126994&o=zq%26x&r=autre");
+  const u = new URL(calls[0]);
+  assert.equal(u.searchParams.get("imdb"), "tt11126994");
+  assert.equal(u.searchParams.get("o"), "q");
+  assert.equal(u.searchParams.get("r"), null);
+});
+
+test("affiche_service_en_panne", async () => {
+  globalThis.fetch = async () => new Response("", { status: 502 });
+  assert.equal((await get("/affiche/movie/poster/tt1")).status, 404);
 });
 
 test("collections_ordre_des_tuiles", async () => {

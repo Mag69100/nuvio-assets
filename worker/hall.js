@@ -158,7 +158,7 @@ fetch(${JSON.stringify(origin)} + "/catalog/movie/accueil-top10.json").then((r) 
   box.textContent = "";
   metas.forEach((m) => {
     const c = document.createElement("div"); c.className = "cadre"; c.title = m.name; c.setAttribute("role", "img"); c.setAttribute("aria-label", m.name);
-    // Les affiches PostersPlus du réglage conseillé (étape 8), celles qu'on aura sur l'accueil
+    // Les affiches maison du réglage conseillé (étape 8), celles qu'on aura sur l'accueil
     const pp = NV.ppSrc(m, "poster"), pose = (u) => { c.style.backgroundImage = NV.cssUrl(u); };
     if (pp) { const im = new Image(); im.onload = () => pose(pp); im.onerror = () => pose(m.poster); im.src = pp; } else pose(m.poster);
     box.append(c);

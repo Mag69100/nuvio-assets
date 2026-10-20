@@ -531,8 +531,9 @@ body.regie-ouverte { overflow: hidden; }
 }
 /* Écran peu haut (portable en 1280×720) : console resserrée. */
 @media (max-height: 760px) and (min-width: 761px) {
-  .regie-console { gap: 8px; padding: 10px 12px; }
+  .regie-console { gap: 6px; padding: 10px 12px; }
   .regie-memoires button { padding: 5px 4px; }
+  .regie-cible { padding: 2px 8px; font-size: .72rem; }
   .regie-voies .ligne-nom { padding: 4px 2px; }
   .regie-voies .pastille { width: 26px; height: 26px; }
 }

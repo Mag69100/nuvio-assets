@@ -29,10 +29,10 @@ export function parseQuality(streams) {
 export async function lireTorrentio(video, fetchImpl = fetch) {
   try {
     const res = await fetchImpl(`${TORRENTIO}/stream/${video}.json`, { signal: AbortSignal.timeout(DELAI_MS) });
-    if (!res.ok) return null;
+    if (!res.ok) { console.warn(`Torrentio ${res.status} pour ${video}`); return null; }
     const d = await res.json();
     return parseQuality(d && d.streams);
-  } catch { return null; }
+  } catch (e) { console.warn(`Torrentio injoignable pour ${video} : ${e && e.message}`); return null; }
 }
 
 async function lireRelais(relais, video, fetchImpl) {

@@ -124,7 +124,7 @@ export function basePerso(configureUrl, origin) {
   } catch (e) { return ""; }
 }
 
-// Ce qu'on envoie sur le téléphone par QR code (après le #, jamais transmis au serveur)  : la clé AllDebrid et l'appareil.
+// Ce qu'on envoie sur le téléphone par QR code (après le #, jamais transmis au serveur) : la clé AllDebrid et l'appareil.
 export function paquetCles({ ad, appareil }) {
   const o = {};
   if (cleAllDebrid(ad)) o.ad = cleAllDebrid(ad);

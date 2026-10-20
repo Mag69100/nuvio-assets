@@ -37,11 +37,12 @@ function fetchImages(fetchImpl) {
   };
 }
 
-/** La qualité, ou null si Torrentio n'a pas répondu à temps (enRetard dit lequel des deux). */
+/** La qualité, ou null si Torrentio n'a pas répondu à temps ou a échoué (enRetard : cache court, on réessaiera). */
 function qualiteATemps(type, facts, fetchImpl, relais) {
   let timer;
   const delai = new Promise((ok) => { timer = setTimeout(() => ok({ enRetard: true, quality: null }), ATTENTE_QUALITE_MS); });
-  return Promise.race([qualityOf(type, facts.imdbId, facts.lastSeason, fetchImpl, relais).then((quality) => ({ enRetard: false, quality })), delai])
+  const lue = qualityOf(type, facts.imdbId, facts.lastSeason, fetchImpl, relais).then((quality) => ({ enRetard: quality === null && !!facts.imdbId, quality }));
+  return Promise.race([lue, delai])
     .finally(() => clearTimeout(timer));
 }
 

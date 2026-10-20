@@ -114,6 +114,14 @@ test("Torrentio lent : pas plus d'1 s d'attente, cache court", async () => {
   assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=600");
 });
 
+test("Torrentio en échec : cache court, pour avoir le badge à la prochaine demande", async () => {
+  const refus = async () => new Response("interdit", { status: 403 });
+  const res = await makeHandler({ fetchImpl: internet({ torrentio: refus }), env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("Cache-Control"), "public, max-age=3600");
+  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=600");
+});
+
 test("images téléchargées pendant qu'on attend Torrentio", async () => {
   let torrentioFini = null, premiereImage = null;
   const base = internet();

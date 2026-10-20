@@ -124,19 +124,17 @@ export function basePerso(configureUrl, origin) {
   } catch (e) { return ""; }
 }
 
-// Ce qu'on envoie sur le téléphone par QR code (après le #, jamais transmis au serveur) : les clés et l'appareil.
-export function paquetCles({ ad, tmdb, appareil }) {
+// Ce qu'on envoie sur le téléphone par QR code (après le #, jamais transmis au serveur)  : la clé AllDebrid et l'appareil.
+export function paquetCles({ ad, appareil }) {
   const o = {};
   if (cleAllDebrid(ad)) o.ad = cleAllDebrid(ad);
-  const t = String(tmdb || "").replace(/[^A-Za-z0-9]/g, "");
-  if (t) o.tmdb = t;
   if (APPAREILS[appareil]) o.app = appareil;
   return o;
 }
 export function lirePaquet(texte) {
   try {
     const o = JSON.parse(texte);
-    return paquetCles({ ad: o.ad, tmdb: o.tmdb, appareil: o.app });
+    return paquetCles({ ad: o.ad, appareil: o.app });
   } catch (e) { return {}; }
 }
 

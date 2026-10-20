@@ -30,6 +30,10 @@ Caches :
 - **Le CDN de Vercel** la garde trois jours, puis la redessine en arrière-plan.
 - **Un lien bricolé** (paramètre en trop, lettres dans le désordre) est redirigé vers sa forme normale, sans
   dessiner une copie de plus.
+- **Une affiche classée** (« N° ») est revérifiée chaque jour par l'appli.
+- **Rien à dessiner** (style « Nue », ou titre sans logo ni rang ni 4K) : redirection vers l'image TMDB d'origine.
+- **La qualité** passe par le relais `/qualite/…` du service, gardé 3 jours par le CDN : une seule lecture
+  de Torrentio sert à toutes les instances.
 
 Estimation pour environ 300 personnes actives par jour :
 - **Requêtes :** 600 000 à 900 000 par mois.

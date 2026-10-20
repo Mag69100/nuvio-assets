@@ -443,6 +443,8 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .switch input:checked::after { transform: translateX(20px); }
 .switch small { display: block; color: var(--dim); }
 .aff-elements { display: grid; gap: 12px; }
+.switch.sans-effet { opacity: .45; cursor: default; }
+.switch.sans-effet input { cursor: default; }
 
 .coll { border: 1px solid var(--seat); border-radius: 12px; padding: 12px 14px; display: grid; gap: 10px; background: var(--velvet); }
 .coll-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -1096,7 +1098,12 @@ drawPP();
 const STYLES_AFFICHES = [["Complet", ""], ["Essentiel", "tga"], ["Nue", "tqngal"]];
 function drawAffiches() {
   const a = NV.reglages.affiches;
-  document.querySelectorAll("[data-aff]").forEach((c) => { c.checked = !a.o.includes(c.dataset.aff); });
+  // Sans titre maison, la ligne du bas (note, genre, année) n'existe pas : ses interrupteurs sont grisés.
+  document.querySelectorAll("[data-aff]").forEach((c) => {
+    c.checked = !a.o.includes(c.dataset.aff);
+    c.disabled = a.o.includes("l") && "nga".includes(c.dataset.aff);
+    c.closest(".switch").classList.toggle("sans-effet", c.disabled);
+  });
   const coupe = "tqngal".split("").filter((k) => a.o.includes(k)).join("");
   seg($("aff-styles"), STYLES_AFFICHES.map((s) => s[0]), STYLES_AFFICHES.findIndex((s) => s[1] === coupe),
     (i) => majAffiches({ ...a, o: STYLES_AFFICHES[i][1] }));

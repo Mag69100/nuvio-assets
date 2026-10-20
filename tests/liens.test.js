@@ -70,10 +70,13 @@ test("qr_du_guide_garde_le_lien_perso", () => {
   assert.doesNotMatch(html, /dataset\.qr/);
 });
 
+// La clé TMDB ne voyage plus (elle ne servait qu'aux affiches Posters+) : un ancien QR code qui n'avait
+// qu'elle ne donne plus rien.
 test("paquet_de_cles_pour_le_telephone", () => {
-  const p = paquetCles({ ad: CLE, tmdb: " 0123456789abcdef0123456789abcdef ", appareil: "fire-4k" });
-  assert.deepEqual(p, { ad: CLE, tmdb: "0123456789abcdef0123456789abcdef", app: "fire-4k" });
+  const p = paquetCles({ ad: CLE, appareil: "fire-4k" });
+  assert.deepEqual(p, { ad: CLE, app: "fire-4k" });
   assert.deepEqual(lirePaquet(JSON.stringify(p)), p);
+  assert.deepEqual(lirePaquet(JSON.stringify({ tmdb: "0123456789abcdef0123456789abcdef" })), {});
   assert.deepEqual(lirePaquet(JSON.stringify({ ad: "court", app: "inconnu", autre: 1 })), {});
   assert.deepEqual(lirePaquet("pas du json"), {});
 });

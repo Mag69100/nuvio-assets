@@ -118,7 +118,8 @@ export const ELEMENTS_AFFICHES = [
 export function lienAffiches(opts) {
   const o = (opts && opts.o) || "", base = "https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?imdb={imdb_id?}";
   const coupe = "tqngal".split("").filter((k) => o.includes(k)).join("");
-  return base + (coupe ? "&o=" + coupe : "") + (opts && opts.r === "tmdb" ? "&r=tmdb" : "");
+  // Note coupée : sa source ne change rien, elle ne va pas dans le lien.
+  return base + (coupe ? "&o=" + coupe : "") + (opts && opts.r === "tmdb" && !coupe.includes("n") ? "&r=tmdb" : "");
 }
 
 

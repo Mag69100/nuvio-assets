@@ -23,6 +23,23 @@ test("lien_affiches_options_canoniques", () => {
   assert.deepEqual(ELEMENTS_AFFICHES.map(([k]) => k).join(""), "tqngal");
 });
 
+// Note coupée : la source de la note ne change rien, elle ne reste pas dans le lien.
+test("lien_affiches_sans_source_de_note_inutile", () => {
+  assert.equal(lienAffiches({ o: "n", r: "tmdb" }), POSTER_URL + "&o=n");
+});
+
+// Sans titre maison, la ligne du bas (note, genre, année) n'existe pas : ses interrupteurs sont grisés.
+test("salle_2_interrupteurs_sans_effet_grises", () => {
+  const html = salle2();
+  assert.match(html, /c\.disabled = a\.o\.includes\("l"\) && "nga"\.includes\(c\.dataset\.aff\)/);
+});
+
+// L'ancienne clé TMDB (affiches Posters+) n'est plus utile : elle est effacée des navigateurs.
+test("ancienne_cle_tmdb_effacee", async () => {
+  const { NUVIO_JS } = await import("../worker/nuvio.js");
+  assert.match(NUVIO_JS, /localStorage\.removeItem\("tmdb-key"\)/);
+});
+
 const salle2 = () => {
   const rows = [{ id: "a", home: true, name: "A", type: "movie" }];
   return configurePage({ copy: false,

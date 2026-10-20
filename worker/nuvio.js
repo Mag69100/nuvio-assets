@@ -454,6 +454,8 @@ export const NUVIO_JS = "const NV_PP = " + JSON.stringify(POSTER_URL) + ", NV_PA
     },
     set affiches(a) { ecrit("affiches-v1", JSON.stringify({ o: a.o || "", r: a.r === "tmdb" ? "tmdb" : "imdb" })); },
   };
+  // L'ancienne clé TMDB (elle ne servait qu'aux affiches Posters+) n'est plus lue : on l'efface.
+  try { localStorage.removeItem("tmdb-key"); } catch (e) {}
   /** Le lien d'affiches à coller dans Nuvio, avec les options de ce navigateur. */
   const lienPerso = () => lienAffiches(reglages.affiches);
   const ppSrc = (m, forme) => {
@@ -463,7 +465,7 @@ export const NUVIO_JS = "const NV_PP = " + JSON.stringify(POSTER_URL) + ", NV_PA
     const q = new URLSearchParams(), a = reglages.affiches;
     if (imdb && imdb !== id) q.set("imdb", imdb);
     if (a.o) q.set("o", a.o);
-    if (a.r === "tmdb") q.set("r", "tmdb");
+    if (a.r === "tmdb" && !a.o.includes("n")) q.set("r", "tmdb");
     return NV_ORIG + "/affiche/" + (m.type === "series" ? "series" : "movie") + "/" + forme + "/" + encodeURIComponent(id) + (String(q) ? "?" + q : "");
   };
 

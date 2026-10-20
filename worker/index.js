@@ -1735,7 +1735,7 @@ const app = {
       const q = new URLSearchParams();
       if (/^tt\d{1,10}$/.test(imdb)) q.set("imdb", imdb);
       if (o) q.set("o", o);
-      if (url.searchParams.get("r") === "tmdb") q.set("r", "tmdb");
+      if (url.searchParams.get("r") === "tmdb" && !o.includes("n")) q.set("r", "tmdb");
       const src = `${AFFICHES_URL}/${af[1]}/${af[2]}/${id}.jpg${q.size ? "?" + q : ""}`;
       const key = new Request(`https://cache.local/affiche-v2/${af[1]}/${af[2]}/${id}?${q}`);
       const hitA = await caches.default.match(key);

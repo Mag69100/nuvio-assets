@@ -426,6 +426,10 @@ test("affiche_options_nettoyees", async () => {
   assert.equal(u.searchParams.get("imdb"), "tt11126994");
   assert.equal(u.searchParams.get("o"), "q");
   assert.equal(u.searchParams.get("r"), null);
+  // Note coupée : r=tmdb n'est pas transmis (même affiche, même cache).
+  calls.length = 0;
+  await get("/affiche/movie/poster/tt1?o=n&r=tmdb");
+  assert.equal(new URL(calls[0]).searchParams.get("r"), null);
 });
 
 test("affiche_service_en_panne", async () => {

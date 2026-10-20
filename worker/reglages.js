@@ -305,7 +305,7 @@ const PAGES = (posterUrl) => [
     V("Langue", "Langue des métadonnées TMDB pour le titre, le logo et les champs activés", "Français"),
     T("Illustrations", "Logo et images d'arrière-plan depuis TMDB", false, { n: "Désactivé : le Catalogue FR fournit déjà les fonds en pleine définition et les logos en français. Activé, Nuvio les remplace par des images TMDB plus petites (fonds flous dans le carrousel et le mode ambiant)." }),
     T("Informations de base", "Description, genres et note depuis TMDB", false, { n: "Désactivé pour voir quand arrivent les films à venir (« 📅 Dispo le 17 nov. » en tête du résumé). Activé, Nuvio prend le résumé de TMDB et la date disparaît." }),
-    T("Détails", "Durée, date de sortie, pays et langue depuis TMDB", true),
+    T("Détails", "Durée, date de sortie, pays et langue depuis TMDB", false, { n: "Désactivé pour garder « Entre deux saisons » sur une série dont la saison suivante n'est pas encore là. Activé, Nuvio met « En cours » à la place. La durée, le pays et la langue sont les mêmes des deux côtés." }),
     T("Crédits", "Casting avec photos, réalisateur et scénariste depuis TMDB", true),
     T("Productions", "Sociétés de production depuis TMDB", true),
     T("Chaînes", "Chaînes avec logos depuis TMDB", true),

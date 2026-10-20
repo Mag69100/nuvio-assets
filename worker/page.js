@@ -507,7 +507,21 @@ body::after { content: ""; position: fixed; inset: -50%; pointer-events: none; z
 #pp-btn[aria-pressed="true"] { background: var(--cream); border-color: var(--cream); color: var(--ink); }
 /* PostersPlus n'est qu'un aperçu ici : le vrai réglage se fait dans Nuvio (étape 8 du guide). */
 .pp-note { margin: 10px auto 0; max-width: 46ch; text-align: center; color: var(--dim); font-size: .82rem; }
-.pp-note a { color: var(--bulb); }
+.pp-ouvrir { padding: 0; border: 0; background: none; font: inherit; color: var(--bulb); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+/* L'étape 8 du guide en fenêtre : clé TMDB, lien à copier, où le coller dans Nuvio. */
+.pp-modal { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; background: rgba(5,3,4,.84); animation: fade-in .2s ease both; }
+.pp-modal .boite { position: relative; display: grid; gap: 12px; width: min(480px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 24px; border-radius: 18px; background: var(--velvet-2); border: 1px solid rgba(255,207,107,.35); box-shadow: 0 30px 80px rgba(0,0,0,.7); animation: rise .25s ease both; }
+.pp-modal h2 { margin: 0; padding-right: 36px; font: 400 1.8rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
+.pp-modal p, .pp-modal ol { margin: 0; color: #e6d6c8; font-size: .92rem; line-height: 1.45; }
+.pp-modal ol { display: grid; gap: 6px; padding-left: 1.3em; }
+.pp-modal .pp-mini { color: var(--dim); font-size: .82rem; }
+.pp-modal a { color: var(--bulb); }
+.pp-modal label { display: grid; gap: 6px; font-size: .82rem; color: var(--dim); }
+.pp-modal input[type=text] { font: 400 .95rem var(--type); letter-spacing: 0; padding: 10px 12px; }
+.pp-lien { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start; }
+.pp-lien code { min-width: 0; max-height: 5.6em; overflow: auto; padding: 8px 10px; border-radius: 8px; background: var(--velvet); border: 1px solid var(--seat); font: 400 .74rem/1.45 var(--type); word-break: break-all; color: var(--cream); }
+.pp-lien button { padding: 9px 14px; border-radius: 8px; border: 0; background: var(--bulb); color: var(--ink); font: 800 .85rem var(--body); cursor: pointer; }
+.pp-modal .fermer { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%; border: 0; background: rgba(255,255,255,.08); color: var(--cream); font: 800 1.1rem/1 var(--body); cursor: pointer; }
 .screen-fun .mini { padding: 8px 14px; font-size: .84rem; border-color: rgba(255,207,107,.4); color: var(--bulb); }
 .screen-fun .mini:hover { background: rgba(255,207,107,.1); }
 .stage .screen-tools { margin-top: 14px; }
@@ -726,7 +740,7 @@ ${copy ? HOTE_HTML : ""}
           <div class="seg" id="fmt" role="group" aria-label="Format des affiches"></div>
           <button type="button" class="mini" id="pp-btn" aria-pressed="false">Affiches PostersPlus</button>
         </div>
-        <p class="pp-note" id="pp-note" hidden>Aperçu seulement : ces affiches ne se règlent pas ici. Dans Nuvio, elles s'ajoutent avec <a href="${origin}/guide#affiches" target="_top">l'étape 8 du guide</a>.</p>
+        <p class="pp-note" id="pp-note" hidden>Aperçu seulement : ces affiches ne se règlent pas ici. <button type="button" class="pp-ouvrir" id="pp-ouvrir">Les avoir dans Nuvio</button></p>
         <div class="screen-fun">
           <button type="button" class="mini" id="zoom" aria-pressed="false">Agrandir l'écran</button>
         </div>
@@ -1058,6 +1072,42 @@ $("ret-btn").addEventListener("click", () => E.retour());
 function drawPP() { $("pp-btn").setAttribute("aria-pressed", String(NV.reglages.pp)); $("pp-note").hidden = !NV.reglages.pp; }
 $("pp-btn").addEventListener("click", () => { NV.reglages.pp = !NV.reglages.pp; drawPP(); E.pp(); if (window.sfx) sfx.click(); });
 drawPP();
+// Les affiches PostersPlus dans Nuvio : l'étape 8 du guide, en fenêtre. La clé TMDB est celle du
+// trousseau du guide (même site, même « tmdb-key ») et reste dans le navigateur.
+function ppFenetre() {
+  const lit = () => { try { return localStorage.getItem("tmdb-key") || ""; } catch (e) { return ""; } };
+  const cle = el("input", { type: "text", placeholder: "ta clé de 32 caractères", autocomplete: "off", spellcheck: "false", autocapitalize: "off" });
+  const url = el("code");
+  const majUrl = () => {
+    const k = cle.value.trim().replace(/[^A-Za-z0-9]/g, "");
+    url.textContent = NV_PP.replace("TA_CLE_TMDB", k || "TA_CLE_TMDB");
+    try { k ? localStorage.setItem("tmdb-key", k) : localStorage.removeItem("tmdb-key"); } catch (e) {}
+  };
+  const copier = el("button", { type: "button", text: "Copier", onclick: () => {
+    const fait = () => { copier.textContent = "Copié ✓"; setTimeout(() => copier.textContent = "Copier", 1500); };
+    const choisir = () => { const r = document.createRange(); r.selectNodeContents(url); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
+    try { navigator.clipboard.writeText(url.textContent).then(fait, choisir); } catch (e) { choisir(); }
+  } });
+  const fermer = () => { ov.remove(); $("pp-ouvrir").focus(); };
+  const ov = el("div", { class: "pp-modal", role: "dialog", "aria-modal": "true", "aria-labelledby": "pp-titre" },
+    el("div", { class: "boite" },
+      el("button", { type: "button", class: "fermer", "aria-label": "Fermer", text: "×", onclick: () => fermer() }),
+      el("h2", { id: "pp-titre", text: "Les affiches perso" }),
+      el("p", { text: "Les affiches avec badges de l'aperçu (classement, note IMDb, qualité, genre, année). Elles se règlent dans l'appli Nuvio, pas dans ton lien d'addon." }),
+      el("label", null, "Ta clé TMDB", cle),
+      el("p", { class: "pp-mini" }, "Pas encore de clé ? Elle est gratuite : ", el("a", { href: "https://www.themoviedb.org/settings/api", target: "_blank", rel: "noopener", text: "themoviedb.org → Paramètres → API" }), ". Elle reste sur ton appareil, seulement insérée dans le lien."),
+      el("div", { class: "pp-lien" }, url, copier),
+      el("ol", null,
+        el("li", null, "Dans Nuvio : ", el("b", { text: "Paramètres → Disposition → Custom Poster Source" }), ". Le plus simple : ", el("b", { text: "Configure via Phone" }), ", puis colle le lien depuis ton téléphone."),
+        el("li", null, "En dessous, dans « Apply to », laisse tout activé (Home, Collections, Library, Search, Details Screen…). Les affiches se mettent à jour au fil de la navigation."))));
+  ov.addEventListener("click", (e) => { if (e.target === ov) fermer(); });
+  ov.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); fermer(); } });
+  cle.value = lit(); majUrl();
+  cle.addEventListener("input", majUrl);
+  document.body.append(ov);
+  cle.focus();
+}
+$("pp-ouvrir").addEventListener("click", ppFenetre);
 function drawFmt() {
   seg($("fmt"), ["Affiches verticales", "Paysage"], NV.reglages.format === "l" ? 1 : 0, (i) => {
     NV.reglages.format = i ? "l" : "p";

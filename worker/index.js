@@ -1551,11 +1551,21 @@ function filterSource(src, cfg) {
 }
 
 /**
- * Ordre choisi sur la page (positions dans le fichier) ; les tuiles absentes gardent l'ordre habituel, après.
  * Tuiles masquées et ordre choisi sont repérés par leur position dans le fichier : une nouvelle tuile
- * s'ajoute donc en fin de collection, et une tuile déplacée demande de traduire les anciens liens
- * (voir oldTiles dans config.js).
+ * s'ajoute donc en fin de collection, une tuile déplacée demande de traduire les anciens liens (voir
+ * oldTiles dans config.js), et l'ordre d'affichage par défaut se règle ici : les tuiles listées
+ * d'abord, dans cet ordre, puis les autres dans l'ordre du fichier.
  */
+const DEFAULT_ORDER = {
+  studios: ["studio-33", "marvel-studios", "warner-bros", "dc-comics"],
+};
+function displayOrder(c, folders) {
+  const order = DEFAULT_ORDER[c.id];
+  if (!order) return folders;
+  const rank = (f) => { const i = order.indexOf(f.id); return i < 0 ? order.length : i; };
+  return [...folders].sort((a, b) => rank(a) - rank(b));
+}
+/** Ordre choisi sur la page (positions dans le fichier) ; les tuiles absentes gardent l'ordre habituel, après. */
 function userOrder(order, folders, pos) {
   if (!order || !order.length) return folders;
   const rank = (f) => { const k = order.indexOf(pos(f)); return k < 0 ? order.length : k; };
@@ -1572,7 +1582,7 @@ async function collections(cfg) {
     .filter((c) => cfg.c.includes(c.id))
     .map((c) => {
       const hidden = new Set(cfg.t[c.id] || []);
-      const folders = userOrder(cfg.to[c.id], c.folders, (f) => c.folders.indexOf(f))
+      const folders = userOrder(cfg.to[c.id], displayOrder(c, c.folders), (f) => c.folders.indexOf(f))
         .filter((f) => !hidden.has(c.folders.indexOf(f)))
         .filter((f) => c.id !== "plateformes-streaming" || !platformFolders.has(f.id) || chosenFolders.has(f.id))
         .map((f) => (filtered && f.sources ? { ...f, sources: f.sources.map((src) => filterSource(src, cfg)) } : f));
@@ -1658,7 +1668,7 @@ const app = {
       // réelle dans le fichier pour l'affichage.
       const cols = COLLECTIONS.map((c) => ({
         ...c, pos: files.findIndex((f) => f.id === c.id),
-        folders: ((files.find((f) => f.id === c.id) || {}).folders || []).map((f, i) => ({ id: f.id, title: f.title, cover: f.coverImageUrl || "", i })),
+        folders: displayOrder(c, ((files.find((f) => f.id === c.id) || {}).folders || []).map((f, i) => ({ id: f.id, title: f.title, cover: f.coverImageUrl || "", i }))),
       }));
       const page = html(configurePage({
         origin: url.origin, cfg, rows, discover: DEFS.discover, providers: PROVIDERS, collections: cols,

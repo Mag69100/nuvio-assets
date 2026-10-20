@@ -423,3 +423,14 @@ test("collections_ordre_des_tuiles", async () => {
   assert.deepEqual(await ids({ to: { 2: [2, 0] }, t: { 2: [1] } }), ["c", "a", "d"]);
   assert.deepEqual(await ids({ t: { 2: [3] } }), ["a", "b", "c"]);
 });
+
+test("studios_ordre_par_defaut", async () => {
+  const folders = ["studio-33", "studio-1", "studio-3", "marvel-studios", "warner-bros", "dc-comics"].map((id) => ({ id, title: id }));
+  globalThis.fetch = async (url) => new Response(String(url).endsWith("/collections/collections.json")
+    ? JSON.stringify([{ id: "studios", title: "Studios", folders }]) : "{}", { headers: { "Content-Type": "application/json" } });
+  const ids = async (cfg) => (await (await get(`/${seg(cfg)}/collections.json`)).json())[0].folders.map((f) => f.id);
+  // Universal, puis Marvel, Warner et DC, puis les autres dans l'ordre du fichier.
+  assert.deepEqual(await ids({}), ["studio-33", "marvel-studios", "warner-bros", "dc-comics", "studio-1", "studio-3"]);
+  // Un ordre choisi passe devant ; les tuiles absentes suivent dans l'ordre par défaut.
+  assert.deepEqual(await ids({ tv: 1, to: { 4: [2] } }), ["studio-3", "studio-33", "marvel-studios", "warner-bros", "dc-comics", "studio-1"]);
+});

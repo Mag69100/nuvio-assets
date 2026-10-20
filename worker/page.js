@@ -1127,7 +1127,8 @@ function renderAll() {
   D.providers.forEach(p => chip($("providers"), "prov-" + p.id, p.name, state.p.includes(p.id), on => toggle("p", p.id, on, D.providers.map(x => x.id)), p.color));
   D.discover.forEach(d => chip($(d.type === "series" ? "disc-series" : "disc-movie"), "disc-" + d.id, d.name, state.d.includes(d.id), on => toggle("d", d.id, on, D.discover.map(x => x.id))));
   D.seasons.forEach(([k, label]) => chip($("seasons"), "season-" + k, label, state.h.includes(k), on => toggle("h", k, on, D.seasons.map(s => s[0]))));
-  D.genres.forEach(([name]) => chip($("excl"), "excl-" + name, name, state.e.includes(name), on => toggle("e", name, on, D.genres.map(g => g[0]))));
+  // Téléréalité : déjà masquée partout, sauf dans les rangées sur mesure qui la choisissent.
+  D.genres.filter(([name]) => name !== "Téléréalité").forEach(([name]) => chip($("excl"), "excl-" + name, name, state.e.includes(name), on => toggle("e", name, on, D.genres.map(g => g[0]))));
   $("g-vote").value = state.m; $("g-vote-out").textContent = fmtVote(state.m); paintRange($("g-vote"));
   $("g-year").value = String(state.a); $("g-family").checked = state.f;
   $("g-unreleased").checked = !state.u;

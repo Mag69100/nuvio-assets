@@ -47,6 +47,8 @@ export const GENRES = [
   ["Fantastique", 14, 10765], ["Histoire", 36, null], ["Horreur", 27, null], ["Musique", 10402, null],
   ["Mystère", 9648, 9648], ["Romance", 10749, null], ["Science-fiction", 878, 10765], ["Thriller", 53, null],
   ["Guerre", 10752, 10768], ["Western", 37, 37], ["Enfants", null, 10762], ["Téléfilm", 10770, null],
+  // Toujours en fin de liste : les liens enregistrent les genres par leur place.
+  ["Téléréalité", null, 10764],
 ];
 
 /** Langues d'origine proposées pour les rangées sur mesure. */

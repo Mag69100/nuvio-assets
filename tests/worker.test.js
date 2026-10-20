@@ -378,3 +378,20 @@ test("tendances_du_jour_sans_posters_plus", async () => {
   const { metas } = await (await get("/catalog/series/accueil-tendances-series.json")).json();
   assert.deepEqual(metas.map((m) => m.id), ["tmdb:1", "tmdb:2", "tmdb:3"]);
 });
+
+// Télé-réalité : masquée de toutes les rangées de séries, sauf d'une rangée sur mesure qui la demande.
+test("rangee_sur_mesure_tele_realite", async () => {
+  const { GENRES } = await import("../worker/config.js");
+  const tr = GENRES.findIndex(([n]) => n === "Téléréalité");
+  assert.ok(tr >= 0);
+  const discover = () => calls.map((u) => new URL(u)).filter((u) => u.pathname.endsWith("/discover/tv"));
+  await get(`/${seg({ x: [{ n: "Télé-réalité", t: 1, g: [tr] }] })}/catalog/series/perso-0.json`);
+  assert.ok(discover().length);
+  for (const u of discover()) {
+    assert.equal(u.searchParams.get("with_genres"), "10764");
+    assert.ok(!(u.searchParams.get("without_genres") || "").split("|").includes("10764"));
+  }
+  calls.length = 0;
+  await get(`/${seg({ x: [{ n: "Drames", t: 1, g: [GENRES.findIndex(([n]) => n === "Drame")] }] })}/catalog/series/perso-0.json`);
+  assert.ok(discover().every((u) => u.searchParams.get("without_genres").split("|").includes("10764")));
+});

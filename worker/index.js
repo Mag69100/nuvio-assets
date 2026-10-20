@@ -36,7 +36,7 @@ import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.24.2";
+const VERSION = "5.25.0";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -491,7 +491,9 @@ function discoverParams(def, kind, today, opts) {
   const cfg = opts.cfg;
   if (p["vote_count.gte"] === undefined) p["vote_count.gte"] = 50;   // pas de titres confidentiels
   const excluded = new Set(String(p.without_genres || "").split(/[|,]/).filter(Boolean));
-  if (kind === "series") NOISE_TV.forEach((g) => excluded.add(g));
+  // Téléréalité, talk-shows… masqués, sauf dans une rangée sur mesure qui les demande.
+  const wanted = String(p.with_genres || "").split(/[|,]/);
+  if (kind === "series") NOISE_TV.filter((g) => !wanted.includes(g)).forEach((g) => excluded.add(g));
   const col = kind === "series" ? 2 : 1;
   for (const name of cfg.e) { const g = GENRES.find(([n]) => n === name); if (g && g[col]) excluded.add(String(g[col])); }
   if (cfg.f) {

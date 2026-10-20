@@ -111,7 +111,13 @@ async function calqueLogo(content, [w, hgt], m, fetchImpl) {
   const svgLogo = /\.svg$/i.test(content.logo);
   const brut = await telecharger(url, fetchImpl);
   // Marges transparentes retirées : seule la partie visible du logo compte pour sa taille et sa place.
-  const source = await sharp(brut, svgLogo ? { density: 300 } : {}).ensureAlpha().png().toBuffer();
+  // Un SVG est dessiné à la taille utile (environ 2 fois sa boîte), pas à sa taille déclarée, qui peut être énorme.
+  let options = {};
+  if (svgLogo) {
+    const { width } = await sharp(brut).metadata();
+    options = { density: Math.min(300, Math.max(1, (72 * 2 * w * m.logoL) / (width || 1))) };
+  }
+  const source = await sharp(brut, options).ensureAlpha().png().toBuffer();
   const zone = cadreVisible(await sharp(source).raw().toBuffer({ resolveWithObject: true }));
   const { data, info } = await sharp(source).extract(zone)
     .resize({ width: Math.round(w * m.logoL), height: Math.round(hgt * m.logoH), fit: "inside" })
@@ -140,7 +146,9 @@ export async function draw(content, fetchImpl = fetch) {
   const [w, hgt] = taille;
   const [fond, logo, texte] = await Promise.all([
     telecharger(urlFond(content), fetchImpl),
-    calqueLogo(content, taille, m, fetchImpl).catch(() => null),
+    // Pas de repli sans logo : sur l'image sans texte, il porte le titre. Une erreur ici fait répondre
+    // une erreur au service, et Nuvio montre l'affiche d'origine.
+    calqueLogo(content, taille, m, fetchImpl),
     calqueTexte(content, taille, m),
   ]);
   const calques = [];
@@ -149,5 +157,6 @@ export async function draw(content, fetchImpl = fetch) {
   if (logo) calques.push(logo);
   if (texte) calques.push({ input: texte, left: 0, top: 0 });
   const base = await sharp(fond).resize(w, hgt, { fit: "cover", position: "attention" }).toBuffer();
-  return sharp(base).composite(calques).jpeg({ quality: 82, mozjpeg: true }).toBuffer();
+  // JPEG standard plutôt que mozjpeg : 3 fois moins de calcul pour des fichiers à peine plus lourds.
+  return sharp(base).composite(calques).jpeg({ quality: 82 }).toBuffer();
 }

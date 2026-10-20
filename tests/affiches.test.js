@@ -49,6 +49,17 @@ test("scripts_salle_2_et_commun_valides", async () => {
   assert.equal(lien({ o: "aq", r: "tmdb" }), lienAffiches({ o: "aq", r: "tmdb" }));
 });
 
+// Chaque réglage changé redessine les affiches de l'écran (un dessin par affiche chez Vercel) : une rafale
+// de clics ne doit en déclencher qu'un, 400 ms après le dernier.
+test("salle_2_affiches_redessinees_une_fois_par_rafale", () => {
+  const html = salle2();
+  const debut = html.indexOf("function majAffiches");
+  const corps = html.slice(debut, html.indexOf("\n}\n", debut));
+  assert.match(corps, /clearTimeout\(attenteAffiches\)/);
+  assert.match(corps, /attenteAffiches = setTimeout\(\(\) => E\.pp\(\), 400\)/);
+  assert.doesNotMatch(corps.replace(/setTimeout\(\(\) => E\.pp\(\), 400\)/, ""), /E\.pp\(\)/);
+});
+
 test("salle_2_editeur_d_affiches", () => {
   const html = salle2();
   assert.match(html, /id="s-affiches"/);

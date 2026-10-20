@@ -27,12 +27,18 @@ Mesures à la mise en ligne (2026-10-20) :
 
 Caches :
 - **Nuvio** garde une affiche une semaine, puis revérifie son `ETag`.
-- **Le CDN de Vercel** la garde un jour, puis la redessine en arrière-plan.
+- **Le CDN de Vercel** la garde trois jours, puis la redessine en arrière-plan.
+- **Un lien bricolé** (paramètre en trop, lettres dans le désordre) est redirigé vers sa forme normale, sans
+  dessiner une copie de plus.
 
-Estimation pour environ 300 personnes actives par jour : 600 000 à 900 000 requêtes et 2 à 3 h de calcul par mois,
-près des limites gratuites. Il faut regarder la consommation après quelques jours.
+Estimation pour environ 300 personnes actives par jour :
+- **Requêtes :** 600 000 à 900 000 par mois.
+- **Calcul :** environ 0,1 à 0,2 s par affiche dessinée, chaque affiche vue étant redessinée au plus tous les
+  3 jours, soit environ 1,5 à 3 h par mois.
+
+On est près des limites gratuites : il faut regarder Usage → Active CPU dans les 48 h.
 - **Requêtes trop hautes :** allonger le `max-age` de Nuvio dans `api/affiche.js`.
-- **Calcul trop haut :** allonger `Vercel-CDN-Cache-Control`.
+- **Calcul trop haut :** allonger encore `Vercel-CDN-Cache-Control`.
 
 ## Variables (projet Vercel)
 

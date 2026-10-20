@@ -98,3 +98,16 @@ test("logo : une traînée pâle d'un côté compte moins que les lettres", asyn
 test("image introuvable : erreur", async () => {
   await assert.rejects(draw({ ...base, image: "/absente.jpg" }, f));
 });
+
+test("logo introuvable sur une image sans texte : erreur, jamais une affiche sans titre", async () => {
+  await assert.rejects(draw({ ...base, logo: "/absent.png" }, f));
+});
+
+test("logo svg géant : dessiné vite et bien centré", async () => {
+  const geant = `<svg xmlns="http://www.w3.org/2000/svg" width="6000" height="2000"><rect width="6000" height="2000" fill="#fff"/></svg>`;
+  const g = images({ "/base.jpg": { corps: () => gris(500, 750), type: "image/jpeg" }, "/geant.svg": { corps: async () => Buffer.from(geant), type: "image/svg+xml" } });
+  const t0 = Date.now();
+  const buf = await draw({ ...base, logo: "/geant.svg", line: null, rank: null, quality: null }, g);
+  assert.ok(Date.now() - t0 < 800, `trop long : ${Date.now() - t0} ms`);
+  assert.ok(Math.abs(await centreBlanc(buf) - 200) <= 3, `logo à ${await centreBlanc(buf)}`);
+});

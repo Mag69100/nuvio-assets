@@ -46,7 +46,8 @@ test("affiche OK", async () => {
   assert.equal(res.headers.get("Content-Type"), "image/jpeg");
   assert.match(res.headers.get("ETag"), /^"[0-9a-f]{40}"$/);
   assert.equal(res.headers.get("Cache-Control"), "public, max-age=604800");
-  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=86400, stale-while-revalidate=604800");
+  // 3 jours au CDN : chaque affiche vue est redessinée au plus tous les 3 jours (limite de calcul gratuite).
+  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=259200, stale-while-revalidate=604800");
   assert.equal((await sharp(Buffer.from(await res.arrayBuffer())).metadata()).width, 400);
 });
 
@@ -155,4 +156,43 @@ test("options : note TMDB sans lire les notes IMDb", async () => {
   const f = internet();
   await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&r=tmdb"));
   assert.ok(!f.calls.some((u) => u.includes("imdb-ratings.bin")));
+});
+
+// Le titre ne doit jamais manquer : logo introuvable sur une image sans texte → erreur (Nuvio montre
+// l'affiche d'origine), jamais une affiche sans nom gardée en cache.
+test("logo introuvable : 502 sans cache", async () => {
+  const base = internet();
+  const f = async (url, opts) => (String(url).endsWith("/logo.png") ? new Response("non", { status: 404 }) : base(url, opts));
+  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(res.status, 502);
+  assert.equal(res.headers.get("Cache-Control"), "no-store");
+});
+
+// Lien bricolé (paramètre en trop, lettres dans le désordre ou inconnues, imdb qui contredit l'id) : redirigé
+// vers sa forme normale sans rien dessiner, pour qu'il ne crée pas une copie de plus dans le cache.
+test("lien non canonique : redirection sans appel", async () => {
+  const cas = [
+    ["type=movie&shape=poster&id=tt15239678&x=1", "/movie/poster/tt15239678.jpg"],
+    ["type=movie&shape=poster&id=tt15239678&imdb=tt15239678&o=qt", "/movie/poster/tt15239678.jpg?imdb=tt15239678&o=tq"],
+    ["type=movie&shape=poster&id=tt15239678&o=zq", "/movie/poster/tt15239678.jpg?o=q"],
+    ["type=movie&shape=poster&id=tt15239678&r=imdb", "/movie/poster/tt15239678.jpg"],
+    ["type=movie&shape=poster&id=tt15239678&imdb=tt999", "/movie/poster/tt15239678.jpg?imdb=tt15239678"],
+    ["type=series&shape=landscape&id=tmdb:94605&imdb=abc", "/series/landscape/tmdb:94605.jpg"],
+  ];
+  for (const [q, cible] of cas) {
+    const f = internet();
+    const res = await makeHandler({ fetchImpl: f, env })(req(q));
+    assert.equal(res.status, 308, q);
+    const loc = new URL(res.headers.get("Location"), "https://affiches.test");
+    assert.equal(decodeURIComponent(loc.pathname) + loc.search, cible, q);
+    assert.equal(f.calls.length, 0, q);
+  }
+});
+
+test("liens normaux : pas de redirection", async () => {
+  for (const q of ["type=movie&shape=poster&id=tt15239678&imdb=tt15239678", "type=movie&shape=poster&id=tt15239678&imdb=",
+    "type=series&shape=poster&id=tmdb:94605&imdb=tt11126994&o=tq&r=tmdb", "type=movie&shape=landscape&id=tt15239678"]) {
+    const res = await makeHandler({ fetchImpl: internet(), env })(req(q));
+    assert.notEqual(res.status, 308, q);
+  }
 });

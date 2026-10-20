@@ -13,7 +13,8 @@ import { qualityOf } from "../lib/qualite.js";
 import { posterContent, contentKey, optionsDe } from "../lib/contenu.js";
 import { draw, imageUrls } from "../lib/dessin.js";
 
-const OK_CACHE = { "Cache-Control": "public, max-age=604800", "Vercel-CDN-Cache-Control": "max-age=86400, stale-while-revalidate=604800" };
+// CDN : 3 jours, puis redessinée en arrière-plan (limite de calcul gratuite : 4 h par mois).
+const OK_CACHE = { "Cache-Control": "public, max-age=604800", "Vercel-CDN-Cache-Control": "max-age=259200, stale-while-revalidate=604800" };
 const COURT = { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=600" };
 const ABSENT = { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" };
 const CORS = { "Access-Control-Allow-Origin": "*" };
@@ -44,12 +45,38 @@ function qualiteATemps(type, facts, fetchImpl) {
     .finally(() => clearTimeout(timer));
 }
 
+/**
+ * Forme normale des options d'un lien, dans l'ordre imdb, o, r : imdb seulement s'il est valable (celui de
+ * l'id pour un « tt… »), o avec les seules lettres connues dans l'ordre tqngal, r seulement pour « tmdb ».
+ * Un imdb vide (Nuvio l'envoie ainsi quand il n'en a pas) reste tel quel.
+ */
+function optionsNormales(q, id) {
+  const p = new URLSearchParams();
+  const imdb = q.get("imdb");
+  if (imdb !== null) {
+    if (imdb === "") p.set("imdb", "");
+    else if (id.startsWith("tt")) p.set("imdb", id);
+    else if (/^tt\d{1,10}$/.test(imdb)) p.set("imdb", imdb);
+  }
+  const o = "tqngal".split("").filter((k) => (q.get("o") || "").includes(k)).join("");
+  if (o) p.set("o", o);
+  if (q.get("r") === "tmdb") p.set("r", "tmdb");
+  return String(p);
+}
+
 export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
   return async function GET(request) {
     const q = new URL(request.url).searchParams;
     const type = q.get("type"), shape = q.get("shape"), id = q.get("id") || "";
     const imdb = /^tt\d{1,10}$/.test(q.get("imdb") || "") ? q.get("imdb") : "";
     if (!["movie", "series"].includes(type) || !["poster", "landscape"].includes(shape) || !/^(tt\d{1,10}|tmdb:\d{1,10})$/.test(id)) return absent();
+    // Un lien bricolé (paramètre en trop, lettres dans le désordre…) ferait dessiner une copie de plus de la
+    // même affiche : on le renvoie, sans rien dessiner, vers sa forme normale (Nuvio suit les redirections).
+    const recues = new URLSearchParams([...q].filter(([k]) => !["type", "shape", "id"].includes(k)));
+    const normales = optionsNormales(q, id);
+    if (String(recues) !== normales) {
+      return new Response(null, { status: 308, headers: { ...CORS, ...ABSENT, Location: `/${type}/${shape}/${id}.jpg${normales ? "?" + normales : ""}` } });
+    }
     const opts = optionsDe(q);
     const noteImdb = opts.n && opts.r !== "tmdb", qualite = opts.q && env.QUALITE !== "off";
     try {

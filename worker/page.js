@@ -1103,11 +1103,14 @@ function drawAffiches() {
   seg($("aff-note"), ["IMDb", "TMDB"], a.r === "tmdb" ? 1 : 0, (i) => majAffiches({ ...NV.reglages.affiches, r: i ? "tmdb" : "imdb" }));
   $("u-affiches").textContent = NV.lienPerso();
 }
+// Chaque affiche redessinée est un dessin chez Vercel : une rafale de clics n'en déclenche qu'un, à la fin.
+let attenteAffiches = 0;
 function majAffiches(a) {
   NV.reglages.affiches = a;
   drawAffiches();
   if (!NV.reglages.pp) { NV.reglages.pp = true; drawPP(); }
-  E.pp();
+  clearTimeout(attenteAffiches);
+  attenteAffiches = setTimeout(() => E.pp(), 400);
   if (window.sfx) sfx.click();
 }
 document.querySelectorAll("[data-aff]").forEach((c) => c.addEventListener("change", () => {

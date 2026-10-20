@@ -221,7 +221,7 @@ input[type=text] {
 .frame .kind { margin-left: 8px; font: 700 .68rem var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
 .frame small { display: block; color: var(--dim); font-size: .85rem; line-height: 1.35; }
 .frame:not(.on) b, .frame:not(.on) small { opacity: .55; }
-.frame input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.frame > input[type=checkbox] { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .tools { display: flex; gap: 4px; align-items: center; }
 .toggle { font: 800 .72rem var(--body); letter-spacing: .1em; text-transform: uppercase; border-radius: 99px; padding: 6px 10px; border: 1px solid var(--seat); background: transparent; color: var(--dim); cursor: pointer; white-space: nowrap; }
 .frame.on .toggle { background: var(--red); border-color: var(--red); color: #fff; }

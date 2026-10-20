@@ -1,6 +1,6 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import worker from "../worker/index.js";
+import worker, { resetPostersPlus } from "../worker/index.js";
 import { resetFails } from "../worker/hote.js";
 
 // Worker appelé comme par Cloudflare, avec un cache en mémoire et TMDB / Gemini simulés.
@@ -9,6 +9,7 @@ beforeEach(() => {
   store = new Map();
   calls = [];
   resetFails();
+  resetPostersPlus();
   globalThis.caches = {
     default: {
       match: async (req) => (store.has(req.url) ? new Response(store.get(req.url)) : undefined),
@@ -399,6 +400,38 @@ test("rangee_sur_mesure_tele_realite", async () => {
   calls.length = 0;
   await get(`/${seg({ x: [{ n: "Drames", t: 1, g: [GENRES.findIndex(([n]) => n === "Drame")] }] })}/catalog/series/perso-0.json`);
   assert.ok(discover().every((u) => u.searchParams.get("without_genres").split("|").includes("10764")));
+});
+
+// Classement de Posters+ gardé en mémoire : les autres pages et les autres liens ne le redemandent pas.
+// Vide (Posters+ en panne) : redemandé ensuite, sans attendre 15 min.
+test("tendances_du_jour_posters_plus_lu_une_fois", async () => {
+  const serie = (id) => ({ id, name: `Série ${id}`, first_air_date: "2020-01-01" });
+  let pp = () => new Response("panne", { status: 502 });
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: [serie(1), serie(2)], page: 1, total_pages: 1 }));
+    if (u.includes("postersplus")) return pp();
+    return new Response("{}");
+  };
+  const ppCalls = () => calls.filter((u) => u.includes("postersplus")).length;
+  const ids = async (path) => (await (await get(path)).json()).metas.map((m) => m.id);
+  assert.deepEqual(await ids("/catalog/series/accueil-tendances-series.json"), ["tmdb:1", "tmdb:2"]);
+  assert.equal(ppCalls(), 1);
+  pp = () => new Response(JSON.stringify({ metas: [{ id: "tmdb:2" }, { id: "tmdb:1" }] }));
+  const realNow = Date.now;
+  Date.now = () => realNow() + 3 * 60 * 1000;
+  try {
+    assert.deepEqual(await ids(`/${seg({ u: 1 })}/catalog/series/accueil-tendances-series.json`), ["tmdb:2", "tmdb:1"]);
+    assert.equal(ppCalls(), 2);
+    await Promise.all([
+      get(`/${seg({ u: 2 })}/catalog/series/accueil-tendances-series.json`),
+      get(`/${seg({ u: 3 })}/catalog/series/accueil-tendances-series.json`),
+    ]);
+    assert.equal(ppCalls(), 2);
+  } finally {
+    Date.now = realNow;
+  }
 });
 
 test("tendances_du_jour_dans_l_ordre_meme_avec_les_films_a_venir", async () => {

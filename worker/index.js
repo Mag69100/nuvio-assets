@@ -652,9 +652,25 @@ function byRank(results, ranks, page) {
   const pos = new Map(results.map((it, i) => [it, ranks.get(it.id) || (page - 1) * PAGE + i + 1.5]));
   return [...results].sort((a, b) => pos.get(a) - pos.get(b));
 }
-async function postersPlusRanks(kind) {
+/** Classement gardé aussi en mémoire de l'addon (15 min, 2 min s'il est vide) : Posters+ répond
+ *  lentement (¾ s) et le cache Cloudflare, propre à chaque centre de données, le redemande souvent.
+ *  Toutes les pages des Tendances qui se préparent en même temps attendent la même réponse. */
+const PP_KEEP_MS = 15 * 60 * 1000, PP_EMPTY_MS = 2 * 60 * 1000;
+let ppMemo = new Map();
+export function resetPostersPlus() { ppMemo = new Map(); }
+function postersPlusRanks(kind) {
+  const now = Date.now(), hit = ppMemo.get(kind);
+  if (hit && now < hit.until) return hit.ranks;
+  const ranks = readPostersPlus(kind);
+  const memo = { ranks, until: now + PP_KEEP_MS };
+  ppMemo.set(kind, memo);
+  ranks.then((r) => { if (!r.size) memo.until = Date.now() + PP_EMPTY_MS; });
+  return ranks;
+}
+async function readPostersPlus(kind) {
   const url = `${PP_TRENDING}/${kind === "series" ? "series/pp.trending.series" : "movie/pp.trending.movie"}.json`;
-  const d = await fetch(url, { cf: { cacheTtl: 3600, cacheEverything: true } })
+  // Plus de 4 s sans réponse : l'ordre de TMDB, plutôt qu'une rangée qui tarde à s'afficher.
+  const d = await fetch(url, { cf: { cacheTtl: 3600, cacheEverything: true }, signal: AbortSignal.timeout(4000) })
     .then((res) => (res.ok ? res.json() : null), () => null).catch(() => null);
   const ranks = new Map();
   ((d && d.metas) || []).forEach((m, i) => {

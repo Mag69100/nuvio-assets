@@ -48,7 +48,8 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch) {
   const tmdbId = id.startsWith("tmdb:") ? Number(id.slice(5)) : await tmdbIdDe(env, type, id, fetchImpl);
   if (!tmdbId) return null;
   const d = await tmdbGet(env, `/${type === "series" ? "tv" : "movie"}/${tmdbId}`, {
-    language: "fr-FR", append_to_response: "images,external_ids", include_image_language: "fr,en,null",
+    // Films : les dates de sortie détaillées servent au statut (« En salle », « Nouveau »…).
+    language: "fr-FR", append_to_response: type === "series" ? "images,external_ids" : "images,external_ids,release_dates", include_image_language: "fr,en,null",
   }, fetchImpl);
   if (!d) return null;
   const images = d.images || {};
@@ -66,5 +67,10 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch) {
     textlessBackdrop: first(images.backdrops, [null]),
     logo: first(images.logos, ["fr", "en"]),
     lastSeason: type === "series" && d.last_episode_to_air ? d.last_episode_to_air.season_number : null,
+    // Pour le statut (lib/statut.js).
+    releases: type === "series" ? [] : (d.release_dates && d.release_dates.results) || [],
+    releaseDate: type === "series" ? "" : d.release_date || "",
+    firstAir: type === "series" ? d.first_air_date || "" : "",
+    seasons: type === "series" ? (d.seasons || []).map((s) => ({ season_number: s.season_number, air_date: s.air_date || "" })) : [],
   };
 }

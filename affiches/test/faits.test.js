@@ -38,7 +38,7 @@ test("tt id résolu par /find", async () => {
   assert.ok(f.calls[0].includes("/find/tt15239678") && f.calls[0].includes("external_source=imdb_id"));
   const detail = new URL(f.calls[1]);
   assert.equal(detail.pathname, "/3/movie/693134");
-  assert.equal(detail.searchParams.get("append_to_response"), "images,external_ids");
+  assert.equal(detail.searchParams.get("append_to_response"), "images,external_ids,release_dates");
   assert.equal(detail.searchParams.get("include_image_language"), "fr,en,null");
   assert.equal(detail.searchParams.get("language"), "fr-FR");
   assert.equal(facts.tmdbId, 693134);
@@ -65,6 +65,19 @@ test("images choisies", async () => {
   assert.equal(facts.textlessBackdrop, "/bdnu.jpg");
   assert.deepEqual(facts.genreIds, [878, 12]);
   assert.deepEqual(facts.vote, { average: 8.1, count: 6000 });
+});
+
+test("dates pour le statut", async () => {
+  const avecDates = { ...movie, release_dates: { results: [{ iso_3166_1: "FR", release_dates: [{ type: 3, release_date: "2024-02-28T00:00:00.000Z" }] }] } };
+  const f = fauxFetch([["/movie/693134", json(avecDates)]]);
+  const facts = await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, f);
+  assert.equal(new URL(f.calls[0]).searchParams.get("append_to_response"), "images,external_ids,release_dates");
+  assert.deepEqual(facts.releases, avecDates.release_dates.results);
+  assert.equal(facts.releaseDate, "2024-02-27");
+  const serie = { ...movie, id: 94605, release_date: undefined, first_air_date: "2021-11-06", seasons: [{ season_number: 1, air_date: "2021-11-06", name: "S1" }] };
+  const s = await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fauxFetch([["/tv/94605", json(serie)]]));
+  assert.equal(s.firstAir, "2021-11-06");
+  assert.deepEqual(s.seasons, [{ season_number: 1, air_date: "2021-11-06" }]);
 });
 
 test("logo anglais si pas de français, sinon rien", async () => {

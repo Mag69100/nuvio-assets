@@ -17,12 +17,19 @@ export const tailleMemo = () => memo.size;
 const UHD = /\b(2160p|4k|uhd)\b/i;
 const DV = /\b(dv|dovi|dolby ?vision)\b/i;
 const HDR = /\bhdr(10\+?)?(?=\W|$)/i;
+const HDR10P = /\bhdr10(\+|plus)(?=\W|$)/i;
+const FHD = /\b1080p\b/i;
+const ATMOS = /\batmos\b/i;
 
-/** { uhd, extra } d'après une liste de flux Stremio ({ name, title }). DV et HDR comptent seulement en 4K. */
+/**
+ * { uhd, extra, fhd, hdr10p, atmos } d'après une liste de flux Stremio ({ name, title }). DV, HDR et HDR10+
+ * comptent seulement en 4K ; fhd = un flux 1080p ; atmos = un flux Dolby Atmos, en toute résolution.
+ */
 export function parseQuality(streams) {
-  const uhd = (streams || []).map((s) => `${s.name || ""} ${s.title || ""}`).filter((t) => UHD.test(t));
+  const tous = (streams || []).map((s) => `${s.name || ""} ${s.title || ""}`);
+  const uhd = tous.filter((t) => UHD.test(t));
   const extra = uhd.some((t) => DV.test(t)) ? "DV" : uhd.some((t) => HDR.test(t)) ? "HDR" : null;
-  return { uhd: uhd.length > 0, extra };
+  return { uhd: uhd.length > 0, extra, fhd: tous.some((t) => FHD.test(t)), hdr10p: uhd.some((t) => HDR10P.test(t)), atmos: tous.some((t) => ATMOS.test(t)) };
 }
 
 /** Qualité lue directement chez Torrentio pour une vidéo (« movie/tt… », « series/tt…:3:1 ») ; null si échec. */
@@ -40,7 +47,10 @@ async function lireRelais(relais, video, fetchImpl) {
     const res = await fetchImpl(`${relais}/qualite/${video}.json`, { signal: AbortSignal.timeout(DELAI_MS + 500) });
     if (!res.ok) return null;
     const d = await res.json();
-    return d && typeof d.uhd === "boolean" ? { uhd: d.uhd, extra: d.extra === "DV" || d.extra === "HDR" ? d.extra : null } : null;
+    // Réponse gardée au CDN avant la qualité v2 : sans fhd, hdr10p ni atmos (lus false).
+    return d && typeof d.uhd === "boolean"
+      ? { uhd: d.uhd, extra: d.extra === "DV" || d.extra === "HDR" ? d.extra : null, fhd: d.fhd === true, hdr10p: d.hdr10p === true, atmos: d.atmos === true }
+      : null;
   } catch { return null; }
 }
 

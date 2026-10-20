@@ -9,7 +9,7 @@ test("qualité d'un film, gardée 3 jours au CDN", async () => {
   const calls = [];
   const res = await makeQualite({ fetchImpl: torrentio([{ name: "4k DV" }], calls) })(req("type=movie&video=tt15239678"));
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { uhd: true, extra: "DV" });
+  assert.deepEqual(await res.json(), { uhd: true, extra: "DV", fhd: false, hdr10p: false, atmos: false });
   assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=259200");
   assert.deepEqual(calls, ["https://torrentio.strem.fun/stream/movie/tt15239678.json"]);
 });

@@ -385,7 +385,7 @@ test("rangee_sur_mesure_tele_realite", async () => {
   const tr = GENRES.findIndex(([n]) => n === "Téléréalité");
   assert.ok(tr >= 0);
   const discover = () => calls.map((u) => new URL(u)).filter((u) => u.pathname.endsWith("/discover/tv"));
-  await get(`/${seg({ x: [{ n: "Télé-réalité", t: 1, g: [tr] }] })}/catalog/series/perso-0.json`);
+  await get(`/${seg({ x: [{ n: "Télé-réalité", t: 1, g: [tr], l: "fr" }] })}/catalog/series/perso-0.json`);
   assert.ok(discover().length);
   for (const u of discover()) {
     assert.equal(u.searchParams.get("with_genres"), "10764");

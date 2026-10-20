@@ -109,14 +109,26 @@ function hautGauche(content, m) {
   return h("div", { position: "absolute", left: m.marge, top: m.haut, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: t * 0.25 }, pile);
 }
 
-/** En haut à droite : la qualité (« 4K | DV »), en texte nu ou en pastille claire. */
+// Logo Dolby Vision : deux « D » dos à dos, évidés (dessiné ici, en couleur du texte).
+const DOLBY = "M23 2H13a10 10 0 0 0 0 20h10zM20 8h-7a4 4 0 0 0 0 8h7zM25 2h10a10 10 0 0 1 0 20H25zM28 8h7a4 4 0 0 1 0 8h-7z";
+
+/** « 4K », puis une fine barre et « HDR » ou le logo Dolby Vision. */
+export function elementsQualite(extra, t, pastille) {
+  const q = [h("span", {}, "4K")];
+  if (extra) {
+    q.push(h("div", { display: "flex", width: 3, height: t * 0.92, background: pastille ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.55)", margin: `0 ${t * 0.45}px` }));
+    q.push(extra === "DV"
+      ? { type: "svg", props: { width: t * 1.6, height: t * 0.8, viewBox: "0 0 48 24", style: { opacity: 0.92 },
+          children: { type: "path", props: { d: DOLBY, fill: pastille ? ENCRE : "#fff", fillRule: "evenodd" } } } }
+      : h("span", { fontWeight: 500, opacity: 0.85 }, extra));
+  }
+  return q;
+}
+
+/** En haut à droite : la qualité (« 4K | HDR », « 4K | logo Dolby Vision »), en texte nu ou en pastille claire. */
 function hautDroite(content, m) {
   const t = m.texte * (Number(content.styles.haut) || 1), pastille = content.styles.qualite === "pastille";
-  const q = [h("span", {}, "4K")];
-  if (content.quality.extra) {
-    q.push(h("div", { display: "flex", width: 3, height: t * 0.92, background: pastille ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.55)", margin: `0 ${t * 0.45}px` }));
-    q.push(h("span", { fontWeight: 500, opacity: 0.85 }, content.quality.extra));
-  }
+  const q = elementsQualite(content.quality.extra, t, pastille);
   const style = { position: "absolute", right: m.marge, top: m.haut, display: "flex", alignItems: "center", fontSize: t, fontWeight: 800 };
   return h("div", pastille
     ? { ...style, background: "rgba(255,255,255,0.92)", color: ENCRE, borderRadius: 6, padding: "3px 9px", fontSize: t * 0.85 }

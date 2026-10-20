@@ -223,3 +223,16 @@ test("fondu aux couleurs d'une affiche magenta", async () => {
   const [rt] = await zone(teinte, 0, 560, 400, 40), [rn] = await zone(noir, 0, 560, 400, 40);
   assert.ok(rt > rn + 15, `teinte noire : rouge ${rt} (noir ${rn})`);
 });
+
+// Dolby Vision : le logo (deux « D » dos à dos), pas le texte « DV ». HDR reste écrit en toutes lettres.
+test("qualité : logo Dolby Vision", async () => {
+  const { elementsQualite } = await import("../lib/dessin.js");
+  const texte = (n) => JSON.stringify(n);
+  const dv = elementsQualite("DV", 26, false);
+  assert.match(texte(dv), /"type":"svg"/);
+  assert.doesNotMatch(texte(dv), /"DV"/);
+  const hdr = elementsQualite("HDR", 26, false);
+  assert.match(texte(hdr), /"HDR"/);
+  assert.doesNotMatch(texte(hdr), /"type":"svg"/);
+  assert.match(texte(elementsQualite(null, 26, false)), /"4K"/);
+});

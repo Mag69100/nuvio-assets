@@ -445,70 +445,83 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .aff-resume { margin: 0 0 12px; color: var(--cream); }
 .aff-resume b { color: var(--bulb); }
 
-/* ---------- La régie : le configurateur d'affiches, en fenêtre (scène + console d'éclairage) ---------- */
+/* ---------- La régie : le configurateur d'affiches, en fenêtre (scène + console d'éclairage) ----------
+   Sur ordinateur et tablette, tout tient dans l'écran sans défiler : la scène à gauche (grande affiche à la
+   hauteur disponible, six coulisses en rangée dessous), la console à droite. Sur téléphone, tout s'empile. */
 .regie-affiches { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; padding: 16px; background: rgba(5,3,4,.86); animation: fade-in .2s ease both; }
 .regie-affiches[hidden] { display: none; }
-.regie-boite { width: min(1120px, 100%); max-height: calc(100dvh - 32px); overflow: auto; border-radius: 16px; background: #0d0a0c; border: 1px solid var(--seat); box-shadow: 0 30px 80px rgba(0,0,0,.6); color: var(--cream); }
-.regie-barre { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; background: #140e11; border-bottom: 1px solid var(--seat); }
-.regie-barre h2 { margin: 0; font: 400 1.7rem/1 var(--display); letter-spacing: .05em; }
+.regie-boite { width: min(1240px, 100%); height: calc(100dvh - 32px); max-height: 940px; display: grid; grid-template-rows: auto minmax(0, 1fr); border-radius: 16px; overflow: hidden; background: #0d0a0c; border: 1px solid var(--seat); box-shadow: 0 30px 80px rgba(0,0,0,.6); color: var(--cream); }
+.regie-barre { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 16px; background: #140e11; border-bottom: 1px solid var(--seat); }
+.regie-barre h2 { margin: 0; font: 400 1.6rem/1 var(--display); letter-spacing: .05em; }
 .regie-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
-.regie-x { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--seat); background: transparent; color: var(--cream); font-size: 1.1rem; cursor: pointer; }
-.regie-scene { position: relative; display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px 24px; align-items: center; padding: 22px 96px 18px;
-  background: radial-gradient(ellipse 260px 360px at 50% 46%, rgba(255,236,190,.18), transparent 72%), linear-gradient(#1c1013, #0d0a0c); }
-.regie-rideau { position: absolute; top: 0; bottom: 0; width: 64px; background: repeating-linear-gradient(90deg, #4a0c18 0 13px, #6b1526 13px 22px); }
+.regie-x { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--seat); background: transparent; color: var(--cream); font-size: 1.05rem; cursor: pointer; }
+.regie-corps { display: grid; grid-template-columns: minmax(0, 1fr) 400px; min-height: 0; }
+
+/* La scène : rideaux, en-tête (titre en cours + Portrait/Paysage), grande affiche, rangée de coulisses. */
+.regie-scene { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px; min-height: 0; padding: 12px 44px 12px;
+  background: radial-gradient(ellipse 50% 60% at 50% 45%, rgba(255,236,190,.16), transparent 72%), linear-gradient(#1c1013, #0d0a0c); }
+.regie-rideau { position: absolute; top: 0; bottom: 0; width: 28px; background: repeating-linear-gradient(90deg, #4a0c18 0 9px, #6b1526 9px 15px); }
 .regie-rideau.g { left: 0; } .regie-rideau.d { right: 0; }
-.regie-plateau { grid-column: 2; grid-row: 1 / span 3; margin: 0; display: grid; justify-items: center; gap: 10px; }
-.regie-plateau img { display: block; width: 260px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; background: #1b1418; box-shadow: 0 0 70px rgba(255,220,150,.2); transition: opacity .25s ease; }
-.regie-plateau.paysage img { width: min(520px, 62vw); aspect-ratio: 16 / 9; }
+.regie-tete { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.regie-legende { margin: 0; color: var(--dim); font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.regie-tete .seg button { padding: 6px 12px; font-size: .8rem; }
+/* La grande affiche prend toute la place, en gardant ses proportions (2:3 ou 16:9) : largeur bornée par la largeur ET la hauteur du plateau. */
+.regie-plateau { margin: 0; min-height: 0; display: flex; justify-content: center; align-items: center; container-type: size; }
+.regie-plateau img { display: block; width: min(100cqw, calc(100cqh * 2 / 3)); height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; background: #1b1418; box-shadow: 0 0 60px rgba(255,220,150,.18); transition: opacity .25s ease; }
+.regie-plateau.paysage img { width: min(100cqw, calc(100cqh * 16 / 9)); aspect-ratio: 16 / 9; }
 .regie-plateau img.attente { opacity: .55; }
-.regie-plateau figcaption { color: var(--dim); font-size: .85rem; text-align: center; }
-.regie-coulisses { display: contents; }
-.regie-coulisses button { width: 74px; padding: 0; border: 0; background: none; color: var(--dim); font: 600 .72rem/1.3 system-ui, sans-serif; cursor: pointer; text-align: center; }
-.regie-coulisses button:nth-child(-n+3) { grid-column: 1; justify-self: end; }
-.regie-coulisses button:nth-child(n+4) { grid-column: 3; justify-self: start; }
-.regie-coulisses img { display: block; width: 74px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 5px; margin-bottom: 4px; outline: 2px solid transparent; outline-offset: 2px; opacity: .8; background: #1b1418; }
+.regie-coulisses { display: flex; justify-content: center; gap: 10px; }
+.regie-coulisses button { width: 62px; flex: none; padding: 0; border: 0; background: none; color: var(--dim); font: 600 .66rem/1.2 system-ui, sans-serif; cursor: pointer; text-align: center; }
+.regie-coulisses img { display: block; width: 62px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 5px; margin-bottom: 4px; outline: 2px solid transparent; outline-offset: 2px; opacity: .8; background: #1b1418; }
 .regie-coulisses button[aria-pressed="true"] img { outline-color: var(--bulb); opacity: 1; }
-.regie-console { padding: 14px 16px 18px; background: linear-gradient(#262025, #17121a); border-top: 3px solid #3a2f36; }
-.regie-aide { margin: 0 0 10px; text-align: center; color: var(--dim); font-size: .85rem; }
-.regie-memoires { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
-.regie-memoires button { border: 2px solid #4a3d45; border-radius: 8px; padding: 6px 14px; background: transparent; color: #cdbfa6; font: 400 1.15rem/1 var(--display); letter-spacing: .05em; cursor: pointer; }
-.regie-memoires button[aria-pressed="true"] { border-color: var(--bulb); color: var(--bulb); box-shadow: 0 0 14px rgba(255,207,107,.25); }
-.regie-memoires .perso { align-self: center; color: var(--dim); font-size: .8rem; }
-.regie-voies { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-.regie-voies .voie { width: 96px; border-radius: 10px; background: #1b1519; border: 1px solid #33292f; padding: 10px 6px 8px; text-align: center; }
+.regie-coulisses span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* La console : styles tout prêts, lampes (deux colonnes compactes), tiroir de réglages. */
+.regie-console { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: auto; padding: 12px 14px; background: linear-gradient(#262025, #17121a); border-left: 3px solid #3a2f36; }
+.regie-aide { margin: 0; color: var(--dim); font-size: .8rem; }
+.regie-memoires { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.regie-memoires button { border: 2px solid #4a3d45; border-radius: 8px; padding: 5px 11px; background: transparent; color: #cdbfa6; font: 400 1.05rem/1 var(--display); letter-spacing: .05em; cursor: pointer; }
+.regie-memoires button[aria-pressed="true"] { border-color: var(--bulb); color: var(--bulb); box-shadow: 0 0 12px rgba(255,207,107,.25); }
+.regie-memoires .perso { color: var(--dim); font-size: .78rem; }
+.regie-voies { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.regie-voies .voie { display: flex; align-items: center; gap: 8px; border-radius: 9px; background: #1b1519; border: 1px solid #33292f; padding: 5px 8px 5px 5px; min-width: 0; }
 .regie-voies .voie.ouverte { border-color: var(--bulb); }
 .regie-voies .voie.sans-effet { opacity: .4; }
-.regie-voies .lampe { width: 46px; height: 46px; border-radius: 50%; margin: 0 auto 7px; display: grid; place-items: center; border: 0; background: #3a2f36; color: #7d6f76; font: 800 .8rem system-ui, sans-serif; cursor: pointer; }
-.regie-voies .lampe[aria-pressed="true"] { background: radial-gradient(circle at 40% 35%, #ffe7a0, var(--bulb) 60%, #a7781c); color: #1a1208; box-shadow: 0 0 16px rgba(255,207,107,.55); }
+.regie-voies .lampe { width: 34px; height: 34px; flex: none; border-radius: 50%; display: grid; place-items: center; border: 0; background: #3a2f36; color: #7d6f76; font: 800 .66rem system-ui, sans-serif; cursor: pointer; }
+.regie-voies .lampe[aria-pressed="true"] { background: radial-gradient(circle at 40% 35%, #ffe7a0, var(--bulb) 60%, #a7781c); color: #1a1208; box-shadow: 0 0 12px rgba(255,207,107,.5); }
 .regie-voies .lampe:disabled { cursor: default; }
-.regie-voies .nom { display: block; width: 100%; border: 0; background: none; color: var(--cream); cursor: pointer; padding: 0; }
-.regie-voies .nom b { display: block; font-size: .82rem; }
-.regie-voies .nom small { display: block; font-size: .7rem; color: var(--dim); margin-top: 1px; }
-.regie-tiroir { margin: 14px auto 0; max-width: 640px; background: var(--cream); color: var(--ink); border-radius: 10px; padding: 12px 16px; display: flex; gap: 14px 22px; flex-wrap: wrap; align-items: flex-end; }
+.regie-voies .nom { flex: 1; min-width: 0; border: 0; background: none; color: var(--cream); cursor: pointer; padding: 0; text-align: left; }
+.regie-voies .nom b { display: block; font-size: .8rem; }
+.regie-voies .nom small { display: block; font-size: .68rem; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.regie-tiroir { background: var(--cream); color: var(--ink); border-radius: 10px; padding: 10px 12px; display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: flex-end; }
 .regie-tiroir[hidden] { display: none; }
-.regie-tiroir h3 { margin: 0; width: 100%; font: 400 1.4rem/1 var(--display); letter-spacing: .05em; }
-.regie-tiroir .choix > span { display: block; font: 700 .68rem system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #7a6a55; margin-bottom: 4px; }
-.regie-tiroir .choix button { border: 1px solid #c9b99a; border-radius: 99px; padding: 4px 12px; margin: 0 4px 4px 0; background: transparent; color: var(--ink); font: 600 .82rem system-ui, sans-serif; cursor: pointer; }
+.regie-tiroir h3 { margin: 0; width: 100%; font: 400 1.25rem/1 var(--display); letter-spacing: .05em; }
+.regie-tiroir .choix > span { display: block; font: 700 .64rem system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #7a6a55; margin-bottom: 4px; }
+.regie-tiroir .choix button { border: 1px solid #c9b99a; border-radius: 99px; padding: 4px 10px; margin: 0 4px 4px 0; background: transparent; color: var(--ink); font: 600 .78rem system-ui, sans-serif; cursor: pointer; }
 .regie-tiroir .choix button[aria-pressed="true"] { background: var(--ink); color: var(--cream); border-color: var(--ink); }
-.regie-tiroir .curseur { display: flex; align-items: center; gap: 10px; }
-.regie-tiroir .curseur input { width: 160px; accent-color: var(--ink); }
-.regie-tiroir .curseur output { font: 700 .9rem system-ui, sans-serif; min-width: 4ch; }
-.regie-tiroir p { margin: 0; }
+.regie-tiroir .curseur { display: flex; align-items: center; gap: 8px; }
+.regie-tiroir .curseur input { width: 130px; accent-color: var(--ink); }
+.regie-tiroir .curseur output { font: 700 .85rem system-ui, sans-serif; min-width: 4ch; }
+.regie-tiroir p { margin: 0; font-size: .82rem; }
 body.regie-ouverte { overflow: hidden; }
-/* Tablette et téléphone : la scène passe en colonne (grande affiche, puis une bande de coulisses). */
-@media (max-width: 960px) {
-  .regie-scene { display: flex; flex-direction: column; padding: 16px 12px; }
-  .regie-rideau { display: none; }
-  .regie-coulisses { display: flex; gap: 8px; overflow-x: auto; width: 100%; padding-bottom: 4px; }
-  .regie-coulisses button { flex: none; }
-  .regie-plateau.paysage img { width: min(560px, 88vw); }
+/* Tablette : console un peu plus étroite, coulisses plus petites. */
+@media (max-width: 1000px) {
+  .regie-corps { grid-template-columns: minmax(0, 1fr) 340px; }
+  .regie-coulisses { gap: 6px; }
+  .regie-coulisses button, .regie-coulisses img { width: 50px; }
 }
+/* Téléphone : tout s'empile et défile (l'écran est trop petit pour tout montrer d'un coup). */
 @media (max-width: 760px) {
   .regie-affiches { padding: 0; }
-  .regie-boite { max-height: 100dvh; height: 100dvh; border-radius: 0; }
-  .regie-plateau img { width: min(240px, 60vw); }
-  .regie-plateau.paysage img { width: 92vw; }
-  .regie-voies .voie { width: calc(33% - 8px); }
+  .regie-boite { height: 100dvh; max-height: none; border-radius: 0; grid-template-rows: auto minmax(0, 1fr); }
+  .regie-corps { display: block; overflow: auto; }
+  .regie-scene { padding: 12px; }
+  .regie-rideau { display: none; }
+  .regie-plateau { container-type: normal; }
+  .regie-plateau img { width: min(240px, 62vw); }
+  .regie-plateau.paysage img { width: 100%; }
+  .regie-coulisses { justify-content: flex-start; overflow-x: auto; padding-bottom: 4px; }
+  .regie-console { overflow: visible; border-left: 0; border-top: 3px solid #3a2f36; }
 }
 @media (prefers-reduced-motion: reduce) { .regie-affiches, .regie-plateau img { animation: none; transition: none; } }
 
@@ -883,13 +896,14 @@ ${copy ? HOTE_HTML : ""}
           <button type="button" class="regie-x" id="regie-fermer" aria-label="Fermer la régie">✕</button>
         </div>
       </div>
+      <div class="regie-corps">
       <div class="regie-scene">
         <div class="regie-rideau g" aria-hidden="true"></div><div class="regie-rideau d" aria-hidden="true"></div>
-        <figure class="regie-plateau" id="regie-plateau">
-          <img id="regie-grande" alt="">
-          <figcaption id="regie-legende"></figcaption>
+        <div class="regie-tete">
+          <p class="regie-legende" id="regie-legende"></p>
           <div class="seg" id="regie-format" role="group" aria-label="Forme de l'affiche"></div>
-        </figure>
+        </div>
+        <figure class="regie-plateau" id="regie-plateau"><img id="regie-grande" alt=""></figure>
         <div class="regie-coulisses" id="regie-coulisses" role="group" aria-label="D'autres films avec les mêmes réglages"></div>
       </div>
       <div class="regie-console">
@@ -898,10 +912,11 @@ ${copy ? HOTE_HTML : ""}
           <button type="button" data-memoire="maison">Maison</button><button type="button" data-memoire="essentiel">Essentiel</button><button type="button" data-memoire="noteSeule">Note seule</button><button type="button" data-memoire="nue">Nue</button><span class="perso" id="regie-perso" hidden>Perso</span>
         </div>
         <div class="regie-voies" id="regie-voies">
-${[["statut", "Statut", "Nouv."], ["tendance", "Tendance", "↗"], ["qualite", "Qualité", "4K"], ["titre", "Titre", "Aa"], ["note", "Note", "★"], ["genre", "Genre", "G"], ["annee", "Année", "20"], ["texte", "Texte", "T"], ["fondu", "Fondu", "▼"], ["sortie", "Pas sorti", "N&amp;B"]]
+${[["statut", "Statut", "Nv"], ["tendance", "Tendance", "↗"], ["qualite", "Qualité", "4K"], ["titre", "Titre", "Aa"], ["note", "Note", "★"], ["genre", "Genre", "G"], ["annee", "Année", "20"], ["texte", "Texte", "T"], ["fondu", "Fondu", "▼"], ["sortie", "Pas sorti", "N&amp;B"]]
   .map(([v, nom, signe]) => `          <div class="voie" data-voie="${v}"><button type="button" class="lampe" aria-pressed="true" aria-label="${nom} : allumer ou éteindre">${signe}</button><button type="button" class="nom" aria-expanded="false" aria-controls="regie-tiroir"><b>${nom}</b><small></small></button></div>`).join("\n")}
         </div>
         <div class="regie-tiroir" id="regie-tiroir" hidden></div>
+      </div>
       </div>
     </div>
   </div>
@@ -1355,7 +1370,7 @@ async function regieCharge() {
   const c = $("regie-coulisses");
   c.textContent = "";
   regieTitres.forEach((t, i) => c.append(el("button", { type: "button", "aria-pressed": "false", "aria-label": "Voir " + (t.name || "ce titre") + " en grand",
-    onclick: () => { regieChoisi = i; regieApercus(); } }, el("img", { alt: "" }), document.createTextNode(t.legende))));
+    onclick: () => { regieChoisi = i; regieApercus(); } }, el("img", { alt: "" }), el("span", { text: t.legende }))));
 }
 
 function regieOuvre(declencheur) {

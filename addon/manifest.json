@@ -804,7 +804,7 @@
   {
    "type": "movie",
    "id": "accueil-top10",
-   "name": "Tendances de la semaine · Films",
+   "name": "Tendances du jour · Films",
    "showInHome": true,
    "pageSize": 20,
    "extra": [
@@ -819,7 +819,7 @@
   {
    "type": "series",
    "id": "accueil-tendances-series",
-   "name": "Tendances de la semaine · Séries",
+   "name": "Tendances du jour · Séries",
    "showInHome": true,
    "pageSize": 20,
    "extra": [

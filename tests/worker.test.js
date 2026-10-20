@@ -389,6 +389,7 @@ test("rangee_sur_mesure_tele_realite", async () => {
   assert.ok(discover().length);
   for (const u of discover()) {
     assert.equal(u.searchParams.get("with_genres"), "10764");
+    assert.equal(u.searchParams.get("vote_count.gte"), "1");   // peu notée sur TMDB
     assert.ok(!(u.searchParams.get("without_genres") || "").split("|").includes("10764"));
   }
   calls.length = 0;

@@ -36,7 +36,7 @@ import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.25.0";
+const VERSION = "5.25.1";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -154,6 +154,8 @@ function customDef(x, i) {
     else if (x.s === 2) { d.sort_by = kind === "series" ? "first_air_date.desc" : "primary_release_date.desc"; d["vote_count.gte"] = 20; out.untilToday = true; }
     else if (x.s === 3) { d.sort_by = "popularity.desc"; d["vote_count.gte"] = 100; out.rotateDaily = true; }
     else d.sort_by = "popularity.desc";
+    // Téléréalité : peu notée sur TMDB (Koh-Lanta, Les Marseillais…), le seuil habituel la viderait.
+    if (genres.includes(10764)) d["vote_count.gte"] = x.s === 1 ? 10 : 1;
     if (x.y[0]) out.fromYear = x.y[0];
     if (x.y[1]) out.toYear = x.y[1];
     return out;

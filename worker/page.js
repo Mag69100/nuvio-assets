@@ -113,10 +113,10 @@ hoteRefresh();
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-export function configurePage({ origin, cfg, rows, discover, providers, collections, defaults, regions, genres, languages, sorts, seasons, maxCustom, season, copy = false }) {
+export function configurePage({ origin, cfg, rows, discover, providers, collections, defaults, regions, genres, languages, sorts, seasons, maxCustom, season, copy = false, fixed = "", fixedOk = false }) {
   const plain = (c) => ({ n: c.n, r: c.r, p: c.p, d: c.d, c: c.c, o: c.o, x: c.x, g: c.g, e: c.e, m: c.m, a: c.a, f: c.f, h: c.h, t: c.t, u: c.u, k: c.k, al: c.al });
   const data = {
-    origin, maxCustom,
+    origin, maxCustom, fixed, fixedOk,
     cfg: plain(cfg),
     defaults: plain(defaults),
     rows: rows.map((d) => ({
@@ -283,6 +283,13 @@ aside.long .stage:not(.big) { position: sticky; top: var(--stage-top, 18px); }
 .btn.solid:hover { background: var(--red); border-color: var(--red); }
 .btn.line { background: transparent; color: var(--ink); }
 .btn.full { grid-column: 1 / -1; }
+.btn:disabled { opacity: .6; cursor: wait; }
+/* Lien fixe : un encart pointillé dans le billet, sous le lien de l'addon. */
+.fixe { display: grid; gap: 8px; padding: 10px 12px; border: 2px dashed rgba(42,26,20,.3); border-radius: 10px; }
+.fixe p { margin: 0; font: 600 .82rem/1.45 var(--body); color: #4a2e24; }
+.fixe p b { color: var(--ink); }
+.fixe .etat { font-weight: 800; color: #2f6b3a; }
+.fixe .t-btns { grid-template-columns: 1fr; }
 
 .howto { background: var(--velvet-2); border: 1px solid var(--seat); border-radius: 16px; padding: 16px 18px; font-size: .9rem; color: var(--dim); display: grid; gap: 8px; }
 .howto b { color: var(--cream); }
@@ -688,7 +695,7 @@ ${copy ? HOTE_HTML : ""}
           <li><span><b>Mets Nuvio en français</b> : langue de l'appli et langue TMDB (Paramètres → Enrichissement TMDB).</span></li>
         </ol>
         <p class="sub">Nuvio est sur ton téléphone, ta tablette ou ton ordinateur ? Pas besoin de QR code : colle directement les liens de ton billet dans l'appli (Addons, puis Collections → Importer → URL).</p>
-        <p class="sub">Pour retrouver tes réglages plus tard, ouvre ton lien d'addon en remplaçant « manifest.json » par « configure ». Tu pars de zéro ? <a href="${origin}/guide">Le guide complet</a> installe Nuvio et tous les addons, dans l'ordre.</p>
+        <p class="sub">Pour retrouver tes réglages plus tard, ouvre ton lien d'addon en remplaçant « manifest.json » par « configure ». Avec un lien fixe, fais-le sur l'appareil qui l'a créé (ou avec son lien pour modifier) : tes changements arrivent dans Nuvio sans réinstaller. Tu pars de zéro ? <a href="${origin}/guide">Le guide complet</a> installe Nuvio et tous les addons, dans l'ordre.</p>
       </section>
 
       <button type="button" class="reset" id="reset">Revenir à la programmation d'origine</button>
@@ -723,6 +730,14 @@ ${copy ? HOTE_HTML : ""}
           <div class="t-btns">
             <button type="button" class="btn solid" id="copy-manifest">Copier</button>
             <a class="btn line" id="open-app" href="#">Ouvrir dans l'appli</a>
+          </div>
+          <div class="fixe" id="fixe" hidden>
+            <p id="fixe-txt"></p>
+            <div class="t-btns">
+              <button type="button" class="btn solid" id="fixe-creer">Créer mon lien fixe</button>
+              <button type="button" class="btn line" id="fixe-modif">Copier le lien pour modifier ailleurs</button>
+            </div>
+            <p class="alerte" id="fixe-err" role="alert"></p>
           </div>
           <div class="t-label">Collections · Collections → Importer → URL</div>
           <div class="t-url" id="u-collections"></div>
@@ -1054,9 +1069,17 @@ function serial(s) { let h = 7; for (const ch of s) h = (h * 131 + ch.charCodeAt
 function update() {
   state.n = $("name").value.trim() || D.defaults.n;
   const c = compact(state);
-  const base = D.origin + (Object.keys(c).length ? "/" + enc(c) : "");
+  const seg = Object.keys(c).length ? enc(c) : "";
+  if (segDepart === null) segDepart = dernierEnvoye = seg;
+  // Lien fixe : la même adresse tant qu'on peut l'enregistrer (ou qu'on n'a rien changé).
+  const garde = fixe && (fixe.modif || seg === segDepart);
+  const base = garde ? D.origin + "/" + fixe.id : D.origin + (seg ? "/" + seg : "");
+  if (garde && fixe.modif) planifie(seg);
+  dessineFixe(seg);
   const manifest = base + "/manifest.json";
-  currentBase = base;
+  // L'aperçu lit toujours les réglages en cours (le lien fixe, lui, garde la même adresse : le
+  // navigateur ressortirait ses anciennes rangées de son cache).
+  currentBase = D.origin + (seg ? "/" + seg : "");
   // L'adresse de la page suit les réglages : on peut revenir, recharger ou partager sans rien perdre.
   configureUrl = base + "/configure";
   const shared = compact({ ...state, k: "", al: "" });
@@ -1177,6 +1200,88 @@ $("ai-key-eye").addEventListener("click", (e) => {
 $("name").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } });
 $("reset").addEventListener("click", () => { Object.assign(state, clone(D.defaults)); $("builder").hidden = true; renderAll(); });
 
+// ---------- lien fixe (voir fixe.js) : les réglages gardés par le site, le lien ne change plus ----------
+// La clé pour modifier reste dans ce navigateur (une par lien) ; le « lien pour modifier » l'emporte ailleurs.
+function fixesLus() { try { return JSON.parse(localStorage.getItem("liens-fixes") || "{}") || {}; } catch (e) { return {}; } }
+function fixeGarde(id, modif) { try { const f = fixesLus(); f[id] = modif; localStorage.setItem("liens-fixes", JSON.stringify(f)); } catch (e) {} }
+function lienModif() { return D.origin + "/" + fixe.id + "/configure#modif=" + fixe.modif; }
+function fixeErreur(msg) { $("fixe-err").textContent = msg || ""; }
+let saveT = 0, envoi = Promise.resolve(), etatFixe = "";
+function planifie(seg) {
+  clearTimeout(saveT); saveT = 0;
+  if (seg === dernierEnvoye) return;
+  etatFixe = "attente";
+  saveT = setTimeout(() => enregistre(seg), 1200);
+}
+function enregistre(seg) {
+  clearTimeout(saveT); saveT = 0;
+  dernierEnvoye = seg; etatFixe = "envoi"; dessineFixe(seg);
+  const id = fixe.id, modif = fixe.modif;
+  envoi = envoi.then(async () => {
+    try {
+      const r = await fetch(D.origin + "/lien-fixe/" + id, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ c: seg, modif }), keepalive: true });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || "Enregistrement impossible : réessaie dans un instant.");
+      if (dernierEnvoye === seg) { etatFixe = "ok"; fixeErreur(""); }
+    } catch (err) {
+      if (dernierEnvoye === seg) { dernierEnvoye = null; etatFixe = ""; fixeErreur((err && err.message && !/fetch|network/i.test(err.message) ? err.message : "Enregistrement impossible : vérifie ta connexion.") + " Tes changements seront renvoyés au prochain réglage."); }
+    }
+    dessineFixe(seg);
+  });
+}
+// Page quittée juste après un réglage : on l'envoie tout de suite.
+addEventListener("pagehide", () => { if (saveT) { const c = compact(state); enregistre(Object.keys(c).length ? enc(c) : ""); } });
+function dessineFixe(seg) {
+  const box = $("fixe");
+  box.hidden = !D.fixedOk && !fixe;
+  if (box.hidden) return;
+  const txt = $("fixe-txt"), creer = $("fixe-creer"), modif = $("fixe-modif");
+  txt.textContent = "";
+  if (!fixe) {
+    txt.append(el("b", { text: "Lien fixe : " }), "plus besoin de réinstaller l'addon quand tu changes tes réglages, Nuvio les reprend tout seul.");
+  } else if (fixe.modif) {
+    const etat = { attente: "Changements en attente…", envoi: "Enregistrement…", ok: "Enregistré ✓" }[etatFixe] || "";
+    txt.append(el("b", { text: "Lien fixe. " }), "Tes changements s'enregistrent tout seuls : Nuvio les reprend dans les 6 heures (tout de suite si tu retires et remets l'addon). ");
+    if (etat) txt.append(el("span", { class: "etat", text: etat }));
+  } else if (seg === segDepart) {
+    txt.append(el("b", { text: "Lien fixe. " }), "Pour le modifier, ouvre cette page sur l'appareil qui l'a créé, ou avec son « lien pour modifier ».");
+  } else {
+    txt.append(el("b", { text: "Ce navigateur ne peut pas modifier ce lien fixe : " }), "tes changements font un lien habituel, à réinstaller. Ou crée un nouveau lien fixe avec ces réglages.");
+  }
+  creer.hidden = !D.fixedOk || !!(fixe && (fixe.modif || seg === segDepart));
+  modif.hidden = !(fixe && fixe.modif);
+}
+let fixe = D.fixed ? { id: D.fixed, modif: "" } : null;
+let segDepart = null, dernierEnvoye = null;
+if (fixe) {
+  const m = /modif=([0-9A-Za-z]{22})/.exec(hashDepart);
+  if (m) fixeGarde(fixe.id, m[1]);
+  fixe.modif = fixesLus()[fixe.id] || "";
+}
+$("fixe-creer").addEventListener("click", async (e) => {
+  const btn = e.currentTarget, label = btn.textContent;
+  const c = compact(state), seg = Object.keys(c).length ? enc(c) : "";
+  btn.disabled = true; btn.textContent = "Création…"; fixeErreur("");
+  try {
+    const r = await fetch(D.origin + "/lien-fixe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ c: seg }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.id) throw new Error(j.error || "Création impossible : réessaie dans un instant.");
+    fixeGarde(j.id, j.modif);
+    fixe = { id: j.id, modif: j.modif }; segDepart = dernierEnvoye = seg; etatFixe = "ok";
+    update(); popcorn(btn); sfx.punch();
+    toast("Ton lien fixe est prêt : installe-le une fois, tes changements suivront tout seuls.");
+  } catch (err) {
+    fixeErreur(err && err.message && !/fetch|network/i.test(err.message) ? err.message : "Création impossible : vérifie ta connexion.");
+  }
+  btn.disabled = false; btn.textContent = label;
+});
+$("fixe-modif").addEventListener("click", async (e) => {
+  const btn = e.currentTarget, label = btn.textContent;
+  try { await navigator.clipboard.writeText(lienModif()); btn.textContent = "Copié ✓ : garde-le pour toi"; popcorn(btn); }
+  catch (err) { toast("Copie impossible : ouvre cette page sur l'autre appareil avec le QR code « Continuer sur le téléphone ».", true); }
+  setTimeout(() => { btn.textContent = label; }, 2200);
+});
+
 // ---------- billet : séance, QR code, partage, reflet ----------
 {
   const now = new Date();
@@ -1197,7 +1302,7 @@ function loadQr() {
 function drawQr() {
   const box = $("qr-code");
   loadQr().then((qrcode) => {
-    const q = qrcode(0, "M"); q.addData(shareUrl); q.make();
+    const q = qrcode(0, "M"); q.addData(fixe && fixe.modif ? lienModif() : shareUrl); q.make();
     const n = q.getModuleCount(), w = n + 4; let d = "";
     for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += "M" + c + " " + r + "h1v1h-1z";
     box.className = "";

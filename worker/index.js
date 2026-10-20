@@ -10,6 +10,8 @@
  *   /lien#u=…                   page « Sur ton téléphone » ouverte par les QR codes du guide
  *   /manifest.json              réglages par défaut
  *   /<config>/manifest.json     réglages personnalisés (config encodée dans l'adresse)
+ *   /f<id>/manifest.json        lien fixe : les mêmes réglages, gardés dans la base (voir fixe.js)
+ *   /lien-fixe[/<id>]           création et modification d'un lien fixe (POST, page de personnalisation)
  *   /<config>/collections.json  collections Nuvio filtrées selon la config
  *   /catalog/<type>/<id>.json
  *   /catalog/<type>/<id>/<genre=…&skip=…>.json
@@ -34,9 +36,10 @@ import { statique } from "./statique.js";
 import { smartSearch, prepareWords, isExact, norm } from "./search.js";
 import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
+import { isFixedId, readFixed, fixedRoute, fixedAvailable } from "./fixe.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.25.3";
+const VERSION = "5.26.0";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -1520,7 +1523,7 @@ function json(data, maxAge) {
   });
 }
 
-const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie"]);
+const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie", "lien-fixe"]);
 
 async function loadCollections() {
   const res = await fetch(`${ASSETS}/collections/collections.json`, { cf: { cacheTtl: 600, cacheEverything: true } });
@@ -1623,9 +1626,18 @@ const app = {
     const rows = allRows(today, null);
 
     // Premier segment = config personnalisée, s'il n'est pas un mot réservé.
-    let cfgSeg = "";
+    let cfgSeg = "", fixedId = "";
     const first = path.split("/")[1] || "";
     if (first && !RESERVED.has(first)) { cfgSeg = first; path = path.slice(first.length + 1); }
+    // Lien fixe : ses réglages sont dans la base ; la suite ne voit pas la différence.
+    if (isFixedId(cfgSeg)) {
+      fixedId = cfgSeg;
+      cfgSeg = await readFixed(env, fixedId);
+      if (cfgSeg === null) {
+        if (path === "" || path === "/configure") return Response.redirect(url.origin + "/configure", 302);
+        return json({ error: "Lien fixe introuvable : refais ton lien sur la page de personnalisation." }, 60);
+      }
+    }
     const cfg = decodeConfig(cfgSeg, rows, DEFS.discover);
     if (!cfg) return json({ error: "Configuration illisible : refais ton lien sur la page de personnalisation." }, 60);
     // Espace hébergeur des copies (/hote/…) : n'existe pas sur l'instance principale.
@@ -1634,9 +1646,11 @@ const app = {
       return new Response(JSON.stringify({ error: "introuvable" }), { status: 404, headers: { ...HEADERS, "Cache-Control": "no-store" } });
     }
 
+    if (path === "/lien-fixe" || path.startsWith("/lien-fixe/")) return fixedRoute(request, env, path, (seg) => !!decodeConfig(seg, rows, DEFS.discover));
+
     // La racine ouvre la salle 1 (le guide) ; la programmation (salle 2) est sur /configure,
     // et aussi sur /<config>/ pour les anciens liens personnalisés.
-    if (path === "/configure" || (path === "" && cfgSeg)) {
+    if (path === "/configure" || (path === "" && (cfgSeg || fixedId))) {
       const files = await loadCollections().catch(() => []);
       // Même ordre de référence que config.js (positions dans les liens), avec la position
       // réelle dans le fichier pour l'affichage.
@@ -1644,11 +1658,15 @@ const app = {
         ...c, pos: files.findIndex((f) => f.id === c.id),
         folders: displayOrder(c, ((files.find((f) => f.id === c.id) || {}).folders || []).map((f, i) => ({ id: f.id, title: f.title, cover: f.coverImageUrl || "", i }))),
       }));
-      return html(configurePage({
+      const page = html(configurePage({
         origin: url.origin, cfg, rows, discover: DEFS.discover, providers: PROVIDERS, collections: cols,
         defaults: defaults(rows, DEFS.discover), regions: REGIONS, genres: GENRES, languages: LANGUAGES,
         sorts: SORTS, seasons: SEASON_KEYS, maxCustom: MAX_CUSTOM, season: decorSaison(url, today), copy: isCopy(url),
+        fixed: fixedId, fixedOk: fixedAvailable(env),
       }));
+      // Lien fixe : ses réglages changent sans que l'adresse change, la page n'est jamais resservie d'un cache.
+      if (fixedId) page.headers.set("Cache-Control", "no-store");
+      return page;
     }
     if (path === "") return html(hallPage({ origin: url.origin, season: decorSaison(url, today), copy: isCopy(url) }));   // le hall : choisir sa salle
     if (path === "/guide") return html(guidePage({ origin: url.origin, season: decorSaison(url, today) }));

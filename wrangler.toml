@@ -24,6 +24,12 @@ fallthrough = true
 binding = "SELF"
 service = "nuvio-assets"
 
+# Liens fixes (voir worker/fixe.js) : base D1 créée toute seule au premier déploiement, sans identifiant
+# à recopier (chaque copie a la sienne). Sans elle, le site ne propose que les liens habituels.
+[[d1_databases]]
+binding = "LIENS"
+database_name = "nuvio-liens"
+
 [observability]
 enabled = true
 # Pas de journal de chaque requête : les adresses contiennent les réglages des liens, parfois une clé

@@ -36,7 +36,7 @@ import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.24.0";
+const VERSION = "5.24.1";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -595,9 +595,17 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
  */
 const MAX_CHECKED = 40;   // fiches TMDB lues au plus par page (limite d'appels de Cloudflare)
 async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
-  const lists = await Promise.all([page, page + 1].map((p) => tmdb(env, def.endpoint, { ...(def.params || {}), page: p }, opts.lang)));
+  const [ranks, ...lists] = await Promise.all([
+    def.endpoint.endsWith("/day") ? postersPlusRanks(kind) : new Map(),
+    ...[page, page + 1].map((p) => tmdb(env, def.endpoint, { ...(def.params || {}), page: p }, opts.lang)),
+  ]);
+  // Sans rang chez Posters+ : sa place chez TMDB (juste après le rang égal), pas la fin de la
+  // liste, d'où il sortirait de la page sans revenir à la suivante.
+  const pos = new Map();
   const released = lists.flatMap((d) => d.results || [])
-    .filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; });
+    .map((it, i) => { pos.set(it, ranks.get(it.id) || (page - 1) * PAGE + i + 1.5); return it; })
+    .filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; })
+    .sort((a, b) => pos.get(a) - pos.get(b));
   let picked = released.slice(0, PAGE);
   if (kind === "movie") {
     const infos = new Map();
@@ -616,6 +624,25 @@ async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
   if (!picked.length) return [];
   const metas = await toMetas(env, ctx, picked, kind, opts, today);
   return metas.map(({ _digital, _guess, _vf, ...m }) => m);
+}
+
+/**
+ * Rang de chaque titre (identifiant TMDB → 1, 2, 3…) dans le classement « TMDB aujourd'hui » de
+ * Posters+, celui de son badge « #1 aujourd'hui » sur les affiches : les Tendances du jour suivent
+ * cet ordre plutôt que celui de TMDB, qui a déjà bougé quand Posters+ relit le sien. Les animés
+ * (classés par AniList) n'y sont pas. Posters+ injoignable : liste vide, l'ordre de TMDB reste.
+ */
+const PP_TRENDING = "https://postersplus.stremio.ru/trending/catalog";
+async function postersPlusRanks(kind) {
+  const url = `${PP_TRENDING}/${kind === "series" ? "series/pp.trending.series" : "movie/pp.trending.movie"}.json`;
+  const d = await fetch(url, { cf: { cacheTtl: 3600, cacheEverything: true } })
+    .then((res) => (res.ok ? res.json() : null), () => null).catch(() => null);
+  const ranks = new Map();
+  ((d && d.metas) || []).forEach((m, i) => {
+    const id = /^tmdb:(\d+)$/.exec(m.id || "");
+    if (id && !ranks.has(Number(id[1]))) ranks.set(Number(id[1]), i + 1);
+  });
+  return ranks;
 }
 
 /** Film regardable chez soi : sorti en numérique (ou salle + 45 jours passés). Sans infos : gardé. */

@@ -350,3 +350,30 @@ test("logo_versionne", async () => {
   const m = await (await at("https://nuvio-assets.xnzxflix.workers.dev/manifest.json")).json();
   assert.match(m.logo, /\/logo\/addon\.png\?v=\d+$/);
 });
+
+// Tendances du jour : dans l'ordre du classement de Posters+ (le badge « #1 aujourd'hui » des affiches).
+// Sans rang chez lui (la 2) : sa place chez TMDB, ici 2e, donc juste après le rang 2.
+test("tendances_du_jour_dans_l_ordre_de_posters_plus", async () => {
+  const serie = (id) => ({ id, name: `Série ${id}`, first_air_date: "2020-01-01" });
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: u.includes("page=1") ? [serie(1), serie(2), serie(3)] : [], page: 1, total_pages: 1 }));
+    if (u.includes("postersplus")) return new Response(JSON.stringify({ metas: [{ id: "tmdb:3" }, { id: "tmdb:77" }, { id: "anilist:9" }, { id: "tmdb:1" }] }));
+    return new Response("{}");
+  };
+  const { metas } = await (await get("/catalog/series/accueil-tendances-series.json")).json();
+  assert.deepEqual(metas.map((m) => m.id), ["tmdb:3", "tmdb:2", "tmdb:1"]);
+});
+
+test("tendances_du_jour_sans_posters_plus", async () => {
+  const serie = (id) => ({ id, name: `Série ${id}`, first_air_date: "2020-01-01" });
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: u.includes("page=1") ? [serie(1), serie(2), serie(3)] : [], page: 1, total_pages: 1 }));
+    if (u.includes("postersplus")) return new Response("panne", { status: 502 });
+    return new Response("{}");
+  };
+  const { metas } = await (await get("/catalog/series/accueil-tendances-series.json")).json();
+  assert.deepEqual(metas.map((m) => m.id), ["tmdb:1", "tmdb:2", "tmdb:3"]);
+});

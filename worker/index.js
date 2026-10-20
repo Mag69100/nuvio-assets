@@ -36,7 +36,7 @@ import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.24.1";
+const VERSION = "5.24.2";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -600,10 +600,12 @@ async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
     ...[page, page + 1].map((p) => tmdb(env, def.endpoint, { ...(def.params || {}), page: p }, opts.lang)),
   ]);
   // Sans rang chez Posters+ : sa place chez TMDB (juste après le rang égal), pas la fin de la
-  // liste, d'où il sortirait de la page sans revenir à la suivante.
+  // liste, d'où il sortirait de la page sans revenir à la suivante. Un titre passé d'une page de
+  // TMDB à l'autre entre deux lectures n'est gardé qu'une fois.
   const pos = new Map();
   const released = lists.flatMap((d) => d.results || [])
     .map((it, i) => { pos.set(it, ranks.get(it.id) || (page - 1) * PAGE + i + 1.5); return it; })
+    .filter((it, i, all) => all.findIndex((x) => x.id === it.id) === i)
     .filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; })
     .sort((a, b) => pos.get(a) - pos.get(b));
   let picked = released.slice(0, PAGE);

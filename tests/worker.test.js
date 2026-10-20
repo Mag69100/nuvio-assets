@@ -352,13 +352,14 @@ test("logo_versionne", async () => {
 });
 
 // Tendances du jour : dans l'ordre du classement de Posters+ (le badge « #1 aujourd'hui » des affiches).
-// Sans rang chez lui (la 2) : sa place chez TMDB, ici 2e, donc juste après le rang 2.
+// Sans rang chez lui (la 2) : sa place chez TMDB, ici 2e, donc juste après le rang 2. La 3, passée
+// en page 2 de TMDB entre deux lectures, n'apparaît qu'une fois.
 test("tendances_du_jour_dans_l_ordre_de_posters_plus", async () => {
   const serie = (id) => ({ id, name: `Série ${id}`, first_air_date: "2020-01-01" });
   globalThis.fetch = async (url) => {
     const u = String(url);
     calls.push(u);
-    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: u.includes("page=1") ? [serie(1), serie(2), serie(3)] : [], page: 1, total_pages: 1 }));
+    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: u.includes("page=1") ? [serie(1), serie(2), serie(3)] : [serie(3)], page: 1, total_pages: 2 }));
     if (u.includes("postersplus")) return new Response(JSON.stringify({ metas: [{ id: "tmdb:3" }, { id: "tmdb:77" }, { id: "anilist:9" }, { id: "tmdb:1" }] }));
     return new Response("{}");
   };

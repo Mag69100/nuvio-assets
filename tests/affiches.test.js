@@ -60,14 +60,27 @@ test("script_commun_supporte_name", async () => {
   assert.throws(() => new Function(tete.replace(/^var __name = [^\n]*\n/, "") + "; return LA.lienAffiches(LA.MEMOIRES.essentiel);")());
 });
 
-// La régie : une fenêtre avec la scène (grande affiche + 6 en coulisses) et la console (4 mémoires, 10 voies).
+// La régie : une fenêtre avec la scène (grande affiche + 6 en coulisses) et la console rangée en onglets
+// (7 styles tout prêts ; En haut, Titre & infos, Image, Paysage ; une ligne par élément, réglages dépliés dessous).
 test("regie_presente", () => {
   const html = salle2();
-  for (const id of ["regie", "regie-ouvrir", "regie-grande", "regie-coulisses", "regie-memoires", "regie-voies", "regie-tiroir", "regie-copier", "regie-annuler", "regie-fermer", "regie-format"]) {
+  for (const id of ["regie", "regie-ouvrir", "regie-grande", "regie-coulisses", "regie-memoires", "regie-onglets", "regie-voies", "regie-copier", "regie-annuler", "regie-fermer", "regie-format"]) {
     assert.match(html, new RegExp(`id="${id}"`), id);
   }
-  for (const m of ["maison", "essentiel", "noteSeule", "nue"]) assert.match(html, new RegExp(`data-memoire="${m}"`), m);
-  for (const v of ["statut", "tendance", "qualite", "titre", "note", "genre", "annee", "texte", "fondu", "sortie"]) assert.match(html, new RegExp(`data-voie="${v}"`), v);
+  for (const m of ["maison", "essentiel", "noteSeule", "cine", "postersPlus", "plateforme", "nue"]) assert.match(html, new RegExp(`data-memoire="${m}"`), m);
+  assert.match(html, /id="regie-onglets"[^>]*role="tablist"/);
+  for (const o of ["haut", "infos", "image", "paysage"]) assert.match(html, new RegExp(`role="tab"[^>]*data-onglet="${o}"`), o);
+  assert.match(html, /id="regie-voies"[^>]*role="tabpanel"/);
+  // Chaque onglet range ses éléments ; tous les réglages ont leur place.
+  const debut = html.indexOf("const ONGLETS = ");
+  assert.ok(debut > 0, "ONGLETS absent");
+  const onglets = html.slice(debut, html.indexOf("};", debut));
+  for (const v of ["statut", "tendance", "qualite", "bandeau", "badges", "titre", "note", "genre", "annee", "duree", "age", "plateforme", "ligne", "image", "fondu", "ambiance", "accent", "sortie"]) {
+    assert.match(onglets, new RegExp(`"${v}"`), v);
+  }
+  // Interrupteurs accessibles ; plus de lampes ni de tiroir du bas.
+  assert.match(html, /role: "switch"|role="switch"/);
+  assert.doesNotMatch(html, /class="lampe"|id="regie-tiroir"/);
   assert.match(html, /role="dialog"/);
   assert.match(html, /id="u-affiches"/);
   assert.match(html, /Custom Poster Source/);

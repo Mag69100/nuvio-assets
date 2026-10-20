@@ -476,33 +476,52 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .regie-coulisses button[aria-pressed="true"] img { outline-color: var(--bulb); opacity: 1; }
 .regie-coulisses span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* La console : styles tout prêts, lampes (deux colonnes compactes), tiroir de réglages. */
+/* La console : styles tout prêts (grille), onglets par zone de l'affiche, une ligne par élément avec son
+   interrupteur ; les réglages d'un élément s'ouvrent juste dessous, un seul à la fois. */
 .regie-console { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: auto; padding: 12px 14px; background: linear-gradient(#262025, #17121a); border-left: 3px solid #3a2f36; }
-.regie-aide { margin: 0; color: var(--dim); font-size: .8rem; }
-.regie-memoires { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.regie-memoires button { border: 2px solid #4a3d45; border-radius: 8px; padding: 5px 11px; background: transparent; color: #cdbfa6; font: 400 1.05rem/1 var(--display); letter-spacing: .05em; cursor: pointer; }
-.regie-memoires button[aria-pressed="true"] { border-color: var(--bulb); color: var(--bulb); box-shadow: 0 0 12px rgba(255,207,107,.25); }
-.regie-memoires .perso { color: var(--dim); font-size: .78rem; }
-.regie-voies { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.regie-voies .voie { display: flex; align-items: center; gap: 8px; border-radius: 9px; background: #1b1519; border: 1px solid #33292f; padding: 5px 8px 5px 5px; min-width: 0; }
-.regie-voies .voie.ouverte { border-color: var(--bulb); }
-.regie-voies .voie.sans-effet { opacity: .4; }
-.regie-voies .lampe { width: 34px; height: 34px; flex: none; border-radius: 50%; display: grid; place-items: center; border: 0; background: #3a2f36; color: #7d6f76; font: 800 .66rem system-ui, sans-serif; cursor: pointer; }
-.regie-voies .lampe[aria-pressed="true"] { background: radial-gradient(circle at 40% 35%, #ffe7a0, var(--bulb) 60%, #a7781c); color: #1a1208; box-shadow: 0 0 12px rgba(255,207,107,.5); }
-.regie-voies .lampe:disabled { cursor: default; }
-.regie-voies .nom { flex: 1; min-width: 0; border: 0; background: none; color: var(--cream); cursor: pointer; padding: 0; text-align: left; }
-.regie-voies .nom b { display: block; font-size: .8rem; }
-.regie-voies .nom small { display: block; font-size: .68rem; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.regie-tiroir { background: var(--cream); color: var(--ink); border-radius: 10px; padding: 10px 12px; display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: flex-end; }
-.regie-tiroir[hidden] { display: none; }
-.regie-tiroir h3 { margin: 0; width: 100%; font: 400 1.25rem/1 var(--display); letter-spacing: .05em; }
-.regie-tiroir .choix > span { display: block; font: 700 .64rem system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #7a6a55; margin-bottom: 4px; }
-.regie-tiroir .choix button { border: 1px solid #c9b99a; border-radius: 99px; padding: 4px 10px; margin: 0 4px 4px 0; background: transparent; color: var(--ink); font: 600 .78rem system-ui, sans-serif; cursor: pointer; }
-.regie-tiroir .choix button[aria-pressed="true"] { background: var(--ink); color: var(--cream); border-color: var(--ink); }
-.regie-tiroir .curseur { display: flex; align-items: center; gap: 8px; }
-.regie-tiroir .curseur input { width: 130px; accent-color: var(--ink); }
-.regie-tiroir .curseur output { font: 700 .85rem system-ui, sans-serif; min-width: 4ch; }
-.regie-tiroir p { margin: 0; font-size: .82rem; }
+.regie-memoires { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.regie-memoires button { border: 1.5px solid #4a3d45; border-radius: 8px; padding: 6px 4px; background: #1b1519; color: #d8cab2; font: 400 .98rem/1 var(--display); letter-spacing: .05em; cursor: pointer; white-space: nowrap; }
+.regie-memoires button:hover { border-color: #7a6670; }
+.regie-memoires button[aria-pressed="true"] { background: var(--bulb); border-color: var(--bulb); color: #1a1208; }
+.regie-memoires .perso { display: grid; place-items: center; border: 1.5px dashed #7a6670; border-radius: 8px; color: var(--bulb); font: 400 .98rem/1 var(--display); letter-spacing: .05em; }
+.regie-memoires .perso[hidden] { display: none; }
+.regie-cible { margin: 0; padding: 5px 10px; border-radius: 8px; background: rgba(255,207,107,.12); color: var(--bulb); font: 600 .78rem system-ui, sans-serif; }
+.regie-cible[hidden] { display: none; }
+.regie-onglets { display: flex; border-bottom: 1px solid #3a2f36; }
+.regie-onglets button { flex: 1; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; color: #c2b4a6; font: 600 .8rem system-ui, sans-serif; padding: 8px 2px; cursor: pointer; }
+.regie-onglets button[aria-selected="true"] { color: var(--cream); border-bottom-color: var(--bulb); }
+.regie-voies { display: flex; flex-direction: column; }
+.regie-voies .ligne { border-bottom: 1px solid #2c2328; }
+.regie-voies .ligne-tete { display: flex; align-items: center; gap: 8px; }
+.regie-voies .ligne-nom { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; border: 0; background: none; color: var(--cream); padding: 6px 2px; cursor: pointer; text-align: left; font: inherit; }
+.regie-voies .pastille { width: 28px; height: 28px; flex: none; border-radius: 8px; display: grid; place-items: center; background: #33292f; color: var(--bulb); font: 800 .66rem system-ui, sans-serif; }
+.regie-voies .ligne-txt { flex: 1; min-width: 0; }
+.regie-voies .ligne-txt b { display: block; font-size: .82rem; }
+.regie-voies .ligne-txt small { display: block; font-size: .7rem; color: #c2b4a6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.regie-voies .chevron { color: #c2b4a6; width: 12px; text-align: center; }
+.regie-voies .eteinte .pastille { color: #9a8b92; background: #241d22; }
+.regie-voies .eteinte .ligne-txt b { color: #c2b4a6; }
+.regie-voies .ouverte .ligne-txt b { color: var(--bulb); }
+.regie-voies.une-ouverte .ligne:not(.ouverte) .ligne-txt small { display: none; }
+.regie-voies.une-ouverte .ligne:not(.ouverte) .ligne-nom { padding: 3px 2px; }
+.regie-voies.une-ouverte .ligne:not(.ouverte) .pastille { width: 24px; height: 24px; }
+.regie-console .interrupteur { width: 36px; height: 20px; flex: none; border: 0; border-radius: 99px; background: #4a3d45; position: relative; cursor: pointer; padding: 0; }
+.regie-console .interrupteur::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #d8cab2; transition: transform .15s ease; }
+.regie-console .interrupteur[aria-checked="true"] { background: var(--bulb); }
+.regie-console .interrupteur[aria-checked="true"]::after { transform: translateX(16px); background: #1a1208; }
+.regie-voies .ligne-corps { display: grid; gap: 7px; margin: 0 0 8px; padding: 9px 10px; border-radius: 10px; background: #1d171b; border: 1px solid #4a3d45; }
+.regie-console .choix { display: grid; grid-template-columns: 78px 1fr; align-items: center; gap: 8px; }
+.regie-console .choix > span { font: 700 .6rem system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #c2b4a6; }
+.regie-console .puces { display: flex; flex-wrap: wrap; gap: 4px; }
+.regie-console .puces button { border: 1px solid #4a3d45; border-radius: 99px; padding: 3px 9px; background: transparent; color: var(--cream); font: 600 .72rem system-ui, sans-serif; cursor: pointer; }
+.regie-console .puces button:hover { border-color: #7a6670; }
+.regie-console .puces button[aria-pressed="true"] { background: var(--cream); color: var(--ink); border-color: var(--cream); }
+.regie-console .curseur { display: flex; align-items: center; gap: 8px; }
+.regie-console .curseur input { flex: 1; min-width: 0; accent-color: var(--bulb); }
+.regie-console .curseur output { font: 700 .74rem system-ui, sans-serif; min-width: 4ch; color: var(--cream); }
+.regie-console .regie-note { margin: 0; font-size: .72rem; color: #c2b4a6; }
+.regie-paysage { display: grid; gap: 10px; padding-top: 10px; }
+.regie-paysage .btn { justify-self: start; }
 body.regie-ouverte { overflow: hidden; }
 /* Tablette : console un peu plus étroite, coulisses plus petites. */
 @media (max-width: 1000px) {
@@ -510,13 +529,12 @@ body.regie-ouverte { overflow: hidden; }
   .regie-coulisses { gap: 6px; }
   .regie-coulisses button, .regie-coulisses img { width: 50px; }
 }
-/* Écran peu haut (portable en 1280×720) : console resserrée, l'aide s'efface (les noms des voies suffisent). */
+/* Écran peu haut (portable en 1280×720) : console resserrée. */
 @media (max-height: 760px) and (min-width: 761px) {
-  .regie-aide { display: none; }
   .regie-console { gap: 8px; padding: 10px 12px; }
-  .regie-voies { gap: 4px; }
-  .regie-voies .voie { padding: 3px 8px 3px 4px; }
-  .regie-voies .lampe { width: 30px; height: 30px; }
+  .regie-memoires button { padding: 5px 4px; }
+  .regie-voies .ligne-nom { padding: 4px 2px; }
+  .regie-voies .pastille { width: 26px; height: 26px; }
 }
 /* Téléphone : tout s'empile et défile (l'écran est trop petit pour tout montrer d'un coup). */
 @media (max-width: 760px) {
@@ -915,15 +933,14 @@ ${copy ? HOTE_HTML : ""}
         <div class="regie-coulisses" id="regie-coulisses" role="group" aria-label="D'autres films avec les mêmes réglages"></div>
       </div>
       <div class="regie-console">
-        <p class="regie-aide">Allume ou éteins un élément. Touche son nom pour le régler.</p>
         <div class="regie-memoires" id="regie-memoires" role="group" aria-label="Styles tout prêts">
-          <button type="button" data-memoire="maison">Maison</button><button type="button" data-memoire="essentiel">Essentiel</button><button type="button" data-memoire="noteSeule">Note seule</button><button type="button" data-memoire="cine">Ciné</button><button type="button" data-memoire="nue">Nue</button><span class="perso" id="regie-perso" hidden>Perso</span>
+          <button type="button" data-memoire="maison">Maison</button><button type="button" data-memoire="essentiel">Essentiel</button><button type="button" data-memoire="noteSeule">Note seule</button><button type="button" data-memoire="cine">Ciné</button><button type="button" data-memoire="postersPlus">Posters+</button><button type="button" data-memoire="plateforme">Plateforme</button><button type="button" data-memoire="nue">Nue</button><span class="perso" id="regie-perso" hidden>Perso</span>
         </div>
-        <div class="regie-voies" id="regie-voies">
-${[["statut", "Statut", "Nv"], ["tendance", "Tendance", "↗"], ["qualite", "Qualité", "4K"], ["titre", "Titre", "Aa"], ["note", "Note", "★"], ["genre", "Genre", "G"], ["annee", "Année", "20"], ["age", "Âge", "-12"], ["texte", "Texte", "T"], ["fondu", "Fondu", "▼"], ["sortie", "Pas sorti", "N&amp;B"]]
-  .map(([v, nom, signe]) => `          <div class="voie" data-voie="${v}"><button type="button" class="lampe" aria-pressed="true" aria-label="${nom} : allumer ou éteindre">${signe}</button><button type="button" class="nom" aria-expanded="false" aria-controls="regie-tiroir"><b>${nom}</b><small></small></button></div>`).join("\n")}
+        <p class="regie-cible" id="regie-cible" hidden>Tu règles les images en paysage.</p>
+        <div class="regie-onglets" id="regie-onglets" role="tablist" aria-label="Réglages par zone de l'affiche">
+          <button type="button" role="tab" id="onglet-haut" data-onglet="haut" aria-selected="true" aria-controls="regie-voies">En haut</button><button type="button" role="tab" id="onglet-infos" data-onglet="infos" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Titre &amp; infos</button><button type="button" role="tab" id="onglet-image" data-onglet="image" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Image</button><button type="button" role="tab" id="onglet-paysage" data-onglet="paysage" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Paysage</button>
         </div>
-        <div class="regie-tiroir" id="regie-tiroir" hidden></div>
+        <div class="regie-voies" id="regie-voies" role="tabpanel" aria-labelledby="onglet-haut"></div>
       </div>
       </div>
     </div>
@@ -1216,103 +1233,199 @@ drawPP();
 // ---------- La régie : le configurateur d'affiches, en fenêtre ----------
 // Les réglages (LA, worker/lien-affiches.js) sont gardés dans ce navigateur et écrits dans le lien « Affiches »
 // du billet. La scène montre de vraies affiches (une grande, six en coulisses), redessinées après chaque rafale.
-const NOMS_MEMOIRES = { maison: "Maison", essentiel: "Essentiel", noteSeule: "Note seule", cine: "Ciné", nue: "Nue" };
+// La console : 7 styles tout prêts, puis 4 onglets ; chaque élément est une ligne (interrupteur à droite) dont
+// les réglages s'ouvrent dessous, un seul à la fois. Onglet Paysage : réglages à part pour le paysage.
+const NOMS_MEMOIRES = { maison: "Maison", essentiel: "Essentiel", noteSeule: "Note seule", cine: "Ciné", postersPlus: "Posters+", plateforme: "Plateforme", nue: "Nue" };
+const ONGLETS = {
+  haut: ["statut", "tendance", "qualite", "bandeau", "badges"],
+  infos: ["titre", "note", "genre", "annee", "duree", "age", "plateforme", "ligne"],
+  image: ["image", "fondu", "ambiance", "accent", "sortie"],
+  paysage: [],
+};
+// Nom, pastille et interrupteur (false : un élément qui se règle mais ne s'éteint pas).
+const VOIES = {
+  statut: ["Statut", "Nv"], tendance: ["Tendance", "↗"], qualite: ["Qualité", "4K"], bandeau: ["Bandeau en coin", "◤"], badges: ["Style des badges", "▢", false],
+  titre: ["Titre", "Aa"], note: ["Notes", "★"], genre: ["Genre", "G"], annee: ["Année", "20"], duree: ["Durée, saisons", "2h"], age: ["Âge", "-12"],
+  plateforme: ["Plateforme", "▶"], ligne: ["Ligne du bas", "≡", false],
+  image: ["Image", "▣", false], fondu: ["Fondu", "▼"], ambiance: ["Dégradés, vignette", "◐", false], accent: ["Couleur d'accent", "●", false], sortie: ["Pas sorti", "N&B"],
+};
 const PLACES = { auto: "", gauche: " · à gauche", centre: " · au centre" };
 const pct = (v) => Math.round(Number(v) * 100) + " %";
 const SEPS = { point: "·", barre: "|", puce: "•" };
-let regieR = null, regieHisto = [], regieAttente = 0, regieTitres = [], regieChoisi = 0, regieForme = "poster", regieVoie = null, regieDeclencheur = null;
+let regieR = null, regieRP = null, regieHisto = [], regieAttente = 0, regieTitres = [], regieChoisi = 0, regieForme = "poster", regieVoie = null, regieOnglet = "haut", regieDeclencheur = null;
+
+/** Les réglages qu'on modifie : ceux du paysage quand il est réglé à part et montré, sinon ceux du portrait. */
+const cible = () => (regieRP && regieForme === "landscape" ? regieRP : regieR);
 
 function lienAffichesMaj() {
   $("u-affiches").textContent = NV.lienPerso();
   const m = LA.memoireDe(NV.reglages.affiches);
   $("aff-resume").innerHTML = "";
-  $("aff-resume").append("Style en cours : ", el("b", { text: m ? NOMS_MEMOIRES[m] : "perso" }), ".");
+  $("aff-resume").append("Style en cours : ", el("b", { text: m ? NOMS_MEMOIRES[m] : "perso" }), NV.reglages.affichesPaysage ? " (paysage à part)." : ".");
 }
-const allumee = (r, v) => (v === "texte" ? true : v === "sortie" ? r.sortie.nb : r[v].on);
-const sansEffet = (r, v) => !r.titre.on && ["note", "genre", "annee", "age", "texte", "fondu"].includes(v);
+const allumee = (r, v) => (VOIES[v][2] === false ? null : v === "sortie" ? r.sortie.nb : r[v].on);
+const sansEffet = (r, v) => !r.titre.on && ["note", "genre", "annee", "duree", "age", "ligne", "fondu", "image"].includes(v);
 function resume(r, v) {
-  if (v === "texte") return pct(r.texte.taille) + " · " + SEPS[r.texte.sep] + (r.texte.police === "bebas" ? " · Cinéma" : "");
   if (v === "sortie") return r.sortie.nb ? "Noir et blanc" : "En couleur";
+  const toujours = {
+    badges: () => ({ auto: "Chacun son style", plein: "Plein", verre: "Verre dépoli", contour: "Contour" })[r.haut.style] + " · " + pct(r.texte.haut) + (r.haut.inverse ? " · côtés inversés" : ""),
+    ligne: () => ({ gna: "Genre · Note · Année", nga: "Note · Genre · Année", agn: "Année · Genre · Note" })[r.ligne.ordre] + ({ aucune: "", verre: " · verre", fine: " · barre" })[r.ligne.barre],
+    image: () => ({ sanstexte: "Sans texte + logo", officielle: "Affiche officielle", fond: "Image du film" })[r.image.source],
+    ambiance: () => "Voile " + ({ 0: "aucun", s: "léger", m: "moyen", l: "fort" })[r.ambiance.voile] + (r.ambiance.vignette ? " · vignette" : ""),
+    accent: () => ({ or: "Or", blanc: "Blanc", rouge: "Rouge", bleu: "Bleu", affiche: "Couleur de l'affiche" })[r.ambiance.accent],
+  };
+  if (toujours[v]) return toujours[v]();
   if (!r[v].on) return "Éteint";
+  const autres = ["rt", "mc", "lb"].filter((k) => r.note[k]).map((k) => ({ rt: "RT", mc: "MC", lb: "LB" })[k]);
   return {
-    statut: () => (r.statut.style === "etiquette" ? "Étiquette" : "Texte discret"),
-    tendance: () => (r.tendance.style === "ruban" ? "Ruban doré" : "↗ N°4"),
-    qualite: () => (r.qualite.montrer === "4k" ? "4K seul" : "4K · DV · HDR") + (r.qualite.style === "pastille" ? " · pastille" : ""),
-    titre: () => "Logo · " + pct(r.titre.taille) + PLACES[r.titre.place],
-    note: () => (r.note.source === "tmdb" ? "TMDB" : "IMDb") + ({ grand: " · grand", nu: " · sans ★", badge: " · badge" }[r.note.style] || ""),
+    statut: () => (r.statut.style === "etiquette" ? "Étiquette" : "Texte discret") + " · dates",
+    tendance: () => (r.tendance.style === "ruban" ? "Ruban" : "↗ N°4"),
+    qualite: () => ({ "4k": "4K seul", plus: "4K · DV · HDR", tout: "4K · 1080p · Atmos" })[r.qualite.montrer] + (r.qualite.style === "pastille" ? " · pastille" : ""),
+    bandeau: () => (r.bandeau.porte === "tendance" ? "N° de tendance" : "Statut") + (r.bandeau.coin === "g" ? " · à gauche" : " · à droite"),
+    titre: () => ({ fr: "Logo français", en: "Logo anglais", vo: "Logo d'origine" })[r.titre.langue] + " · " + pct(r.titre.taille) + PLACES[r.titre.place],
+    note: () => [r.note.source === "tmdb" ? "TMDB" : "IMDb"].concat(autres).join(" + ") + (r.note.couleur !== "non" ? " · couleur" : ""),
     genre: () => (r.genre.forme === "complet" ? "Complet" : "Court"),
     annee: () => "Allumée",
+    duree: () => "2 h 46, 3 saisons",
     age: () => "-10, -12, -16, -18",
+    plateforme: () => "Netflix, Prime Video… · " + (r.plateforme.place === "coin" ? "en coin" : "dans la ligne"),
     fondu: () => (r.fondu.couleur === "affiche" ? "Couleurs" : "Noir") + " · " + ({ s: "léger", m: "moyen", l: "fort" })[r.fondu.force] + (r.fondu.flou ? " · flou" : ""),
   }[v]();
 }
 
-// Le tiroir d'une voie : 2 ou 3 choix (boutons) et, pour les tailles, un curseur de 60 à 140 %.
+// Les réglages d'un élément : des choix (puces) et, pour les tailles, un curseur.
 function choix(titre, options, actuel, choisir) {
   const d = el("div", { class: "choix" }, el("span", { text: titre }));
-  options.forEach(([val, txt]) => d.append(el("button", { type: "button", text: txt, "data-cle": titre + ":" + String(val), "aria-pressed": String(val === actuel), onclick: () => choisir(val) })));
+  const puces = el("div", { class: "puces" });
+  options.forEach(([val, txt]) => puces.append(el("button", { type: "button", text: txt, "data-cle": titre + ":" + String(val), "aria-pressed": String(val === actuel), onclick: () => choisir(val) })));
+  d.append(puces);
   return d;
 }
-function curseur(titre, val, regler) {
-  const out = el("output", { text: pct(val) });
-  const input = el("input", { type: "range", min: "60", max: "140", step: "5", value: String(Math.round(val * 100)), "aria-label": titre });
+function curseur(titre, val, regler, min = 60, max = 140, pas = 5) {
+  const out = el("output", { text: Math.round(val * 100) + " %" });
+  const input = el("input", { type: "range", min: String(min), max: String(max), step: String(pas), value: String(Math.round(val * 100)), "aria-label": titre, "data-cle": "curseur:" + titre });
   input.addEventListener("input", () => { out.textContent = input.value + " %"; regler(Number(input.value) / 100); });
   return el("div", { class: "choix" }, el("span", { text: titre }), el("div", { class: "curseur" }, input, out));
 }
-function tiroir(v) {
-  const r = regieR, t = $("regie-tiroir"), regle = (f, cle) => regieChange(f, cle);
-  const nom = document.querySelector('.voie[data-voie="' + v + '"] .nom b').textContent;
-  t.textContent = "";
-  t.append(el("h3", { text: nom }));
-  if (sansEffet(r, v)) { t.append(el("p", { text: "Sans le titre (logo), la ligne du bas et le fondu ne s'affichent pas : allume la voie Titre." })); return; }
-  const ajoute = (...x) => t.append(...x);
+const aide = (text) => el("p", { class: "regie-note", text });
+function reglagesDe(v) {
+  const r = cible(), regle = (f, cle) => regieChange(f, cle), out = [];
+  const ajoute = (...x) => out.push(...x);
+  if (sansEffet(r, v)) return [aide("Sans le titre (logo), la ligne du bas, le fondu et l'image ne s'affichent pas : allume l'élément Titre.")];
   if (v === "statut") ajoute(choix("Style", [["texte", "Texte discret"], ["etiquette", "Étiquette"]], r.statut.style, (x) => regle((r) => { r.statut.style = x; })),
-    el("p", { text: "« Nouveau » ou « Nouvelle saison », seulement quand c'est le cas. Pas encore sorti : la date, comme dans les rangées (« Dispo le 2 nov. », « Au cinéma le 16 déc. »), ou « Bientôt » quand elle n'est pas connue." }));
-  if (v === "tendance") ajoute(choix("Style", [["fleche", "↗ N°4"], ["ruban", "Ruban doré"]], r.tendance.style, (x) => regle((r) => { r.tendance.style = x; })));
+    aide("« Nouveau » ou « Nouvelle saison » quand c'est le cas ; pas encore sorti : la date (« Dispo le 2 nov. »)."));
+  if (v === "tendance") ajoute(choix("Style", [["fleche", "↗ N°4"], ["ruban", "Ruban"]], r.tendance.style, (x) => regle((r) => { r.tendance.style = x; })));
   if (v === "qualite") ajoute(
-    choix("Montrer", [["plus", "4K + DV/HDR"], ["4k", "4K seul"]], r.qualite.montrer, (x) => regle((r) => { r.qualite.montrer = x; })),
-    choix("Style", [["texte", "Texte nu"], ["pastille", "Pastille claire"]], r.qualite.style, (x) => regle((r) => { r.qualite.style = x; })));
-  if (v === "titre") ajoute(curseur("Taille du logo", r.titre.taille, (x) => regle((r) => { r.titre.taille = x; }, "titre.taille")),
-    choix("Place", [["auto", "Auto"], ["gauche", "À gauche"], ["centre", "Au centre"]], r.titre.place, (x) => regle((r) => { r.titre.place = x; })),
-    el("p", { text: "Auto : au centre sur les affiches, à gauche sur les images en paysage." }));
-  if (v === "note") ajoute(
-    choix("Source", [["imdb", "IMDb"], ["tmdb", "TMDB"]], r.note.source, (x) => regle((r) => { r.note.source = x; })),
-    choix("Style", [["etoile", "★ 8,4"], ["nu", "8,4"], ["grand", "Grand chiffre"], ["badge", "Badge IMDb"]], r.note.style, (x) => regle((r) => { r.note.style = x; })));
-  if (v === "genre") ajoute(choix("Forme", [["court", "Court (SF)"], ["complet", "Complet (Science-fiction)"]], r.genre.forme, (x) => regle((r) => { r.genre.forme = x; })));
-  if (v === "annee") ajoute(el("p", { text: "Rien à régler : allume ou éteins l'année avec sa lampe." }));
-  if (v === "age") ajoute(el("p", { text: "L'âge conseillé en France (-10, -12, -16, -18), dans un petit cadre au bout de la ligne. Rien pour les titres tous publics." }));
-  if (v === "texte") ajoute(
-    curseur("Texte du bas", r.texte.taille, (x) => regle((r) => { r.texte.taille = x; }, "texte.taille")),
-    curseur("Badges du haut", r.texte.haut, (x) => regle((r) => { r.texte.haut = x; }, "texte.haut")),
+    choix("Montrer", [["4k", "4K seul"], ["plus", "4K + DV/HDR"], ["tout", "Tout"]], r.qualite.montrer, (x) => regle((r) => { r.qualite.montrer = x; })),
+    choix("Style", [["texte", "Texte nu"], ["pastille", "Pastille"]], r.qualite.style, (x) => regle((r) => { r.qualite.style = x; })),
+    aide("« Tout » : 1080p quand il n'y a pas de 4K, HDR10+ et Dolby Atmos en plus."));
+  if (v === "bandeau") ajoute(
+    choix("Porte", [["statut", "Le statut"], ["tendance", "Le N°"]], r.bandeau.porte, (x) => regle((r) => { r.bandeau.porte = x; })),
+    choix("Coin", [["g", "Gauche"], ["d", "Droite"]], r.bandeau.coin, (x) => regle((r) => { r.bandeau.coin = x; })));
+  if (v === "badges") ajoute(
+    choix("Style", [["auto", "Chacun"], ["plein", "Plein"], ["verre", "Verre"], ["contour", "Contour"]], r.haut.style, (x) => regle((r) => { r.haut.style = x; })),
+    ...(r.haut.style === "auto" ? [] : [
+      choix("Forme", [["arrondi", "Arrondie"], ["carre", "Carrée"], ["pilule", "Pilule"]], r.haut.forme, (x) => regle((r) => { r.haut.forme = x; })),
+      choix("Fond", [["s", "Léger"], ["m", "Moyen"], ["l", "Plein"]], r.haut.opacite, (x) => regle((r) => { r.haut.opacite = x; })),
+      choix("Texte", [["blanc", "Blanc"], ["or", "Accent"], ["noir", "Noir"]], r.haut.couleur, (x) => regle((r) => { r.haut.couleur = x; })),
+    ]),
+    curseur("Taille", r.texte.haut, (x) => regle((r) => { r.texte.haut = x; }, "texte.haut")),
+    choix("Côtés", [[false, "Statut à gauche"], [true, "Inversés"]], r.haut.inverse, (x) => regle((r) => { r.haut.inverse = x; })));
+  if (v === "titre") ajoute(
+    choix("Langue", [["fr", "Français"], ["en", "Anglais"], ["vo", "D'origine"]], r.titre.langue, (x) => regle((r) => { r.titre.langue = x; })),
+    curseur("Taille", r.titre.taille, (x) => regle((r) => { r.titre.taille = x; }, "titre.taille")),
+    curseur("Largeur", r.titre.large, (x) => regle((r) => { r.titre.large = x; }, "titre.large")),
+    curseur("Hauteur", r.titre.monte, (x) => regle((r) => { r.titre.monte = x; }, "titre.monte"), 0, 30, 5),
+    choix("Place", [["auto", "Auto"], ["gauche", "Gauche"], ["centre", "Centre"]], r.titre.place, (x) => regle((r) => { r.titre.place = x; })));
+  if (v === "note") {
+    // Autres notes : des puces à cocher, deux au plus (une troisième est refusée tant qu'on n'en retire pas une).
+    const autres = ["rt", "mc", "lb"].filter((k) => r.note[k]).length;
+    const sites = el("div", { class: "choix" }, el("span", { text: "Autres" }), el("div", { class: "puces" },
+      ...[["rt", "Rotten Tomatoes"], ["mc", "Metacritic"], ["lb", "Letterboxd"]].map(([k, nom]) => el("button", { type: "button", text: nom, "data-cle": "autres:" + k, "aria-pressed": String(r.note[k]),
+        onclick: () => { if (r.note[k] || autres < 2) regle((r) => { r.note[k] = !r.note[k]; }); } }))));
+    ajoute(
+      choix("Principale", [["imdb", "IMDb"], ["tmdb", "TMDB"]], r.note.source, (x) => regle((r) => { r.note.source = x; })),
+      sites,
+      choix("Style", [["etoile", "★ 8,4"], ["nu", "8,4"], ["grand", "Grand"], ["badge", "Badge"]], r.note.style, (x) => regle((r) => { r.note.style = x; })),
+      choix("Couleur", [["non", "Non"], ["oui", "Selon la note"], ["halo", "+ halo"]], r.note.couleur, (x) => regle((r) => { r.note.couleur = x; })),
+      aide("Deux autres notes au plus, à côté de la principale."));
+  }
+  if (v === "genre") ajoute(choix("Forme", [["court", "Court (SF)"], ["complet", "Complet"]], r.genre.forme, (x) => regle((r) => { r.genre.forme = x; })));
+  if (v === "annee") ajoute(aide("Rien à régler : allume ou éteins l'année."));
+  if (v === "duree") ajoute(aide("La durée d'un film (« 2 h 46 »), le nombre de saisons d'une série (« 3 saisons »)."));
+  if (v === "age") ajoute(aide("L'âge conseillé en France, dans un petit cadre au bout de la ligne. Rien pour les titres tous publics."));
+  if (v === "plateforme") ajoute(choix("Place", [["ligne", "Dans la ligne"], ["coin", "En coin"]], r.plateforme.place, (x) => regle((r) => { r.plateforme.place = x; })),
+    aide("La plateforme d'abonnement où le titre est en France (Netflix, Prime Video, Canal+…)."));
+  if (v === "ligne") ajoute(
+    choix("Ordre", [["gna", "Genre d'abord"], ["nga", "Note d'abord"], ["agn", "Année d'abord"]], r.ligne.ordre, (x) => regle((r) => { r.ligne.ordre = x; })),
+    choix("Barre", [["aucune", "Aucune"], ["verre", "Verre"], ["fine", "Fine"]], r.ligne.barre, (x) => regle((r) => { r.ligne.barre = x; })),
+    curseur("Taille", r.texte.taille, (x) => regle((r) => { r.texte.taille = x; }, "texte.taille")),
     choix("Séparateur", [["point", "·"], ["barre", "|"], ["puce", "•"]], r.texte.sep, (x) => regle((r) => { r.texte.sep = x; })),
     choix("Police", [["inter", "Moderne"], ["bebas", "Cinéma"]], r.texte.police, (x) => regle((r) => { r.texte.police = x; })));
+  if (v === "image") ajoute(choix("Image", [["sanstexte", "Sans texte"], ["officielle", "Officielle"], ["fond", "Du film"]], r.image.source, (x) => regle((r) => { r.image.source = x; })),
+    aide("Sans texte : l'affiche nue et notre logo. Officielle : l'affiche française, avec son texte. Du film : une image du film recadrée."));
   if (v === "fondu") ajoute(
-    choix("Couleur", [["noir", "Noir"], ["affiche", "Couleurs de l'affiche"]], r.fondu.couleur, (x) => regle((r) => { r.fondu.couleur = x; })),
-    choix("Intensité", [["s", "Léger"], ["m", "Moyen"], ["l", "Fort"]], r.fondu.force, (x) => regle((r) => { r.fondu.force = x; })),
+    choix("Couleur", [["noir", "Noir"], ["affiche", "De l'affiche"]], r.fondu.couleur, (x) => regle((r) => { r.fondu.couleur = x; })),
+    choix("Force", [["s", "Léger"], ["m", "Moyen"], ["l", "Fort"]], r.fondu.force, (x) => regle((r) => { r.fondu.force = x; })),
+    choix("Hauteur", [["court", "Court"], ["normal", "Normal"], ["long", "Long"]], r.fondu.hauteur, (x) => regle((r) => { r.fondu.hauteur = x; })),
     choix("Flou", [[false, "Non"], [true, "Oui"]], r.fondu.flou, (x) => regle((r) => { r.fondu.flou = x; })));
-  if (v === "sortie") ajoute(
-    choix("Cacher la note", [[true, "Oui"], [false, "Non"]], r.sortie.cacherNote, (x) => regle((r) => { r.sortie.cacherNote = x; })),
-    el("p", { text: "Les titres pas encore disponibles chez soi en VF passent en noir et blanc, comme dans les rangées : ceux qui ne sont qu'au cinéma, ou sortis ailleurs sans version française." }));
+  if (v === "ambiance") ajoute(
+    choix("Voile du haut", [["0", "Aucun"], ["s", "Léger"], ["m", "Moyen"], ["l", "Fort"]], r.ambiance.voile, (x) => regle((r) => { r.ambiance.voile = x; })),
+    choix("Vignette", [[false, "Non"], [true, "Oui"]], r.ambiance.vignette, (x) => regle((r) => { r.ambiance.vignette = x; })));
+  if (v === "accent") ajoute(choix("Couleur", [["or", "Or"], ["blanc", "Blanc"], ["rouge", "Rouge"], ["bleu", "Bleu"], ["affiche", "De l'affiche"]], r.ambiance.accent, (x) => regle((r) => { r.ambiance.accent = x; })),
+    aide("Étoile, flèche de tendance, ruban, bandeau et barre fine."));
+  if (v === "sortie") ajoute(choix("Cacher la note", [[true, "Oui"], [false, "Non"]], r.sortie.cacherNote, (x) => regle((r) => { r.sortie.cacherNote = x; })),
+    aide("Les titres pas encore disponibles chez soi en VF passent en noir et blanc, comme dans les rangées."));
+  return out;
 }
 
-function regieDessine(garderTiroir) {
-  const r = regieR, m = LA.memoireDe(r);
-  // Le tiroir et le choix Portrait/Paysage sont reconstruits : le focus reviendra sur le même choix.
+/** L'onglet Paysage : mêmes réglages que le portrait, ou réglages à part. */
+function ongletPaysage() {
+  const apart = !!regieRP;
+  const bloc = el("div", { class: "regie-paysage" },
+    choix("Paysage", [[false, "Mêmes réglages"], [true, "Réglages à part"]], apart, (x) => regieChange(() => { regieRP = x ? JSON.parse(JSON.stringify(regieR)) : null; if (x) regieForme = "landscape"; })),
+    aide(apart
+      ? "Avec la scène en Paysage, tout ce que tu règles ne touche que les images en paysage (Continuer à regarder…)."
+      : "Les images en paysage suivent les réglages des affiches. Choisis « Réglages à part » pour les régler séparément."));
+  if (apart) bloc.append(el("button", { type: "button", class: "btn", text: "Reprendre les réglages des affiches", "data-cle": "paysage:reprendre", onclick: () => regieChange(() => { regieRP = JSON.parse(JSON.stringify(regieR)); }) }));
+  return [bloc];
+}
+
+function regieLignes() {
+  const r = cible(), boite = $("regie-voies");
+  boite.textContent = "";
+  // Un élément ouvert : les autres lignes se resserrent (sans leur résumé) pour que tout tienne sans défiler.
+  boite.classList.toggle("une-ouverte", !!regieVoie && regieOnglet !== "paysage");
+  if (regieOnglet === "paysage") { boite.append(...ongletPaysage()); return; }
+  ONGLETS[regieOnglet].forEach((v) => {
+    const [nom, signe] = VOIES[v], on = allumee(r, v), ouverte = v === regieVoie, vide = sansEffet(r, v);
+    const ligne = el("div", { class: "ligne" + (ouverte ? " ouverte" : "") + (on === false || vide ? " eteinte" : ""), "data-voie": v });
+    const tete = el("div", { class: "ligne-tete" },
+      el("button", { type: "button", class: "ligne-nom", "aria-expanded": String(ouverte), "data-cle": "ouvrir:" + v, onclick: () => { regieVoie = ouverte ? null : v; regieDessine(); } },
+        el("span", { class: "pastille", text: signe, "aria-hidden": "true" }),
+        el("span", { class: "ligne-txt" }, el("b", { text: nom }), el("small", { text: vide ? "Sans effet sans le titre" : resume(r, v) })),
+        el("span", { class: "chevron", text: ouverte ? "⌄" : "›", "aria-hidden": "true" })));
+    if (on !== null) {
+      tete.append(el("button", { type: "button", class: "interrupteur", role: "switch", "aria-checked": String(on), "aria-label": nom, "data-cle": "on:" + v,
+        onclick: () => regieChange((r) => { if (v === "sortie") r.sortie.nb = !r.sortie.nb; else r[v].on = !r[v].on; }) }));
+    }
+    ligne.append(tete);
+    if (ouverte) ligne.append(el("div", { class: "ligne-corps" }, ...reglagesDe(v)));
+    boite.append(ligne);
+  });
+}
+
+function regieDessine(garderCorps) {
+  const r = cible(), m = LA.memoireDe(r);
+  // Les lignes sont reconstruites : le focus revient sur le même bouton (data-cle).
   const actif = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.cle || "" : "";
   document.querySelectorAll("#regie-memoires [data-memoire]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.memoire === m)));
   $("regie-perso").hidden = !!m;
-  document.querySelectorAll("#regie-voies .voie").forEach((d) => {
-    const v = d.dataset.voie, lampe = d.querySelector(".lampe");
-    lampe.setAttribute("aria-pressed", String(allumee(r, v)));
-    lampe.disabled = v === "texte";
-    d.classList.toggle("sans-effet", sansEffet(r, v));
-    d.classList.toggle("ouverte", v === regieVoie);
-    d.querySelector(".nom").setAttribute("aria-expanded", String(v === regieVoie));
-    d.querySelector(".nom small").textContent = sansEffet(r, v) ? "Sans effet" : resume(r, v);
-  });
-  $("regie-tiroir").hidden = !regieVoie;
-  // Pendant un glissé de curseur, le tiroir reste tel quel (le reconstruire couperait le glissé).
-  if (regieVoie && !garderTiroir) tiroir(regieVoie);
+  document.querySelectorAll("#regie-onglets [data-onglet]").forEach((b) => { b.setAttribute("aria-selected", String(b.dataset.onglet === regieOnglet)); b.tabIndex = b.dataset.onglet === regieOnglet ? 0 : -1; });
+  $("regie-voies").setAttribute("aria-labelledby", "onglet-" + regieOnglet);
+  $("regie-cible").hidden = !(regieRP && regieForme === "landscape");
+  // Pendant un glissé de curseur, les lignes restent telles quelles (les reconstruire couperait le glissé).
+  if (!garderCorps) regieLignes();
   $("regie-annuler").disabled = !regieHisto.length;
   seg($("regie-format"), ["Portrait", "Paysage"], regieForme === "landscape" ? 1 : 0, (i) => { regieForme = i ? "landscape" : "poster"; regieDessine(); regieApercus(); });
   [...$("regie-format").children].forEach((b, i) => { b.dataset.cle = "format:" + i; });
@@ -1327,13 +1440,15 @@ function regieDessine(garderTiroir) {
 // « Annuler » revient d'un changement : un changement sans effet ne compte pas, et un même curseur glissé
 // (cle) compte pour un seul changement.
 let regieCleDerniere = "", regieDernier = 0;
+const regieEtat = () => JSON.stringify([LA.ecrireReglages(regieR), regieRP ? LA.ecrireReglages(regieRP) : null]);
 function regieChange(modif, cle) {
-  const avant = LA.ecrireReglages(regieR);
-  modif(regieR);
+  const avant = regieEtat();
+  modif(cible());
   const suite = cle && cle === regieCleDerniere && Date.now() - regieDernier < 800;
-  if (LA.ecrireReglages(regieR) !== avant && !suite) { regieHisto.push(avant); if (regieHisto.length > 60) regieHisto.shift(); }
+  if (regieEtat() !== avant && !suite) { regieHisto.push(avant); if (regieHisto.length > 60) regieHisto.shift(); }
   regieCleDerniere = cle || ""; regieDernier = Date.now();
   NV.reglages.affiches = regieR;
+  NV.reglages.affichesPaysage = regieRP;
   regieDessine(!!cle);
   clearTimeout(regieAttente);
   regieAttente = setTimeout(regieApercus, 400);
@@ -1345,7 +1460,7 @@ function regieApercus() {
   const grande = $("regie-grande");
   $("regie-plateau").classList.toggle("paysage", regieForme === "landscape");
   if (t) {
-    const src = NV.ppSrc(t, regieForme, regieR);
+    const src = NV.ppSrc(t, regieForme, regieForme === "landscape" && regieRP ? regieRP : regieR);
     if (src && grande.dataset.src !== src) {
       grande.classList.add("attente");
       grande.onload = () => grande.classList.remove("attente");
@@ -1390,6 +1505,7 @@ async function regieCharge() {
 function regieOuvre(declencheur) {
   regieDeclencheur = declencheur || null;
   regieR = NV.reglages.affiches;
+  regieRP = NV.reglages.affichesPaysage;
   regieHisto = [];
   regieVoie = null;
   $("regie").hidden = false;
@@ -1410,12 +1526,15 @@ $("regie-ouvrir").addEventListener("click", (e) => regieOuvre(e.currentTarget));
 $("pp-ouvrir").addEventListener("click", (e) => regieOuvre(e.currentTarget));
 $("regie-fermer").addEventListener("click", regieFerme);
 $("regie").addEventListener("click", (e) => { if (e.target === $("regie")) regieFerme(); });
-// Échap ferme la régie où que soit le focus (un tiroir reconstruit peut l'avoir fait retomber sur la page).
+// Échap ferme la régie où que soit le focus (des lignes reconstruites peuvent l'avoir fait retomber sur la page).
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("regie").hidden) { e.stopPropagation(); regieFerme(); } });
 $("regie-annuler").addEventListener("click", () => {
   if (!regieHisto.length) return;
-  regieR = LA.lireReglages(new URLSearchParams("s=1." + regieHisto.pop()));
+  const [s, sp] = JSON.parse(regieHisto.pop());
+  regieR = LA.lireReglages(new URLSearchParams("s=1." + s));
+  regieRP = sp === null ? null : LA.lireReglages(new URLSearchParams("s=1." + sp));
   NV.reglages.affiches = regieR;
+  NV.reglages.affichesPaysage = regieRP;
   regieDessine();
   clearTimeout(regieAttente);
   regieAttente = setTimeout(regieApercus, 400);
@@ -1425,13 +1544,15 @@ document.querySelectorAll("#regie-memoires [data-memoire]").forEach((b) => b.add
   const m = LA.MEMOIRES[b.dataset.memoire];
   regieChange((r) => { const copie = JSON.parse(JSON.stringify(m)); Object.keys(copie).forEach((k) => { r[k] = copie[k]; }); });
 }));
-document.querySelectorAll("#regie-voies .voie").forEach((d) => {
-  const v = d.dataset.voie;
-  d.querySelector(".lampe").addEventListener("click", () => regieChange((r) => {
-    if (v === "sortie") r.sortie.nb = !r.sortie.nb;
-    else if (v !== "texte") r[v].on = !r[v].on;
-  }));
-  d.querySelector(".nom").addEventListener("click", () => { regieVoie = regieVoie === v ? null : v; regieDessine(); });
+// Onglets : clic, et flèches gauche/droite d'un onglet à l'autre (rôle tablist).
+const ongletsListe = [...document.querySelectorAll("#regie-onglets [data-onglet]")];
+ongletsListe.forEach((b, i) => {
+  b.addEventListener("click", () => { regieOnglet = b.dataset.onglet; regieVoie = null; regieDessine(); });
+  b.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    const suivant = ongletsListe[(i + (e.key === "ArrowRight" ? 1 : ongletsListe.length - 1)) % ongletsListe.length];
+    regieOnglet = suivant.dataset.onglet; regieVoie = null; regieDessine(); suivant.focus();
+  });
 });
 $("copy-affiches").addEventListener("click", (e) => copy(e.currentTarget, $("u-affiches"), "Copier"));
 lienAffichesMaj();

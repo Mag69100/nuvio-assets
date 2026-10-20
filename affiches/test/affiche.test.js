@@ -37,7 +37,7 @@ function internet({ detail = json(film), torrentio } = {}) {
     const u = String(url);
     if (u.includes("torrentio")) return lireTorrentio(u, opts);
     calls.push(u);
-    const relais = /^https:\/\/affiches\.test\/qualite\/(movie|series)\/(.+)\.json$/.exec(u);
+    const relais = /^https:\/\/affiches\.test\/qualite\/(movie|series)\/(.+)\.json(\?v=2)?$/.exec(u);
     if (relais) return makeQualite({ fetchImpl: lireTorrentio })(new Request(`https://affiches.test/api/qualite?type=${relais[1]}&video=${relais[2]}`));
     const photo = /^https:\/\/affiches\.test\/tendances\/(movie|series)\.json$/.exec(u);
     if (photo) return makeTendances({ fetchImpl: f, env: { TMDB_API_KEY: "k" } })(new Request(`https://affiches.test/api/tendances?type=${photo[1]}`));
@@ -214,7 +214,7 @@ test("options : note TMDB sans lire les notes IMDb", async () => {
 test("qualité demandée au relais du service, pas à Torrentio directement", async () => {
   const f = internet();
   await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678"));
-  assert.ok(f.calls.includes("https://affiches.test/qualite/movie/tt15239678.json"), f.calls.join("\n"));
+  assert.ok(f.calls.includes("https://affiches.test/qualite/movie/tt15239678.json?v=2"), f.calls.join("\n"));
 });
 
 // Rien à dessiner (pas de titre maison, ni rang ni qualité) : l'image d'origine de TMDB, sans la redessiner.
@@ -388,7 +388,7 @@ test("v2_image_du_film_recadree_verifiee", async () => {
   assert.ok(f.calls.includes("https://image.tmdb.org/t/p/w1280/bdnu.jpg"), f.calls.join("\n"));
 });
 
-test("v2_bandeau_seul_pas_redirige", async () => {
+test("v2_plateforme_en_coin_seule_pas_redirigee", async () => {
   // Rien d'autre que la plateforme en coin : l'affiche est dessinée, pas renvoyée vers TMDB.
   const film3 = { ...film, "watch/providers": { results: { FR: { flatrate: [{ display_priority: 1, provider_name: "Netflix", logo_path: "/n.png" }] } } } };
   const res = await makeHandler({ fetchImpl: internet({ detail: json(film3) }), env })(req("type=movie&shape=poster&id=tt15239678&s=1.S0T0Q0L0P1vcB0"));
@@ -400,4 +400,27 @@ test("revue_bandeau_statut_cache_court", async () => {
   const res = await makeHandler({ fetchImpl: internet({ detail: avecSorties([4, jour(-5)]) }), env })(req("type=movie&shape=poster&id=tt15239678&s=1.J1"));
   assert.equal(res.status, 200);
   assert.ok(age(res, "Cache-Control") <= secondesAvantBascule(), res.headers.get("Cache-Control"));
+});
+
+// Revue : les autres notes ne sont pas demandées quand elles ne seraient pas dessinées (note en grand chiffre,
+// ou titre pas encore sorti avec la note cachée) ; la plateforme fait demander les plateformes à TMDB.
+test("revue_notes_et_plateformes_seulement_si_utiles", async () => {
+  const grand = internet();
+  await makeHandler({ fetchImpl: grand, env })(req("type=movie&shape=poster&id=tt15239678&s=1.egR1"));
+  assert.ok(!grand.calls.some((u) => u.includes("/notes/")), "notes demandées en grand chiffre");
+  const pasSorti = internet({ detail: avecSorties([3, jour(40)]) });
+  await makeHandler({ fetchImpl: pasSorti, env })(req("type=movie&shape=poster&id=tt15239678&s=1.R1"));
+  assert.ok(!pasSorti.calls.some((u) => u.includes("/notes/")), "notes demandées pour un titre pas sorti");
+  const plat = internet();
+  await makeHandler({ fetchImpl: plat, env })(req("type=movie&shape=poster&id=tt15239678&s=1.P1"));
+  assert.ok(plat.calls.some((u) => u.includes("watch%2Fproviders") || u.includes("watch/providers")), plat.calls.join("\n"));
+  const rien = internet();
+  await makeHandler({ fetchImpl: rien, env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.ok(!rien.calls.some((u) => u.includes("watch%2Fproviders") || u.includes("watch/providers")));
+});
+
+// Revue : bandeau seul (le statut dans le coin, rien d'autre) : dessiné, pas renvoyé vers TMDB.
+test("revue_bandeau_seul_pas_redirige", async () => {
+  const res = await makeHandler({ fetchImpl: internet({ detail: avecSorties([4, jour(-5)]) }), env })(req("type=movie&shape=poster&id=tt15239678&s=1.T0Q0J1L0B0"));
+  assert.equal(res.status, 200);
 });

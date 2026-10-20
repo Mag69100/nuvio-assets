@@ -72,16 +72,20 @@ const first = (list, langs) => {
   return null;
 };
 
-/** Les faits d'un titre, ou null si TMDB ne le connaît pas. */
-export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch) {
+/**
+ * Les faits d'un titre, ou null si TMDB ne le connaît pas. options : { plateforme, vo } pour demander aussi les
+ * plateformes (réglage Plateforme) et les logos dans les langues d'origine (logo « d'origine ») ; sans eux, la
+ * réponse de TMDB reste légère.
+ */
+export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, options = {}) {
   const tmdbId = id.startsWith("tmdb:") ? Number(id.slice(5)) : await tmdbIdDe(env, type, id, fetchImpl);
   if (!tmdbId) return null;
   const d = await tmdbGet(env, `/${type === "series" ? "tv" : "movie"}/${tmdbId}`, {
     // Films : les dates de sortie détaillées servent au statut (« En salle », « Nouveau »…) et à l'âge conseillé ;
     // séries : les classifications par pays, pour l'âge.
     // Plateformes (watch/providers) pour le logo de plateforme ; logos dans les langues d'origine courantes.
-    language: "fr-FR", append_to_response: (type === "series" ? "images,external_ids,content_ratings" : "images,external_ids,release_dates") + ",watch/providers",
-    include_image_language: LANGUES_IMAGES,
+    language: "fr-FR", append_to_response: (type === "series" ? "images,external_ids,content_ratings" : "images,external_ids,release_dates") + (options.plateforme ? ",watch/providers" : ""),
+    include_image_language: options.vo ? LANGUES_IMAGES : "fr,en,null",
   }, fetchImpl);
   if (!d) return null;
   const images = d.images || {};

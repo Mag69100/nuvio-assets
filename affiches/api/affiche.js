@@ -11,6 +11,7 @@ import { ratingOf } from "../lib/notes.js";
 import { trendingRank, secondesAvantBascule } from "../lib/tendances.js";
 import { qualityOf } from "../lib/qualite.js";
 import { posterContent, contentKey } from "../lib/contenu.js";
+import { etatSortie } from "../lib/statut.js";
 import { lireReglages, lireReglagesPaysage, ecrireReglages } from "../lib/lien-affiches.js";
 import { notesPlus } from "../lib/notes-plus.js";
 import { draw, imageUrls } from "../lib/dessin.js";
@@ -97,14 +98,15 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
     }
     const tendance = reglages.tendance.on, qualite = reglages.qualite.on && env.QUALITE !== "off";
     const noteImdb = reglages.titre.on && reglages.note.on && reglages.note.source !== "tmdb";
-    const autresNotes = reglages.titre.on && reglages.note.on && (reglages.note.rt || reglages.note.mc || reglages.note.lb);
+    // Les autres notes ne sont demandées que si elles seront dessinées (pas avec la note en grand chiffre).
+    const autresNotes = reglages.titre.on && reglages.note.on && reglages.note.style !== "grand" && (reglages.note.rt || reglages.note.mc || reglages.note.lb);
     try {
       // Notes IMDb et tendances ne dépendent pas du titre : sur une instance qui démarre, on les charge
       // pendant que TMDB répond (elles sont ensuite gardées en mémoire).
       if (noteImdb) ratingOf("tt0", fetchImpl).catch(() => {});
       const relais = new URL(request.url).origin;
       if (tendance) trendingRank(env, type, 0, fetchImpl, relais).catch(() => {});
-      let facts = await titleFacts(env, { type, id, imdb }, fetchImpl);
+      let facts = await titleFacts(env, { type, id, imdb }, fetchImpl, { plateforme: reglages.plateforme.on, vo: reglages.titre.on && reglages.titre.langue === "vo" });
       if (!facts) return absent();
       // L'image « sans texte » porte notre logo : on vérifie qu'elle n'a vraiment pas de texte (TMDB y range
       // parfois des affiches étrangères). Aucune de propre : l'affiche normale, sans logo ni ligne du bas.
@@ -119,13 +121,15 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const brouillon = posterContent(facts, {}, shape, reglages);
       if (!brouillon) return absent();
       const images = fetchImages(fetchImpl);
-      const peutDessiner = brouillon.full || brouillon.statut || brouillon.gris || tendance || qualite;
+      const peutDessiner = brouillon.full || brouillon.statut || brouillon.gris || brouillon.bandeau || brouillon.coin || tendance || qualite;
+      // Pas encore sorti avec la note cachée : les autres notes ne seraient pas dessinées non plus.
+      const notesUtiles = autresNotes && !(reglages.sortie.cacherNote && !etatSortie(facts, new Date().toISOString().slice(0, 10)).sorti);
       if (peutDessiner && !request.headers.get("If-None-Match")) imageUrls(brouillon).forEach((u) => images(u).catch(() => {}));
       const [imdbRating, place, { enRetard: qualiteEnRetard, quality }, notes] = await Promise.all([
         noteImdb && facts.imdbId ? ratingOf(facts.imdbId, fetchImpl) : undefined,
         tendance ? trendingRank(env, type, facts.tmdbId, fetchImpl, relais) : null,
         qualite ? qualiteATemps(type, facts, fetchImpl, relais) : { enRetard: false, quality: null },
-        autresNotes && facts.imdbId ? notesPlus(facts.imdbId, fetchImpl, relais) : undefined,
+        notesUtiles && facts.imdbId ? notesPlus(facts.imdbId, fetchImpl, relais) : undefined,
       ]);
       // Notes des autres sites demandées mais pas lues (quota, panne) : cache court, pour les avoir ensuite.
       const enRetard = qualiteEnRetard || notes === null;

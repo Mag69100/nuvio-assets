@@ -62,7 +62,7 @@ test("relais : qualité lue via le cache partagé", async () => {
   const calls = [];
   const f = async (u) => { calls.push(String(u)); return new Response(JSON.stringify({ uhd: true, extra: "HDR" })); };
   assert.deepEqual(await qualityOf("series", "tt2", 3, f, "https://affiches.test"), { uhd: true, extra: "HDR", fhd: false, hdr10p: false, atmos: false });
-  assert.deepEqual(calls, ["https://affiches.test/qualite/series/tt2:3:1.json"]);
+  assert.deepEqual(calls, ["https://affiches.test/qualite/series/tt2:3:1.json?v=2"]);
 });
 
 // Qualité v2 : 1080p (quand il n'y a pas de 4K), HDR10+ (en 4K) et Dolby Atmos (toute résolution).

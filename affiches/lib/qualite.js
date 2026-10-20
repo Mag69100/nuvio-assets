@@ -44,7 +44,8 @@ export async function lireTorrentio(video, fetchImpl = fetch) {
 
 async function lireRelais(relais, video, fetchImpl) {
   try {
-    const res = await fetchImpl(`${relais}/qualite/${video}.json`, { signal: AbortSignal.timeout(DELAI_MS + 500) });
+    // ?v=2 : la qualité v2 (1080p, HDR10+, Atmos) ; les réponses d'avant restent au CDN sous l'ancienne adresse.
+    const res = await fetchImpl(`${relais}/qualite/${video}.json?v=2`, { signal: AbortSignal.timeout(DELAI_MS + 500) });
     if (!res.ok) return null;
     const d = await res.json();
     // Réponse gardée au CDN avant la qualité v2 : sans fhd, hdr10p ni atmos (lus false).

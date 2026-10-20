@@ -119,7 +119,7 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
     // La source n'est écrite que pour le badge (« IMDb 8,4 ») : les autres affiches gardent leur ETag.
     if (n && r.note.style === "badge") line.source = n.source;
     if (n && r.note.couleur !== "non") line.noteN = Number(n.valeur.replace(",", "."));
-    const autres = notesVisibles && notes ? ["rt", "mc", "lb"].filter((k) => r.note[k] && notes[k]).map((k) => ({ s: k, ...AUTRES_NOTES[k](notes[k]) })) : [];
+    const autres = notesVisibles && notes && r.note.style !== "grand" ? ["rt", "mc", "lb"].filter((k) => r.note[k] && notes[k]).map((k) => ({ s: k, ...AUTRES_NOTES[k](notes[k]) })) : [];
     if (autres.length) line.notes = autres;
     if (r.annee.on && facts.year) line.annee = facts.year;
     const duree = r.duree.on ? dureeDe(facts) : null;

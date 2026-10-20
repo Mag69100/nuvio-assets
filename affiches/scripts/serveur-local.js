@@ -15,7 +15,7 @@ import { makeNotes } from "../api/notes.js";
 const [fichierCle, port = "8791"] = process.argv.slice(2);
 const cle = /TMDB_API_KEY\s*=\s*"?([A-Za-z0-9]+)/.exec(readFileSync(fichierCle, "utf8"));
 if (!cle) throw new Error("TMDB_API_KEY introuvable dans " + fichierCle);
-const mdb = /MDBLIST_API_KEYs*=s*"?([A-Za-z0-9]+)/.exec(readFileSync(fichierCle, "utf8"));
+const mdb = /MDBLIST_API_KEY\s*=\s*"?([A-Za-z0-9]+)/.exec(readFileSync(fichierCle, "utf8"));
 const env = { TMDB_API_KEY: cle[1], ...(mdb ? { MDBLIST_API_KEY: mdb[1] } : {}) };
 const EN_LIGNE = "https://affiches-catalogue-fr.vercel.app";
 
@@ -33,7 +33,7 @@ createServer(async (req, res) => {
       reponse = await affiche(new Request(`${url.origin}/api/affiche?${q}`, { headers: req.headers["if-none-match"] ? { "If-None-Match": req.headers["if-none-match"] } : {} }));
     } else if (t) {
       reponse = await tendances(new Request(`${url.origin}/api/tendances?type=${t[1]}`));
-    } else if (/^/notes/(ttd{1,10}).json$/.test(url.pathname)) {
+    } else if (/^\/notes\/tt\d{1,10}\.json$/.test(url.pathname)) {
       reponse = await notes(new Request(`${url.origin}/api/notes?imdb=${url.pathname.slice(7, -5)}`));
     } else if (url.pathname.startsWith("/qualite/")) {
       reponse = await fetch(EN_LIGNE + url.pathname);

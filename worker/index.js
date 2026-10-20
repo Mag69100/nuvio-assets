@@ -36,7 +36,7 @@ import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.25.2";
+const VERSION = "5.25.3";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -157,6 +157,9 @@ function customDef(x, i) {
     // Téléréalité d'une langue : peu notée sur TMDB (Koh-Lanta, Les Marseillais…), le seuil habituel
     // la viderait. Toutes langues : seuil habituel, sinon des émissions coréennes au titre non traduit.
     if (genres.includes(10764) && x.l) d["vote_count.gte"] = x.s === 1 ? 10 : 1;
+    // Téléréalité sans années choisies : émissions encore diffusées ces 5 dernières années, pas les
+    // variétés d'antan que TMDB range aussi là (La Chance aux chansons, Midi Première…).
+    if (genres.includes(10764) && !x.y[0] && !x.y[1]) out.airedSince = 5 * 365;
     if (x.y[0]) out.fromYear = x.y[0];
     if (x.y[1]) out.toYear = x.y[1];
     return out;
@@ -525,6 +528,7 @@ function discoverParams(def, kind, today, opts) {
     // ressortis en numérique (rééditions, versions restaurées…).
     p["primary_release_date.gte"] = addDays(today, -365);
   }
+  if (def.airedSince) p["air_date.gte"] = addDays(today, -def.airedSince);
   if (def.airDays !== undefined) { p["air_date.gte"] = addDays(today, -def.airDays); p["air_date.lte"] = addDays(today, def.airDays); }
   if (cfg.a) {
     p[gte] = maxDate(p[gte], `${cfg.a}-01-01`);

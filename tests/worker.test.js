@@ -390,8 +390,12 @@ test("rangee_sur_mesure_tele_realite", async () => {
   for (const u of discover()) {
     assert.equal(u.searchParams.get("with_genres"), "10764");
     assert.equal(u.searchParams.get("vote_count.gte"), "1");   // peu notée sur TMDB
+    assert.ok(u.searchParams.get("air_date.gte") > "2015");     // encore diffusée, pas les variétés d'antan
     assert.ok(!(u.searchParams.get("without_genres") || "").split("|").includes("10764"));
   }
+  calls.length = 0;
+  await get(`/${seg({ x: [{ n: "Années 90", t: 1, g: [tr], l: "fr", y: [1990, 1999] }] })}/catalog/series/perso-0.json`);
+  assert.ok(discover().length && discover().every((u) => !u.searchParams.has("air_date.gte")));   // années choisies : respectées
   calls.length = 0;
   await get(`/${seg({ x: [{ n: "Drames", t: 1, g: [GENRES.findIndex(([n]) => n === "Drame")] }] })}/catalog/series/perso-0.json`);
   assert.ok(discover().every((u) => u.searchParams.get("without_genres").split("|").includes("10764")));

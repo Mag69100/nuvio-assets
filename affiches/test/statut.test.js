@@ -49,6 +49,26 @@ test("film : pas de dates TMDB mais sorti d'après sa fiche → rien", () => {
   assert.equal(statutDe(film([], "2010-05-01"), AUJ), null);
 });
 
+// Dates TMDB incomplètes : un téléfilm (type 6), un film sorti en DVD (type 5) ou vu seulement en festival
+// (type 1) depuis longtemps ne sont pas « Bientôt ».
+test("film : seulement à la télé, en vidéo ou en festival, depuis longtemps → rien", () => {
+  assert.equal(statutDe(film(sorties([6, "2005-03-01"])), AUJ), null);
+  assert.equal(statutDe(film(sorties([5, "2010-06-01"])), AUJ), null);
+  assert.equal(statutDe(film(sorties([1, "2015-09-01"])), AUJ), null);
+});
+
+test("film : téléfilm diffusé il y a 10 jours → nouveau", () => {
+  assert.equal(statutDe(film(sorties([6, jours(-10)])), AUJ), "nouveau");
+});
+
+// Un vieux film ressorti en numérique (ou annoncé) n'est ni « Nouveau » ni « En salle ».
+test("film : vieux film ressorti → rien", () => {
+  assert.equal(statutDe(film(sorties([3, "1995-05-01"], [4, jours(-5)])), AUJ), null);
+  assert.equal(statutDe(film(sorties([3, "1995-05-01"], [4, jours(20)])), AUJ), null);
+  const vieuxAilleurs = [{ iso_3166_1: "US", release_dates: [{ type: 3, release_date: "1995-05-01T00:00:00.000Z" }] }, { iso_3166_1: "DE", release_dates: [{ type: 4, release_date: jours(20) + "T00:00:00.000Z" }] }];
+  assert.equal(statutDe(film(vieuxAilleurs), AUJ), null);
+});
+
 const serie = (firstAir, seasons = []) => ({ type: "series", firstAir, seasons });
 
 test("série : première diffusion dans le futur → bientôt", () => {

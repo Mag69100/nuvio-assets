@@ -495,13 +495,17 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .regie-tiroir .curseur output { font: 700 .9rem system-ui, sans-serif; min-width: 4ch; }
 .regie-tiroir p { margin: 0; }
 body.regie-ouverte { overflow: hidden; }
-@media (max-width: 760px) {
-  .regie-affiches { padding: 0; }
-  .regie-boite { max-height: 100dvh; height: 100dvh; border-radius: 0; }
+/* Tablette et téléphone : la scène passe en colonne (grande affiche, puis une bande de coulisses). */
+@media (max-width: 960px) {
   .regie-scene { display: flex; flex-direction: column; padding: 16px 12px; }
   .regie-rideau { display: none; }
   .regie-coulisses { display: flex; gap: 8px; overflow-x: auto; width: 100%; padding-bottom: 4px; }
   .regie-coulisses button { flex: none; }
+  .regie-plateau.paysage img { width: min(560px, 88vw); }
+}
+@media (max-width: 760px) {
+  .regie-affiches { padding: 0; }
+  .regie-boite { max-height: 100dvh; height: 100dvh; border-radius: 0; }
   .regie-plateau img { width: min(240px, 60vw); }
   .regie-plateau.paysage img { width: 92vw; }
   .regie-voies .voie { width: calc(33% - 8px); }
@@ -1221,7 +1225,7 @@ function resume(r, v) {
 // Le tiroir d'une voie : 2 ou 3 choix (boutons) et, pour les tailles, un curseur de 60 à 140 %.
 function choix(titre, options, actuel, choisir) {
   const d = el("div", { class: "choix" }, el("span", { text: titre }));
-  options.forEach(([val, txt]) => d.append(el("button", { type: "button", text: txt, "aria-pressed": String(val === actuel), onclick: () => choisir(val) })));
+  options.forEach(([val, txt]) => d.append(el("button", { type: "button", text: txt, "data-cle": titre + ":" + String(val), "aria-pressed": String(val === actuel), onclick: () => choisir(val) })));
   return d;
 }
 function curseur(titre, val, regler) {
@@ -1264,6 +1268,8 @@ function tiroir(v) {
 
 function regieDessine(garderTiroir) {
   const r = regieR, m = LA.memoireDe(r);
+  // Le tiroir et le choix Portrait/Paysage sont reconstruits : le focus reviendra sur le même choix.
+  const actif = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.cle || "" : "";
   document.querySelectorAll("#regie-memoires [data-memoire]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.memoire === m)));
   $("regie-perso").hidden = !!m;
   document.querySelectorAll("#regie-voies .voie").forEach((d) => {
@@ -1280,7 +1286,12 @@ function regieDessine(garderTiroir) {
   if (regieVoie && !garderTiroir) tiroir(regieVoie);
   $("regie-annuler").disabled = !regieHisto.length;
   seg($("regie-format"), ["Portrait", "Paysage"], regieForme === "landscape" ? 1 : 0, (i) => { regieForme = i ? "landscape" : "poster"; regieDessine(); regieApercus(); });
+  [...$("regie-format").children].forEach((b, i) => { b.dataset.cle = "format:" + i; });
   lienAffichesMaj();
+  if (actif) {
+    const retour = [...$("regie").querySelectorAll("[data-cle]")].find((b) => b.dataset.cle === actif);
+    if (retour) retour.focus();
+  }
 }
 
 // Chaque affiche redessinée est un dessin chez Vercel : une rafale de clics n'en déclenche qu'un, à la fin.
@@ -1370,7 +1381,8 @@ $("regie-ouvrir").addEventListener("click", (e) => regieOuvre(e.currentTarget));
 $("pp-ouvrir").addEventListener("click", (e) => regieOuvre(e.currentTarget));
 $("regie-fermer").addEventListener("click", regieFerme);
 $("regie").addEventListener("click", (e) => { if (e.target === $("regie")) regieFerme(); });
-$("regie").addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); regieFerme(); } });
+// Échap ferme la régie où que soit le focus (un tiroir reconstruit peut l'avoir fait retomber sur la page).
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("regie").hidden) { e.stopPropagation(); regieFerme(); } });
 $("regie-annuler").addEventListener("click", () => {
   if (!regieHisto.length) return;
   regieR = LA.lireReglages(new URLSearchParams("s=1." + regieHisto.pop()));

@@ -24,10 +24,15 @@ function statutFilm(facts, today) {
     return !facts.releaseDate || facts.releaseDate > today ? "bientot" : null;
   }
   if (toutes[0] > today) return "bientot";
-  // Chez soi : la première sortie numérique, où que ce soit (les sources suivent), sinon salle + 45 jours.
   const salleMonde = releaseDates(facts.releases, [2, 3])[0] || "";
-  const numerique = releaseDates(facts.releases, [4])[0] || (salleMonde ? ajoute(salleMonde, SALLE_JOURS) : "");
-  if (numerique && numerique <= today) return numerique >= ajoute(today, -NOUVEAU_JOURS) ? "nouveau" : null;
+  // Sorti au cinéma il y a plus d'un an : un vieux film, même ressorti ou annoncé à nouveau.
+  if (salleMonde && salleMonde < ajoute(today, -365)) return null;
+  // Chez soi : la première sortie numérique, vidéo ou télé, où que ce soit (les sources suivent),
+  // sinon salle + 45 jours.
+  const chezSoi = releaseDates(facts.releases, [4, 5, 6])[0] || (salleMonde ? ajoute(salleMonde, SALLE_JOURS) : "");
+  if (chezSoi && chezSoi <= today) return chezSoi >= ajoute(today, -NOUVEAU_JOURS) ? "nouveau" : null;
+  // Sorti seulement en festival (ou en avant-première), sans cinéma ni sortie chez soi : pas de statut.
+  if (!salleMonde && !chezSoi) return null;
   // Pas encore chez soi : « En salle » s'il est au cinéma en France, sinon « Bientôt » (sorti ailleurs seulement).
   const salleFrance = releaseDates(facts.releases, [2, 3], ["FR"])[0] || "";
   return salleFrance && salleFrance <= today ? "salle" : "bientot";

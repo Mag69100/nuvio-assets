@@ -145,6 +145,7 @@ async function teinteDe(base, [w, hgt]) {
   if (d) {
     s = d / (1 - Math.abs(2 * l - 1));
     hue = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    if (hue < 0) hue += 6;   // rouge dominant avec plus de bleu que de vert (affiches rouges, roses, magenta)
   }
   const L = 0.18, S = Math.min(1, s * 1.4), C = (1 - Math.abs(2 * L - 1)) * S, X = C * (1 - Math.abs((hue % 2) - 1)), M = L - C / 2;
   const [r1, g1, b1] = hue < 1 ? [C, X, 0] : hue < 2 ? [X, C, 0] : hue < 3 ? [0, C, X] : hue < 4 ? [0, X, C] : hue < 5 ? [X, 0, C] : [C, 0, X];

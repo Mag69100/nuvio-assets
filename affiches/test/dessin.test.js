@@ -214,3 +214,12 @@ test("taille des badges du haut réglable à la main", async () => {
   };
   assert.ok(await largeur(1.4) > await largeur(0.6) + 20);
 });
+
+// Affiche rouge-magenta (le rouge domine, plus de bleu que de vert) : la teinte doit rester une vraie couleur, pas du noir.
+test("fondu aux couleurs d'une affiche magenta", async () => {
+  const sans = { ...base, logo: null, line: null, rank: null, quality: null };
+  const teinte = await draw({ ...sans, styles: { ...STYLES, fondu: { couleur: "affiche", force: "l" } } }, avec(uni(160, 40, 100)));
+  const noir = await draw({ ...sans, styles: { ...STYLES, fondu: { couleur: "noir", force: "l" } } }, avec(uni(160, 40, 100)));
+  const [rt] = await zone(teinte, 0, 560, 400, 40), [rn] = await zone(noir, 0, 560, 400, 40);
+  assert.ok(rt > rn + 15, `teinte noire : rouge ${rt} (noir ${rn})`);
+});

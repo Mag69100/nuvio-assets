@@ -74,6 +74,17 @@ test("regie_presente", () => {
   assert.doesNotMatch(html, /TA_CLE_TMDB|PostersPlus|postersplus/);
 });
 
+// Clavier : un choix dans un tiroir reconstruit ses boutons ; le focus revient sur le même choix, et Échap ferme
+// la régie où que soit le focus.
+test("regie_clavier", () => {
+  const html = salle2();
+  const debut = html.indexOf("function regieDessine");
+  const corps = html.slice(debut, html.indexOf("\n}\n", debut));
+  assert.match(corps, /dataset\.cle/);
+  assert.match(corps, /\.focus\(\)/);
+  assert.match(html, /document\.addEventListener\("keydown", \(e\) => \{ if \(e\.key === "Escape" && !\$\("regie"\)\.hidden\)/);
+});
+
 // Chaque réglage changé redessine les affiches de la régie (un dessin par affiche chez Vercel) : une rafale
 // de clics ne doit en déclencher qu'un, 400 ms après le dernier.
 test("redessin_une_fois_par_rafale", () => {

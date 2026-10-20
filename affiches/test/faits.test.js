@@ -38,8 +38,8 @@ test("tt id résolu par /find", async () => {
   assert.ok(f.calls[0].includes("/find/tt15239678") && f.calls[0].includes("external_source=imdb_id"));
   const detail = new URL(f.calls[1]);
   assert.equal(detail.pathname, "/3/movie/693134");
-  assert.equal(detail.searchParams.get("append_to_response"), "images,external_ids,release_dates");
-  assert.equal(detail.searchParams.get("include_image_language"), "fr,en,null");
+  assert.equal(detail.searchParams.get("append_to_response"), "images,external_ids,release_dates,watch/providers");
+  assert.equal(detail.searchParams.get("include_image_language"), "fr,en,null,ja,ko,es,it,de,zh,hi,pt,ru,sv,da,no,tr,th,nl,pl");
   assert.equal(detail.searchParams.get("language"), "fr-FR");
   assert.equal(facts.tmdbId, 693134);
   assert.equal(facts.imdbId, "tt15239678");
@@ -85,7 +85,7 @@ test("dates pour le statut", async () => {
   const avecDates = { ...movie, original_language: "en", release_dates: { results: [{ iso_3166_1: "FR", release_dates: [{ type: 3, release_date: "2024-02-28T00:00:00.000Z" }] }] } };
   const f = fauxFetch([["/movie/693134", json(avecDates)]]);
   const facts = await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, f);
-  assert.equal(new URL(f.calls[0]).searchParams.get("append_to_response"), "images,external_ids,release_dates");
+  assert.equal(new URL(f.calls[0]).searchParams.get("append_to_response"), "images,external_ids,release_dates,watch/providers");
   assert.deepEqual(facts.releases, avecDates.release_dates.results);
   assert.equal(facts.releaseDate, "2024-02-27");
   assert.equal(facts.originalLanguage, "en");
@@ -108,9 +108,32 @@ test("age_conseille_france", async () => {
   const serie = { ...movie, id: 94605, release_date: undefined, first_air_date: "2021-11-06", content_ratings: { results: [{ iso_3166_1: "US", rating: "TV-14" }, { iso_3166_1: "FR", rating: "-16" }] } };
   const fs = fauxFetch([["/tv/94605", json(serie)]]);
   const s = await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fs);
-  assert.equal(new URL(fs.calls[0]).searchParams.get("append_to_response"), "images,external_ids,content_ratings");
+  assert.equal(new URL(fs.calls[0]).searchParams.get("append_to_response"), "images,external_ids,content_ratings,watch/providers");
   assert.equal(s.age, "16");
   assert.equal((await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fauxFetch([["/tv/94605", json({ ...serie, content_ratings: { results: [{ iso_3166_1: "FR", rating: "TP" }] } })]]))).age, null);
+});
+
+// Régie v2 : durée, saisons, logo dans chaque langue (français, anglais, langue d'origine), plateforme en France.
+test("faits_v2", async () => {
+  const film = { ...movie, runtime: 166, original_language: "ja",
+    images: { ...movie.images, logos: [{ iso_639_1: "en", file_path: "/en.png" }, { iso_639_1: "fr", file_path: "/fr.svg" }, { iso_639_1: "ja", file_path: "/ja.png" }] },
+    "watch/providers": { results: { FR: { flatrate: [{ display_priority: 5, provider_name: "Prime Video", logo_path: "/p.jpg" }, { display_priority: 1, provider_name: "Netflix", logo_path: "/n.jpg" }] }, US: { flatrate: [{ display_priority: 0, provider_name: "Hulu", logo_path: "/h.jpg" }] } } } };
+  const f = fauxFetch([["/movie/693134", json(film)]]);
+  const facts = await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, f);
+  assert.equal(facts.runtime, 166);
+  assert.equal(facts.seasonsCount, null);
+  assert.deepEqual(facts.logos, { fr: "/fr.svg", en: "/en.png", vo: "/ja.png" });
+  assert.equal(facts.logo, "/fr.svg");
+  assert.deepEqual(facts.provider, { name: "Netflix", logo: "/n.jpg" });
+  const q = new URL(f.calls[0]).searchParams;
+  assert.equal(q.get("append_to_response"), "images,external_ids,release_dates,watch/providers");
+  assert.equal(q.get("include_image_language"), "fr,en,null,ja,ko,es,it,de,zh,hi,pt,ru,sv,da,no,tr,th,nl,pl");
+  const serie = { ...movie, id: 94605, release_date: undefined, first_air_date: "2021-11-06", runtime: undefined, episode_run_time: [42],
+    seasons: [{ season_number: 0 }, { season_number: 1 }, { season_number: 2 }, { season_number: 3 }] };
+  const s2 = await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fauxFetch([["/tv/94605", json(serie)]]));
+  assert.equal(s2.seasonsCount, 3);
+  assert.equal(s2.provider, null);
+  assert.equal(s2.runtime, null);
 });
 
 test("logo anglais si pas de français, sinon rien", async () => {

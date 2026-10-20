@@ -53,6 +53,17 @@ const sansLangue = (list, ratio) => (list || [])
   .filter((x) => x.iso_639_1 === null && (!x.width || !x.height || Math.abs(x.width / x.height - ratio) / ratio <= 0.02))
   .slice(0, 3).map((x) => x.file_path);
 
+// Langues demandées pour les images : français, anglais, sans langue, et les langues d'origine les plus courantes
+// (pour le logo « langue d'origine »).
+const LANGUES_IMAGES = "fr,en,null,ja,ko,es,it,de,zh,hi,pt,ru,sv,da,no,tr,th,nl,pl";
+
+/** La plateforme d'abonnement où le titre est en France (la première selon TMDB), ou null. */
+function plateformeDe(d) {
+  const fr = ((d["watch/providers"] || {}).results || {}).FR;
+  const liste = ((fr && fr.flatrate) || []).filter((p) => p.logo_path).sort((a, b) => (a.display_priority ?? 99) - (b.display_priority ?? 99));
+  return liste.length ? { name: liste[0].provider_name || "", logo: liste[0].logo_path } : null;
+}
+
 const first = (list, langs) => {
   for (const lang of langs) {
     const it = (list || []).find((x) => x.iso_639_1 === lang);
@@ -68,7 +79,9 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch) {
   const d = await tmdbGet(env, `/${type === "series" ? "tv" : "movie"}/${tmdbId}`, {
     // Films : les dates de sortie détaillées servent au statut (« En salle », « Nouveau »…) et à l'âge conseillé ;
     // séries : les classifications par pays, pour l'âge.
-    language: "fr-FR", append_to_response: type === "series" ? "images,external_ids,content_ratings" : "images,external_ids,release_dates", include_image_language: "fr,en,null",
+    // Plateformes (watch/providers) pour le logo de plateforme ; logos dans les langues d'origine courantes.
+    language: "fr-FR", append_to_response: (type === "series" ? "images,external_ids,content_ratings" : "images,external_ids,release_dates") + ",watch/providers",
+    include_image_language: LANGUES_IMAGES,
   }, fetchImpl);
   if (!d) return null;
   const images = d.images || {};
@@ -87,6 +100,10 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch) {
     textlessBackdrops: sansLangue(images.backdrops, 16 / 9),
     textlessBackdrop: sansLangue(images.backdrops, 16 / 9)[0] || null,
     logo: first(images.logos, ["fr", "en"]),
+    logos: { fr: first(images.logos, ["fr"]), en: first(images.logos, ["en"]), vo: d.original_language ? first(images.logos, [d.original_language]) : null },
+    runtime: type === "series" ? null : d.runtime || null,
+    seasonsCount: type === "series" ? (d.seasons || []).filter((x) => x.season_number >= 1).length || null : null,
+    provider: plateformeDe(d),
     lastSeason: type === "series" && d.last_episode_to_air ? d.last_episode_to_air.season_number : null,
     // Pour le statut (lib/statut.js).
     releases: type === "series" ? [] : (d.release_dates && d.release_dates.results) || [],

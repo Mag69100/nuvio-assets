@@ -2207,7 +2207,8 @@
       "discover": {
        "sort_by": "popularity.desc",
        "vote_count.gte": 100
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2217,7 +2218,8 @@
        "sort_by": "popularity.desc",
        "vote_count.gte": 100,
        "with_genres": "28"
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2227,7 +2229,8 @@
        "sort_by": "popularity.desc",
        "vote_count.gte": 100,
        "with_genres": "12"
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2237,7 +2240,8 @@
        "sort_by": "popularity.desc",
        "vote_count.gte": 100,
        "with_genres": "16"
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2247,7 +2251,8 @@
        "sort_by": "popularity.desc",
        "vote_count.gte": 100,
        "with_genres": "35"
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2257,7 +2262,8 @@
        "sort_by": "popularity.desc",
        "vote_count.gte": 100,
        "with_genres": "80"
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2267,7 +2273,8 @@
        "sort_by": "popularity.desc",
        "vote_count.gte": 100,
        "with_genres": "99"
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2277,7 +2284,8 @@
        "sort_by": "popularity.desc",
        "vote_count.gte": 100,
        "with_genres": "18"
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2287,7 +2295,8 @@
        "sort_by": "popularity.desc",
        "vote_count.gte": 100,
        "with_genres": "10751"
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2297,7 +2306,8 @@
        "sort_by": "popularity.desc",
        "vote_count.gte": 100,
        "with_genres": "14"
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2307,7 +2317,8 @@
        "sort_by": "popularity.desc",
        "vote_count.gte": 100,
        "with_genres": "27"
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2317,7 +2328,8 @@
        "sort_by": "popularity.desc",
        "vote_count.gte": 100,
        "with_genres": "10749"
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2327,7 +2339,8 @@
        "sort_by": "popularity.desc",
        "vote_count.gte": 100,
        "with_genres": "878"
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2337,7 +2350,8 @@
        "sort_by": "popularity.desc",
        "vote_count.gte": 100,
        "with_genres": "53"
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2347,7 +2361,8 @@
        "sort_by": "popularity.desc",
        "vote_count.gte": 100,
        "with_genres": "10752"
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2357,7 +2372,8 @@
        "sort_by": "popularity.desc",
        "vote_count.gte": 100,
        "with_genres": "36"
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2367,7 +2383,8 @@
        "sort_by": "popularity.desc",
        "vote_count.gte": 100,
        "with_genres": "37"
-      }
+      },
+      "availableHere": true
      }
     }
    ],
@@ -2604,7 +2621,8 @@
       "discover": {
        "sort_by": "popularity.desc",
        "vote_count.gte": 10
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2614,7 +2632,8 @@
       "discover": {
        "sort_by": "popularity.desc",
        "vote_count.gte": 20
-      }
+      },
+      "availableHere": true
      }
     }
    ],
@@ -2631,7 +2650,8 @@
        "sort_by": "popularity.desc",
        "primary_release_year": 2026,
        "vote_count.gte": 30
-      }
+      },
+      "availableHere": true
      }
     },
     {
@@ -2641,7 +2661,8 @@
        "sort_by": "popularity.desc",
        "primary_release_year": 2025,
        "vote_count.gte": 30
-      }
+      },
+      "availableHere": true
      }
     },
     {

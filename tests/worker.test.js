@@ -467,3 +467,23 @@ test("studios_ordre_par_defaut", async () => {
   // Un ordre choisi passe devant ; les tuiles absentes suivent dans l'ordre par défaut.
   assert.deepEqual(await ids({ tv: 1, to: { 4: [2] } }), ["studio-3", "studio-33", "marvel-studios", "warner-bros", "dc-comics", "studio-1"]);
 });
+
+// Découvrir : Populaires, Nouveautés et films récents par année, seulement ce qui est déjà
+// dispo dans le pays (abonnement, location, achat), dans la même requête TMDB. Réglage « u » : tout.
+test("decouvrir_seulement_dispo_dans_le_pays", async () => {
+  const discover = () => calls.map((u) => new URL(u)).filter((u) => u.pathname.endsWith("/discover/movie"));
+  for (const path of ["films-populaires/genre=Action", "films-nouveautes/genre=Ce%20mois-ci", "films-annees/genre=2026"]) {
+    calls.length = 0;
+    await get(`/catalog/movie/${path}.json`);
+    assert.ok(discover().length, path);
+    for (const u of discover()) {
+      assert.equal(u.searchParams.get("watch_region"), "FR", path);
+      assert.equal(u.searchParams.get("with_watch_monetization_types"), "flatrate|free|ads|rent|buy", path);
+    }
+  }
+  for (const path of ["/catalog/movie/films-annees/genre=1999.json", `/${seg({ u: 1 })}/catalog/movie/films-populaires/genre=Action.json`]) {
+    calls.length = 0;
+    await get(path);
+    assert.ok(discover().length && discover().every((u) => !u.searchParams.has("with_watch_monetization_types")), path);
+  }
+});

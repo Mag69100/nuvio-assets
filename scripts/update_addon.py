@@ -197,6 +197,10 @@ def build(defn: dict) -> list[dict]:
         params["without_genres"] = "|".join(sorted(excluded | NOISE_TV_GENRES))
     if defn.get("untilToday"):
         params[date_lte] = TODAY.isoformat()
+    if defn.get("availableHere"):
+        # Seulement ce qu'on peut déjà regarder en France (abonnement, location ou achat).
+        params["watch_region"] = "FR"
+        params.setdefault("with_watch_monetization_types", "flatrate|free|ads|rent|buy")
     endpoint = f"/discover/{'tv' if kind == 'series' else 'movie'}"
     if defn.get("rotateDaily"):
         # Sélection différente chaque jour : on démarre à une page qui dépend de la date.

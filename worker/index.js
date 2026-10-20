@@ -512,6 +512,13 @@ function discoverParams(def, kind, today, opts) {
   if (excluded.size) p.without_genres = [...excluded].join("|");
   if (p.watch_region) p.watch_region = opts.region;
   if (p.region) p.region = opts.region;
+  if (def.availableHere && !cfg.u) {
+    // Seulement ce qu'on peut déjà regarder dans le pays choisi (abonnement, location ou achat) :
+    // pas les films encore au cinéma, ni ceux sortis en numérique ailleurs seulement. C'est un
+    // filtre de la même requête : aucun appel en plus.
+    p.watch_region = opts.region;
+    p.with_watch_monetization_types = p.with_watch_monetization_types || "flatrate|free|ads|rent|buy";
+  }
   if (cfg.m) p["vote_average.gte"] = Math.max(Number(p["vote_average.gte"]) || 0, cfg.m);
   const gte = kind === "series" ? "first_air_date.gte" : "primary_release_date.gte";
   const lte = kind === "series" ? "first_air_date.lte" : "primary_release_date.lte";

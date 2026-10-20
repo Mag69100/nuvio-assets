@@ -685,7 +685,7 @@ ${feuilles("scene.css", "nuvio.css")}
           <label class="field"><span>Rien de sorti avant</span><select id="g-year"></select></label>
         </div>
         <label class="switch"><input type="checkbox" id="g-family"><span><b>Mode famille</b><small>Films tous publics ou -10 ans seulement, pas d'horreur, séries pour la famille et les enfants.</small></span></label>
-        <label class="switch"><input type="checkbox" id="g-unreleased"><span><b>Tendances : seulement ce qu'on peut déjà regarder</b><small>TMDB y met aussi les films encore au cinéma ou pas encore sortis. Ils passent dans « Bientôt dispo » et « Les plus attendus ».</small></span></label>
+        <label class="switch"><input type="checkbox" id="g-unreleased"><span><b>Tendances et Découvrir : seulement ce qu'on peut déjà regarder</b><small>TMDB y met aussi les films encore au cinéma ou pas encore sortis. Ils passent dans « Bientôt dispo » et « Les plus attendus ». Dans Découvrir (Populaires, Nouveautés, films de cette année et de l'an dernier) : seulement les films déjà dispo dans ton pays, en abonnement, location ou achat.</small></span></label>
       </section>
 
       <section class="act" id="s-ia">

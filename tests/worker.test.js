@@ -524,3 +524,26 @@ test("par_annee_suit_l_annee_en_cours", async () => {
     mock.timers.reset();
   }
 });
+
+// Le relais garde l'aperçu aussi longtemps que le service le demande (pas toujours un jour) : une affiche
+// dessinée sans son badge 4K, parce que la qualité tardait, n'est gardée qu'une heure, comme chez Vercel.
+test("affiche_relais_suit_le_cache_du_service", async () => {
+  const jpeg = (cc) => async (url) => { calls.push(String(url)); return new Response(new Uint8Array([0xff, 0xd8, 0xff]), { headers: { "Content-Type": "image/jpeg", "Cache-Control": cc } }); };
+  globalThis.fetch = jpeg("public, max-age=3600");
+  const court = await get("/affiche/movie/poster/tt15239678?s=1.T0");
+  assert.equal(court.headers.get("Cache-Control"), "public, max-age=3600");
+  globalThis.fetch = jpeg("public, max-age=604800");
+  const long = await get("/affiche/movie/poster/tt1375666");
+  assert.equal(long.headers.get("Cache-Control"), "public, max-age=86400");   // un jour au plus
+  globalThis.fetch = jpeg("no-store");
+  await new Promise((ok) => setTimeout(ok, 20));   // écritures en cache des requêtes d'avant terminées
+  store.clear();
+  await get("/affiche/movie/poster/tt0816692");
+  assert.equal(store.size, 0, "une réponse no-store ne doit pas être gardée : " + [...store.keys()].join(" "));
+  // La clé de cache porte la version des aperçus : une nouvelle version ne ressort pas les anciens.
+  const { APERCU_V } = await import("../worker/reglages.js");
+  globalThis.fetch = jpeg("public, max-age=3600");
+  await get("/affiche/movie/poster/tt0816692");
+  await new Promise((ok) => setTimeout(ok, 20));
+  assert.ok([...store.keys()].some((k) => k.includes("affiche-v" + APERCU_V) || k.includes("v=" + APERCU_V)), [...store.keys()].join(" "));
+});

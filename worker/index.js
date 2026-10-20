@@ -29,7 +29,7 @@ import {
 } from "./config.js";
 import { configurePage } from "./page.js";
 import { guidePage, NUVIO_TV_APK } from "./guide.js";
-import { AFFICHES_URL } from "./reglages.js";
+import { AFFICHES_URL, APERCU_V } from "./reglages.js";
 import { lireReglages, ecrireReglages } from "./lien-affiches.js";
 import { lienPage } from "./lien.js";
 import { copiePage } from "./copie.js";
@@ -1766,13 +1766,17 @@ const app = {
       if (s) q.set("s", "1." + s);
       // AFFICHES_URL de l'environnement : un service d'affiches lancé à côté, pour essayer en local.
       const src = `${env.AFFICHES_URL || AFFICHES_URL}/${af[1]}/${af[2]}/${id}.jpg${q.size ? "?" + q : ""}`;
-      const key = new Request(`https://cache.local/affiche-v3/${af[1]}/${af[2]}/${id}?${q}&t=${jourTendances()}`);
+      const key = new Request(`https://cache.local/affiche-v${APERCU_V}/${af[1]}/${af[2]}/${id}?${q}&t=${jourTendances()}`);
       const hitA = await caches.default.match(key);
       if (hitA) return hitA;
-      const r = await fetch(src, { cf: { cacheTtl: 86400, cacheEverything: true } }).catch(() => null);
+      const r = await fetch(src).catch(() => null);
       if (!r || !r.ok || !/^image\//.test(r.headers.get("Content-Type") || "")) return new Response(null, { status: 404, headers: { ...HEADERS, "Cache-Control": "public, max-age=3600" } });
-      const out = new Response(r.body, { headers: { "Access-Control-Allow-Origin": "*", "Content-Type": r.headers.get("Content-Type"), "Cache-Control": "public, max-age=86400" } });
-      ctx.waitUntil(caches.default.put(key, out.clone()));
+      // Gardée aussi longtemps que le service le demande, un jour au plus : une affiche partie sans son badge
+      // (qualité en retard) n'est gardée qu'une heure, puis redemandée.
+      const cc = r.headers.get("Cache-Control") || "", ma = /max-age=(\d+)/.exec(cc);
+      const garde = /no-store|no-cache/.test(cc) ? 0 : Math.min(86400, ma ? Number(ma[1]) : 3600);
+      const out = new Response(r.body, { headers: { "Access-Control-Allow-Origin": "*", "Content-Type": r.headers.get("Content-Type"), "Cache-Control": garde ? `public, max-age=${garde}` : "no-store" } });
+      if (garde) ctx.waitUntil(caches.default.put(key, out.clone()));
       return out;
     }
     // Préparation des « pour qui » d'une page (appel de l'addon à lui-même, voir prefetchProfiles).

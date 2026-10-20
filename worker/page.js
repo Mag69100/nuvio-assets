@@ -709,7 +709,7 @@ ${copy ? HOTE_HTML : ""}
           <li><span><b>Mets Nuvio en français</b> : langue de l'appli et langue TMDB (Paramètres → Enrichissement TMDB).</span></li>
         </ol>
         <p class="sub">Nuvio est sur ton téléphone, ta tablette ou ton ordinateur ? Pas besoin de QR code : colle directement les liens de ton billet dans l'appli (Addons, puis Collections → Importer → URL).</p>
-        <p class="sub">Pour retrouver tes réglages plus tard, ouvre ton lien d'addon en remplaçant « manifest.json » par « configure ». Avec un lien fixe, fais-le sur l'appareil qui l'a créé (ou avec son lien pour modifier) : tes changements arrivent dans Nuvio sans réinstaller, avec « Actualiser les addons ». Tu pars de zéro ? <a href="${origin}/guide">Le guide complet</a> installe Nuvio et tous les addons, dans l'ordre.</p>
+        <p class="sub">Pour retrouver tes réglages plus tard, ouvre ton lien d'addon en remplaçant « manifest.json » par « configure ». Avec un lien fixe, fais-le sur l'appareil qui l'a créé (ou avec son lien pour modifier) : tes changements arrivent dans Nuvio sans réinstaller, avec « Actualiser les addons ». Les collections, elles, sont importées : après un changement de tuiles, supprime-les dans Nuvio et réimporte leur lien (Collections → Importer → URL). Tu pars de zéro ? <a href="${origin}/guide">Le guide complet</a> installe Nuvio et tous les addons, dans l'ordre.</p>
       </section>
 
       <button type="button" class="reset" id="reset">Revenir à la programmation d'origine</button>

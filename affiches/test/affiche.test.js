@@ -11,10 +11,11 @@ import { resetMemo as r2 } from "../lib/notes.js";
 import { resetMemo as r3 } from "../lib/tendances.js";
 import { resetMemo as r4 } from "../lib/qualite.js";
 import { resetMemo as r5 } from "../lib/texte.js";
+import { resetMemo as r6 } from "../lib/notes-plus.js";
 import { readFileSync } from "node:fs";
 import satori from "satori";
 
-beforeEach(() => { r1(); r2(); r3(); r4(); r5(); });
+beforeEach(() => { r1(); r2(); r3(); r4(); r5(); r6(); });
 
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status });
 const film = {
@@ -332,4 +333,64 @@ test("voies_eteintes_sans_appel", async () => {
   const f = internet();
   await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.T0Q0"));
   assert.ok(!f.calls.some((u) => u.includes("/trending/") || u.includes("/tendances/") || u.includes("/qualite/")), f.calls.join("\n"));
+});
+
+// ---------- Régie v2 ----------
+test("v2_paysage_a_part_canonique", async () => {
+  const GET = makeHandler({ fetchImpl: internet(), env });
+  // sp identique à s : retiré.
+  const meme = await GET(req("type=movie&shape=poster&id=tt15239678&s=1.T0&sp=1.T0"));
+  assert.equal(meme.status, 308);
+  assert.equal(meme.headers.get("Location"), "/movie/poster/tt15239678.jpg?s=1.T0");
+  // sp différent : gardé, dans sa forme canonique.
+  const autre = await GET(req("type=movie&shape=poster&id=tt15239678&s=1.T0&sp=1.Q0T0"));
+  assert.equal(autre.status, 308);
+  assert.equal(autre.headers.get("Location"), "/movie/poster/tt15239678.jpg?s=1.T0&sp=1.T0Q0");
+  assert.equal((await GET(req("type=movie&shape=poster&id=tt15239678&s=1.T0&sp=1.T0Q0"))).status, 200);
+});
+
+test("v2_paysage_lit_sp", async () => {
+  const avecFond = json({ ...film, images: { ...film.images, backdrops: [{ iso_639_1: null, file_path: "/bdnu.jpg" }] } });
+  const f = internet({ detail: avecFond });
+  // Portrait sans titre, paysage avec : seul le paysage télécharge le logo.
+  await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=landscape&id=tt15239678&s=1.L0&sp=1.T0"));
+  assert.ok(f.calls.some((u) => u.includes("/logo.png")), f.calls.join("\n"));
+  const g = internet({ detail: avecFond });
+  await makeHandler({ fetchImpl: g, env })(req("type=movie&shape=poster&id=tt15239678&s=1.L0&sp=1.T0"));
+  assert.ok(!g.calls.some((u) => u.includes("/logo.png")));
+});
+
+test("v2_notes_seulement_si_demandees", async () => {
+  const f = internet();
+  await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.ok(!f.calls.some((u) => u.includes("/notes/")));
+  const g = internet();
+  const base = g;
+  const avecNotes = async (url, opts) => (String(url).includes("/notes/") ? (base.calls.push(String(url)), json({ rt: 94, mc: null, lb: null })) : base(url, opts));
+  avecNotes.calls = base.calls;
+  const res = await makeHandler({ fetchImpl: avecNotes, env })(req("type=movie&shape=poster&id=tt15239678&s=1.R1"));
+  assert.equal(res.status, 200);
+  assert.ok(base.calls.includes("https://affiches.test/notes/tt15239678.json"), base.calls.join("\n"));
+});
+
+test("v2_notes_en_echec_cache_court", async () => {
+  const base = internet();
+  const f = async (url, opts) => (String(url).includes("/notes/") ? new Response("", { status: 503 }) : base(url, opts));
+  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.Q0R1"));
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("Cache-Control"), "public, max-age=3600");
+});
+
+test("v2_image_du_film_recadree_verifiee", async () => {
+  const film2 = { ...film, images: { ...film.images, backdrops: [{ iso_639_1: null, file_path: "/texte-bd.jpg" }, { iso_639_1: null, file_path: "/bdnu.jpg" }] } };
+  const f = internet({ detail: json(film2) });
+  await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.Uf"));
+  assert.ok(f.calls.includes("https://image.tmdb.org/t/p/w500/bdnu.jpg"), f.calls.join("\n"));
+});
+
+test("v2_bandeau_seul_pas_redirige", async () => {
+  // Rien d'autre que la plateforme en coin : l'affiche est dessinée, pas renvoyée vers TMDB.
+  const film3 = { ...film, "watch/providers": { results: { FR: { flatrate: [{ display_priority: 1, provider_name: "Netflix", logo_path: "/n.png" }] } } } };
+  const res = await makeHandler({ fetchImpl: internet({ detail: json(film3) }), env })(req("type=movie&shape=poster&id=tt15239678&s=1.S0T0Q0L0P1vcB0"));
+  assert.equal(res.status, 200);
 });

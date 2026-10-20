@@ -11,7 +11,8 @@ import { ratingOf } from "../lib/notes.js";
 import { trendingRank, secondesAvantBascule } from "../lib/tendances.js";
 import { qualityOf } from "../lib/qualite.js";
 import { posterContent, contentKey } from "../lib/contenu.js";
-import { lireReglages, ecrireReglages } from "../lib/lien-affiches.js";
+import { lireReglages, lireReglagesPaysage, ecrireReglages } from "../lib/lien-affiches.js";
+import { notesPlus } from "../lib/notes-plus.js";
 import { draw, imageUrls } from "../lib/dessin.js";
 import { sansTexte } from "../lib/texte.js";
 
@@ -61,11 +62,12 @@ function qualiteATemps(type, facts, fetchImpl, relais) {
 }
 
 /**
- * Forme normale des options d'un lien, dans l'ordre imdb, s : imdb seulement s'il est valable (celui de
- * l'id pour un « tt… »), s dans sa forme canonique (lib/lien-affiches.js), absent si tout est par défaut.
- * Un imdb vide (Nuvio l'envoie ainsi quand il n'en a pas) reste tel quel. Les anciens o et r sont convertis.
+ * Forme normale des options d'un lien, dans l'ordre imdb, s, sp : imdb seulement s'il est valable (celui de
+ * l'id pour un « tt… »), s dans sa forme canonique (lib/lien-affiches.js), absent si tout est par défaut ; sp
+ * (réglages à part du paysage) seulement s'il diffère de s. Un imdb vide (Nuvio l'envoie ainsi quand il n'en a
+ * pas) reste tel quel. Les anciens o et r sont convertis.
  */
-function optionsNormales(q, id, reglages) {
+function optionsNormales(q, id) {
   const p = new URLSearchParams();
   const imdb = q.get("imdb");
   if (imdb !== null) {
@@ -73,8 +75,9 @@ function optionsNormales(q, id, reglages) {
     else if (id.startsWith("tt")) p.set("imdb", id);
     else if (/^tt\d{1,10}$/.test(imdb)) p.set("imdb", imdb);
   }
-  const s = ecrireReglages(reglages);
+  const s = ecrireReglages(lireReglages(q)), sp = ecrireReglages(lireReglagesPaysage(q));
   if (s) p.set("s", "1." + s);
+  if (sp !== s) p.set("sp", "1." + sp);
   return String(p);
 }
 
@@ -87,13 +90,14 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
     // Un lien bricolé (paramètre en trop, lettres dans le désordre…) ferait dessiner une copie de plus de la
     // même affiche : on le renvoie, sans rien dessiner, vers sa forme normale (Nuvio suit les redirections).
     const recues = new URLSearchParams([...q].filter(([k]) => !["type", "shape", "id"].includes(k)));
-    const reglages = lireReglages(q);
-    const normales = optionsNormales(q, id, reglages);
+    const reglages = shape === "landscape" ? lireReglagesPaysage(q) : lireReglages(q);
+    const normales = optionsNormales(q, id);
     if (String(recues) !== normales) {
       return new Response(null, { status: 308, headers: { ...CORS, ...ABSENT, Location: `/${type}/${shape}/${id}.jpg${normales ? "?" + normales : ""}` } });
     }
     const tendance = reglages.tendance.on, qualite = reglages.qualite.on && env.QUALITE !== "off";
     const noteImdb = reglages.titre.on && reglages.note.on && reglages.note.source !== "tmdb";
+    const autresNotes = reglages.titre.on && reglages.note.on && (reglages.note.rt || reglages.note.mc || reglages.note.lb);
     try {
       // Notes IMDb et tendances ne dépendent pas du titre : sur une instance qui démarre, on les charge
       // pendant que TMDB répond (elles sont ensuite gardées en mémoire).
@@ -104,8 +108,10 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       if (!facts) return absent();
       // L'image « sans texte » porte notre logo : on vérifie qu'elle n'a vraiment pas de texte (TMDB y range
       // parfois des affiches étrangères). Aucune de propre : l'affiche normale, sans logo ni ligne du bas.
+      // L'image du film recadrée (réglage « Image ») vient des fonds, vérifiés de la même façon.
       if (reglages.titre.on) {
-        const [cle, liste] = shape === "landscape" ? ["textlessBackdrop", facts.textlessBackdrops] : ["textlessPoster", facts.textlessPosters];
+        const fond = shape === "landscape" || reglages.image.source === "fond";
+        const [cle, liste] = fond ? ["textlessBackdrop", facts.textlessBackdrops] : ["textlessPoster", facts.textlessPosters];
         facts = { ...facts, [cle]: await sansTexte(liste, fetchImpl) };
       }
       // Les images ne dépendent que du titre : on les demande tout de suite (sauf pour une revérification
@@ -115,14 +121,17 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const images = fetchImages(fetchImpl);
       const peutDessiner = brouillon.full || brouillon.statut || brouillon.gris || tendance || qualite;
       if (peutDessiner && !request.headers.get("If-None-Match")) imageUrls(brouillon).forEach((u) => images(u).catch(() => {}));
-      const [imdbRating, place, { enRetard, quality }] = await Promise.all([
+      const [imdbRating, place, { enRetard: qualiteEnRetard, quality }, notes] = await Promise.all([
         noteImdb && facts.imdbId ? ratingOf(facts.imdbId, fetchImpl) : undefined,
         tendance ? trendingRank(env, type, facts.tmdbId, fetchImpl, relais) : null,
         qualite ? qualiteATemps(type, facts, fetchImpl, relais) : { enRetard: false, quality: null },
+        autresNotes && facts.imdbId ? notesPlus(facts.imdbId, fetchImpl, relais) : undefined,
       ]);
-      const content = posterContent(facts, { imdbRating, rank: place, quality }, shape, reglages);
+      // Notes des autres sites demandées mais pas lues (quota, panne) : cache court, pour les avoir ensuite.
+      const enRetard = qualiteEnRetard || notes === null;
+      const content = posterContent(facts, { imdbRating, rank: place, quality, notes }, shape, reglages);
       // Rien à poser ni à griser : l'appli va chercher l'image directement chez TMDB, sans la redessiner ici.
-      if (!content.full && !content.rank && !content.quality && !content.statut && !content.gris) {
+      if (!content.full && !content.rank && !content.quality && !content.statut && !content.gris && !content.bandeau && !content.coin) {
         return new Response(null, { status: 302, headers: { ...CORS, ...cacheDe({ enRetard, place }), Location: imageUrls(content)[0] } });
       }
       const etag = `"${contentKey(content)}"`;

@@ -192,3 +192,79 @@ test("etag_change", () => {
     assert.notEqual(contentKey(contenu(facts, plein, "poster", reglages(s))), contentKey(a), s);
   }
 });
+
+// ---------- Régie v2 ----------
+const v2 = { ...facts, runtime: 166, seasonsCount: null, provider: { name: "Netflix", logo: "/n.jpg" },
+  logos: { fr: "/fr.png", en: "/en.png", vo: "/ja.png" } };
+
+test("v2_duree_film_et_series", () => {
+  assert.equal(contenu(v2, plein, "poster", reglages("D1")).line.duree, "2 h 46");
+  assert.equal(contenu({ ...v2, runtime: 45 }, plein, "poster", reglages("D1")).line.duree, "45 min");
+  const serie = { ...v2, type: "series", runtime: null, seasonsCount: 3, releases: [], releaseDate: "", firstAir: "2020-01-01", seasons: [] };
+  assert.equal(contenu(serie, plein, "poster", reglages("D1")).line.duree, "3 saisons");
+  assert.equal(contenu({ ...serie, seasonsCount: 1 }, plein, "poster", reglages("D1")).line.duree, "1 saison");
+  assert.equal(contenu(v2, plein).line.duree, undefined);
+});
+
+test("v2_notes_multiples_et_couleur", () => {
+  const notes = { rt: 94, mc: 81, lb: 4.1 };
+  const c = posterContent(v2, { ...plein, notes }, "poster", reglages("R1b1co"), AUJ);
+  assert.deepEqual(c.line.notes, [{ s: "rt", v: "94 %", n: 9.4 }, { s: "lb", v: "4,1", n: 8.2 }]);
+  assert.equal(c.line.noteN, 8.4);
+  assert.equal(c.styles.couleurNote, "oui");
+  // Notes inconnues : absentes ; pas demandées : rien.
+  assert.equal(posterContent(v2, { ...plein, notes: null }, "poster", reglages("R1"), AUJ).line.notes, undefined);
+  assert.equal(posterContent(v2, { ...plein, notes }, "poster", DEFAUT_REGLAGES, AUJ).line.notes, undefined);
+  // Pas encore sorti avec la note cachée : les autres notes aussi.
+  assert.equal(posterContent(bientot, { ...plein, notes }, "poster", reglages("R1"), AUJ).line.notes, undefined);
+});
+
+test("v2_plateforme_ordre", () => {
+  assert.equal(contenu(v2, plein, "poster", reglages("P1")).line.plateforme, "/n.jpg");
+  const coin = contenu(v2, plein, "poster", reglages("P1vc"));
+  assert.equal(coin.coin, "/n.jpg");
+  assert.equal(coin.line.plateforme, undefined);
+  assert.equal(contenu({ ...v2, provider: null }, plein, "poster", reglages("P1")).line.plateforme, undefined);
+  assert.equal(contenu(v2, plein, "poster", reglages("On")).line.ordre, "nga");
+  assert.equal(contenu(v2, plein).line.ordre, undefined);
+});
+
+test("v2_bandeau", () => {
+  const statut = contenu(enSalle, plein, "poster", reglages("J1"));
+  assert.deepEqual(statut.bandeau, { texte: "DISPO VERS LE 24 NOV.", coin: "d" });
+  assert.equal(statut.statut, null);
+  const tendance = contenu(facts, plein, "poster", reglages("J1KtEg"));
+  assert.deepEqual(tendance.bandeau, { texte: "N°4", coin: "g" });
+  assert.equal(tendance.rank, null);
+  // Rien à porter : pas de bandeau.
+  assert.equal(contenu(facts, extra, "poster", reglages("J1")).bandeau, undefined);
+});
+
+test("v2_image_et_langue_du_logo", () => {
+  const off = contenu(v2, plein, "poster", reglages("Uo"));
+  assert.deepEqual([off.image, off.logo, off.full], ["/fr.jpg", null, true]);
+  const fond = contenu(v2, plein, "poster", reglages("Uf"));
+  assert.deepEqual([fond.image, fond.logo, fond.full], ["/bdnu.jpg", "/fr.png", true]);
+  assert.equal(contenu(v2, plein, "poster", reglages("ue")).logo, "/en.png");
+  assert.equal(contenu(v2, plein, "poster", reglages("uv")).logo, "/ja.png");
+  // Repli : pas de logo dans la langue d'origine → français ; seulement un logo d'origine, par défaut → pas de logo.
+  assert.equal(contenu({ ...v2, logos: { fr: "/fr.png", en: null, vo: null } }, plein, "poster", reglages("uv")).logo, "/fr.png");
+  const voSeul = contenu({ ...v2, logo: null, logos: { fr: null, en: null, vo: "/ja.png" } }, plein);
+  assert.equal(voSeul.full, false);
+});
+
+test("v2_qualite_tout", () => {
+  const q = (quality) => contenu(v2, { ...plein, quality }, "poster", reglages("qt")).quality;
+  assert.deepEqual(q({ uhd: true, extra: "HDR", hdr10p: true, fhd: true, atmos: true }), { label: "4K", extra: "HDR10+", atmos: true });
+  assert.deepEqual(q({ uhd: true, extra: "DV", hdr10p: true, fhd: false, atmos: false }), { label: "4K", extra: "DV", atmos: false });
+  assert.deepEqual(q({ uhd: false, extra: null, fhd: true, atmos: true }), { label: "1080p", extra: null, atmos: true });
+  assert.equal(q({ uhd: false, extra: null, fhd: false, atmos: true }), null);
+});
+
+test("v2_styles_hors_defaut_seulement", () => {
+  assert.deepEqual(Object.keys(contenu(v2, plein).styles).sort(), Object.keys(contenu(facts, plein).styles).sort());
+  const st = contenu(v2, plein, "poster", reglages("mcjqrvI1HvypasCoV0X1ZrWl")).styles;
+  assert.deepEqual([st.monte, st.large, st.barre, st.inverse, st.voile, st.vignette, st.accent], [0.1, 1.4, "verre", true, "0", true, "rouge"]);
+  assert.deepEqual(st.badges, { style: "verre", forme: "pilule", opacite: "s", couleur: "or" });
+  assert.equal(st.fondu.hauteur, "long");
+});

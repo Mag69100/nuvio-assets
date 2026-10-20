@@ -49,46 +49,132 @@ function note(facts, imdbRating, source) {
   return null;
 }
 
+// Notes des autres sites : écriture, et valeur ramenée sur 10 (pour la couleur selon la note).
+const AUTRES_NOTES = {
+  rt: (v) => ({ v: `${Math.round(v)} %`, n: Math.round(v) / 10 }),
+  mc: (v) => ({ v: String(Math.round(v)), n: Math.round(v) / 10 }),
+  lb: (v) => ({ v: virgule(v.toFixed(1)), n: Math.round(v * 20) / 10 }),
+};
+
+/** « 2 h 46 », « 45 min » (film) ; « 3 saisons », « 1 saison » (série) ; null si inconnu. */
+function dureeDe(facts) {
+  if (facts.type === "series") return facts.seasonsCount ? `${facts.seasonsCount} saison${facts.seasonsCount > 1 ? "s" : ""}` : null;
+  const m = facts.runtime;
+  if (!m) return null;
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`;
+}
+
+/**
+ * Le logo du titre dans la langue choisie, avec repli : français puis anglais (par défaut, comme avant),
+ * anglais puis français, ou langue d'origine puis français puis anglais. Sans logos par langue : le logo connu.
+ */
+function logoDe(facts, langue) {
+  const l = facts.logos;
+  if (!l) return facts.logo || null;
+  const ordre = { fr: ["fr", "en"], en: ["en", "fr"], vo: ["vo", "fr", "en"] }[langue] || ["fr", "en"];
+  for (const k of ordre) if (l[k]) return l[k];
+  return null;
+}
+
+/** La qualité à montrer : { extra } (« 4K + DV/HDR » ou « 4K seul »), ou { label, extra, atmos } (« tout »), ou null. */
+function qualiteDe(quality, montrer) {
+  if (!quality) return null;
+  if (montrer !== "tout") return quality.uhd ? { extra: montrer === "4k" ? null : quality.extra || null } : null;
+  const label = quality.uhd ? "4K" : quality.fhd ? "1080p" : null;
+  if (!label) return null;
+  const extra = quality.uhd ? (quality.extra === "DV" ? "DV" : quality.hdr10p ? "HDR10+" : quality.extra || null) : null;
+  return { label, extra, atmos: !!quality.atmos };
+}
+
 /** Contenu d'une affiche, ou null si le titre n'a aucune image pour cette forme. */
-export function posterContent(facts, { imdbRating, rank, quality }, shape, r = DEFAUT_REGLAGES, today = aujourdhui()) {
-  const [sansTexte, normale] = shape === "landscape" ? [facts.textlessBackdrop, facts.backdrop] : [facts.textlessPoster, facts.poster];
-  const full = !!(r.titre.on && sansTexte && facts.logo);
-  const image = full ? sansTexte : normale || null;
+export function posterContent(facts, { imdbRating, rank, quality, notes }, shape, r = DEFAUT_REGLAGES, today = aujourdhui()) {
+  const paysage = shape === "landscape";
+  // Image : sans texte + notre logo (défaut) ; en portrait, l'affiche officielle (avec son texte, sans logo) ou
+  // l'image du film recadrée (fond sans texte, avec logo).
+  const source = r.titre.on && !paysage ? r.image.source : "sanstexte";
+  const normale = paysage ? facts.backdrop : facts.poster;
+  let image, full, logo = null;
+  if (source === "officielle") {
+    image = normale || null;
+    full = !!image;
+  } else {
+    const sansTexte = paysage || source === "fond" ? facts.textlessBackdrop : facts.textlessPoster;
+    logo = r.titre.on ? logoDe(facts, r.titre.langue) : null;
+    full = !!(r.titre.on && sansTexte && logo);
+    image = full ? sansTexte : normale || null;
+    if (!full) logo = null;
+  }
   if (!image) return null;
   // Pas sorti = pas encore chez soi en VF, comme les rangées de l'addon (au cinéma compris).
   const { sorti, statut, quand } = etatSortie(facts, today);
   const pasSorti = !sorti;
+  const plateforme = r.plateforme.on && facts.provider ? facts.provider.logo : null;
   const line = {};
   if (full) {
     const genres = r.genre.forme === "complet" ? GENRES_COMPLETS : SHORT_GENRES;
     if (r.genre.on && genres[facts.genreIds[0]]) line.genre = genres[facts.genreIds[0]];
-    const n = r.note.on && !(r.sortie.cacherNote && pasSorti) ? note(facts, imdbRating, r.note.source) : null;
+    const notesVisibles = r.note.on && !(r.sortie.cacherNote && pasSorti);
+    const n = notesVisibles ? note(facts, imdbRating, r.note.source) : null;
     if (n) line.note = n.valeur;
     // La source n'est écrite que pour le badge (« IMDb 8,4 ») : les autres affiches gardent leur ETag.
     if (n && r.note.style === "badge") line.source = n.source;
+    if (n && r.note.couleur !== "non") line.noteN = Number(n.valeur.replace(",", "."));
+    const autres = notesVisibles && notes ? ["rt", "mc", "lb"].filter((k) => r.note[k] && notes[k]).map((k) => ({ s: k, ...AUTRES_NOTES[k](notes[k]) })) : [];
+    if (autres.length) line.notes = autres;
     if (r.annee.on && facts.year) line.annee = facts.year;
+    const duree = r.duree.on ? dureeDe(facts) : null;
+    if (duree) line.duree = duree;
     if (r.age.on && facts.age) line.age = facts.age;
+    if (plateforme && r.plateforme.place === "ligne") line.plateforme = plateforme;
+    if (Object.keys(line).length && r.ligne.ordre !== "gna") line.ordre = r.ligne.ordre;
   }
-  return {
+  // Pas encore sorti : la date quand on la connaît, plutôt que « Bientôt » ou « En salle ».
+  let libelle = r.statut.on && statut ? (quand ? libelleDate(quand, today) : LIBELLES_STATUT[statut]) : null;
+  let place = r.tendance.on && rank >= 1 && rank <= 20 ? rank : null;
+  // Bandeau en coin : il porte le statut ou le N° de tendance, qui ne sont alors plus écrits en haut.
+  let bandeau = null;
+  if (r.bandeau.on) {
+    const texte = r.bandeau.porte === "tendance" ? (place ? `N°${place}` : null) : libelle;
+    if (texte) {
+      bandeau = { texte, coin: r.bandeau.coin };
+      if (r.bandeau.porte === "tendance") place = null; else libelle = null;
+    }
+  }
+  const b = r.haut, a = r.ambiance;
+  const content = {
     shape,
     image,
     full,
     gris: r.sortie.nb && pasSorti,
-    logo: full ? facts.logo : null,
+    logo,
     line: Object.keys(line).length ? line : null,
-    // Pas encore sorti : la date quand on la connaît, plutôt que « Bientôt » ou « En salle ».
-    statut: r.statut.on && statut ? (quand ? libelleDate(quand, today) : LIBELLES_STATUT[statut]) : null,
-    rank: r.tendance.on && rank >= 1 && rank <= 20 ? rank : null,
-    quality: r.qualite.on && quality && quality.uhd ? { extra: r.qualite.montrer === "4k" ? null : quality.extra || null } : null,
+    statut: libelle,
+    rank: place,
+    quality: r.qualite.on ? qualiteDe(quality, r.qualite.montrer) : null,
     styles: {
       statut: r.statut.style, tendance: r.tendance.style, qualite: r.qualite.style, titre: r.titre.taille,
       note: r.note.style, texte: r.texte.taille, sep: r.texte.sep, haut: r.texte.haut,
-      fondu: full && r.fondu.on ? { couleur: r.fondu.couleur, force: r.fondu.force, ...(r.fondu.flou ? { flou: true } : {}) } : null,
+      fondu: full && r.fondu.on
+        ? { couleur: r.fondu.couleur, force: r.fondu.force, ...(r.fondu.flou ? { flou: true } : {}), ...(r.fondu.hauteur !== "normal" ? { hauteur: r.fondu.hauteur } : {}) }
+        : null,
       // Réglages ajoutés ensuite : écrits seulement hors défaut, pour ne pas changer l'ETag des affiches déjà vues.
       ...(r.titre.place !== "auto" ? { place: r.titre.place } : {}),
       ...(r.texte.police !== "inter" ? { police: r.texte.police } : {}),
+      ...(r.titre.monte ? { monte: r.titre.monte } : {}),
+      ...(r.titre.large !== 1 ? { large: r.titre.large } : {}),
+      ...(r.note.couleur !== "non" ? { couleurNote: r.note.couleur } : {}),
+      ...(r.ligne.barre !== "aucune" ? { barre: r.ligne.barre } : {}),
+      ...(b.inverse ? { inverse: true } : {}),
+      ...(b.style !== "auto" ? { badges: { style: b.style, forme: b.forme, opacite: b.opacite, couleur: b.couleur } } : {}),
+      ...(a.voile !== "m" ? { voile: a.voile } : {}),
+      ...(a.vignette ? { vignette: true } : {}),
+      ...(a.accent !== "or" ? { accent: a.accent } : {}),
     },
   };
+  // Clés ajoutées seulement quand elles servent (même raison : l'ETag des autres affiches ne bouge pas).
+  if (bandeau) content.bandeau = bandeau;
+  if (plateforme && r.plateforme.place === "coin") content.coin = plateforme;
+  return content;
 }
 
 /** Empreinte du contenu (et du dessin) : sert d'ETag. */

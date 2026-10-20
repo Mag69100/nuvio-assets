@@ -166,6 +166,9 @@ test("styles : chaque choix se dessine", async () => {
     { line: { genre: "SF", note: "8,4", source: "tmdb", annee: "2024", age: "16" }, styles: { ...STYLES, note: "badge", police: "bebas", place: "gauche" } },
     { line: { note: "8,4", age: "12" }, styles: { ...STYLES, note: "grand", place: "centre", fondu: { couleur: "affiche", force: "l", flou: true } } },
     { statut: "AU CINÉMA LE 16 DÉC. 2027", styles: { ...STYLES, police: "bebas", haut: 1.4 } },
+    { bandeau: { texte: "NOUVEAU", coin: "g" }, statut: null, styles: { ...STYLES, badges: { style: "verre", forme: "carre", opacite: "s", couleur: "or" }, inverse: true, accent: "affiche", vignette: true, voile: "l", barre: "verre", monte: 0.3, large: 1.4 } },
+    { line: { genre: "SF", note: "8,4", noteN: 5, notes: [{ s: "mc", v: "45", n: 4.5 }], duree: "3 saisons", ordre: "agn" }, quality: { label: "4K", extra: "DV", atmos: true }, styles: { ...STYLES, couleurNote: "halo", barre: "fine", badges: { style: "contour", forme: "arrondi", opacite: "m", couleur: "blanc" }, fondu: { couleur: "noir", force: "l", hauteur: "long", flou: true } } },
+    { logo: null, line: { genre: "SF", note: "8,4" }, styles: { ...STYLES, note: "grand", couleurNote: "oui" } },
   ];
   for (const e of essais) {
     for (const shape of ["poster", "landscape"]) {
@@ -299,4 +302,101 @@ test("fondu flou : le bas de l'image est adouci", async () => {
   };
   const net = await ecart(undefined), doux = await ecart(true);
   assert.ok(doux < net * 0.5, `pas flou : ${net} → ${doux}`);
+});
+
+// ---------- Régie v2 ----------
+const rouge = (r, g, b) => r > 200 && g < 110 && b < 110;
+const vert = (r, g, b) => g > 150 && r < 120 && b < 140;
+const sombre = async (buf, zoneXY) => (await zone(buf, ...zoneXY))[0];
+
+test("v2_bandeau_dans_le_coin", async () => {
+  const sans = { ...seul, line: null, statut: null };
+  const avecBandeau = await draw({ ...sans, bandeau: { texte: "NOUVEAU", coin: "d" } }, f);
+  const jaune = (r, g, b) => r > 200 && g > 160 && b < 90;
+  assert.ok(await compte(avecBandeau, [300, 0, 100, 100], jaune) > 400, "pas de bandeau en haut à droite");
+  assert.ok(await compte(avecBandeau, [0, 0, 100, 100], jaune) < 20, "bandeau du mauvais côté");
+  const gauche = await draw({ ...sans, bandeau: { texte: "N°2", coin: "g" } }, f);
+  assert.ok(await compte(gauche, [0, 0, 100, 100], jaune) > 400, "pas de bandeau en haut à gauche");
+});
+
+test("v2_accent_et_note_coloree", async () => {
+  const accent = await draw({ ...seul, styles: { ...STYLES, accent: "rouge" } }, f);
+  assert.ok(await compte(accent, [0, 520, 400, 80], rouge) > 40, "étoile pas rouge");
+  const coloree = await draw({ ...seul, line: { note: "8,4", noteN: 8.4 }, styles: { ...STYLES, couleurNote: "oui" } }, f);
+  assert.ok(await compte(coloree, [0, 520, 400, 80], vert) > 80, "note pas verte");
+});
+
+test("v2_autres_notes", async () => {
+  const buf = await draw({ ...seul, line: { note: "8,4", notes: [{ s: "rt", v: "94 %", n: 9.4 }, { s: "lb", v: "4,1", n: 8.2 }] } }, f);
+  assert.ok(await compte(buf, [0, 520, 400, 80], rouge) > 40, "pas de pastille RT");
+  const bleu = (r, g, b) => b > 200 && r < 120 && g > 150;
+  assert.ok(await compte(buf, [0, 520, 400, 80], bleu) > 5, "pas de points Letterboxd");
+});
+
+test("v2_ordre_et_duree", async () => {
+  const a = await draw({ ...seul, line: { genre: "SF", note: "8,4", annee: "2024", duree: "2 h 46" } }, f);
+  const b = await draw({ ...seul, line: { genre: "SF", note: "8,4", annee: "2024" } }, f);
+  const [da, db] = [await pixels(a, 0, 540, 400, 60), await pixels(b, 0, 540, 400, 60)];
+  let changes = 0;
+  for (let i = 0; i < da.data.length; i++) if (Math.abs(da.data[i] - db.data[i]) > 40) changes++;
+  assert.ok(changes > 300, "durée absente");
+  const ordre = await draw({ ...seul, line: { genre: "SF", note: "8,4", annee: "2024", ordre: "nga" } }, f);
+  const [pa, pb] = [await pixels(b, 0, 540, 400, 60), await pixels(ordre, 0, 540, 400, 60)];
+  let diff = 0;
+  for (let i = 0; i < pa.data.length; i++) if (Math.abs(pa.data[i] - pb.data[i]) > 60) diff++;
+  assert.ok(diff > 300, "ordre sans effet");
+});
+
+test("v2_barre_verre_et_fine", async () => {
+  const rayures = () => sharp(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="500" height="750"><defs><pattern id="p" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="3" height="6" fill="#fff"/><rect x="3" width="3" height="6" fill="#000"/></pattern></defs><rect width="500" height="750" fill="url(#p)"/></svg>')).jpeg().toBuffer();
+  const g = avec(rayures);
+  const ecart = async (barre) => {
+    const buf = await draw({ ...seul, line: { genre: "SF" }, styles: { ...STYLES, fondu: null, barre } }, g);
+    const z = await sharp(buf).extract({ left: 0, top: 590, width: 60, height: 8 }).toBuffer();
+    return (await sharp(z).stats()).channels[0].stdev;
+  };
+  assert.ok(await ecart("verre") < (await ecart(undefined)) * 0.5, "pas de verre flouté sous la ligne");
+  const fine = await draw({ ...seul, line: { genre: "SF" }, styles: { ...STYLES, barre: "fine", accent: "rouge" } }, f);
+  assert.ok(await compte(fine, [150, 520, 100, 60], rouge) > 60, "pas de barre fine");
+});
+
+test("v2_badges_communs_et_inverse", async () => {
+  const plein = await draw({ ...seul, line: null, statut: "NOUVEAU", styles: { ...STYLES, badges: { style: "plein", forme: "pilule", opacite: "l", couleur: "noir" } } }, f);
+  const creme = (r, g, b) => r > 225 && g > 215 && b > 190;
+  assert.ok(await compte(plein, [0, 0, 160, 50], creme) > 200, "pas de badge plein");
+  const inverse = await draw({ ...seul, line: null, quality: { extra: "DV" }, styles: { ...STYLES, inverse: true } }, f);
+  assert.ok(await compte(inverse, [0, 0, 150, 60], blanc) > 80, "qualité pas passée à gauche");
+  assert.ok(await compte(inverse, [250, 0, 150, 60], blanc) < 20, "qualité restée à droite");
+});
+
+test("v2_plateforme_et_logo_monte", async () => {
+  const netflix = () => sharp({ create: { width: 92, height: 92, channels: 3, background: { r: 229, g: 9, b: 20 } } }).png().toBuffer();
+  const g = images({ "/base.jpg": { corps: () => gris(500, 750), type: "image/jpeg" }, "/logo.png": { corps: logoPng, type: "image/png" }, "/n.jpg": { corps: netflix, type: "image/png" } });
+  const ligne = await draw({ ...seul, line: { genre: "SF", plateforme: "/n.jpg" } }, g);
+  assert.ok(await compte(ligne, [0, 520, 400, 80], rouge) > 300, "logo de plateforme absent de la ligne");
+  const coin = await draw({ ...seul, line: null, coin: "/n.jpg" }, g);
+  assert.ok(await compte(coin, [300, 0, 100, 100], rouge) > 300, "logo de plateforme absent du coin");
+  const hautBlanc = async (buf) => { const { data, info } = await sharp(buf).greyscale().raw().toBuffer({ resolveWithObject: true }); for (let y = 0; y < info.height; y++) for (let x = 0; x < info.width; x++) if (data[y * info.width + x] > 240) return y; return -1; };
+  const normal = await draw({ ...base, line: null, rank: null, quality: null }, f);
+  const monte = await draw({ ...base, line: null, rank: null, quality: null, styles: { ...STYLES, monte: 0.2 } }, f);
+  assert.ok(await hautBlanc(monte) < (await hautBlanc(normal)) - 100, "logo pas remonté");
+});
+
+test("v2_voile_vignette", async () => {
+  const sans = await draw({ ...seul, line: null, logo: null, statut: "NOUVEAU", styles: { ...STYLES, voile: "0" } }, f);
+  const avecVoile = await draw({ ...seul, line: null, logo: null, statut: "NOUVEAU" }, f);
+  assert.ok(await sombre(sans, [200, 0, 200, 40]) > (await sombre(avecVoile, [200, 0, 200, 40])) + 10, "voile du haut pas retiré");
+  const vignette = await draw({ ...seul, line: null, logo: null, full: false, styles: { ...STYLES, vignette: true } }, f);
+  assert.ok(await sombre(vignette, [0, 250, 20, 100]) < 110, "bords pas assombris");
+  assert.ok(await sombre(vignette, [180, 280, 40, 40]) > 120, "centre assombri");
+});
+
+test("v2_qualite_complete", async () => {
+  const { elementsQualite } = await import("../lib/dessin.js");
+  const q = JSON.stringify(elementsQualite("HDR10+", 26, false, "4K", true));
+  assert.match(q, /"HDR10\+"/);
+  assert.match(q, /"ATMOS"/);
+  assert.match(JSON.stringify(elementsQualite(null, 26, false, "1080p", false)), /"1080p"/);
+  const buf = await draw({ ...seul, line: null, quality: { label: "1080p", extra: null, atmos: true } }, f);
+  assert.equal((await sharp(buf).metadata()).width, 400);
 });

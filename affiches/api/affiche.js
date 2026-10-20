@@ -38,10 +38,10 @@ function fetchImages(fetchImpl) {
 }
 
 /** La qualité, ou null si Torrentio n'a pas répondu à temps (enRetard dit lequel des deux). */
-function qualiteATemps(type, facts, fetchImpl) {
+function qualiteATemps(type, facts, fetchImpl, relais) {
   let timer;
   const delai = new Promise((ok) => { timer = setTimeout(() => ok({ enRetard: true, quality: null }), ATTENTE_QUALITE_MS); });
-  return Promise.race([qualityOf(type, facts.imdbId, facts.lastSeason, fetchImpl).then((quality) => ({ enRetard: false, quality })), delai])
+  return Promise.race([qualityOf(type, facts.imdbId, facts.lastSeason, fetchImpl, relais).then((quality) => ({ enRetard: false, quality })), delai])
     .finally(() => clearTimeout(timer));
 }
 
@@ -60,7 +60,8 @@ function optionsNormales(q, id) {
   }
   const o = "tqngal".split("").filter((k) => (q.get("o") || "").includes(k)).join("");
   if (o) p.set("o", o);
-  if (q.get("r") === "tmdb") p.set("r", "tmdb");
+  // Note coupée : sa source ne change rien à l'affiche.
+  if (q.get("r") === "tmdb" && !o.includes("n")) p.set("r", "tmdb");
   return String(p);
 }
 
@@ -91,15 +92,23 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const brouillon = posterContent(facts, {}, shape, opts);
       if (!brouillon) return absent();
       const images = fetchImages(fetchImpl);
-      if (!request.headers.get("If-None-Match")) imageUrls(brouillon).forEach((u) => images(u).catch(() => {}));
+      const peutDessiner = brouillon.full || opts.t || qualite;
+      if (peutDessiner && !request.headers.get("If-None-Match")) imageUrls(brouillon).forEach((u) => images(u).catch(() => {}));
+      const relais = new URL(request.url).origin;
       const [imdbRating, rank, { enRetard, quality }] = await Promise.all([
         noteImdb && facts.imdbId ? ratingOf(facts.imdbId, fetchImpl) : undefined,
         opts.t ? trendingRank(env, type, facts.tmdbId, fetchImpl) : null,
-        qualite ? qualiteATemps(type, facts, fetchImpl) : { enRetard: false, quality: null },
+        qualite ? qualiteATemps(type, facts, fetchImpl, relais) : { enRetard: false, quality: null },
       ]);
       const content = posterContent(facts, { imdbRating, rank, quality }, shape, opts);
+      // Rien à poser sur l'image : l'appli va la chercher directement chez TMDB, sans la redessiner ici.
+      if (!content.full && !content.rank && !content.quality) {
+        return new Response(null, { status: 302, headers: { ...CORS, ...(enRetard ? COURT : OK_CACHE), Location: imageUrls(content)[0] } });
+      }
       const etag = `"${contentKey(content)}"`;
-      const headers = { ...CORS, ...(enRetard ? COURT : OK_CACHE), ETag: etag };
+      // Une affiche classée revérifiée chaque jour par l'appli : son « N° » suit le classement.
+      const cache = enRetard ? COURT : content.rank ? { ...OK_CACHE, "Cache-Control": "public, max-age=86400" } : OK_CACHE;
+      const headers = { ...CORS, ...cache, ETag: etag };
       if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });
       const jpg = await draw(content, images);
       return new Response(jpg, { status: 200, headers: { ...headers, "Content-Type": "image/jpeg" } });

@@ -5,9 +5,12 @@
 export const TMDB = "https://api.themoviedb.org/3";
 const DELAI_MS = 3000;
 
-// Correspondances « tt… » → identifiant TMDB, gardées en mémoire de l'instance (elles ne changent pas).
+// Correspondances « tt… » → identifiant TMDB, gardées en mémoire de l'instance (elles ne changent pas),
+// 5 000 au plus : les plus anciennes sortent.
+const MAX_MEMO = 5000;
 let memoFind = new Map();
 export function resetMemo() { memoFind = new Map(); }
+export const tailleMemo = () => memoFind.size;
 
 /** Appel TMDB : objet JSON, null si 404, erreur levée pour tout autre échec (réseau, 5xx…). */
 export async function tmdbGet(env, path, params, fetchImpl) {
@@ -20,13 +23,15 @@ export async function tmdbGet(env, path, params, fetchImpl) {
   return res.json();
 }
 
-async function tmdbIdOf(env, type, imdbId, fetchImpl) {
+/** Identifiant TMDB d'un titre « tt… » (null s'il n'existe pas chez TMDB). */
+export async function tmdbIdDe(env, type, imdbId, fetchImpl = fetch) {
   const key = `${type}:${imdbId}`;
   if (memoFind.has(key)) return memoFind.get(key);
   const d = await tmdbGet(env, `/find/${imdbId}`, { external_source: "imdb_id" }, fetchImpl);
   const hit = d && (type === "series" ? d.tv_results : d.movie_results) || [];
   const id = hit.length ? hit[0].id : null;
   memoFind.set(key, id);
+  while (memoFind.size > MAX_MEMO) memoFind.delete(memoFind.keys().next().value);
   return id;
 }
 
@@ -40,7 +45,7 @@ const first = (list, langs) => {
 
 /** Les faits d'un titre, ou null si TMDB ne le connaît pas. */
 export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch) {
-  const tmdbId = id.startsWith("tmdb:") ? Number(id.slice(5)) : await tmdbIdOf(env, type, id, fetchImpl);
+  const tmdbId = id.startsWith("tmdb:") ? Number(id.slice(5)) : await tmdbIdDe(env, type, id, fetchImpl);
   if (!tmdbId) return null;
   const d = await tmdbGet(env, `/${type === "series" ? "tv" : "movie"}/${tmdbId}`, {
     language: "fr-FR", append_to_response: "images,external_ids", include_image_language: "fr,en,null",

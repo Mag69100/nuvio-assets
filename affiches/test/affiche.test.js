@@ -2,6 +2,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
 import { makeHandler } from "../api/affiche.js";
+import { makeQualite } from "../api/qualite.js";
 import { posterContent, contentKey } from "../lib/contenu.js";
 import { resetMemo as r1 } from "../lib/tmdb.js";
 import { resetMemo as r2 } from "../lib/notes.js";
@@ -19,18 +20,24 @@ const film = {
 const JPG = await sharp({ create: { width: 500, height: 750, channels: 3, background: "#808080" } }).jpeg().toBuffer();
 const PNG = await sharp({ create: { width: 300, height: 100, channels: 4, background: "#ffffff" } }).png().toBuffer();
 
-/** Faux internet : TMDB, images, notes, Torrentio. `torrentio` remplace la réponse de Torrentio. */
+/**
+ * Faux internet : TMDB, images, notes, et le relais /qualite/ du service (https://affiches.test), qui lit
+ * Torrentio. `torrentio` remplace la réponse de Torrentio.
+ */
 function internet({ detail = json(film), torrentio } = {}) {
   const calls = [];
+  const lireTorrentio = async (u, opts) => { calls.push(String(u)); return torrentio ? torrentio(u, opts) : json({ streams: [{ name: "4k DV" }] }); };
   const f = async (url, opts = {}) => {
     const u = String(url);
+    if (u.includes("torrentio")) return lireTorrentio(u, opts);
     calls.push(u);
+    const relais = /^https:\/\/affiches\.test\/qualite\/(movie|series)\/(.+)\.json$/.exec(u);
+    if (relais) return makeQualite({ fetchImpl: lireTorrentio })(new Request(`https://affiches.test/api/qualite?type=${relais[1]}&video=${relais[2]}`));
     if (u.includes("/find/")) return json({ movie_results: [{ id: 693134 }], tv_results: [] });
     if (u.includes("/trending/")) return json({ results: [] });
     if (u.includes("api.themoviedb.org") && (u.includes("/movie/") || u.includes("/tv/"))) return detail.clone();
     if (u.includes("image.tmdb.org")) return new Response(u.endsWith(".png") ? PNG : JPG);
     if (u.includes("imdb-ratings.bin")) return new Response("", { status: 404 });
-    if (u.includes("torrentio")) return torrentio ? torrentio(u, opts) : json({ streams: [{ name: "4k DV" }] });
     return new Response("?", { status: 404 });
   };
   f.calls = calls;
@@ -112,7 +119,7 @@ test("images téléchargées pendant qu'on attend Torrentio", async () => {
   const base = internet();
   const f = async (url, opts) => {
     const u = String(url);
-    if (u.includes("torrentio")) { await new Promise((ok) => setTimeout(ok, 400)); torrentioFini = Date.now(); return json({ streams: [] }); }
+    if (u.includes("/qualite/")) { await new Promise((ok) => setTimeout(ok, 400)); torrentioFini = Date.now(); return json({ uhd: false, extra: null }); }
     if (u.includes("image.tmdb.org") && !premiereImage) premiereImage = Date.now();
     return base(url, opts);
   };
@@ -158,6 +165,33 @@ test("options : note TMDB sans lire les notes IMDb", async () => {
   assert.ok(!f.calls.some((u) => u.includes("imdb-ratings.bin")));
 });
 
+test("qualité demandée au relais du service, pas à Torrentio directement", async () => {
+  const f = internet();
+  await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.ok(f.calls.includes("https://affiches.test/qualite/movie/tt15239678.json"), f.calls.join("\n"));
+});
+
+// Rien à dessiner (pas de titre maison, ni rang ni qualité) : l'image d'origine de TMDB, sans la redessiner.
+test("rien à dessiner : redirection vers l'image TMDB", async () => {
+  const f = internet();
+  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&o=tqngal"));
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get("Location"), "https://image.tmdb.org/t/p/w500/fr.jpg");
+  assert.equal(res.headers.get("Cache-Control"), "public, max-age=604800");
+  assert.ok(!f.calls.some((u) => u.includes("image.tmdb.org")), "image téléchargée pour rien");
+  const pays = await makeHandler({ fetchImpl: internet(), env })(req("type=movie&shape=landscape&id=tt15239678&o=tqngal"));
+  assert.equal(pays.headers.get("Location"), "https://image.tmdb.org/t/p/w780/bd.jpg");
+});
+
+// Une affiche classée garde son « N° » à jour : l'appli la revérifie chaque jour, pas chaque semaine.
+test("affiche classée : cache court côté appli", async () => {
+  const base = internet();
+  const f = async (url, opts) => (String(url).includes("/trending/") ? json({ results: [{ id: 693134 }] }) : base(url, opts));
+  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("Cache-Control"), "public, max-age=86400");
+});
+
 // Le titre ne doit jamais manquer : logo introuvable sur une image sans texte → erreur (Nuvio montre
 // l'affiche d'origine), jamais une affiche sans nom gardée en cache.
 test("logo introuvable : 502 sans cache", async () => {
@@ -178,6 +212,8 @@ test("lien non canonique : redirection sans appel", async () => {
     ["type=movie&shape=poster&id=tt15239678&r=imdb", "/movie/poster/tt15239678.jpg"],
     ["type=movie&shape=poster&id=tt15239678&imdb=tt999", "/movie/poster/tt15239678.jpg?imdb=tt15239678"],
     ["type=series&shape=landscape&id=tmdb:94605&imdb=abc", "/series/landscape/tmdb:94605.jpg"],
+    // Note coupée : la source de la note ne change rien, elle ne doit pas faire une copie de plus.
+    ["type=movie&shape=poster&id=tt15239678&o=n&r=tmdb", "/movie/poster/tt15239678.jpg?o=n"],
   ];
   for (const [q, cible] of cas) {
     const f = internet();

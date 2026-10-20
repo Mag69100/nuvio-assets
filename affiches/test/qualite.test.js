@@ -1,6 +1,6 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { parseQuality, qualityOf, resetMemo } from "../lib/qualite.js";
+import { parseQuality, qualityOf, resetMemo, tailleMemo } from "../lib/qualite.js";
 
 beforeEach(() => resetMemo());
 
@@ -54,6 +54,25 @@ test("délai : null en 2,5 s au plus", async () => {
 
 test("erreur HTTP : null", async () => {
   assert.equal(await qualityOf("movie", "tt8", null, async () => new Response("non", { status: 403 })), null);
+});
+
+// Avec un relais (le service lui-même, derrière le cache de Vercel), la qualité lue par une instance
+// resservira à toutes les autres : on la demande au relais, pas à Torrentio.
+test("relais : qualité lue via le cache partagé", async () => {
+  const calls = [];
+  const f = async (u) => { calls.push(String(u)); return new Response(JSON.stringify({ uhd: true, extra: "HDR" })); };
+  assert.deepEqual(await qualityOf("series", "tt2", 3, f, "https://affiches.test"), { uhd: true, extra: "HDR" });
+  assert.deepEqual(calls, ["https://affiches.test/qualite/series/tt2:3:1.json"]);
+});
+
+test("relais en panne : null", async () => {
+  assert.equal(await qualityOf("movie", "tt7", null, async () => new Response("", { status: 503 }), "https://affiches.test"), null);
+});
+
+test("mémoire plafonnée : les plus anciennes sortent", async () => {
+  const f = async () => reponse([])();
+  for (let i = 0; i < 5005; i++) await qualityOf("movie", "tt" + (100000 + i), null, f);
+  assert.ok(tailleMemo() <= 5000, `taille ${tailleMemo()}`);
 });
 
 test("mémoire : un seul appel par titre", async () => {

@@ -1,6 +1,6 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { titleFacts, resetMemo as resetTmdb } from "../lib/tmdb.js";
+import { titleFacts, tmdbIdDe, tailleMemo, resetMemo as resetTmdb } from "../lib/tmdb.js";
 import { ratingOf, decodeRatings, resetMemo as resetNotes } from "../lib/notes.js";
 import { trendingRank, resetMemo as resetTendances } from "../lib/tendances.js";
 
@@ -82,6 +82,12 @@ test("année et saison", async () => {
   const s = await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fauxFetch([["/tv/94605", json(serie)]]));
   assert.equal(s.year, "2021");
   assert.equal(s.lastSeason, 2);
+});
+
+test("mémoire des correspondances plafonnée", async () => {
+  const f = async (u) => json({ movie_results: [{ id: 1 }], tv_results: [] });
+  for (let i = 0; i < 5005; i++) await tmdbIdDe(env, "movie", "tt" + (200000 + i), f);
+  assert.ok(tailleMemo() <= 5000, `taille ${tailleMemo()}`);
 });
 
 test("inconnu : 404 → null, 500 → erreur", async () => {

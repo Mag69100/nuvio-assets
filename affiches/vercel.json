@@ -2,10 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["cdg1"],
   "rewrites": [
+    { "source": "/qualite/:type/:video.json", "destination": "/api/qualite?type=:type&video=:video" },
     { "source": "/:type/:shape/:id.jpg", "destination": "/api/affiche?type=:type&shape=:shape&id=:id" }
   ],
   "functions": {
     "api/affiche.js": { "includeFiles": "{fonts/**,node_modules/harfbuzzjs/hb.wasm,node_modules/satori/yoga.wasm}" }
   },
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- ."
+  "ignoreCommand": "git diff --quiet \"${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}\" HEAD -- ."
 }

@@ -589,205 +589,6 @@
         "titleLogoUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/logos/canal-plus.png"
       },
       {
-        "id": "marvel-studios",
-        "title": "Marvel Studios",
-        "tileShape": "LANDSCAPE",
-        "hideTitle": true,
-        "focusGifEnabled": true,
-        "sources": [
-          {
-            "provider": "tmdb",
-            "tmdbSourceType": "DISCOVER",
-            "title": "Films populaires",
-            "mediaType": "MOVIE",
-            "sortBy": "popularity.desc",
-            "filters": {
-              "withCompanies": "420"
-            }
-          },
-          {
-            "provider": "tmdb",
-            "tmdbSourceType": "DISCOVER",
-            "title": "Séries populaires",
-            "mediaType": "TV",
-            "sortBy": "popularity.desc",
-            "filters": {
-              "withCompanies": "420"
-            }
-          },
-          {
-            "provider": "tmdb",
-            "tmdbSourceType": "DISCOVER",
-            "title": "Nouveaux films",
-            "mediaType": "MOVIE",
-            "sortBy": "primary_release_date.desc",
-            "filters": {
-              "withCompanies": "420",
-              "voteCountGte": 10
-            }
-          },
-          {
-            "provider": "tmdb",
-            "tmdbSourceType": "DISCOVER",
-            "title": "Nouvelles séries",
-            "mediaType": "TV",
-            "sortBy": "first_air_date.desc",
-            "filters": {
-              "withCompanies": "420",
-              "voteCountGte": 10
-            }
-          },
-          {
-            "provider": "tmdb",
-            "tmdbSourceType": "DISCOVER",
-            "title": "Films les mieux notés",
-            "mediaType": "MOVIE",
-            "sortBy": "vote_average.desc",
-            "filters": {
-              "withCompanies": "420",
-              "voteCountGte": 500
-            }
-          },
-          {
-            "provider": "tmdb",
-            "tmdbSourceType": "DISCOVER",
-            "title": "Séries les mieux notées",
-            "mediaType": "TV",
-            "sortBy": "vote_average.desc",
-            "filters": {
-              "withCompanies": "420",
-              "voteCountGte": 200
-            }
-          }
-        ],
-        "coverImageUrl": "https://wsrv.nl/?url=wsrv.nl%2F%3Furl%3Dimage.tmdb.org%2Ft%2Fp%2Foriginal%2FhUzeosd33nzE5MCNsZxCGEKTXaQ.png%26w%3D440%26h%3D190%26fit%3Dinside%26output%3Dpng&w=640&h=360&fit=contain&we&cbg=ffffff&output=png&bg=ffffff",
-        "focusGifUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/gifs/platforms/marvel-studios.gif?v=4",
-        "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/7RyHsO4yDXtBv1zUU3mTpHeQ0d5.jpg",
-        "titleLogoUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/logos/marvel-studios.png"
-      },
-      {
-        "id": "warner-bros",
-        "title": "Warner Bros",
-        "tileShape": "LANDSCAPE",
-        "hideTitle": true,
-        "focusGifEnabled": true,
-        "sources": [
-          {
-            "provider": "tmdb",
-            "tmdbSourceType": "DISCOVER",
-            "title": "Films populaires",
-            "mediaType": "MOVIE",
-            "sortBy": "popularity.desc",
-            "filters": {
-              "withCompanies": "174"
-            }
-          },
-          {
-            "provider": "tmdb",
-            "tmdbSourceType": "DISCOVER",
-            "title": "Nouveaux films",
-            "mediaType": "MOVIE",
-            "sortBy": "primary_release_date.desc",
-            "filters": {
-              "withCompanies": "174",
-              "voteCountGte": 10
-            }
-          },
-          {
-            "provider": "tmdb",
-            "tmdbSourceType": "DISCOVER",
-            "title": "Films les mieux notés",
-            "mediaType": "MOVIE",
-            "sortBy": "vote_average.desc",
-            "filters": {
-              "withCompanies": "174",
-              "voteCountGte": 500
-            }
-          }
-        ],
-        "coverImageUrl": "https://wsrv.nl/?url=wsrv.nl%2F%3Furl%3Dimage.tmdb.org%2Ft%2Fp%2Foriginal%2FzhD3hhtKB5qyv7ZeL4uLpNxgMVU.png%26w%3D440%26h%3D190%26fit%3Dinside%26output%3Dpng&w=640&h=360&fit=contain&we&cbg=ffffff&output=png&bg=ffffff",
-        "focusGifUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/gifs/platforms/warner-bros.gif?v=4",
-        "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/24Ov8wnusgnzXwjV1eDm0Lzo5da.jpg",
-        "titleLogoUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/logos/warner-bros.png"
-      },
-      {
-        "id": "dc-comics",
-        "title": "DC Comics",
-        "tileShape": "LANDSCAPE",
-        "hideTitle": true,
-        "focusGifEnabled": true,
-        "sources": [
-          {
-            "provider": "tmdb",
-            "tmdbSourceType": "DISCOVER",
-            "title": "Films populaires",
-            "mediaType": "MOVIE",
-            "sortBy": "popularity.desc",
-            "filters": {
-              "withCompanies": "429|128064"
-            }
-          },
-          {
-            "provider": "tmdb",
-            "tmdbSourceType": "DISCOVER",
-            "title": "Séries populaires",
-            "mediaType": "TV",
-            "sortBy": "popularity.desc",
-            "filters": {
-              "withCompanies": "429|128064"
-            }
-          },
-          {
-            "provider": "tmdb",
-            "tmdbSourceType": "DISCOVER",
-            "title": "Nouveaux films",
-            "mediaType": "MOVIE",
-            "sortBy": "primary_release_date.desc",
-            "filters": {
-              "voteCountGte": 10,
-              "withCompanies": "429|128064"
-            }
-          },
-          {
-            "provider": "tmdb",
-            "tmdbSourceType": "DISCOVER",
-            "title": "Nouvelles séries",
-            "mediaType": "TV",
-            "sortBy": "first_air_date.desc",
-            "filters": {
-              "voteCountGte": 10,
-              "withCompanies": "429|128064"
-            }
-          },
-          {
-            "provider": "tmdb",
-            "tmdbSourceType": "DISCOVER",
-            "title": "Films les mieux notés",
-            "mediaType": "MOVIE",
-            "sortBy": "vote_average.desc",
-            "filters": {
-              "voteCountGte": 500,
-              "withCompanies": "429|128064"
-            }
-          },
-          {
-            "provider": "tmdb",
-            "tmdbSourceType": "DISCOVER",
-            "title": "Séries les mieux notées",
-            "mediaType": "TV",
-            "sortBy": "vote_average.desc",
-            "filters": {
-              "voteCountGte": 200,
-              "withCompanies": "429|128064"
-            }
-          }
-        ],
-        "coverImageUrl": "https://wsrv.nl/?url=wsrv.nl%2F%3Furl%3Dimage.tmdb.org%2Ft%2Fp%2Foriginal%2F4Y00XuSMuP1gimd0jP6JT57QbCI.png%26w%3D440%26h%3D190%26fit%3Dinside%26output%3Dpng&w=640&h=360&fit=contain&we&cbg=ffffff&output=png&bg=ffffff",
-        "focusGifUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/gifs/platforms/dc-comics.gif?v=4",
-        "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/IYUD7rAIXzBM91TT3Z5fILUS7n.jpg",
-        "titleLogoUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/logos/dc-comics.png"
-      },
-      {
         "id": "crunchyroll",
         "title": "Crunchyroll",
         "tileShape": "LANDSCAPE",
@@ -3009,6 +2810,205 @@
         "focusGifUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/gifs/studios/studio-10342.gif?v=4",
         "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/dyJvKsNs2KP8qQnAXbRwDjblViy.jpg",
         "titleLogoUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/logos/studio-10342.png"
+      },
+      {
+        "id": "marvel-studios",
+        "title": "Marvel Studios",
+        "tileShape": "LANDSCAPE",
+        "hideTitle": true,
+        "focusGifEnabled": true,
+        "sources": [
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Films populaires",
+            "mediaType": "MOVIE",
+            "sortBy": "popularity.desc",
+            "filters": {
+              "withCompanies": "420"
+            }
+          },
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Séries populaires",
+            "mediaType": "TV",
+            "sortBy": "popularity.desc",
+            "filters": {
+              "withCompanies": "420"
+            }
+          },
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Nouveaux films",
+            "mediaType": "MOVIE",
+            "sortBy": "primary_release_date.desc",
+            "filters": {
+              "withCompanies": "420",
+              "voteCountGte": 10
+            }
+          },
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Nouvelles séries",
+            "mediaType": "TV",
+            "sortBy": "first_air_date.desc",
+            "filters": {
+              "withCompanies": "420",
+              "voteCountGte": 10
+            }
+          },
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Films les mieux notés",
+            "mediaType": "MOVIE",
+            "sortBy": "vote_average.desc",
+            "filters": {
+              "withCompanies": "420",
+              "voteCountGte": 500
+            }
+          },
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Séries les mieux notées",
+            "mediaType": "TV",
+            "sortBy": "vote_average.desc",
+            "filters": {
+              "withCompanies": "420",
+              "voteCountGte": 200
+            }
+          }
+        ],
+        "coverImageUrl": "https://wsrv.nl/?url=wsrv.nl%2F%3Furl%3Dimage.tmdb.org%2Ft%2Fp%2Foriginal%2FhUzeosd33nzE5MCNsZxCGEKTXaQ.png%26w%3D440%26h%3D190%26fit%3Dinside%26output%3Dpng&w=640&h=360&fit=contain&we&cbg=ffffff&output=png&bg=ffffff",
+        "focusGifUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/gifs/platforms/marvel-studios.gif?v=4",
+        "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/7RyHsO4yDXtBv1zUU3mTpHeQ0d5.jpg",
+        "titleLogoUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/logos/marvel-studios.png"
+      },
+      {
+        "id": "warner-bros",
+        "title": "Warner Bros",
+        "tileShape": "LANDSCAPE",
+        "hideTitle": true,
+        "focusGifEnabled": true,
+        "sources": [
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Films populaires",
+            "mediaType": "MOVIE",
+            "sortBy": "popularity.desc",
+            "filters": {
+              "withCompanies": "174"
+            }
+          },
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Nouveaux films",
+            "mediaType": "MOVIE",
+            "sortBy": "primary_release_date.desc",
+            "filters": {
+              "withCompanies": "174",
+              "voteCountGte": 10
+            }
+          },
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Films les mieux notés",
+            "mediaType": "MOVIE",
+            "sortBy": "vote_average.desc",
+            "filters": {
+              "withCompanies": "174",
+              "voteCountGte": 500
+            }
+          }
+        ],
+        "coverImageUrl": "https://wsrv.nl/?url=wsrv.nl%2F%3Furl%3Dimage.tmdb.org%2Ft%2Fp%2Foriginal%2FzhD3hhtKB5qyv7ZeL4uLpNxgMVU.png%26w%3D440%26h%3D190%26fit%3Dinside%26output%3Dpng&w=640&h=360&fit=contain&we&cbg=ffffff&output=png&bg=ffffff",
+        "focusGifUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/gifs/platforms/warner-bros.gif?v=4",
+        "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/24Ov8wnusgnzXwjV1eDm0Lzo5da.jpg",
+        "titleLogoUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/logos/warner-bros.png"
+      },
+      {
+        "id": "dc-comics",
+        "title": "DC Comics",
+        "tileShape": "LANDSCAPE",
+        "hideTitle": true,
+        "focusGifEnabled": true,
+        "sources": [
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Films populaires",
+            "mediaType": "MOVIE",
+            "sortBy": "popularity.desc",
+            "filters": {
+              "withCompanies": "429|128064"
+            }
+          },
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Séries populaires",
+            "mediaType": "TV",
+            "sortBy": "popularity.desc",
+            "filters": {
+              "withCompanies": "429|128064"
+            }
+          },
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Nouveaux films",
+            "mediaType": "MOVIE",
+            "sortBy": "primary_release_date.desc",
+            "filters": {
+              "voteCountGte": 10,
+              "withCompanies": "429|128064"
+            }
+          },
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Nouvelles séries",
+            "mediaType": "TV",
+            "sortBy": "first_air_date.desc",
+            "filters": {
+              "voteCountGte": 10,
+              "withCompanies": "429|128064"
+            }
+          },
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Films les mieux notés",
+            "mediaType": "MOVIE",
+            "sortBy": "vote_average.desc",
+            "filters": {
+              "voteCountGte": 500,
+              "withCompanies": "429|128064"
+            }
+          },
+          {
+            "provider": "tmdb",
+            "tmdbSourceType": "DISCOVER",
+            "title": "Séries les mieux notées",
+            "mediaType": "TV",
+            "sortBy": "vote_average.desc",
+            "filters": {
+              "voteCountGte": 200,
+              "withCompanies": "429|128064"
+            }
+          }
+        ],
+        "coverImageUrl": "https://wsrv.nl/?url=wsrv.nl%2F%3Furl%3Dimage.tmdb.org%2Ft%2Fp%2Foriginal%2F4Y00XuSMuP1gimd0jP6JT57QbCI.png%26w%3D440%26h%3D190%26fit%3Dinside%26output%3Dpng&w=640&h=360&fit=contain&we&cbg=ffffff&output=png&bg=ffffff",
+        "focusGifUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/gifs/platforms/dc-comics.gif?v=4",
+        "heroBackdropUrl": "https://image.tmdb.org/t/p/w1280/IYUD7rAIXzBM91TT3Z5fILUS7n.jpg",
+        "titleLogoUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/logos/dc-comics.png"
       }
     ]
   }

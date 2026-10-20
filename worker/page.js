@@ -505,6 +505,9 @@ body::after { content: ""; position: fixed; inset: -50%; pointer-events: none; z
 .screen-fun { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .stage .screen-tools { justify-content: center; }
 #pp-btn[aria-pressed="true"] { background: var(--cream); border-color: var(--cream); color: var(--ink); }
+/* PostersPlus n'est qu'un aperçu ici : le vrai réglage se fait dans Nuvio (étape 8 du guide). */
+.pp-note { margin: 10px auto 0; max-width: 46ch; text-align: center; color: var(--dim); font-size: .82rem; }
+.pp-note a { color: var(--bulb); }
 .screen-fun .mini { padding: 8px 14px; font-size: .84rem; border-color: rgba(255,207,107,.4); color: var(--bulb); }
 .screen-fun .mini:hover { background: rgba(255,207,107,.1); }
 .stage .screen-tools { margin-top: 14px; }
@@ -516,7 +519,7 @@ body::after { content: ""; position: fixed; inset: -50%; pointer-events: none; z
 .stage.big { position: fixed; inset: 0; z-index: 65; display: grid; place-content: center; justify-items: center; padding: 24px; background: rgba(5,3,4,.92); }
 .stage.big .tv { width: min(1180px, calc(100vw - 48px), calc((100vh - 230px) * 16 / 9)); max-width: none; }
 .stage.big .screen-tools, .stage.big .screen-fun { width: min(1100px, calc(100vw - 48px)); }
-.stage.big .caption { display: none; }
+.stage.big .caption, .stage.big .pp-note { display: none; }
 .stage.big .glow { inset: 15%; }
 .stage.big .big-close { display: inline-flex; margin-top: 16px; border-color: var(--cream); background: var(--cream); color: var(--ink); }
 
@@ -723,6 +726,7 @@ ${copy ? HOTE_HTML : ""}
           <div class="seg" id="fmt" role="group" aria-label="Format des affiches"></div>
           <button type="button" class="mini" id="pp-btn" aria-pressed="false">Affiches PostersPlus</button>
         </div>
+        <p class="pp-note" id="pp-note" hidden>Aperçu seulement : ces affiches ne se règlent pas ici. Dans Nuvio, elles s'ajoutent avec <a href="${origin}/guide#affiches" target="_top">l'étape 8 du guide</a>.</p>
         <div class="screen-fun">
           <button type="button" class="mini" id="zoom" aria-pressed="false">Agrandir l'écran</button>
         </div>
@@ -823,6 +827,7 @@ function compact(st) {
   });
   if (Object.keys(t).length) o.t = t;
   if (Object.keys(to).length) o.to = to;
+  if (o.t || o.to) o.tv = 1; // positions d'après le passage de Marvel, Warner et DC aux Studios (config.js)
   return o;
 }
 function enc(obj) {
@@ -1050,7 +1055,7 @@ window.ajouterRangee = (r) => {
 
 // ---------- outils : télécommande, format des affiches, PostersPlus, grand écran ----------
 $("ret-btn").addEventListener("click", () => E.retour());
-function drawPP() { $("pp-btn").setAttribute("aria-pressed", String(NV.reglages.pp)); }
+function drawPP() { $("pp-btn").setAttribute("aria-pressed", String(NV.reglages.pp)); $("pp-note").hidden = !NV.reglages.pp; }
 $("pp-btn").addEventListener("click", () => { NV.reglages.pp = !NV.reglages.pp; drawPP(); E.pp(); if (window.sfx) sfx.click(); });
 drawPP();
 function drawFmt() {

@@ -1551,20 +1551,11 @@ function filterSource(src, cfg) {
 }
 
 /**
- * Ordre d'affichage des tuiles. Les tuiles masquées sont repérées par leur position dans le
- * fichier : une nouvelle tuile y est donc ajoutée en fin de collection (Crunchyroll),
- * et placée ici. Les tuiles absentes de la liste gardent l'ordre du fichier, à la fin.
+ * Ordre choisi sur la page (positions dans le fichier) ; les tuiles absentes gardent l'ordre habituel, après.
+ * Tuiles masquées et ordre choisi sont repérés par leur position dans le fichier : une nouvelle tuile
+ * s'ajoute donc en fin de collection, et une tuile déplacée demande de traduire les anciens liens
+ * (voir oldTiles dans config.js).
  */
-const PLATFORM_ORDER = [
-  "netflix", "prime-video", "paramount-plus", "disney-plus", "hbo-max", "apple-tv-plus", "canal-plus",
-  "warner-bros", "crunchyroll", "marvel-studios", "dc-comics",
-];
-function displayOrder(c, folders) {
-  if (c.id !== "plateformes-streaming") return folders;
-  const rank = (f) => { const i = PLATFORM_ORDER.indexOf(f.id); return i < 0 ? PLATFORM_ORDER.length : i; };
-  return [...folders].sort((a, b) => rank(a) - rank(b));
-}
-/** Ordre choisi sur la page (positions dans le fichier) ; les tuiles absentes gardent l'ordre habituel, après. */
 function userOrder(order, folders, pos) {
   if (!order || !order.length) return folders;
   const rank = (f) => { const k = order.indexOf(pos(f)); return k < 0 ? order.length : k; };
@@ -1581,7 +1572,7 @@ async function collections(cfg) {
     .filter((c) => cfg.c.includes(c.id))
     .map((c) => {
       const hidden = new Set(cfg.t[c.id] || []);
-      const folders = userOrder(cfg.to[c.id], displayOrder(c, c.folders), (f) => c.folders.indexOf(f))
+      const folders = userOrder(cfg.to[c.id], c.folders, (f) => c.folders.indexOf(f))
         .filter((f) => !hidden.has(c.folders.indexOf(f)))
         .filter((f) => c.id !== "plateformes-streaming" || !platformFolders.has(f.id) || chosenFolders.has(f.id))
         .map((f) => (filtered && f.sources ? { ...f, sources: f.sources.map((src) => filterSource(src, cfg)) } : f));
@@ -1667,7 +1658,7 @@ const app = {
       // réelle dans le fichier pour l'affichage.
       const cols = COLLECTIONS.map((c) => ({
         ...c, pos: files.findIndex((f) => f.id === c.id),
-        folders: displayOrder(c, ((files.find((f) => f.id === c.id) || {}).folders || []).map((f, i) => ({ id: f.id, title: f.title, cover: f.coverImageUrl || "", i }))),
+        folders: ((files.find((f) => f.id === c.id) || {}).folders || []).map((f, i) => ({ id: f.id, title: f.title, cover: f.coverImageUrl || "", i })),
       }));
       const page = html(configurePage({
         origin: url.origin, cfg, rows, discover: DEFS.discover, providers: PROVIDERS, collections: cols,

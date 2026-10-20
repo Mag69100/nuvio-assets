@@ -133,6 +133,27 @@ function cleanCustom(x) {
 }
 
 /**
+ * Marvel Studios, Warner Bros et DC Comics (positions 7, 8 et 9 des Plateformes) sont passés à la
+ * fin des Studios (9, 10 et 11), et Crunchyroll de 10 à 7. Les liens d'avant (sans « tv ») sont
+ * traduits : une tuile masquée le reste à sa nouvelle place, l'ordre choisi des Plateformes est gardé.
+ */
+const MOVED_TO_STUDIOS = { 7: 9, 8: 10, 9: 11 };
+function oldTiles(t, to) {
+  const P = "plateformes-streaming";
+  const now = (i) => (i === 10 ? 7 : i);
+  if (t[P]) {
+    const extra = t[P].filter((i) => MOVED_TO_STUDIOS[i]).map((i) => MOVED_TO_STUDIOS[i]);
+    if (extra.length) t.studios = [...new Set([...(t.studios || []), ...extra])].sort((a, b) => a - b);
+    t[P] = t[P].filter((i) => !MOVED_TO_STUDIOS[i]).map(now);
+    if (!t[P].length) delete t[P];
+  }
+  if (to[P]) {
+    to[P] = to[P].filter((i) => !MOVED_TO_STUDIOS[i]).map(now);
+    if (!to[P].length) delete to[P];
+  }
+}
+
+/**
  * Lit une config depuis l'adresse. Format compact : seules les différences avec les
  * réglages par défaut sont présentes, et les listes sont des numéros (position dans
  * les listes de référence) pour garder une adresse courte :
@@ -141,6 +162,7 @@ function cleanCustom(x) {
  *   x rangées sur mesure · g pays · e genres masqués · m note mini · a année mini
  *   f mode famille · h fêtes (masque) · t tuiles masquées par collection
  *   to ordre des tuiles par collection (positions dans le fichier ; les autres suivent dans l'ordre habituel)
+ *   tv 1 = positions des tuiles d'après le passage de Marvel, Warner et DC aux Studios (voir oldTiles)
  *   u titres pas encore regardables gardés dans les Tendances
  *   k clé Gemini personnelle (l'IA tourne avec le quota de l'utilisateur ; hors clé de cache)
  *   al jeton d'alerte de l'hébergeur d'une copie (voir hote.js ; hors clé de cache)
@@ -184,6 +206,7 @@ export function decodeConfig(segment, rows, discover) {
     return out;
   };
   const t = tiles(raw.t), to = tiles(raw.to);
+  if (raw.tv !== 1) oldTiles(t, to);
   const region = REGIONS.find((r) => r.id === raw.g);
   const genreNames = GENRES.map(([n]) => n);
 

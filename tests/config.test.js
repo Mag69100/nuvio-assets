@@ -59,3 +59,16 @@ test("ordre_des_tuiles", () => {
   assert.deepEqual(decodeConfig(seg({ to: [1, 2] }), rows, discover).to, {});
   assert.deepEqual(decodeConfig("", rows, discover).to, {});
 });
+
+test("tuiles_marvel_warner_dc_passees_aux_studios", () => {
+  // Lien d'avant : Marvel (7) et DC (9) masqués dans les Plateformes, Crunchyroll (10) placé en tête.
+  const old = decodeConfig(seg({ t: { 0: [2, 7, 9], 4: [1] }, to: { 0: [10, 8, 0] } }), rows, discover);
+  assert.deepEqual(old.t, { "plateformes-streaming": [2], studios: [1, 9, 11] });
+  assert.deepEqual(old.to, { "plateformes-streaming": [7, 0] });
+  // Seules des tuiles déplacées étaient masquées : plus rien à masquer dans les Plateformes.
+  assert.deepEqual(decodeConfig(seg({ t: { 0: [8] } }), rows, discover).t, { studios: [10] });
+  // Lien d'après (tv: 1) : positions lues telles quelles.
+  const now = decodeConfig(seg({ tv: 1, t: { 0: [7] }, to: { 0: [7, 0] } }), rows, discover);
+  assert.deepEqual(now.t, { "plateformes-streaming": [7] });
+  assert.deepEqual(now.to, { "plateformes-streaming": [7, 0] });
+});

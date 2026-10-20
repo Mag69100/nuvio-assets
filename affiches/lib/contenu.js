@@ -19,27 +19,43 @@ export const SHORT_GENRES = {
 
 const virgule = (s) => s.replace(".", ",");
 
-function note(facts, imdbRating) {
-  if (imdbRating) return virgule(imdbRating);
+/**
+ * Options de l'éditeur d'affiches (salle 2), lues dans le lien : `o` = lettres des éléments coupés
+ * (t rang des tendances, q qualité, n note, g genre, a année, l titre maison), `r=tmdb` = note TMDB.
+ */
+export const DEFAUT = Object.freeze({ t: true, q: true, n: true, g: true, a: true, l: true, r: "imdb" });
+export function optionsDe(params) {
+  const coupe = params.get("o") || "";
+  const opts = { ...DEFAUT, r: params.get("r") === "tmdb" ? "tmdb" : "imdb" };
+  for (const k of ["t", "q", "n", "g", "a", "l"]) if (coupe.includes(k)) opts[k] = false;
+  return opts;
+}
+
+function note(facts, imdbRating, source) {
+  if (imdbRating && source !== "tmdb") return virgule(imdbRating);
   if (facts.vote && facts.vote.count >= 50 && facts.vote.average > 0) return virgule(facts.vote.average.toFixed(1));
   return null;
 }
 
 /** Contenu d'une affiche, ou null si le titre n'a aucune image pour cette forme. */
-export function posterContent(facts, { imdbRating, rank, quality }, shape) {
+export function posterContent(facts, { imdbRating, rank, quality }, shape, opts = DEFAUT) {
   const [sansTexte, normale] = shape === "landscape" ? [facts.textlessBackdrop, facts.backdrop] : [facts.textlessPoster, facts.poster];
-  const full = !!(sansTexte && facts.logo);
+  const full = !!(opts.l && sansTexte && facts.logo);
   const image = full ? sansTexte : normale || null;
   if (!image) return null;
-  const genre = SHORT_GENRES[facts.genreIds[0]];
+  const line = full ? [
+    opts.g && SHORT_GENRES[facts.genreIds[0]],
+    opts.n && note(facts, imdbRating, opts.r),
+    opts.a && facts.year,
+  ].filter(Boolean) : [];
   return {
     shape,
     image,
     full,
     logo: full ? facts.logo : null,
-    line: full ? [genre, note(facts, imdbRating), facts.year].filter(Boolean) : null,
-    rank: rank >= 1 && rank <= 20 ? rank : null,
-    quality: quality && quality.uhd ? { extra: quality.extra || null } : null,
+    line: line.length ? line : null,
+    rank: opts.t && rank >= 1 && rank <= 20 ? rank : null,
+    quality: opts.q && quality && quality.uhd ? { extra: quality.extra || null } : null,
   };
 }
 

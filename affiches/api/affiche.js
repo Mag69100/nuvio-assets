@@ -10,7 +10,7 @@ import { titleFacts } from "../lib/tmdb.js";
 import { ratingOf } from "../lib/notes.js";
 import { trendingRank } from "../lib/tendances.js";
 import { qualityOf } from "../lib/qualite.js";
-import { posterContent, contentKey } from "../lib/contenu.js";
+import { posterContent, contentKey, optionsDe } from "../lib/contenu.js";
 import { draw, imageUrls } from "../lib/dessin.js";
 
 const OK_CACHE = { "Cache-Control": "public, max-age=604800", "Vercel-CDN-Cache-Control": "max-age=86400, stale-while-revalidate=604800" };
@@ -50,25 +50,27 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
     const type = q.get("type"), shape = q.get("shape"), id = q.get("id") || "";
     const imdb = /^tt\d{1,10}$/.test(q.get("imdb") || "") ? q.get("imdb") : "";
     if (!["movie", "series"].includes(type) || !["poster", "landscape"].includes(shape) || !/^(tt\d{1,10}|tmdb:\d{1,10})$/.test(id)) return absent();
+    const opts = optionsDe(q);
+    const noteImdb = opts.n && opts.r !== "tmdb", qualite = opts.q && env.QUALITE !== "off";
     try {
       // Notes IMDb et tendances ne dépendent pas du titre : sur une instance qui démarre, on les charge
       // pendant que TMDB répond (elles sont ensuite gardées en mémoire).
-      ratingOf("tt0", fetchImpl).catch(() => {});
-      trendingRank(env, type, 0, fetchImpl).catch(() => {});
+      if (noteImdb) ratingOf("tt0", fetchImpl).catch(() => {});
+      if (opts.t) trendingRank(env, type, 0, fetchImpl).catch(() => {});
       const facts = await titleFacts(env, { type, id, imdb }, fetchImpl);
       if (!facts) return absent();
       // Les images ne dépendent que du titre : on les demande tout de suite (sauf pour une revérification
       // par ETag, qui finit presque toujours en 304 sans rien dessiner).
-      const brouillon = posterContent(facts, {}, shape);
+      const brouillon = posterContent(facts, {}, shape, opts);
       if (!brouillon) return absent();
       const images = fetchImages(fetchImpl);
       if (!request.headers.get("If-None-Match")) imageUrls(brouillon).forEach((u) => images(u).catch(() => {}));
       const [imdbRating, rank, { enRetard, quality }] = await Promise.all([
-        facts.imdbId ? ratingOf(facts.imdbId, fetchImpl) : undefined,
-        trendingRank(env, type, facts.tmdbId, fetchImpl),
-        env.QUALITE !== "off" ? qualiteATemps(type, facts, fetchImpl) : { enRetard: false, quality: null },
+        noteImdb && facts.imdbId ? ratingOf(facts.imdbId, fetchImpl) : undefined,
+        opts.t ? trendingRank(env, type, facts.tmdbId, fetchImpl) : null,
+        qualite ? qualiteATemps(type, facts, fetchImpl) : { enRetard: false, quality: null },
       ]);
-      const content = posterContent(facts, { imdbRating, rank, quality }, shape);
+      const content = posterContent(facts, { imdbRating, rank, quality }, shape, opts);
       const etag = `"${contentKey(content)}"`;
       const headers = { ...CORS, ...(enRetard ? COURT : OK_CACHE), ETag: etag };
       if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });

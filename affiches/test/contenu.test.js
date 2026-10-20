@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { posterContent, contentKey, SHORT_GENRES } from "../lib/contenu.js";
+import { posterContent, contentKey, SHORT_GENRES, optionsDe, DEFAUT } from "../lib/contenu.js";
 
 const facts = {
   tmdbId: 693134, type: "movie", imdbId: "tt15239678", genreIds: [878, 12], year: "2024",
@@ -89,4 +89,53 @@ test("etag : stable, et change avec le rang", () => {
   assert.equal(contentKey(a), contentKey(b));
   assert.match(contentKey(a), /^[0-9a-f]{40}$/);
   assert.notEqual(contentKey(a), contentKey(posterContent(facts, { ...extra, rank: 4 }, "poster")));
+});
+
+// ---------- options de l'éditeur (lettres des éléments coupés, note TMDB) ----------
+const opts = (o, r) => optionsDe(new URLSearchParams({ ...(o ? { o } : {}), ...(r ? { r } : {}) }));
+const plein = { imdbRating: "8.4", rank: 4, quality: { uhd: true, extra: "DV" } };
+
+test("options : par défaut tout est là", () => {
+  assert.deepEqual(opts(), DEFAUT);
+  assert.deepEqual(DEFAUT, { t: true, q: true, n: true, g: true, a: true, l: true, r: "imdb" });
+});
+
+test("options : lettres coupées, inconnues ignorées", () => {
+  assert.deepEqual(opts("tq"), { ...DEFAUT, t: false, q: false });
+  assert.deepEqual(opts("zx!"), DEFAUT);
+  assert.equal(opts("", "tmdb").r, "tmdb");
+  assert.equal(opts("", "autre").r, "imdb");
+});
+
+test("options : rang et qualité coupés", () => {
+  const c = posterContent(facts, plein, "poster", opts("tq"));
+  assert.equal(c.rank, null);
+  assert.equal(c.quality, null);
+  assert.deepEqual(c.line, ["SF", "8,4", "2024"]);
+});
+
+test("options : éléments de la ligne coupés", () => {
+  assert.deepEqual(posterContent(facts, plein, "poster", opts("g")).line, ["8,4", "2024"]);
+  assert.deepEqual(posterContent(facts, plein, "poster", opts("a")).line, ["SF", "8,4"]);
+  assert.deepEqual(posterContent(facts, plein, "poster", opts("n")).line, ["SF", "2024"]);
+  const vide = posterContent(facts, plein, "poster", opts("nga"));
+  assert.equal(vide.line, null);
+  assert.equal(vide.full, true);
+});
+
+test("options : sans titre maison, l'affiche d'origine", () => {
+  const c = posterContent(facts, plein, "poster", opts("l"));
+  assert.equal(c.full, false);
+  assert.equal(c.image, "/fr.jpg");
+  assert.equal(c.line, null);
+  assert.equal(c.rank, 4);
+});
+
+test("options : note TMDB même si IMDb en a une", () => {
+  assert.deepEqual(posterContent(facts, plein, "poster", opts("", "tmdb")).line, ["SF", "8,1", "2024"]);
+  assert.deepEqual(posterContent({ ...facts, vote: { average: 8.1, count: 10 } }, plein, "poster", opts("", "tmdb")).line, ["SF", "2024"]);
+});
+
+test("options : le contenu (et l'ETag) change avec elles", () => {
+  assert.notEqual(contentKey(posterContent(facts, plein, "poster")), contentKey(posterContent(facts, plein, "poster", opts("t"))));
 });

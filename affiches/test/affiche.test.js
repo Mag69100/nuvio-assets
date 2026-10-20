@@ -141,3 +141,18 @@ test("imdb en paramètre pour un id tmdb", async () => {
   await makeHandler({ fetchImpl: f, env })(req("type=series&shape=poster&id=tmdb:94605&imdb=tt11126994"));
   assert.ok(f.calls.some((u) => u.includes("torrentio") && u.includes("tt11126994")));
 });
+
+test("options : appels évités", async () => {
+  const f = internet();
+  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&o=tqn"));
+  assert.equal(res.status, 200);
+  assert.ok(!f.calls.some((u) => u.includes("torrentio")), "Torrentio appelé");
+  assert.ok(!f.calls.some((u) => u.includes("/trending/")), "tendances appelées");
+  assert.ok(!f.calls.some((u) => u.includes("imdb-ratings.bin")), "notes IMDb lues");
+});
+
+test("options : note TMDB sans lire les notes IMDb", async () => {
+  const f = internet();
+  await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&r=tmdb"));
+  assert.ok(!f.calls.some((u) => u.includes("imdb-ratings.bin")));
+});

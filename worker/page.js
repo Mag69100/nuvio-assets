@@ -521,11 +521,11 @@ body::after { content: ""; position: fixed; inset: -50%; pointer-events: none; z
 .stage.big .big-close { display: inline-flex; margin-top: 16px; border-color: var(--cream); background: var(--cream); color: var(--ink); }
 
 /* Le billet qui se déchire quand on copie */
-.ticket .stub { transition: transform .5s cubic-bezier(.3,1.4,.5,1); transform-origin: 0 100%; }
+.ticket .stub { transition: transform .5s cubic-bezier(.16,1,.3,1); transform-origin: 0 100%; }
 .ticket.torn .stub { transform: translate(10px, 16px) rotate(9deg); }
 .ticket.torn .main { animation: thump .4s ease; }
 @keyframes thump { 30% { transform: translateY(2px); } }
-.stamp { position: absolute; right: 90px; top: 40%; transform: rotate(-12deg) scale(.6); opacity: 0; font: 400 1.6rem/1 var(--display); letter-spacing: .1em; color: var(--red); border: 3px solid var(--red); border-radius: 6px; padding: 4px 10px; pointer-events: none; transition: all .35s cubic-bezier(.3,1.6,.5,1); mix-blend-mode: multiply; }
+.stamp { position: absolute; right: 90px; top: 40%; transform: rotate(-12deg) scale(.6); opacity: 0; font: 400 1.6rem/1 var(--display); letter-spacing: .1em; color: var(--red); border: 3px solid var(--red); border-radius: 6px; padding: 4px 10px; pointer-events: none; transition: all .35s cubic-bezier(.16,1,.3,1); mix-blend-mode: multiply; }
 .ticket.torn .stamp { opacity: .85; transform: rotate(-12deg) scale(1); }
 
 /* Le billet holographique : il s'incline sous la souris, un reflet irisé le traverse. */
@@ -547,12 +547,12 @@ body::after { content: ""; position: fixed; inset: -50%; pointer-events: none; z
 .screen.zap::before { animation: zap .4s steps(5); }
 @keyframes zap { 0% { opacity: .85; background-position: 0 0, 0 0; } 25% { background-position: 50px 30px, 0 6px; } 50% { opacity: .55; background-position: -40px 70px, 0 2px; } 75% { background-position: 20px -40px, 0 9px; } 100% { opacity: 0; } }
 
-/* Une rangée mise à l'affiche : le projecteur la balaie, son numéro saute. */
+/* Une rangée mise à l'affiche : le projecteur la balaie, son numéro s'allume. */
 .frame.lit::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
   background: linear-gradient(100deg, transparent 38%, rgba(255,226,165,.3) 50%, transparent 62%) no-repeat; background-size: 240% 100%;
   animation: sweep-row .75s ease-out both; }
 @keyframes sweep-row { from { background-position: 100% 0; } to { background-position: 0 0; } }
-.frame.lit .pos { animation: tick .45s cubic-bezier(.3,1.7,.5,1); }
+.frame.lit .pos { animation: tick .45s cubic-bezier(.16,1,.3,1); }
 @keyframes tick { from { transform: scale(.3); opacity: 0; } }
 
 </style>

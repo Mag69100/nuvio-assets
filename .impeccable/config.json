@@ -29,6 +29,15 @@
         ],
         "createdAt": "2026-10-18T23:04:32.742Z",
         "reason": "Claude decided: .nv-ring is one absolutely positioned, pointer-events:none focus ring that must morph between rows of different sizes (scale would distort its 2px outline and glow); position already moved to transform, only width/height remain"
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(.3, 1.6, .5, 1)",
+        "files": [
+          "worker/stage.js"
+        ],
+        "createdAt": "2026-10-20T02:12:27.199Z",
+        "reason": "Claude, choix délégué par l'utilisateur (« le mieux ») : lettre de marquise qui se raccroche à son clou, mouvement de pendule réel où le dépassement est physique"
       }
     ]
   }

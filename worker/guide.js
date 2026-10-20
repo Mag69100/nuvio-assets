@@ -387,8 +387,8 @@ html.s2-ouverte, html.s2-ouverte body { overflow: hidden; }
 .rb-texte { display: grid; gap: 8px; }
 .rb-bobine { width: 78px; height: 78px; }
 .rb-bobine * { transform-box: view-box; }
-.rb-film { fill: #3a2418; stroke: #6b4a32; stroke-width: 1; transition: r .6s cubic-bezier(.3,1.2,.5,1); }
-.rb-tourne { fill: none; stroke: var(--bulb); stroke-width: 2.5; stroke-linecap: round; transform-origin: 40px 40px; transition: transform .7s cubic-bezier(.3,1.2,.5,1); }
+.rb-film { fill: #3a2418; stroke: #6b4a32; stroke-width: 1; transition: r .6s cubic-bezier(.16,1,.3,1); }
+.rb-tourne { fill: none; stroke: var(--bulb); stroke-width: 2.5; stroke-linecap: round; transform-origin: 40px 40px; transition: transform .7s cubic-bezier(.16,1,.3,1); }
 .rb-tourne circle:last-child { fill: var(--velvet); }
 .act .rb-gestes { list-style: none; padding: 0; gap: 2px; }
 .rb-gestes label { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; align-items: start; padding: 5px 0; cursor: pointer; color: #e6d6c8; }
@@ -421,7 +421,7 @@ footer { text-align: center; color: var(--dim); font: italic 400 1.05rem var(--s
 .reel-btn small { display: block; color: var(--dim); font-weight: 600; max-width: 24ch; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .reel-menu { display: grid; gap: 2px; padding: 8px; min-width: 260px; max-height: min(62vh, 520px); overflow: auto; border-radius: 16px;
   border: 1px solid rgba(255,207,107,.25); background: rgba(28,14,21,.96); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-  box-shadow: 0 20px 50px rgba(0,0,0,.6); transform-origin: 100% 100%; animation: unspool .22s cubic-bezier(.3,1.3,.5,1); counter-reset: rm; }
+  box-shadow: 0 20px 50px rgba(0,0,0,.6); transform-origin: 100% 100%; animation: unspool .22s cubic-bezier(.16,1,.3,1); counter-reset: rm; }
 @keyframes unspool { from { opacity: 0; transform: scale(.9) translateY(8px); } }
 .reel-menu a { display: flex; gap: 10px; align-items: baseline; padding: 8px 12px; border-radius: 10px; color: var(--cream); text-decoration: none; font-weight: 600; }
 .reel-menu a::before { counter-increment: rm; content: counter(rm, decimal-leading-zero); font: 400 1.05rem var(--display); color: var(--bulb); min-width: 2ch; }
@@ -435,7 +435,7 @@ footer { text-align: center; color: var(--dim); font: italic 400 1.05rem var(--s
   font: 800 .82rem var(--body); color: var(--dim); background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--seat); white-space: nowrap; transition: background .2s ease, color .2s ease; }
 .composte::before { content: ""; position: absolute; left: 8px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px currentColor; }
 .composte:hover { color: var(--cream); }
-.composte[aria-pressed="true"] { color: #0e2a1c; background: var(--green); box-shadow: none; animation: punch .35s cubic-bezier(.3,1.6,.5,1); }
+.composte[aria-pressed="true"] { color: #0e2a1c; background: var(--green); box-shadow: none; animation: punch .35s cubic-bezier(.16,1,.3,1); }
 .composte[aria-pressed="true"]::before { background: var(--velvet-2); box-shadow: none; }
 @keyframes punch { 40% { transform: scale(.9) rotate(-3deg); } }
 .act.fait .num { color: var(--green); text-shadow: 0 0 20px rgba(95,211,154,.35); }

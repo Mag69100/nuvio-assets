@@ -3,13 +3,18 @@ import assert from "node:assert/strict";
 import sharp from "sharp";
 import { makeHandler } from "../api/affiche.js";
 import { makeQualite } from "../api/qualite.js";
+import { makeTendances } from "../api/tendances.js";
+import { secondesAvantBascule } from "../lib/tendances.js";
 import { posterContent, contentKey } from "../lib/contenu.js";
 import { resetMemo as r1 } from "../lib/tmdb.js";
 import { resetMemo as r2 } from "../lib/notes.js";
 import { resetMemo as r3 } from "../lib/tendances.js";
 import { resetMemo as r4 } from "../lib/qualite.js";
+import { resetMemo as r5 } from "../lib/texte.js";
+import { readFileSync } from "node:fs";
+import satori from "satori";
 
-beforeEach(() => { r1(); r2(); r3(); r4(); });
+beforeEach(() => { r1(); r2(); r3(); r4(); r5(); });
 
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status });
 const film = {
@@ -33,10 +38,12 @@ function internet({ detail = json(film), torrentio } = {}) {
     calls.push(u);
     const relais = /^https:\/\/affiches\.test\/qualite\/(movie|series)\/(.+)\.json$/.exec(u);
     if (relais) return makeQualite({ fetchImpl: lireTorrentio })(new Request(`https://affiches.test/api/qualite?type=${relais[1]}&video=${relais[2]}`));
+    const photo = /^https:\/\/affiches\.test\/tendances\/(movie|series)\.json$/.exec(u);
+    if (photo) return makeTendances({ fetchImpl: f, env: { TMDB_API_KEY: "k" } })(new Request(`https://affiches.test/api/tendances?type=${photo[1]}`));
     if (u.includes("/find/")) return json({ movie_results: [{ id: 693134 }], tv_results: [] });
     if (u.includes("/trending/")) return json({ results: [] });
     if (u.includes("api.themoviedb.org") && (u.includes("/movie/") || u.includes("/tv/"))) return detail.clone();
-    if (u.includes("image.tmdb.org")) return new Response(u.endsWith(".png") ? PNG : JPG);
+    if (u.includes("image.tmdb.org")) return new Response(u.endsWith(".png") ? PNG : u.includes("/texte") ? TEXTE : JPG);
     if (u.includes("imdb-ratings.bin")) return new Response("", { status: 404 });
     return new Response("?", { status: 404 });
   };
@@ -44,6 +51,35 @@ function internet({ detail = json(film), torrentio } = {}) {
   return f;
 }
 const env = { TMDB_API_KEY: "k" };
+
+// Une affiche avec un titre et un générique écrits dessus (comme une affiche étrangère rangée « sans langue »).
+const TEXTE = await sharp(Buffer.from(await satori(
+  { type: "div", props: { style: { width: 342, height: 513, display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", background: "#334", color: "#fff", fontFamily: "Inter", padding: 20 },
+    children: [["LES DOSSIERS WARREN", 30], ["UN FILM DE JAMES WAN AVEC VERA FARMIGA PATRICK WILSON", 9]].map(([t, fs]) => ({ type: "div", props: { style: { display: "flex", fontSize: fs, marginTop: 6 }, children: t } })) } },
+  { width: 342, height: 513, fonts: [{ name: "Inter", data: readFileSync(new URL("../fonts/Inter-SemiBold.ttf", import.meta.url)), weight: 600, style: "normal" }] },
+))).jpeg().toBuffer();
+
+test("image_sans_langue_mais_avec_texte_ecartee", async () => {
+  const avecTexte = { ...film, images: { ...film.images, posters: [{ iso_639_1: null, file_path: "/texte-lt.jpg" }, { iso_639_1: null, file_path: "/nu.jpg" }] } };
+  const f = internet({ detail: json(avecTexte) });
+  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(res.status, 200);
+  assert.ok(f.calls.includes("https://image.tmdb.org/t/p/w500/nu.jpg"), f.calls.join("\n"));
+  assert.ok(!f.calls.includes("https://image.tmdb.org/t/p/w500/texte-lt.jpg"));
+  // Seule candidate, avec texte : l'affiche normale, sans logo ni ligne du bas.
+  const seule = { ...film, images: { ...film.images, posters: [{ iso_639_1: null, file_path: "/texte-lt.jpg" }] } };
+  const g = internet({ detail: json(seule) });
+  await makeHandler({ fetchImpl: g, env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.ok(g.calls.includes("https://image.tmdb.org/t/p/w500/fr.jpg"), g.calls.join("\n"));
+  assert.ok(!g.calls.some((u) => u.includes("/logo.png")));
+});
+
+// Titre éteint : pas de logo à poser, donc rien à vérifier (aucune image analysée).
+test("titre_eteint_sans_verification", async () => {
+  const f = internet();
+  await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.L0"));
+  assert.ok(!f.calls.some((u) => u.includes("/w342/")), f.calls.join("\n"));
+});
 const req = (q, headers = {}) => new Request(`https://affiches.test/api/affiche?${q}`, { headers });
 
 test("affiche OK", async () => {
@@ -142,7 +178,7 @@ test("notes et tendances demandées en même temps que TMDB", async () => {
   await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678"));
   const ordre = (motif) => f.calls.findIndex((u) => u.includes(motif));
   assert.ok(ordre("imdb-ratings.bin") < ordre("/movie/693134"), f.calls.join("\n"));
-  assert.ok(ordre("/trending/") < ordre("/movie/693134"), f.calls.join("\n"));
+  assert.ok(ordre("/tendances/") < ordre("/movie/693134"), f.calls.join("\n"));
 });
 
 test("qualité désactivée : Torrentio jamais appelé", async () => {
@@ -164,7 +200,7 @@ test("options : appels évités", async () => {
   const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.T0Q0N0"));
   assert.equal(res.status, 200);
   assert.ok(!f.calls.some((u) => u.includes("torrentio")), "Torrentio appelé");
-  assert.ok(!f.calls.some((u) => u.includes("/trending/")), "tendances appelées");
+  assert.ok(!f.calls.some((u) => u.includes("/trending/") || u.includes("/tendances/")), "tendances appelées");
   assert.ok(!f.calls.some((u) => u.includes("imdb-ratings.bin")), "notes IMDb lues");
 });
 
@@ -192,13 +228,31 @@ test("rien à dessiner : redirection vers l'image TMDB", async () => {
   assert.equal(pays.headers.get("Location"), "https://image.tmdb.org/t/p/w780/bd.jpg");
 });
 
-// Une affiche classée garde son « N° » à jour : l'appli la revérifie chaque jour, pas chaque semaine.
-test("affiche classée : cache court côté appli", async () => {
+// Une affiche classée garde son « N° » à jour : elle expire au changement de photo des tendances (appli et CDN),
+// comme une affiche presque classée (21e à 60e), qui prendra son N° le jour où elle entre dans le top 20.
+const photoAvec = (place) => Array.from({ length: 60 }, (_, i) => (i === place - 1 ? 693134 : 1 + i));
+const age = (res, h) => Number(/max-age=(\d+)/.exec(res.headers.get(h))[1]);
+test("affiche classée : cache jusqu'au changement de photo", async () => {
+  for (const place of [1, 30]) {
+    r3();
+    const base = internet();
+    const f = async (url, opts) => (String(url).includes("/tendances/") ? json({ ids: photoAvec(place) }) : base(url, opts));
+    const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.Q0"));
+    assert.equal(res.status, 200);
+    const s = secondesAvantBascule();
+    assert.ok(Math.abs(age(res, "Cache-Control") - s) <= 2, res.headers.get("Cache-Control"));
+    assert.ok(Math.abs(age(res, "Vercel-CDN-Cache-Control") - s) <= 2, res.headers.get("Vercel-CDN-Cache-Control"));
+  }
+});
+
+// Presque classée et sans rien d'autre à poser : redirigée vers l'image TMDB, mais seulement jusqu'au changement.
+test("presque classée sans rien à poser : redirection courte", async () => {
   const base = internet();
-  const f = async (url, opts) => (String(url).includes("/trending/") ? json({ results: [{ id: 693134 }] }) : base(url, opts));
-  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678"));
-  assert.equal(res.status, 200);
-  assert.equal(res.headers.get("Cache-Control"), "public, max-age=86400");
+  const f = async (url, opts) => (String(url).includes("/tendances/") ? json({ ids: photoAvec(30) }) : base(url, opts));
+  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.S0Q0L0B0"));
+  assert.equal(res.status, 302);
+  assert.ok(age(res, "Cache-Control") <= secondesAvantBascule());
+  assert.ok(age(res, "Vercel-CDN-Cache-Control") <= secondesAvantBascule());
 });
 
 // Le titre ne doit jamais manquer : logo introuvable sur une image sans texte → erreur (Nuvio montre
@@ -259,9 +313,12 @@ const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 1
 const avecSorties = (...dates) => json({ ...film, release_dates: { results: [{ iso_3166_1: "FR", release_dates: dates.map(([type, d]) => ({ type, release_date: d })) }] } });
 
 test("statut_cache_court", async () => {
+  // Avec un statut (« Nouveau », une date…) : jusqu'au changement quotidien, dans l'appli comme au CDN.
   const res = await makeHandler({ fetchImpl: internet({ detail: avecSorties([4, jour(-5)]) }), env })(req("type=movie&shape=poster&id=tt15239678"));
   assert.equal(res.status, 200);
-  assert.equal(res.headers.get("Cache-Control"), "public, max-age=86400");
+  const s = secondesAvantBascule();
+  assert.ok(Math.abs(age(res, "Cache-Control") - s) <= 2, res.headers.get("Cache-Control"));
+  assert.ok(Math.abs(age(res, "Vercel-CDN-Cache-Control") - s) <= 2);
 });
 
 // Pas encore sorti : dessiné en gris, jamais redirigé vers l'image TMDB en couleur.
@@ -274,5 +331,5 @@ test("bientot_jamais_redirige", async () => {
 test("voies_eteintes_sans_appel", async () => {
   const f = internet();
   await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.T0Q0"));
-  assert.ok(!f.calls.some((u) => u.includes("/trending/") || u.includes("/qualite/")), f.calls.join("\n"));
+  assert.ok(!f.calls.some((u) => u.includes("/trending/") || u.includes("/tendances/") || u.includes("/qualite/")), f.calls.join("\n"));
 });

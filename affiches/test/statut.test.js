@@ -26,7 +26,7 @@ test("VF : numérique aux États-Unis il y a 40 jours, en France il y a 10 jours
 });
 
 test("VF : au cinéma en France, pas encore chez soi → pas sorti, en salle", () => {
-  assert.deepEqual(etatSortie(film(sorties([3, jours(-10)])), AUJ), { sorti: false, statut: "salle" });
+  assert.deepEqual(etatSortie(film(sorties([3, jours(-10)])), AUJ), { sorti: false, statut: "salle", quand: { quoi: "dispo", date: jours(35), vers: true } });
 });
 
 test("VF : sorti au Québec → VF probable", () => {
@@ -112,4 +112,35 @@ test("série : saison 3 il y a 5 jours → nouvelle saison", () => {
 
 test("série : dernière saison il y a un an → rien", () => {
   assert.equal(statutDe(serie("2020-01-01", [{ season_number: 2, air_date: jours(-365) }]), AUJ), null);
+});
+
+// Dates à la place de « Bientôt » et « En salle », comme dans les rangées de l'addon.
+test("date : au cinéma en France, numérique annoncé → dispo le", () => {
+  const e = etatSortie(film(sorties([3, jours(-10)], [4, jours(20)])), AUJ);
+  assert.deepEqual(e, { sorti: false, statut: "salle", quand: { quoi: "dispo", date: jours(20), vers: false } });
+});
+
+test("date : au cinéma en France, pas de date numérique → dispo vers salle + 45 jours", () => {
+  const e = etatSortie(film(sorties([3, jours(-10)])), AUJ);
+  assert.deepEqual(e.quand, { quoi: "dispo", date: jours(35), vers: true });
+});
+
+test("date : sortie en salle en France annoncée → au cinéma le", () => {
+  assert.deepEqual(etatSortie(film(sorties([3, jours(30)]), jours(30)), AUJ).quand, { quoi: "cinema", date: jours(30), vers: false });
+});
+
+test("date : pas de salle en France, numérique annoncé avec VF → dispo le", () => {
+  const e = etatSortie(film([pays("US", [4, jours(12)]), pays("FR", [4, jours(12)])]), AUJ);
+  assert.deepEqual(e, { sorti: false, statut: "bientot", quand: { quoi: "dispo", date: jours(12), vers: false } });
+});
+
+test("date : sortie ailleurs seulement → sortie le, sinon rien", () => {
+  assert.deepEqual(etatSortie(film([pays("US", [3, jours(40)])]), AUJ).quand, { quoi: "sortie", date: jours(40), vers: false });
+  assert.equal(etatSortie(film([pays("US", [4, jours(-20)])]), AUJ).quand, undefined);
+  assert.equal(etatSortie(film([], ""), AUJ).quand, undefined);
+});
+
+test("date : série pas encore lancée → sortie le", () => {
+  assert.deepEqual(etatSortie(serie(jours(15)), AUJ).quand, { quoi: "sortie", date: jours(15), vers: false });
+  assert.equal(etatSortie(serie(""), AUJ).quand, undefined);
 });

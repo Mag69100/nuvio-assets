@@ -366,6 +366,24 @@ test("tendances_du_jour_dans_l_ordre_tmdb", async () => {
   assert.ok(!calls.some((u) => u.includes("postersplus")));
 });
 
+// Avec la photo du jour du service d'affiches (celle des « N° ») : la rangée suit son ordre, les titres
+// absents de la photo à la suite, dans l'ordre de TMDB. Même chose avec les titres à venir (u).
+test("tendances_du_jour_dans_l_ordre_de_la_photo", async () => {
+  const { AFFICHES_URL } = await import("../worker/reglages.js");
+  for (const prefixe of ["", `/${seg({ u: 1 })}`]) {
+    const serie = (id) => ({ id, name: `Série ${id}`, first_air_date: "2020-01-01" });
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      calls.push(u);
+      if (u === `${AFFICHES_URL}/tendances/series.json`) return new Response(JSON.stringify({ ids: [1, 3, 9] }));
+      if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: u.includes("page=1") ? [serie(3), serie(77), serie(1)] : [], page: 1, total_pages: 1 }));
+      return new Response("{}");
+    };
+    const { metas } = await (await get(`${prefixe}/catalog/series/accueil-tendances-series.json`)).json();
+    assert.deepEqual(metas.map((m) => m.id), ["tmdb:1", "tmdb:3", "tmdb:77"], prefixe);
+  }
+});
+
 // Télé-réalité : masquée de toutes les rangées de séries, sauf d'une rangée sur mesure qui la demande.
 test("rangee_sur_mesure_tele_realite", async () => {
   const { GENRES } = await import("../worker/config.js");

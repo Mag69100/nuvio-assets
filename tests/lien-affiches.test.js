@@ -20,11 +20,12 @@ const CHOIX = {
   "statut.on": [true, false], "statut.style": ["texte", "etiquette"],
   "tendance.on": [true, false], "tendance.style": ["fleche", "ruban"],
   "qualite.on": [true, false], "qualite.montrer": ["plus", "4k"], "qualite.style": ["texte", "pastille"],
-  "titre.on": [true, false], "titre.taille": [0.6, 0.85, 1, 1.25, 1.4],
-  "note.on": [true, false], "note.source": ["imdb", "tmdb"], "note.style": ["etoile", "nu", "grand"],
-  "genre.on": [true, false], "genre.forme": ["court", "complet"], "annee.on": [true, false],
+  "titre.on": [true, false], "titre.taille": [0.6, 0.85, 1, 1.25, 1.4], "titre.place": ["auto", "gauche", "centre"],
+  "note.on": [true, false], "note.source": ["imdb", "tmdb"], "note.style": ["etoile", "nu", "grand", "badge"],
+  "genre.on": [true, false], "genre.forme": ["court", "complet"], "annee.on": [true, false], "age.on": [true, false],
   "texte.taille": [0.7, 0.95, 1, 1.1, 1.4], "texte.sep": ["point", "barre", "puce"], "texte.haut": [0.6, 1, 1.15, 1.4],
-  "fondu.on": [true, false], "fondu.couleur": ["noir", "affiche"], "fondu.force": ["s", "m", "l"],
+  "texte.police": ["inter", "bebas"],
+  "fondu.on": [true, false], "fondu.couleur": ["noir", "affiche"], "fondu.force": ["s", "m", "l"], "fondu.flou": [false, true],
   "sortie.nb": [true, false], "sortie.cacherNote": [true, false],
 };
 
@@ -67,6 +68,20 @@ test("sous_reglages_ignores", () => {
   assert.equal(ecrit("s=1.B0c1"), "B0");
 });
 
+// Ajouts inspirés de Viewio et Posters+ : place du titre, note en badge, âge, police, fondu flou.
+test("nouveaux_reglages", () => {
+  const d = DEFAUT_REGLAGES;
+  assert.deepEqual([d.titre.place, d.age.on, d.texte.police, d.fondu.flou], ["auto", false, "inter", false]);
+  const x = lire("s=1.ogebY1wbd1");
+  assert.deepEqual([x.titre.place, x.note.style, x.age.on, x.texte.police, x.fondu.flou], ["gauche", "badge", true, "bebas", true]);
+  assert.equal(lire("s=1.oc").titre.place, "centre");
+  assert.equal(ecrit("s=1.d1Y1wbebog"), "ogebY1wbd1");
+  // Sans titre, ni place, ni âge, ni flou ; la police sert encore aux badges du haut.
+  assert.equal(ecrit("s=1.L0ogY1wbd1"), "L0wb");
+  assert.equal(ecrit("s=1.S0T0Q0L0wb"), "S0T0Q0L0");
+  assert.equal(ecrit("s=1.F0d1"), "F0");
+});
+
 test("codes_inconnus_ignores", () => {
   assert.equal(ecrit("s=1.zz9yT0"), "T0");
   assert.equal(ecrit("s=2.T0"), "");
@@ -89,6 +104,8 @@ test("memoires", () => {
   assert.deepEqual([n.statut.on, n.tendance.on, n.qualite.on, n.titre.on, n.note.on, n.note.style, n.genre.on, n.annee.on, n.fondu.on, n.sortie.nb], [false, false, false, true, true, "grand", false, false, true, true]);
   const u = MEMOIRES.nue;
   assert.deepEqual([u.statut.on, u.tendance.on, u.qualite.on, u.titre.on, u.note.on, u.genre.on, u.annee.on, u.fondu.on, u.sortie.nb], [false, false, false, false, false, false, false, false, false]);
+  const c = MEMOIRES.cine;
+  assert.deepEqual([c.texte.police, c.note.style, c.fondu.flou, c.age.on, c.statut.style], ["bebas", "badge", true, true, "etiquette"]);
   for (const [nom, r] of Object.entries(MEMOIRES)) assert.equal(memoireDe(r), nom);
   const perso = clone(DEFAUT_REGLAGES); perso.genre.on = false;
   assert.equal(memoireDe(perso), null);

@@ -510,6 +510,14 @@ body.regie-ouverte { overflow: hidden; }
   .regie-coulisses { gap: 6px; }
   .regie-coulisses button, .regie-coulisses img { width: 50px; }
 }
+/* Écran peu haut (portable en 1280×720) : console resserrée, l'aide s'efface (les noms des voies suffisent). */
+@media (max-height: 760px) and (min-width: 761px) {
+  .regie-aide { display: none; }
+  .regie-console { gap: 8px; padding: 10px 12px; }
+  .regie-voies { gap: 4px; }
+  .regie-voies .voie { padding: 3px 8px 3px 4px; }
+  .regie-voies .lampe { width: 30px; height: 30px; }
+}
 /* Téléphone : tout s'empile et défile (l'écran est trop petit pour tout montrer d'un coup). */
 @media (max-width: 760px) {
   .regie-affiches { padding: 0; }
@@ -909,10 +917,10 @@ ${copy ? HOTE_HTML : ""}
       <div class="regie-console">
         <p class="regie-aide">Allume ou éteins un élément. Touche son nom pour le régler.</p>
         <div class="regie-memoires" id="regie-memoires" role="group" aria-label="Styles tout prêts">
-          <button type="button" data-memoire="maison">Maison</button><button type="button" data-memoire="essentiel">Essentiel</button><button type="button" data-memoire="noteSeule">Note seule</button><button type="button" data-memoire="nue">Nue</button><span class="perso" id="regie-perso" hidden>Perso</span>
+          <button type="button" data-memoire="maison">Maison</button><button type="button" data-memoire="essentiel">Essentiel</button><button type="button" data-memoire="noteSeule">Note seule</button><button type="button" data-memoire="cine">Ciné</button><button type="button" data-memoire="nue">Nue</button><span class="perso" id="regie-perso" hidden>Perso</span>
         </div>
         <div class="regie-voies" id="regie-voies">
-${[["statut", "Statut", "Nv"], ["tendance", "Tendance", "↗"], ["qualite", "Qualité", "4K"], ["titre", "Titre", "Aa"], ["note", "Note", "★"], ["genre", "Genre", "G"], ["annee", "Année", "20"], ["texte", "Texte", "T"], ["fondu", "Fondu", "▼"], ["sortie", "Pas sorti", "N&amp;B"]]
+${[["statut", "Statut", "Nv"], ["tendance", "Tendance", "↗"], ["qualite", "Qualité", "4K"], ["titre", "Titre", "Aa"], ["note", "Note", "★"], ["genre", "Genre", "G"], ["annee", "Année", "20"], ["age", "Âge", "-12"], ["texte", "Texte", "T"], ["fondu", "Fondu", "▼"], ["sortie", "Pas sorti", "N&amp;B"]]
   .map(([v, nom, signe]) => `          <div class="voie" data-voie="${v}"><button type="button" class="lampe" aria-pressed="true" aria-label="${nom} : allumer ou éteindre">${signe}</button><button type="button" class="nom" aria-expanded="false" aria-controls="regie-tiroir"><b>${nom}</b><small></small></button></div>`).join("\n")}
         </div>
         <div class="regie-tiroir" id="regie-tiroir" hidden></div>
@@ -1208,7 +1216,8 @@ drawPP();
 // ---------- La régie : le configurateur d'affiches, en fenêtre ----------
 // Les réglages (LA, worker/lien-affiches.js) sont gardés dans ce navigateur et écrits dans le lien « Affiches »
 // du billet. La scène montre de vraies affiches (une grande, six en coulisses), redessinées après chaque rafale.
-const NOMS_MEMOIRES = { maison: "Maison", essentiel: "Essentiel", noteSeule: "Note seule", nue: "Nue" };
+const NOMS_MEMOIRES = { maison: "Maison", essentiel: "Essentiel", noteSeule: "Note seule", cine: "Ciné", nue: "Nue" };
+const PLACES = { auto: "", gauche: " · à gauche", centre: " · au centre" };
 const pct = (v) => Math.round(Number(v) * 100) + " %";
 const SEPS = { point: "·", barre: "|", puce: "•" };
 let regieR = null, regieHisto = [], regieAttente = 0, regieTitres = [], regieChoisi = 0, regieForme = "poster", regieVoie = null, regieDeclencheur = null;
@@ -1220,20 +1229,21 @@ function lienAffichesMaj() {
   $("aff-resume").append("Style en cours : ", el("b", { text: m ? NOMS_MEMOIRES[m] : "perso" }), ".");
 }
 const allumee = (r, v) => (v === "texte" ? true : v === "sortie" ? r.sortie.nb : r[v].on);
-const sansEffet = (r, v) => !r.titre.on && ["note", "genre", "annee", "texte", "fondu"].includes(v);
+const sansEffet = (r, v) => !r.titre.on && ["note", "genre", "annee", "age", "texte", "fondu"].includes(v);
 function resume(r, v) {
-  if (v === "texte") return pct(r.texte.taille) + " · " + SEPS[r.texte.sep];
+  if (v === "texte") return pct(r.texte.taille) + " · " + SEPS[r.texte.sep] + (r.texte.police === "bebas" ? " · Cinéma" : "");
   if (v === "sortie") return r.sortie.nb ? "Noir et blanc" : "En couleur";
   if (!r[v].on) return "Éteint";
   return {
     statut: () => (r.statut.style === "etiquette" ? "Étiquette" : "Texte discret"),
     tendance: () => (r.tendance.style === "ruban" ? "Ruban doré" : "↗ N°4"),
     qualite: () => (r.qualite.montrer === "4k" ? "4K seul" : "4K · DV · HDR") + (r.qualite.style === "pastille" ? " · pastille" : ""),
-    titre: () => "Logo · " + pct(r.titre.taille),
-    note: () => (r.note.source === "tmdb" ? "TMDB" : "IMDb") + (r.note.style === "grand" ? " · grand" : r.note.style === "nu" ? " · sans ★" : ""),
+    titre: () => "Logo · " + pct(r.titre.taille) + PLACES[r.titre.place],
+    note: () => (r.note.source === "tmdb" ? "TMDB" : "IMDb") + ({ grand: " · grand", nu: " · sans ★", badge: " · badge" }[r.note.style] || ""),
     genre: () => (r.genre.forme === "complet" ? "Complet" : "Court"),
     annee: () => "Allumée",
-    fondu: () => (r.fondu.couleur === "affiche" ? "Couleurs" : "Noir") + " · " + ({ s: "léger", m: "moyen", l: "fort" })[r.fondu.force],
+    age: () => "-10, -12, -16, -18",
+    fondu: () => (r.fondu.couleur === "affiche" ? "Couleurs" : "Noir") + " · " + ({ s: "léger", m: "moyen", l: "fort" })[r.fondu.force] + (r.fondu.flou ? " · flou" : ""),
   }[v]();
 }
 
@@ -1257,24 +1267,29 @@ function tiroir(v) {
   if (sansEffet(r, v)) { t.append(el("p", { text: "Sans le titre (logo), la ligne du bas et le fondu ne s'affichent pas : allume la voie Titre." })); return; }
   const ajoute = (...x) => t.append(...x);
   if (v === "statut") ajoute(choix("Style", [["texte", "Texte discret"], ["etiquette", "Étiquette"]], r.statut.style, (x) => regle((r) => { r.statut.style = x; })),
-    el("p", { text: "« Nouveau », « Nouvelle saison », « En salle » ou « Bientôt », seulement quand c'est le cas." }));
+    el("p", { text: "« Nouveau » ou « Nouvelle saison », seulement quand c'est le cas. Pas encore sorti : la date, comme dans les rangées (« Dispo le 2 nov. », « Au cinéma le 16 déc. »), ou « Bientôt » quand elle n'est pas connue." }));
   if (v === "tendance") ajoute(choix("Style", [["fleche", "↗ N°4"], ["ruban", "Ruban doré"]], r.tendance.style, (x) => regle((r) => { r.tendance.style = x; })));
   if (v === "qualite") ajoute(
     choix("Montrer", [["plus", "4K + DV/HDR"], ["4k", "4K seul"]], r.qualite.montrer, (x) => regle((r) => { r.qualite.montrer = x; })),
     choix("Style", [["texte", "Texte nu"], ["pastille", "Pastille claire"]], r.qualite.style, (x) => regle((r) => { r.qualite.style = x; })));
-  if (v === "titre") ajoute(curseur("Taille du logo", r.titre.taille, (x) => regle((r) => { r.titre.taille = x; }, "titre.taille")));
+  if (v === "titre") ajoute(curseur("Taille du logo", r.titre.taille, (x) => regle((r) => { r.titre.taille = x; }, "titre.taille")),
+    choix("Place", [["auto", "Auto"], ["gauche", "À gauche"], ["centre", "Au centre"]], r.titre.place, (x) => regle((r) => { r.titre.place = x; })),
+    el("p", { text: "Auto : au centre sur les affiches, à gauche sur les images en paysage." }));
   if (v === "note") ajoute(
     choix("Source", [["imdb", "IMDb"], ["tmdb", "TMDB"]], r.note.source, (x) => regle((r) => { r.note.source = x; })),
-    choix("Style", [["etoile", "★ 8,4"], ["nu", "8,4"], ["grand", "Grand chiffre"]], r.note.style, (x) => regle((r) => { r.note.style = x; })));
+    choix("Style", [["etoile", "★ 8,4"], ["nu", "8,4"], ["grand", "Grand chiffre"], ["badge", "Badge IMDb"]], r.note.style, (x) => regle((r) => { r.note.style = x; })));
   if (v === "genre") ajoute(choix("Forme", [["court", "Court (SF)"], ["complet", "Complet (Science-fiction)"]], r.genre.forme, (x) => regle((r) => { r.genre.forme = x; })));
   if (v === "annee") ajoute(el("p", { text: "Rien à régler : allume ou éteins l'année avec sa lampe." }));
+  if (v === "age") ajoute(el("p", { text: "L'âge conseillé en France (-10, -12, -16, -18), dans un petit cadre au bout de la ligne. Rien pour les titres tous publics." }));
   if (v === "texte") ajoute(
     curseur("Texte du bas", r.texte.taille, (x) => regle((r) => { r.texte.taille = x; }, "texte.taille")),
     curseur("Badges du haut", r.texte.haut, (x) => regle((r) => { r.texte.haut = x; }, "texte.haut")),
-    choix("Séparateur", [["point", "·"], ["barre", "|"], ["puce", "•"]], r.texte.sep, (x) => regle((r) => { r.texte.sep = x; })));
+    choix("Séparateur", [["point", "·"], ["barre", "|"], ["puce", "•"]], r.texte.sep, (x) => regle((r) => { r.texte.sep = x; })),
+    choix("Police", [["inter", "Moderne"], ["bebas", "Cinéma"]], r.texte.police, (x) => regle((r) => { r.texte.police = x; })));
   if (v === "fondu") ajoute(
     choix("Couleur", [["noir", "Noir"], ["affiche", "Couleurs de l'affiche"]], r.fondu.couleur, (x) => regle((r) => { r.fondu.couleur = x; })),
-    choix("Intensité", [["s", "Léger"], ["m", "Moyen"], ["l", "Fort"]], r.fondu.force, (x) => regle((r) => { r.fondu.force = x; })));
+    choix("Intensité", [["s", "Léger"], ["m", "Moyen"], ["l", "Fort"]], r.fondu.force, (x) => regle((r) => { r.fondu.force = x; })),
+    choix("Flou", [[false, "Non"], [true, "Oui"]], r.fondu.flou, (x) => regle((r) => { r.fondu.flou = x; })));
   if (v === "sortie") ajoute(
     choix("Cacher la note", [[true, "Oui"], [false, "Non"]], r.sortie.cacherNote, (x) => regle((r) => { r.sortie.cacherNote = x; })),
     el("p", { text: "Les titres pas encore disponibles chez soi en VF passent en noir et blanc, comme dans les rangées : ceux qui ne sont qu'au cinéma, ou sortis ailleurs sans version française." }));

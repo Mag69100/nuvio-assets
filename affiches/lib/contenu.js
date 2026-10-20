@@ -29,13 +29,23 @@ export const GENRES_COMPLETS = {
   10768: "Guerre & Politique",
 };
 const LIBELLES_STATUT = { bientot: "BIENTÔT", salle: "EN SALLE", nouveau: "NOUVEAU", saison: "NOUVELLE SAISON" };
+const MOIS = ["JANV.", "FÉVR.", "MARS", "AVR.", "MAI", "JUIN", "JUIL.", "AOÛT", "SEPT.", "OCT.", "NOV.", "DÉC."];
+const DEBUTS = { dispo: "DISPO LE", cinema: "AU CINÉMA LE", sortie: "SORTIE LE" };
+
+/** « DISPO LE 2 NOV. », « DISPO VERS LE 3 DÉC. », « AU CINÉMA LE 12 MARS 2027 »… (comme les rangées de l'addon). */
+function libelleDate({ quoi, date, vers }, today) {
+  const jour = `${Number(date.slice(8, 10))} ${MOIS[Number(date.slice(5, 7)) - 1]}`;
+  const debut = vers ? DEBUTS[quoi].replace(/ LE$/, " VERS LE") : DEBUTS[quoi];
+  return `${debut} ${jour}${date.slice(0, 4) === today.slice(0, 4) ? "" : " " + date.slice(0, 4)}`;
+}
 
 const virgule = (s) => s.replace(".", ",");
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
 
+/** La note et sa source (« imdb », ou « tmdb » choisie ou en repli), ou null. */
 function note(facts, imdbRating, source) {
-  if (imdbRating && source !== "tmdb") return virgule(imdbRating);
-  if (facts.vote && facts.vote.count >= 50 && facts.vote.average > 0) return virgule(facts.vote.average.toFixed(1));
+  if (imdbRating && source !== "tmdb") return { valeur: virgule(imdbRating), source: "imdb" };
+  if (facts.vote && facts.vote.count >= 50 && facts.vote.average > 0) return { valeur: virgule(facts.vote.average.toFixed(1)), source: "tmdb" };
   return null;
 }
 
@@ -46,15 +56,18 @@ export function posterContent(facts, { imdbRating, rank, quality }, shape, r = D
   const image = full ? sansTexte : normale || null;
   if (!image) return null;
   // Pas sorti = pas encore chez soi en VF, comme les rangées de l'addon (au cinéma compris).
-  const { sorti, statut } = etatSortie(facts, today);
+  const { sorti, statut, quand } = etatSortie(facts, today);
   const pasSorti = !sorti;
   const line = {};
   if (full) {
     const genres = r.genre.forme === "complet" ? GENRES_COMPLETS : SHORT_GENRES;
     if (r.genre.on && genres[facts.genreIds[0]]) line.genre = genres[facts.genreIds[0]];
     const n = r.note.on && !(r.sortie.cacherNote && pasSorti) ? note(facts, imdbRating, r.note.source) : null;
-    if (n) line.note = n;
+    if (n) line.note = n.valeur;
+    // La source n'est écrite que pour le badge (« IMDb 8,4 ») : les autres affiches gardent leur ETag.
+    if (n && r.note.style === "badge") line.source = n.source;
     if (r.annee.on && facts.year) line.annee = facts.year;
+    if (r.age.on && facts.age) line.age = facts.age;
   }
   return {
     shape,
@@ -63,13 +76,17 @@ export function posterContent(facts, { imdbRating, rank, quality }, shape, r = D
     gris: r.sortie.nb && pasSorti,
     logo: full ? facts.logo : null,
     line: Object.keys(line).length ? line : null,
-    statut: r.statut.on && statut ? LIBELLES_STATUT[statut] : null,
+    // Pas encore sorti : la date quand on la connaît, plutôt que « Bientôt » ou « En salle ».
+    statut: r.statut.on && statut ? (quand ? libelleDate(quand, today) : LIBELLES_STATUT[statut]) : null,
     rank: r.tendance.on && rank >= 1 && rank <= 20 ? rank : null,
     quality: r.qualite.on && quality && quality.uhd ? { extra: r.qualite.montrer === "4k" ? null : quality.extra || null } : null,
     styles: {
       statut: r.statut.style, tendance: r.tendance.style, qualite: r.qualite.style, titre: r.titre.taille,
       note: r.note.style, texte: r.texte.taille, sep: r.texte.sep, haut: r.texte.haut,
-      fondu: full && r.fondu.on ? { couleur: r.fondu.couleur, force: r.fondu.force } : null,
+      fondu: full && r.fondu.on ? { couleur: r.fondu.couleur, force: r.fondu.force, ...(r.fondu.flou ? { flou: true } : {}) } : null,
+      // Réglages ajoutés ensuite : écrits seulement hors défaut, pour ne pas changer l'ETag des affiches déjà vues.
+      ...(r.titre.place !== "auto" ? { place: r.titre.place } : {}),
+      ...(r.texte.police !== "inter" ? { police: r.texte.police } : {}),
     },
   };
 }

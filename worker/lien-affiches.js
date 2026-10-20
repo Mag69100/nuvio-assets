@@ -16,12 +16,13 @@ export function creerLienAffiches() {
     statut: { on: true, style: "texte" },
     tendance: { on: true, style: "fleche" },
     qualite: { on: true, montrer: "plus", style: "texte" },
-    titre: { on: true, taille: 1 },
+    titre: { on: true, taille: 1, place: "auto" },
     note: { on: true, source: "imdb", style: "etoile" },
     genre: { on: true, forme: "court" },
     annee: { on: true },
-    texte: { taille: 1, sep: "point", haut: 1 },
-    fondu: { on: true, couleur: "noir", force: "m" },
+    age: { on: false },
+    texte: { taille: 1, sep: "point", haut: 1, police: "inter" },
+    fondu: { on: true, couleur: "noir", force: "m", flou: false },
     sortie: { nb: true, cacherNote: true },
   });
 
@@ -41,18 +42,22 @@ export function creerLienAffiches() {
     ["k", "qualite", "style", { p: "pastille" }, (r) => r.qualite.on],
     ["L", "titre", "on", { 0: false }],
     ["l", "titre", "taille", TAILLES, titreOn],
+    ["o", "titre", "place", { g: "gauche", c: "centre" }, titreOn],
     ["N", "note", "on", { 0: false }, titreOn],
     ["n", "note", "source", { t: "tmdb" }, (r) => r.titre.on && r.note.on],
-    ["e", "note", "style", { n: "nu", g: "grand" }, (r) => r.titre.on && r.note.on],
+    ["e", "note", "style", { n: "nu", g: "grand", b: "badge" }, (r) => r.titre.on && r.note.on],
     ["G", "genre", "on", { 0: false }, titreOn],
     ["g", "genre", "forme", { c: "complet" }, (r) => r.titre.on && r.genre.on],
     ["A", "annee", "on", { 0: false }, titreOn],
+    ["Y", "age", "on", { 1: true }, titreOn],
     ["x", "texte", "taille", TAILLES, titreOn],
     ["p", "texte", "sep", { b: "barre", u: "puce" }, titreOn],
     ["z", "texte", "haut", TAILLES, (r) => r.statut.on || r.tendance.on || r.qualite.on],
+    ["w", "texte", "police", { b: "bebas" }, (r) => r.titre.on || r.statut.on || r.tendance.on || r.qualite.on],
     ["F", "fondu", "on", { 0: false }, titreOn],
     ["f", "fondu", "couleur", { a: "affiche" }, (r) => r.titre.on && r.fondu.on],
     ["i", "fondu", "force", { s: "s", l: "l" }, (r) => r.titre.on && r.fondu.on],
+    ["d", "fondu", "flou", { 1: true }, (r) => r.titre.on && r.fondu.on],
     ["B", "sortie", "nb", { 0: false }],
     ["h", "sortie", "cacherNote", { 0: false }, (r) => r.titre.on && r.note.on],
   ];
@@ -64,6 +69,10 @@ export function creerLienAffiches() {
     essentiel: de((r) => { r.statut.on = false; r.tendance.on = false; r.genre.on = false; r.annee.on = false; }),
     noteSeule: de((r) => {
       r.statut.on = false; r.tendance.on = false; r.qualite.on = false; r.genre.on = false; r.annee.on = false; r.note.style = "grand";
+    }),
+    // Façon affiche de cinéma : police haute et serrée, note en badge, âge conseillé, fond flouté sous le titre.
+    cine: de((r) => {
+      r.texte.police = "bebas"; r.note.style = "badge"; r.fondu.flou = true; r.age.on = true; r.statut.style = "etiquette";
     }),
     nue: de((r) => {
       for (const v of ["statut", "tendance", "qualite", "titre", "note", "genre", "annee", "fondu"]) r[v].on = false;

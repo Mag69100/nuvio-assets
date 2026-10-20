@@ -35,6 +35,24 @@ export async function tmdbIdDe(env, type, imdbId, fetchImpl = fetch) {
   return id;
 }
 
+/** Âge conseillé en France (« 10 », « 12 », « 16 », « 18 »), ou null : tous publics ou inconnu. */
+function ageDe(type, d) {
+  const brut = type === "series"
+    ? ((d.content_ratings && d.content_ratings.results) || []).filter((r) => r.iso_3166_1 === "FR").map((r) => r.rating)
+    : ((d.release_dates && d.release_dates.results) || []).filter((r) => r.iso_3166_1 === "FR")
+        .flatMap((r) => r.release_dates || []).sort((a, b) => (a.type === 3 ? -1 : b.type === 3 ? 1 : 0)).map((r) => r.certification);
+  const age = brut.map((c) => (/^-?(10|12|16|18)$/.exec(String(c || "").trim()) || [])[1]).find(Boolean);
+  return age || null;
+}
+
+/**
+ * Images sans langue au bon format (2:3 ou 16:9, à 2 % près ; sans dimensions connues : gardées), 3 au plus.
+ * lib/texte.js vérifie ensuite qu'elles n'ont vraiment pas de texte.
+ */
+const sansLangue = (list, ratio) => (list || [])
+  .filter((x) => x.iso_639_1 === null && (!x.width || !x.height || Math.abs(x.width / x.height - ratio) / ratio <= 0.02))
+  .slice(0, 3).map((x) => x.file_path);
+
 const first = (list, langs) => {
   for (const lang of langs) {
     const it = (list || []).find((x) => x.iso_639_1 === lang);
@@ -48,8 +66,9 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch) {
   const tmdbId = id.startsWith("tmdb:") ? Number(id.slice(5)) : await tmdbIdDe(env, type, id, fetchImpl);
   if (!tmdbId) return null;
   const d = await tmdbGet(env, `/${type === "series" ? "tv" : "movie"}/${tmdbId}`, {
-    // Films : les dates de sortie détaillées servent au statut (« En salle », « Nouveau »…).
-    language: "fr-FR", append_to_response: type === "series" ? "images,external_ids" : "images,external_ids,release_dates", include_image_language: "fr,en,null",
+    // Films : les dates de sortie détaillées servent au statut (« En salle », « Nouveau »…) et à l'âge conseillé ;
+    // séries : les classifications par pays, pour l'âge.
+    language: "fr-FR", append_to_response: type === "series" ? "images,external_ids,content_ratings" : "images,external_ids,release_dates", include_image_language: "fr,en,null",
   }, fetchImpl);
   if (!d) return null;
   const images = d.images || {};
@@ -62,15 +81,18 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch) {
     year: /^\d{4}/.test(date) ? date.slice(0, 4) : null,
     vote: { average: d.vote_average || 0, count: d.vote_count || 0 },
     poster: d.poster_path || null,
-    textlessPoster: first(images.posters, [null]),
+    textlessPosters: sansLangue(images.posters, 2 / 3),
+    textlessPoster: sansLangue(images.posters, 2 / 3)[0] || null,
     backdrop: d.backdrop_path || null,
-    textlessBackdrop: first(images.backdrops, [null]),
+    textlessBackdrops: sansLangue(images.backdrops, 16 / 9),
+    textlessBackdrop: sansLangue(images.backdrops, 16 / 9)[0] || null,
     logo: first(images.logos, ["fr", "en"]),
     lastSeason: type === "series" && d.last_episode_to_air ? d.last_episode_to_air.season_number : null,
     // Pour le statut (lib/statut.js).
     releases: type === "series" ? [] : (d.release_dates && d.release_dates.results) || [],
     releaseDate: type === "series" ? "" : d.release_date || "",
     originalLanguage: d.original_language || "",
+    age: ageDe(type, d),
     firstAir: type === "series" ? d.first_air_date || "" : "",
     seasons: type === "series" ? (d.seasons || []).map((s) => ({ season_number: s.season_number, air_date: s.air_date || "" })) : [],
   };

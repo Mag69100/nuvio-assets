@@ -2,7 +2,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { titleFacts, tmdbIdDe, tailleMemo, resetMemo as resetTmdb } from "../lib/tmdb.js";
 import { ratingOf, decodeRatings, resetMemo as resetNotes } from "../lib/notes.js";
-import { trendingRank, resetMemo as resetTendances } from "../lib/tendances.js";
+import { trendingRank, photoTendances, prochaineBascule, secondesAvantBascule, resetMemo as resetTendances } from "../lib/tendances.js";
 
 const env = { TMDB_API_KEY: "k" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json" } });
@@ -55,6 +55,20 @@ test("tmdb:N direct", async () => {
   assert.equal(facts.type, "series");
 });
 
+// Candidates sans texte : sans langue, au format d'une affiche (2:3) ou d'un fond (16:9) à 2 % près, 3 au plus.
+// Un autre format trahit souvent une affiche étrangère rangée là par erreur (Conjuring : 1433×2048).
+test("candidates_sans_texte", async () => {
+  const p = (file_path, width, height, iso_639_1 = null) => ({ iso_639_1, file_path, width, height });
+  const film = { ...movie, images: { ...movie.images,
+    posters: [p("/lt.jpg", 1433, 2048), p("/a.jpg", 2000, 3000), p("/fr2.jpg", 2000, 3000, "fr"), p("/b.jpg", 2000, 2964), p("/c.jpg", 1000, 1500), p("/d.jpg", 1000, 1500)],
+    backdrops: [p("/carre.jpg", 1000, 1000), p("/e.jpg", 3840, 2160), p("/f.jpg", 1280, 720)] } };
+  const f = await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, fauxFetch([["/movie/693134", json(film)]]));
+  assert.deepEqual(f.textlessPosters, ["/a.jpg", "/b.jpg", "/c.jpg"]);
+  assert.equal(f.textlessPoster, "/a.jpg");
+  assert.deepEqual(f.textlessBackdrops, ["/e.jpg", "/f.jpg"]);
+  assert.equal(f.textlessBackdrop, "/e.jpg");
+});
+
 test("images choisies", async () => {
   const f = fauxFetch([["/movie/693134", json(movie)]]);
   const facts = await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, f);
@@ -79,6 +93,24 @@ test("dates pour le statut", async () => {
   const s = await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fauxFetch([["/tv/94605", json(serie)]]));
   assert.equal(s.firstAir, "2021-11-06");
   assert.deepEqual(s.seasons, [{ season_number: 1, air_date: "2021-11-06" }]);
+});
+
+// Âge conseillé en France : la classification FR du film (sortie en salle d'abord), ou celle de la série.
+test("age_conseille_france", async () => {
+  const film = { ...movie, release_dates: { results: [
+    { iso_3166_1: "US", release_dates: [{ type: 3, certification: "R" }] },
+    { iso_3166_1: "FR", release_dates: [{ type: 4, certification: "" }, { type: 3, certification: "12" }] },
+  ] } };
+  const f = await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, fauxFetch([["/movie/693134", json(film)]]));
+  assert.equal(f.age, "12");
+  const tousPublics = { ...movie, release_dates: { results: [{ iso_3166_1: "FR", release_dates: [{ type: 3, certification: "U" }] }] } };
+  assert.equal((await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, fauxFetch([["/movie/693134", json(tousPublics)]]))).age, null);
+  const serie = { ...movie, id: 94605, release_date: undefined, first_air_date: "2021-11-06", content_ratings: { results: [{ iso_3166_1: "US", rating: "TV-14" }, { iso_3166_1: "FR", rating: "-16" }] } };
+  const fs = fauxFetch([["/tv/94605", json(serie)]]);
+  const s = await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fs);
+  assert.equal(new URL(fs.calls[0]).searchParams.get("append_to_response"), "images,external_ids,content_ratings");
+  assert.equal(s.age, "16");
+  assert.equal((await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fauxFetch([["/tv/94605", json({ ...serie, content_ratings: { results: [{ iso_3166_1: "FR", rating: "TP" }] } })]]))).age, null);
 });
 
 test("logo anglais si pas de français, sinon rien", async () => {
@@ -142,14 +174,41 @@ test("notes illisibles : pas de note", async () => {
   assert.equal(await ratingOf("tt0000003", f), undefined);
 });
 
+// La photo du jour : les 60 premiers des tendances (3 pages TMDB), sans doublon. Le N° des affiches s'arrête
+// à 20 ; les suivants, presque classés, ont seulement un cache qui s'arrête au changement de photo.
 test("tendances", async () => {
-  const results = Array.from({ length: 20 }, (_, i) => ({ id: 100 + i }));
-  const f = fauxFetch([["/trending/movie/day", json({ results })], ["/trending/tv/day", json({ results: [{ id: 5 }] })]]);
+  const page = (n) => json({ results: Array.from({ length: 20 }, (_, i) => ({ id: 100 + (n - 1) * 20 + i })) });
+  const f = async (url) => {
+    const u = String(url);
+    f.calls.push(u);
+    if (u.includes("/trending/tv/day")) return json({ results: [{ id: 5 }] });
+    return page(Number(new URL(u).searchParams.get("page")));
+  };
+  f.calls = [];
   assert.equal(await trendingRank(env, "movie", 103, f), 4);
+  assert.equal(await trendingRank(env, "movie", 145, f), 46);
   assert.equal(await trendingRank(env, "movie", 999, f), null);
   assert.equal(await trendingRank(env, "series", 5, f), 1);
-  assert.equal(f.calls.filter((u) => u.includes("/trending/movie/day")).length, 1);
-  assert.equal(new URL(f.calls[0]).searchParams.get("page"), "1");
+  const pages = f.calls.filter((u) => u.includes("/trending/movie/day")).map((u) => new URL(u).searchParams.get("page"));
+  assert.deepEqual(pages.sort(), ["1", "2", "3"]);
+  assert.deepEqual(await photoTendances(env, "series", f), [5]);
+});
+
+test("tendances par le relais du service", async () => {
+  const calls = [];
+  const f = async (url) => { calls.push(String(url)); return json({ ids: [7, 8, 9] }); };
+  assert.equal(await trendingRank(env, "movie", 8, f, "https://affiches.test"), 2);
+  assert.deepEqual(calls, ["https://affiches.test/tendances/movie.json"]);
+});
+
+// La photo change chaque jour à 4 h UTC (6 h à Paris l'été, 5 h l'hiver).
+test("bascule_quotidienne", () => {
+  const t = (h, m = 0) => Date.UTC(2026, 9, 21, h, m);
+  assert.equal(prochaineBascule(t(3, 59)), t(4));
+  assert.equal(prochaineBascule(t(4)), Date.UTC(2026, 9, 22, 4));
+  assert.equal(prochaineBascule(t(23)), Date.UTC(2026, 9, 22, 4));
+  assert.equal(secondesAvantBascule(t(3)), 3600);
+  assert.equal(secondesAvantBascule(t(3, 59) + 50000), 60);   // jamais moins d'une minute
 });
 
 test("tendances en panne : null sans erreur", async () => {

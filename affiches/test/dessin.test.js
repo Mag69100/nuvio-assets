@@ -163,6 +163,9 @@ test("styles : chaque choix se dessine", async () => {
     { styles: { ...STYLES, note: "nu" } }, { styles: { ...STYLES, note: "grand" } }, { line: { note: "8,4" }, styles: { ...STYLES, note: "grand" } },
     { styles: { ...STYLES, texte: 0.7, sep: "barre" } }, { styles: { ...STYLES, texte: 1.4, sep: "puce" } },
     { styles: { ...STYLES, titre: 0.6 } }, { styles: { ...STYLES, haut: 1.4 } }, { styles: { ...STYLES, titre: 1.4 } },
+    { line: { genre: "SF", note: "8,4", source: "tmdb", annee: "2024", age: "16" }, styles: { ...STYLES, note: "badge", police: "bebas", place: "gauche" } },
+    { line: { note: "8,4", age: "12" }, styles: { ...STYLES, note: "grand", place: "centre", fondu: { couleur: "affiche", force: "l", flou: true } } },
+    { statut: "AU CINÉMA LE 16 DÉC. 2027", styles: { ...STYLES, police: "bebas", haut: 1.4 } },
   ];
   for (const e of essais) {
     for (const shape of ["poster", "landscape"]) {
@@ -224,15 +227,76 @@ test("fondu aux couleurs d'une affiche magenta", async () => {
   assert.ok(rt > rn + 15, `teinte noire : rouge ${rt} (noir ${rn})`);
 });
 
-// Dolby Vision : le logo (deux « D » dos à dos), pas le texte « DV ». HDR reste écrit en toutes lettres.
+// Dolby Vision : le logo (deux « D » arrondis face à face), pas le texte « DV ». HDR reste écrit en toutes lettres.
 test("qualité : logo Dolby Vision", async () => {
   const { elementsQualite } = await import("../lib/dessin.js");
   const texte = (n) => JSON.stringify(n);
   const dv = elementsQualite("DV", 26, false);
   assert.match(texte(dv), /"type":"svg"/);
   assert.doesNotMatch(texte(dv), /"DV"/);
+  // D de gauche : bord plat à x = 3, arrondi vers la droite ; D de droite : bord plat à x = 45, arrondi vers la gauche.
+  const { DOLBY } = await import("../lib/dessin.js");
+  assert.match(DOLBY, /^M3 2h10a10 10 0 0 1 0 20H3zM45 2H35a10 10 0 0 0 0 20h10z$/);
   const hdr = elementsQualite("HDR", 26, false);
   assert.match(texte(hdr), /"HDR"/);
   assert.doesNotMatch(texte(hdr), /"type":"svg"/);
   assert.match(texte(elementsQualite(null, 26, false)), /"4K"/);
+});
+
+// ---------- ajouts inspirés de Viewio et Posters+ ----------
+const compte = async (buf, [left, top, width, height], ok) => {
+  const { data, info } = await pixels(buf, left, top, width, height);
+  let n = 0;
+  for (let i = 0; i < data.length; i += info.channels) if (ok(data[i], data[i + 1], data[i + 2])) n++;
+  return n;
+};
+const blanc = (r, g, b) => r > 225 && g > 225 && b > 225;
+const seul = { ...base, logo: null, rank: null, quality: null };
+
+test("note en badge : pastille jaune IMDb, bleue TMDB", async () => {
+  const jaune = (r, g, b) => r > 200 && g > 150 && b < 90, bleu = (r, g, b) => r < 90 && g > 140 && b > 190;
+  const imdb = await draw({ ...seul, line: { genre: "SF", note: "8,4", source: "imdb", annee: "2024" }, styles: { ...STYLES, note: "badge" } }, f);
+  assert.ok(await compte(imdb, [0, 520, 400, 80], jaune) > 150, "pas de badge jaune");
+  const tmdb = await draw({ ...seul, line: { note: "8,1", source: "tmdb" }, styles: { ...STYLES, note: "badge" } }, f);
+  assert.ok(await compte(tmdb, [0, 520, 400, 80], bleu) > 150, "pas de badge bleu");
+});
+
+test("âge : un cadre de plus au bout de la ligne", async () => {
+  const droite = async (line) => {
+    const { data, info } = await pixels(await draw({ ...seul, line }, f), 0, 540, 400, 60);
+    let max = -1;
+    for (let y = 0; y < info.height; y++) for (let x = 0; x < info.width; x++) { const i = (y * info.width + x) * info.channels; if (blanc(data[i], data[i + 1], data[i + 2])) max = Math.max(max, x); }
+    return max;
+  };
+  const ligne = { genre: "SF", note: "8,4", annee: "2024" };
+  assert.ok(await droite({ ...ligne, age: "12" }) > await droite(ligne) + 15);
+});
+
+test("police cinéma : un autre dessin des lettres", async () => {
+  const inter = await draw({ ...seul, statut: "NOUVEAU" }, f);
+  const bebas = await draw({ ...seul, statut: "NOUVEAU", styles: { ...STYLES, police: "bebas" } }, f);
+  const [pa, pb] = [await pixels(inter, 0, 520, 400, 80), await pixels(bebas, 0, 520, 400, 80)];
+  let differents = 0;
+  for (let i = 0; i < pa.data.length; i++) if (Math.abs(pa.data[i] - pb.data[i]) > 60) differents++;
+  assert.ok(differents > 500, `même dessin : ${differents}`);
+});
+
+test("place du titre : à gauche, au centre", async () => {
+  const centre = async (shape, place) => centreBlanc(await draw({ ...base, shape, image: shape === "landscape" ? "/large.jpg" : "/base.jpg", line: null, rank: null, quality: null, styles: { ...STYLES, place } }, f));
+  // Logo de 320 px de large : collé à la marge de gauche (20 px), son centre est à 180 px (200 au centre).
+  assert.ok(Math.abs(await centre("poster", "gauche") - 180) <= 3, "affiche : logo pas à gauche");
+  assert.ok(Math.abs(await centre("landscape", "centre") - 400) <= 4, "paysage : logo pas au centre");
+  assert.ok(await centre("landscape", undefined) < 250, "paysage par défaut : à gauche");
+});
+
+test("fondu flou : le bas de l'image est adouci", async () => {
+  const rayures = () => sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="500" height="750"><defs><pattern id="p" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="3" height="6" fill="#fff"/><rect x="3" width="3" height="6" fill="#000"/></pattern></defs><rect width="500" height="750" fill="url(#p)"/></svg>`)).jpeg().toBuffer();
+  const g = avec(rayures);
+  const ecart = async (flou) => {
+    const buf = await draw({ ...seul, line: null, styles: { ...STYLES, fondu: { couleur: "noir", force: "s", flou } } }, g);
+    const z = await sharp(buf).extract({ left: 0, top: 500, width: 400, height: 60 }).toBuffer();
+    return (await sharp(z).stats()).channels[0].stdev;
+  };
+  const net = await ecart(undefined), doux = await ecart(true);
+  assert.ok(doux < net * 0.5, `pas flou : ${net} → ${doux}`);
 });

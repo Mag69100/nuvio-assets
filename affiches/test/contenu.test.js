@@ -115,7 +115,7 @@ test("source_tmdb", () => {
 
 test("bientot_gris_sans_note", () => {
   const c = contenu(bientot, plein);
-  assert.equal(c.statut, "BIENTÔT");
+  assert.equal(c.statut, "AU CINÉMA LE 16 DÉC.");
   assert.equal(c.gris, true);
   assert.deepEqual(c.line, { genre: "SF", annee: "2024" });
   assert.equal(contenu(bientot, plein, "poster", reglages("B0")).gris, false);
@@ -126,7 +126,7 @@ test("bientot_gris_sans_note", () => {
 // « Pas sorti » = pas encore chez soi en VF, comme les rangées de l'addon : un film seulement au cinéma l'est.
 test("en_salle_pas_encore_sorti", () => {
   const c = contenu(enSalle, plein);
-  assert.equal(c.statut, "EN SALLE");
+  assert.equal(c.statut, "DISPO VERS LE 24 NOV.");
   assert.equal(c.gris, true);
   assert.equal(c.line.note, undefined);
 });
@@ -136,6 +136,42 @@ test("sorti_sans_vf_pas_encore_sorti", () => {
   const c = contenu(sansVf, plein);
   assert.equal(c.gris, true);
   assert.equal(c.statut, "BIENTÔT");
+});
+
+test("age_sur_demande", () => {
+  const f = { ...facts, age: "12" };
+  assert.equal(contenu(f, plein).line.age, undefined);
+  assert.deepEqual(contenu(f, plein, "poster", reglages("Y1")).line, { genre: "SF", note: "8,4", annee: "2024", age: "12" });
+  assert.equal(contenu({ ...facts, age: null }, plein, "poster", reglages("Y1")).line.age, undefined);
+});
+
+// Le badge dit d'où vient la note : IMDb, ou TMDB (choisie, ou en repli quand IMDb n'en a pas).
+test("note_en_badge", () => {
+  assert.equal(contenu(facts, plein).line.source, undefined);
+  assert.equal(contenu(facts, plein, "poster", reglages("eb")).line.source, "imdb");
+  assert.equal(contenu(facts, { ...plein, imdbRating: undefined }, "poster", reglages("eb")).line.source, "tmdb");
+  assert.equal(contenu(facts, plein, "poster", reglages("nteb")).line.source, "tmdb");
+  assert.equal(contenu(facts, plein, "poster", reglages("eb")).styles.note, "badge");
+});
+
+test("styles_nouveaux", () => {
+  const c = contenu(facts, plein, "poster", reglages("ocwbd1"));
+  assert.equal(c.styles.place, "centre");
+  assert.equal(c.styles.police, "bebas");
+  assert.deepEqual(c.styles.fondu, { couleur: "noir", force: "m", flou: true });
+});
+
+// La date à la place de « Bientôt » / « En salle » ; l'année seulement si ce n'est pas l'année en cours.
+test("statut_en_dates", () => {
+  const avec = (releases, releaseDate = "") => contenu({ ...facts, releases, releaseDate }, plein).statut;
+  const fr = (...d) => [{ iso_3166_1: "FR", release_dates: d.map(([type, release_date]) => ({ type, release_date })) }];
+  assert.equal(avec(fr([3, "2026-10-10"], [4, "2026-11-02"])), "DISPO LE 2 NOV.");
+  assert.equal(avec(fr([3, "2027-03-12"]), "2027-03-12"), "AU CINÉMA LE 12 MARS 2027");
+  assert.equal(avec([{ iso_3166_1: "US", release_dates: [{ type: 3, release_date: "2027-01-05" }] }]), "SORTIE LE 5 JANV. 2027");
+  assert.equal(avec([], "2026-12-01"), "SORTIE LE 1 DÉC.");
+  assert.equal(avec([], ""), "BIENTÔT");
+  const serie = { ...facts, type: "series", releases: [], releaseDate: "", firstAir: "2026-11-01", seasons: [] };
+  assert.equal(contenu(serie, plein).statut, "SORTIE LE 1 NOV.");
 });
 
 test("note_seule_sans_logo", () => {

@@ -595,6 +595,29 @@ function endpointAsDiscover(def) {
   return { ...rest, ...m, discover: { sort_by: "popularity.desc", "vote_count.gte": 10, ...(m.discover || {}) } };
 }
 
+/**
+ * Photo du jour des tendances, prise par le service d'affiches (affiches/lib/tendances.js) : identifiant TMDB →
+ * place. Les « N° » des affiches en viennent ; les rangées « Tendances du jour » s'y rangent, pour que les
+ * numéros se suivent. Elle change chaque jour à 4 h UTC : gardée par Cloudflare jusque-là. Illisible : vide.
+ */
+const BASCULE_UTC_H = 4;
+function secondesAvantBascule(now = Date.now()) {
+  const d = new Date(now), b = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), BASCULE_UTC_H);
+  return Math.max(60, Math.ceil(((b > now ? b : b + 86400000) - now) / 1000));
+}
+async function photoTendances(env, kind) {
+  try {
+    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json`, { cf: { cacheTtl: secondesAvantBascule(), cacheEverything: true } });
+    const d = res.ok ? await res.json() : {};
+    return new Map((Array.isArray(d.ids) ? d.ids : []).map((id, i) => [id, i]));
+  } catch (e) { return new Map(); }
+}
+/** Titres rangés dans l'ordre de la photo ; ceux qu'elle n'a pas, à la suite, dans leur ordre. */
+const dansLOrdre = (items, photo) => (photo.size ? [...items].sort((a, b) => (photo.has(a.id) ? photo.get(a.id) : 1e9) - (photo.has(b.id) ? photo.get(b.id) : 1e9)) : items);
+/** Le jour de la photo des tendances en cours (elle change à 4 h UTC). */
+const jourTendances = (now = Date.now()) => new Date(now - BASCULE_UTC_H * 3600000).toISOString().slice(0, 10);
+const tendancesDuJour = (def) => /^\/trending\/(movie|tv)\/day$/.test(def.endpoint || "");
+
 /** Une page (1, 2, 3…) d'une définition de liste. */
 async function fetchPage(env, ctx, def, kind, page, today, opts) {
   if (def.mix) {
@@ -614,7 +637,8 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
   if (def.endpoint) {
     const params = { ...(def.params || {}) };
     if (params.region) params.region = opts.region;
-    data = await tmdb(env, def.endpoint, { ...params, page }, opts.lang);
+    const [lue, photo] = await Promise.all([tmdb(env, def.endpoint, { ...params, page }, opts.lang), tendancesDuJour(def) ? photoTendances(env, kind) : new Map()]);
+    data = photo.size && lue.results ? { ...lue, results: dansLOrdre(lue.results, photo) } : lue;
   } else {
     const endpoint = `/discover/${kind === "series" ? "tv" : "movie"}`;
     const params = discoverParams(def, kind, today, opts);
@@ -641,10 +665,13 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
  */
 const MAX_CHECKED = 40;   // fiches TMDB lues au plus par page (limite d'appels de Cloudflare)
 async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
-  // Dans l'ordre de TMDB : le même que le « N° » des affiches maison (affiches/lib/tendances.js).
-  const lists = await Promise.all([page, page + 1].map((p) => tmdb(env, def.endpoint, { ...(def.params || {}), page: p }, opts.lang)));
+  // Dans l'ordre de la photo du jour (celle des « N° » des affiches maison), sinon de TMDB.
+  const [lists, photo] = await Promise.all([
+    Promise.all([page, page + 1].map((p) => tmdb(env, def.endpoint, { ...(def.params || {}), page: p }, opts.lang))),
+    tendancesDuJour(def) ? photoTendances(env, kind) : new Map(),
+  ]);
   // Un titre passé d'une page de TMDB à l'autre entre deux lectures n'est gardé qu'une fois.
-  const released = lists.flatMap((d) => d.results || [])
+  const released = dansLOrdre(lists.flatMap((d) => d.results || []), photo)
     .filter((it, i, all) => all.findIndex((x) => x.id === it.id) === i)
     .filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; });
   let picked = released.slice(0, PAGE);
@@ -1737,8 +1764,9 @@ const app = {
       const q = new URLSearchParams();
       if (/^tt\d{1,10}$/.test(imdb)) q.set("imdb", imdb);
       if (s) q.set("s", "1." + s);
-      const src = `${AFFICHES_URL}/${af[1]}/${af[2]}/${id}.jpg${q.size ? "?" + q : ""}`;
-      const key = new Request(`https://cache.local/affiche-v3/${af[1]}/${af[2]}/${id}?${q}`);
+      // AFFICHES_URL de l'environnement : un service d'affiches lancé à côté, pour essayer en local.
+      const src = `${env.AFFICHES_URL || AFFICHES_URL}/${af[1]}/${af[2]}/${id}.jpg${q.size ? "?" + q : ""}`;
+      const key = new Request(`https://cache.local/affiche-v3/${af[1]}/${af[2]}/${id}?${q}&t=${jourTendances()}`);
       const hitA = await caches.default.match(key);
       if (hitA) return hitA;
       const r = await fetch(src, { cf: { cacheTtl: 86400, cacheEverything: true } }).catch(() => null);
@@ -1818,7 +1846,8 @@ const app = {
     // Une recherche faite sans clé Gemini (sans IA) n'est pas resservie à qui en a une, et inversement.
     const extra = parseExtra(extraSeg);
     const aiTag = extra.search ? `&ai=${env.GEMINI_API_KEY ? 1 : 0}` : "";
-    const cacheKey = new Request(`https://cache.local/${VERSION}/${today}${path}?k=${await sha(contentKey(cfg))}${aiTag}`);
+    // La clé change aussi avec la photo des tendances (4 h UTC) : les rangées suivent les « N° » du jour.
+    const cacheKey = new Request(`https://cache.local/${VERSION}/${today}${path}?k=${await sha(contentKey(cfg))}${aiTag}&t=${jourTendances()}`);
     const hit = await caches.default.match(cacheKey);
     if (hit) return new Response(hit.body, { headers: { ...HEADERS, "Cache-Control": `public, max-age=${CACHE_CLIENT_S}` } });
 

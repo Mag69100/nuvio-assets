@@ -26,23 +26,32 @@ function sortieFilm(facts, today) {
   if (!toutes.length) {
     // Pas de dates détaillées : la date de la fiche, si elle existe, dit seulement si le film est sorti.
     const sorti = !!facts.releaseDate && facts.releaseDate <= today;
-    return { sorti, statut: sorti ? null : "bientot" };
+    if (sorti) return { sorti, statut: null };
+    return facts.releaseDate ? { sorti, statut: "bientot", quand: { quoi: "sortie", date: facts.releaseDate, vers: false } } : { sorti, statut: "bientot" };
   }
   // Sorti il y a plus d'un an, où que ce soit : un vieux film (même ressorti ou annoncé à nouveau).
   if (toutes[0] < ajoute(today, -365)) return { sorti: true, statut: null };
   const salleMonde = releaseDates(facts.releases, [2, 3])[0] || "";
-  const chezSoi = releaseDates(facts.releases, [4, 5, 6])[0] || (salleMonde ? ajoute(salleMonde, SALLE_JOURS) : "");
+  const chezSoiConnu = releaseDates(facts.releases, [4, 5, 6])[0] || "";
+  const chezSoi = chezSoiConnu || (salleMonde ? ajoute(salleMonde, SALLE_JOURS) : "");
   const vf = facts.originalLanguage === "fr" ? chezSoi : releaseDates(facts.releases, [2, 3, 4, 5, 6], FRANCOPHONES)[0] || "";
   // Disponible en VF le jour où les deux sont réunis.
   const dispo = chezSoi && vf ? (chezSoi > vf ? chezSoi : vf) : "";
   if (dispo && dispo <= today) return { sorti: true, statut: dispo >= ajoute(today, -NOUVEAU_JOURS) ? "nouveau" : null };
-  // Pas encore chez soi en VF : « En salle » s'il est au cinéma en France, sinon « Bientôt ».
-  const salleFrance = releaseDates(facts.releases, [2, 3], ["FR"])[0] || "";
-  return { sorti: false, statut: salleFrance && salleFrance <= today ? "salle" : "bientot" };
+  // Pas encore chez soi en VF : « En salle » s'il est au cinéma en France, sinon « Bientôt », avec la date
+  // à venir la plus utile (comme les rangées) : dispo chez soi, sortie au cinéma en France, ou sortie ailleurs.
+  const sallesFrance = releaseDates(facts.releases, [2, 3], ["FR"]);
+  const dispoAVenir = dispo > today ? { quoi: "dispo", date: dispo, vers: !chezSoiConnu } : null;
+  if (sallesFrance[0] && sallesFrance[0] <= today) return { sorti: false, statut: "salle", ...(dispoAVenir ? { quand: dispoAVenir } : {}) };
+  const cinema = sallesFrance.find((d) => d > today);
+  const ailleurs = releaseDates(facts.releases, [2, 3, 4]).find((d) => d > today);
+  const quand = cinema ? { quoi: "cinema", date: cinema, vers: false } : dispoAVenir || (ailleurs ? { quoi: "sortie", date: ailleurs, vers: false } : null);
+  return { sorti: false, statut: "bientot", ...(quand ? { quand } : {}) };
 }
 
 function sortieSerie(facts, today) {
-  if (!facts.firstAir || facts.firstAir > today) return { sorti: false, statut: "bientot" };
+  if (!facts.firstAir) return { sorti: false, statut: "bientot" };
+  if (facts.firstAir > today) return { sorti: false, statut: "bientot", quand: { quoi: "sortie", date: facts.firstAir, vers: false } };
   if (facts.firstAir >= ajoute(today, -NOUVEAU_JOURS)) return { sorti: true, statut: "nouveau" };
   const derniere = (facts.seasons || [])
     .filter((s) => s.season_number >= 2 && s.air_date && s.air_date <= today)
@@ -50,7 +59,10 @@ function sortieSerie(facts, today) {
   return { sorti: true, statut: derniere && derniere.air_date >= ajoute(today, -NOUVEAU_JOURS) ? "saison" : null };
 }
 
-/** { sorti: disponible chez soi en VF, statut: "bientot" | "salle" | "nouveau" | "saison" | null }. */
+/**
+ * { sorti: disponible chez soi en VF, statut: "bientot" | "salle" | "nouveau" | "saison" | null,
+ *   quand (pas sorti, si on la connaît) : { quoi: "dispo" | "cinema" | "sortie", date, vers: date estimée } }.
+ */
 export function etatSortie(facts, today) {
   return facts.type === "series" ? sortieSerie(facts, today) : sortieFilm(facts, today);
 }

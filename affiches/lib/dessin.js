@@ -1,6 +1,7 @@
 /**
  * Le dessin d'une affiche maison. sharp pose les images (fond, dégradés, logo) et fait le JPEG ;
- * satori écrit les textes (police Inter) sous forme de tracés SVG, donc sans police à installer.
+ * satori écrit les textes (police Inter, ou Bebas Neue en style « Cinéma ») sous forme de tracés SVG, donc sans
+ * police à installer.
  * Les styles viennent des réglages de la régie (content.styles, voir lib/contenu.js).
  * Mesures de base : maquette « Gras + léger » validée, en pixels d'une affiche de 400 px de large.
  */
@@ -18,7 +19,10 @@ const FONTS = [
   { name: "Inter", data: police("Inter-Medium.ttf"), weight: 500, style: "normal" },
   { name: "Inter", data: police("Inter-SemiBold.ttf"), weight: 600, style: "normal" },
   { name: "Inter", data: police("Inter-ExtraBold.ttf"), weight: 800, style: "normal" },
+  { name: "Bebas Neue", data: police("BebasNeue-Regular.ttf"), weight: 400, style: "normal" },
 ];
+// Police « Cinéma » : Bebas Neue, haute et serrée, un peu agrandie pour se lire aussi bien qu'Inter.
+const POLICES = { inter: { nom: "Inter", echelle: 1 }, bebas: { nom: "Bebas Neue", echelle: 1.2 } };
 
 // Mesures par forme (en pixels de l'affiche), puis facteurs des réglages.
 const MESURES = {
@@ -44,7 +48,8 @@ const svg = (taille, viewBox, d, fill) => ({
 });
 const ETOILE = "M12 2l2.9 6.9 7.1.6-5.4 4.7 1.6 7-6.2-3.8-6.2 3.8 1.6-7L2 9.5l7.1-.6z";
 const FLECHE = "M7 17L17 7M9 7h8v8";
-const OMBRE = "0 2px 8px rgba(0,0,0,0.7)";
+const OMBRE = "0 2px 8px rgba(0,0,0,0.7)", SANS_OMBRE = "0 0 0 transparent";
+const BADGES_NOTE = { imdb: { fond: OR, nom: "IMDb" }, tmdb: { fond: "#01b4e4", nom: "TMDB" } };
 const fleche = (t) => ({
   type: "svg",
   props: { width: t * 0.9, height: t * 0.9, viewBox: "0 0 24 24", style: { marginRight: t * 0.3 },
@@ -63,14 +68,24 @@ function ligneDuBas(content, m) {
   const st = content.styles, t = m.texte * (m.ligne || 1) * (Number(st.texte) || 1), { genre, note, annee } = content.line;
   const grand = st.note === "grand" && note;
   const morceaux = [];
+  // L'âge conseillé, dans un petit cadre au bout de la ligne (sans séparateur).
+  const age = content.line.age
+    ? h("div", { display: "flex", border: `${Math.max(1.5, t * 0.07)}px solid rgba(255,255,255,0.85)`, borderRadius: t * 0.15, padding: `0 ${t * 0.2}px`, marginLeft: t * 0.4, fontSize: t * 0.72, fontWeight: 800, lineHeight: 1.3 }, "-" + content.line.age)
+    : null;
   if (grand) {
     if (genre) morceaux.push(h("span", { fontSize: t * 0.77, opacity: 0.8, marginRight: t * 0.5 }, genre));
     morceaux.push(h("span", { fontSize: t * 2.45, fontWeight: 800, color: "#fff", lineHeight: 1 }, note));
     if (annee) morceaux.push(h("span", { fontSize: t * 0.77, fontWeight: 500, opacity: 0.8, marginLeft: t * 0.5 }, annee));
+    if (age) morceaux.push(age);
   } else {
     const parts = [];
     if (genre) parts.push(h("span", {}, genre));
-    if (note) {
+    if (note && st.note === "badge") {
+      // Façon Posters+ : la source en petit et la note, sur une pastille à ses couleurs.
+      const b = BADGES_NOTE[content.line.source === "tmdb" ? "tmdb" : "imdb"];
+      parts.push(h("div", { display: "flex", alignItems: "center", background: b.fond, color: ENCRE, borderRadius: t * 0.18, padding: `${t * 0.04}px ${t * 0.25}px`, fontWeight: 800, textShadow: SANS_OMBRE }, [
+        h("span", { fontSize: t * 0.6, marginRight: t * 0.22 }, b.nom), h("span", {}, note)]));
+    } else if (note) {
       parts.push(h("div", { display: "flex", alignItems: "center" }, st.note === "etoile"
         ? [h("div", { display: "flex", marginRight: t * 0.25 }, svg(t * 0.8, "0 0 24 24", ETOILE, OR)), h("span", {}, note)]
         : [h("span", {}, note)]));
@@ -80,10 +95,13 @@ function ligneDuBas(content, m) {
       if (i) morceaux.push(h("span", { margin: `0 ${t * 0.35}px`, opacity: 0.9 }, SEPARATEURS[st.sep]));
       morceaux.push(p);
     });
+    if (age) morceaux.push(age);
   }
-  const place = m.cote
-    ? { right: m.marge, justifyContent: "flex-end", alignItems: "flex-end" }
-    : { left: 0, right: 0, justifyContent: "center", alignItems: "center" };
+  const place = {
+    cote: { right: m.marge, justifyContent: "flex-end", alignItems: "flex-end" },
+    centre: { left: 0, right: 0, justifyContent: "center", alignItems: "center" },
+    gauche: { left: m.marge, justifyContent: "flex-start", alignItems: "center" },
+  }[m.disposition];
   return h("div", {
     position: "absolute", bottom: m.ligneBas, display: "flex", ...place,
     fontSize: t, fontWeight: 600, color: "rgba(255,255,255,0.9)", textShadow: OMBRE,
@@ -109,8 +127,8 @@ function hautGauche(content, m) {
   return h("div", { position: "absolute", left: m.marge, top: m.haut, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: t * 0.25 }, pile);
 }
 
-// Logo Dolby Vision : deux « D » dos à dos, évidés (dessiné ici, en couleur du texte).
-const DOLBY = "M23 2H13a10 10 0 0 0 0 20h10zM20 8h-7a4 4 0 0 0 0 8h7zM25 2h10a10 10 0 0 1 0 20H25zM28 8h7a4 4 0 0 1 0 8h-7z";
+// Logo Dolby Vision : deux « D » pleins, arrondis face à face au milieu (dessiné ici, en couleur du texte).
+export const DOLBY = "M3 2h10a10 10 0 0 1 0 20H3zM45 2H35a10 10 0 0 0 0 20h10z";
 
 /** « 4K », puis une fine barre et « HDR » ou le logo Dolby Vision. */
 export function elementsQualite(extra, t, pastille) {
@@ -143,7 +161,7 @@ async function calqueTexte(content, [w, hgt], m) {
   if (gauche) enfants.push(gauche);
   if (content.quality) enfants.push(hautDroite(content, m));
   if (!enfants.length) return null;
-  const racine = h("div", { width: w, height: hgt, display: "flex", position: "relative", fontFamily: "Inter" }, enfants);
+  const racine = h("div", { width: w, height: hgt, display: "flex", position: "relative", fontFamily: m.police }, enfants);
   return Buffer.from(await satori(racine, { width: w, height: hgt, fonts: FONTS }));
 }
 
@@ -211,13 +229,14 @@ async function calqueLogo(content, [w, hgt], m, fetchImpl) {
     .png().toBuffer({ resolveWithObject: true });
   // Placé d'après sa partie pleine (les lettres) : halos et traînées semi-transparents ne le décalent pas.
   const plein = cadreVisible(await sharp(data).raw().toBuffer({ resolveWithObject: true }), 128);
-  if (m.cote) {
+  if (m.disposition === "cote") {
     // Paysage : les lettres commencent à la marge de gauche, et le logo descend jusqu'au bas de la ligne.
     const left = Math.min(Math.max(Math.round(m.marge - plein.left), 0), w - info.width);
     return { input: data, left, top: Math.max(0, Math.round(hgt - m.ligneBas - info.height)) };
   }
-  const centre = plein.left + plein.width / 2;
-  const left = Math.min(Math.max(Math.round(w / 2 - centre), 0), w - info.width);
+  // Au centre, ou à gauche (les lettres à la marge), au-dessus de la ligne du bas.
+  const voulu = m.disposition === "gauche" ? m.marge - plein.left : w / 2 - (plein.left + plein.width / 2);
+  const left = Math.min(Math.max(Math.round(voulu), 0), w - info.width);
   const bas = m.ligneBas + hauteurLigne(content, m) + m.texte * 0.65;
   return { input: data, left, top: Math.max(0, Math.round(hgt - bas - info.height)) };
 }
@@ -233,10 +252,31 @@ function cadreVisible({ data, info }, seuil = 16) {
   return r < 0 ? { left: 0, top: 0, width: info.width, height: info.height } : { left: l, top: t, width: r - l + 1, height: b - t + 1 };
 }
 
+/**
+ * Mesures d'une affiche selon ses réglages : place du titre (« auto » : au centre en portrait, logo à gauche et
+ * ligne à droite en paysage ; ou partout à gauche, ou partout au centre) et police.
+ */
+function mesures(content) {
+  const st = content.styles, m = { ...MESURES[content.shape] }, police = POLICES[st.police] || POLICES.inter;
+  m.disposition = !st.place || st.place === "auto" ? (m.cote ? "cote" : "centre") : st.place;
+  m.police = police.nom;
+  m.texte *= police.echelle;
+  return m;
+}
+
+/** Le bas de l'image flouté, de plus en plus en descendant (fondu « flou », comme un verre dépoli sous le titre). */
+async function calqueFlou(base, [w, hgt]) {
+  const hb = Math.round(hgt * 0.52);
+  const floue = await sharp(await sharp(base).blur(Math.max(1, w / 40)).toBuffer()).extract({ left: 0, top: hgt - hb, width: w, height: hb }).toBuffer();
+  const masque = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${hb}"><defs><linearGradient id="m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.45" stop-color="#fff" stop-opacity="1"/></linearGradient></defs><rect width="${w}" height="${hb}" fill="url(#m)"/></svg>`);
+  const input = await sharp(floue).ensureAlpha().composite([{ input: masque, blend: "dest-in" }]).png().toBuffer();
+  return { input, left: 0, top: hgt - hb };
+}
+
 /** JPEG d'une affiche (400×600 en portrait, 800×450 en paysage). Lève une erreur si l'image de base manque. */
 export async function draw(content, fetchImpl = fetch) {
   content = { ...content, styles: { ...STYLES_DEFAUT, ...(content.styles || {}) } };
-  const taille = SIZES[content.shape], m = MESURES[content.shape];
+  const taille = SIZES[content.shape], m = mesures(content);
   const [w, hgt] = taille;
   const [fond, logo, texte] = await Promise.all([
     telecharger(urlFond(content), fetchImpl),
@@ -252,6 +292,7 @@ export async function draw(content, fetchImpl = fetch) {
   const fondu = content.full && content.styles.fondu;
   const teinte = fondu && fondu.couleur === "affiche" ? await teinteDe(base, taille) : null;
   const calques = [];
+  if (fondu && fondu.flou) calques.push(await calqueFlou(base, taille));
   const degrades = calqueDegrades(content, taille, teinte);
   if (degrades) calques.push({ input: degrades, left: 0, top: 0 });
   if (logo) calques.push(logo);

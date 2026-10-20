@@ -1337,8 +1337,15 @@ function fixeGarde(id, modif) { try { const f = fixesLus(); f[id] = modif; local
 function lienModif() { return D.origin + "/" + fixe.id + "/configure#modif=" + fixe.modif; }
 function fixeErreur(msg) { $("fixe-err").textContent = msg || ""; }
 let saveT = 0, envoi = Promise.resolve(), etatFixe = "";
+// Réglage pas encore confirmé par le serveur, gardé dans l'onglet : rafraîchie juste après un changement,
+// la page est redemandée avant que l'envoi (pagehide) n'arrive, et montrerait l'ancien réglage.
+const attenteCle = () => "fixe-attente:" + fixe.id;
+function attenteLue() { try { return sessionStorage.getItem(attenteCle()); } catch (e) { return null; } }
+let demarre = false; // pendant le premier affichage, le réglage gardé attend d'être relu (fin du script)
+function attenteGarde(seg) { if (!demarre) return; try { seg === null ? sessionStorage.removeItem(attenteCle()) : sessionStorage.setItem(attenteCle(), seg); } catch (e) {} }
 function planifie(seg) {
   clearTimeout(saveT); saveT = 0;
+  attenteGarde(seg);
   if (seg === dernierEnvoye) return;
   etatFixe = "attente";
   saveT = setTimeout(() => enregistre(seg), 1200);
@@ -1353,6 +1360,7 @@ function enregistre(seg) {
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || "Enregistrement impossible : réessaie dans un instant.");
       if (dernierEnvoye === seg) { etatFixe = "ok"; fixeErreur(""); }
+      if (attenteLue() === seg) attenteGarde(null);
     } catch (err) {
       if (dernierEnvoye === seg) { dernierEnvoye = null; etatFixe = ""; fixeErreur((err && err.message && !/fetch|network/i.test(err.message) ? err.message : "Enregistrement impossible : vérifie ta connexion.") + " Tes changements seront renvoyés au prochain réglage."); }
     }
@@ -1540,6 +1548,21 @@ if (matchMedia("(hover: hover) and (pointer: fine)").matches && !matchMedia("(pr
 }
 
 renderAll();
+// Lien fixe : un réglage de cet onglet n'était pas encore arrivé quand la page a été redemandée. On le
+// renvoie, puis on recharge une fois pour l'afficher (une seule : si le serveur le lit autrement, on s'arrête).
+if (fixe && fixe.modif) {
+  const attente = attenteLue();
+  let deja = null; try { deja = sessionStorage.getItem("fixe-recharge"); } catch (e) {}
+  demarre = true;
+  if (attente === null || attente === segDepart || attente === deja) {
+    attenteGarde(null); try { sessionStorage.removeItem("fixe-recharge"); } catch (e) {}
+  } else {
+    try { sessionStorage.setItem("fixe-recharge", attente); } catch (e) {}
+    enregistre(attente);
+    envoi.then(() => { if (etatFixe === "ok") location.reload(); });
+  }
+}
+demarre = true;
 
 // L'écran et le billet suivent le défilement. S'ils sont trop hauts ensemble pour la fenêtre,
 // seul l'écran suit (toujours en entier) et le billet attend en bas de la colonne.

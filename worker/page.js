@@ -35,7 +35,7 @@ const PROVIDER_COLORS = {
 
 import { STAGE_HEAD, stageTop, secretsHTML, BEAM_HTML, SEATS_HTML, CREDITS_HTML } from "./stage.js";
 import { nuvioDonnees } from "./nuvio.js";
-import { ELEMENTS_AFFICHES, POSTER_URL } from "./reglages.js";
+import { POSTER_URL } from "./reglages.js";
 import { feuilles, scripts } from "./statique.js";
 
 // Espace hébergeur d'une copie auto-hébergée (absent de l'instance principale) : connexion avec le mot de
@@ -442,9 +442,71 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .switch input:checked { background: var(--red); }
 .switch input:checked::after { transform: translateX(20px); }
 .switch small { display: block; color: var(--dim); }
-.aff-elements { display: grid; gap: 12px; }
-.switch.sans-effet { opacity: .45; cursor: default; }
-.switch.sans-effet input { cursor: default; }
+.aff-resume { margin: 0 0 12px; color: var(--cream); }
+.aff-resume b { color: var(--bulb); }
+
+/* ---------- La régie : le configurateur d'affiches, en fenêtre (scène + console d'éclairage) ---------- */
+.regie-affiches { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; padding: 16px; background: rgba(5,3,4,.86); animation: fade-in .2s ease both; }
+.regie-affiches[hidden] { display: none; }
+.regie-boite { width: min(1120px, 100%); max-height: calc(100dvh - 32px); overflow: auto; border-radius: 16px; background: #0d0a0c; border: 1px solid var(--seat); box-shadow: 0 30px 80px rgba(0,0,0,.6); color: var(--cream); }
+.regie-barre { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; background: #140e11; border-bottom: 1px solid var(--seat); }
+.regie-barre h2 { margin: 0; font: 400 1.7rem/1 var(--display); letter-spacing: .05em; }
+.regie-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.regie-x { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--seat); background: transparent; color: var(--cream); font-size: 1.1rem; cursor: pointer; }
+.regie-scene { position: relative; display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px 24px; align-items: center; padding: 22px 96px 18px;
+  background: radial-gradient(ellipse 260px 360px at 50% 46%, rgba(255,236,190,.18), transparent 72%), linear-gradient(#1c1013, #0d0a0c); }
+.regie-rideau { position: absolute; top: 0; bottom: 0; width: 64px; background: repeating-linear-gradient(90deg, #4a0c18 0 13px, #6b1526 13px 22px); }
+.regie-rideau.g { left: 0; } .regie-rideau.d { right: 0; }
+.regie-plateau { grid-column: 2; grid-row: 1 / span 3; margin: 0; display: grid; justify-items: center; gap: 10px; }
+.regie-plateau img { display: block; width: 260px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; background: #1b1418; box-shadow: 0 0 70px rgba(255,220,150,.2); transition: opacity .25s ease; }
+.regie-plateau.paysage img { width: min(520px, 62vw); aspect-ratio: 16 / 9; }
+.regie-plateau img.attente { opacity: .55; }
+.regie-plateau figcaption { color: var(--dim); font-size: .85rem; text-align: center; }
+.regie-coulisses { display: contents; }
+.regie-coulisses button { width: 74px; padding: 0; border: 0; background: none; color: var(--dim); font: 600 .72rem/1.3 system-ui, sans-serif; cursor: pointer; text-align: center; }
+.regie-coulisses button:nth-child(-n+3) { grid-column: 1; justify-self: end; }
+.regie-coulisses button:nth-child(n+4) { grid-column: 3; justify-self: start; }
+.regie-coulisses img { display: block; width: 74px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 5px; margin-bottom: 4px; outline: 2px solid transparent; outline-offset: 2px; opacity: .8; background: #1b1418; }
+.regie-coulisses button[aria-pressed="true"] img { outline-color: var(--bulb); opacity: 1; }
+.regie-console { padding: 14px 16px 18px; background: linear-gradient(#262025, #17121a); border-top: 3px solid #3a2f36; }
+.regie-aide { margin: 0 0 10px; text-align: center; color: var(--dim); font-size: .85rem; }
+.regie-memoires { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
+.regie-memoires button { border: 2px solid #4a3d45; border-radius: 8px; padding: 6px 14px; background: transparent; color: #cdbfa6; font: 400 1.15rem/1 var(--display); letter-spacing: .05em; cursor: pointer; }
+.regie-memoires button[aria-pressed="true"] { border-color: var(--bulb); color: var(--bulb); box-shadow: 0 0 14px rgba(255,207,107,.25); }
+.regie-memoires .perso { align-self: center; color: var(--dim); font-size: .8rem; }
+.regie-voies { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.regie-voies .voie { width: 96px; border-radius: 10px; background: #1b1519; border: 1px solid #33292f; padding: 10px 6px 8px; text-align: center; }
+.regie-voies .voie.ouverte { border-color: var(--bulb); }
+.regie-voies .voie.sans-effet { opacity: .4; }
+.regie-voies .lampe { width: 46px; height: 46px; border-radius: 50%; margin: 0 auto 7px; display: grid; place-items: center; border: 0; background: #3a2f36; color: #7d6f76; font: 800 .8rem system-ui, sans-serif; cursor: pointer; }
+.regie-voies .lampe[aria-pressed="true"] { background: radial-gradient(circle at 40% 35%, #ffe7a0, var(--bulb) 60%, #a7781c); color: #1a1208; box-shadow: 0 0 16px rgba(255,207,107,.55); }
+.regie-voies .lampe:disabled { cursor: default; }
+.regie-voies .nom { display: block; width: 100%; border: 0; background: none; color: var(--cream); cursor: pointer; padding: 0; }
+.regie-voies .nom b { display: block; font-size: .82rem; }
+.regie-voies .nom small { display: block; font-size: .7rem; color: var(--dim); margin-top: 1px; }
+.regie-tiroir { margin: 14px auto 0; max-width: 640px; background: var(--cream); color: var(--ink); border-radius: 10px; padding: 12px 16px; display: flex; gap: 14px 22px; flex-wrap: wrap; align-items: flex-end; }
+.regie-tiroir[hidden] { display: none; }
+.regie-tiroir h3 { margin: 0; width: 100%; font: 400 1.4rem/1 var(--display); letter-spacing: .05em; }
+.regie-tiroir .choix > span { display: block; font: 700 .68rem system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #7a6a55; margin-bottom: 4px; }
+.regie-tiroir .choix button { border: 1px solid #c9b99a; border-radius: 99px; padding: 4px 12px; margin: 0 4px 4px 0; background: transparent; color: var(--ink); font: 600 .82rem system-ui, sans-serif; cursor: pointer; }
+.regie-tiroir .choix button[aria-pressed="true"] { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+.regie-tiroir .curseur { display: flex; align-items: center; gap: 10px; }
+.regie-tiroir .curseur input { width: 160px; accent-color: var(--ink); }
+.regie-tiroir .curseur output { font: 700 .9rem system-ui, sans-serif; min-width: 4ch; }
+.regie-tiroir p { margin: 0; }
+body.regie-ouverte { overflow: hidden; }
+@media (max-width: 760px) {
+  .regie-affiches { padding: 0; }
+  .regie-boite { max-height: 100dvh; height: 100dvh; border-radius: 0; }
+  .regie-scene { display: flex; flex-direction: column; padding: 16px 12px; }
+  .regie-rideau { display: none; }
+  .regie-coulisses { display: flex; gap: 8px; overflow-x: auto; width: 100%; padding-bottom: 4px; }
+  .regie-coulisses button { flex: none; }
+  .regie-plateau img { width: min(240px, 60vw); }
+  .regie-plateau.paysage img { width: 92vw; }
+  .regie-voies .voie { width: calc(33% - 8px); }
+}
+@media (prefers-reduced-motion: reduce) { .regie-affiches, .regie-plateau img { animation: none; transition: none; } }
 
 .coll { border: 1px solid var(--seat); border-radius: 12px; padding: 12px 14px; display: grid; gap: 10px; background: var(--velvet); }
 .coll-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -722,12 +784,9 @@ ${copy ? "" : `        <p class="sub">Le lien partagé sature ? <a href="${origi
 
       <section class="act" id="s-affiches">
         <header><span>Vitrine</span><h2>Tes affiches</h2></header>
-        <p class="sub">Les affiches des cartes de Nuvio : choisis ce qui s'affiche dessus. L'écran montre le résultat en direct. Ces réglages ne touchent pas à ton lien d'addon : ils vont dans le lien « Affiches » de ton billet, à coller dans Nuvio (Paramètres → Disposition → Custom Poster Source). Ils restent gardés dans ce navigateur.</p>
-        <div class="field"><span>Styles tout prêts</span><div class="seg" id="aff-styles" role="group" aria-label="Styles d'affiches"></div></div>
-        <div class="aff-elements">
-${ELEMENTS_AFFICHES.map(([k, nom, aide]) => `          <label class="switch"><input type="checkbox" data-aff="${k}"><span><b>${nom}</b><small>${aide}</small></span></label>`).join("\n")}
-        </div>
-        <div class="field"><span>La note</span><div class="seg" id="aff-note" role="group" aria-label="Source de la note"></div></div>
+        <p class="sub">Les affiches des cartes de Nuvio : ce qui s'affiche dessus, et comment. Tout se règle dans la régie, sur tes vraies affiches en grand. Ton lien d'addon ne change pas : le lien « Affiches » de ton billet se colle dans Nuvio (Paramètres → Disposition → Custom Poster Source). Tes réglages restent gardés dans ce navigateur.</p>
+        <p class="aff-resume" id="aff-resume"></p>
+        <button type="button" class="btn solid" id="regie-ouvrir">Régler mes affiches</button>
       </section>
 
 ${copy ? HOTE_HTML : ""}
@@ -757,7 +816,7 @@ ${copy ? HOTE_HTML : ""}
           <div class="seg" id="fmt" role="group" aria-label="Format des affiches"></div>
           <button type="button" class="mini" id="pp-btn" aria-pressed="false">Affiches maison</button>
         </div>
-        <p class="pp-note" id="pp-note" hidden>Tes affiches se règlent dans « Tes affiches », plus haut. <button type="button" class="pp-ouvrir" id="pp-ouvrir">Les avoir dans Nuvio</button></p>
+        <p class="pp-note" id="pp-note" hidden>Ce sont tes affiches maison. <button type="button" class="pp-ouvrir" id="pp-ouvrir">Régler mes affiches</button></p>
         <div class="screen-fun">
           <button type="button" class="mini" id="zoom" aria-pressed="false">Agrandir l'écran</button>
         </div>
@@ -809,6 +868,39 @@ ${copy ? HOTE_HTML : ""}
 
 
   <div class="dock"><button type="button" class="dock-billet" id="dock-billet">Ton billet : <b id="dock-count"></b><i aria-hidden="true">↓</i></button><button type="button" class="btn" id="dock-copy">Copier mon lien</button></div>
+
+  <div class="regie-affiches" id="regie" role="dialog" aria-modal="true" aria-labelledby="regie-titre" hidden>
+    <div class="regie-boite">
+      <div class="regie-barre">
+        <h2 id="regie-titre">Tes affiches</h2>
+        <div class="regie-actions">
+          <button type="button" class="mini" id="regie-annuler" disabled>↶ Annuler</button>
+          <button type="button" class="btn solid" id="regie-copier">Copier mon lien d'affiches</button>
+          <button type="button" class="regie-x" id="regie-fermer" aria-label="Fermer la régie">✕</button>
+        </div>
+      </div>
+      <div class="regie-scene">
+        <div class="regie-rideau g" aria-hidden="true"></div><div class="regie-rideau d" aria-hidden="true"></div>
+        <figure class="regie-plateau" id="regie-plateau">
+          <img id="regie-grande" alt="">
+          <figcaption id="regie-legende"></figcaption>
+          <div class="seg" id="regie-format" role="group" aria-label="Forme de l'affiche"></div>
+        </figure>
+        <div class="regie-coulisses" id="regie-coulisses" role="group" aria-label="D'autres films avec les mêmes réglages"></div>
+      </div>
+      <div class="regie-console">
+        <p class="regie-aide">Allume ou éteins un élément. Touche son nom pour le régler.</p>
+        <div class="regie-memoires" id="regie-memoires" role="group" aria-label="Styles tout prêts">
+          <button type="button" data-memoire="maison">Maison</button><button type="button" data-memoire="essentiel">Essentiel</button><button type="button" data-memoire="noteSeule">Note seule</button><button type="button" data-memoire="nue">Nue</button><span class="perso" id="regie-perso" hidden>Perso</span>
+        </div>
+        <div class="regie-voies" id="regie-voies">
+${[["statut", "Statut", "Nouv."], ["tendance", "Tendance", "↗"], ["qualite", "Qualité", "4K"], ["titre", "Titre", "Aa"], ["note", "Note", "★"], ["genre", "Genre", "G"], ["annee", "Année", "20"], ["texte", "Texte", "T"], ["fondu", "Fondu", "▼"], ["sortie", "Pas sorti", "N&amp;B"]]
+  .map(([v, nom, signe]) => `          <div class="voie" data-voie="${v}"><button type="button" class="lampe" aria-pressed="true" aria-label="${nom} : allumer ou éteindre">${signe}</button><button type="button" class="nom" aria-expanded="false" aria-controls="regie-tiroir"><b>${nom}</b><small></small></button></div>`).join("\n")}
+        </div>
+        <div class="regie-tiroir" id="regie-tiroir" hidden></div>
+      </div>
+    </div>
+  </div>
 
 <script>${nuvioDonnees(origin)}</script>
 ${scripts("nuvio.js")}
@@ -1094,63 +1186,216 @@ function drawPP() { $("pp-btn").setAttribute("aria-pressed", String(NV.reglages.
 $("pp-btn").addEventListener("click", () => { NV.reglages.pp = !NV.reglages.pp; drawPP(); E.pp(); if (window.sfx) sfx.click(); });
 drawPP();
 
-// ---------- Tes affiches : ce qui s'affiche dessus (lettres retirées dans le lien, note IMDb ou TMDB) ----------
-const STYLES_AFFICHES = [["Complet", ""], ["Essentiel", "tga"], ["Nue", "tqngal"]];
-function drawAffiches() {
-  const a = NV.reglages.affiches;
-  // Sans titre maison, la ligne du bas (note, genre, année) n'existe pas : ses interrupteurs sont grisés.
-  document.querySelectorAll("[data-aff]").forEach((c) => {
-    c.checked = !a.o.includes(c.dataset.aff);
-    c.disabled = a.o.includes("l") && "nga".includes(c.dataset.aff);
-    c.closest(".switch").classList.toggle("sans-effet", c.disabled);
-  });
-  const coupe = "tqngal".split("").filter((k) => a.o.includes(k)).join("");
-  seg($("aff-styles"), STYLES_AFFICHES.map((s) => s[0]), STYLES_AFFICHES.findIndex((s) => s[1] === coupe),
-    (i) => majAffiches({ ...a, o: STYLES_AFFICHES[i][1] }));
-  seg($("aff-note"), ["IMDb", "TMDB"], a.r === "tmdb" ? 1 : 0, (i) => majAffiches({ ...NV.reglages.affiches, r: i ? "tmdb" : "imdb" }));
-  $("u-affiches").textContent = NV.lienPerso();
-}
-// Chaque affiche redessinée est un dessin chez Vercel : une rafale de clics n'en déclenche qu'un, à la fin.
-let attenteAffiches = 0;
-function majAffiches(a) {
-  NV.reglages.affiches = a;
-  drawAffiches();
-  if (!NV.reglages.pp) { NV.reglages.pp = true; drawPP(); }
-  clearTimeout(attenteAffiches);
-  attenteAffiches = setTimeout(() => E.pp(), 400);
-  if (window.sfx) sfx.click();
-}
-document.querySelectorAll("[data-aff]").forEach((c) => c.addEventListener("change", () => {
-  const coupe = [...document.querySelectorAll("[data-aff]")].filter((x) => !x.checked).map((x) => x.dataset.aff).join("");
-  majAffiches({ ...NV.reglages.affiches, o: coupe });
-}));
-drawAffiches();
-$("copy-affiches").addEventListener("click", (e) => copy(e.currentTarget, $("u-affiches"), "Copier"));
+// ---------- La régie : le configurateur d'affiches, en fenêtre ----------
+// Les réglages (LA, worker/lien-affiches.js) sont gardés dans ce navigateur et écrits dans le lien « Affiches »
+// du billet. La scène montre de vraies affiches (une grande, six en coulisses), redessinées après chaque rafale.
+const NOMS_MEMOIRES = { maison: "Maison", essentiel: "Essentiel", noteSeule: "Note seule", nue: "Nue" };
+const pct = (v) => Math.round(Number(v) * 100) + " %";
+const SEPS = { point: "·", barre: "|", puce: "•" };
+let regieR = null, regieHisto = [], regieAttente = 0, regieTitres = [], regieChoisi = 0, regieForme = "poster", regieVoie = null, regieDeclencheur = null;
 
-// Les affiches maison dans Nuvio : l'étape 8 du guide, en fenêtre, avec le lien réglé ici.
-function ppFenetre() {
-  const url = el("code", { text: NV.lienPerso() });
-  const copier = el("button", { type: "button", text: "Copier", onclick: () => {
-    const fait = () => { copier.textContent = "Copié ✓"; setTimeout(() => copier.textContent = "Copier", 1500); };
-    const choisir = () => { const r = document.createRange(); r.selectNodeContents(url); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
-    try { navigator.clipboard.writeText(url.textContent).then(fait, choisir); } catch (e) { choisir(); }
-  } });
-  const fermer = () => { ov.remove(); $("pp-ouvrir").focus(); };
-  const ov = el("div", { class: "pp-modal", role: "dialog", "aria-modal": "true", "aria-labelledby": "pp-titre" },
-    el("div", { class: "boite" },
-      el("button", { type: "button", class: "fermer", "aria-label": "Fermer", text: "×", onclick: () => fermer() }),
-      el("h2", { id: "pp-titre", text: "Les affiches maison" }),
-      el("p", { text: "Les affiches de l'aperçu, avec ce que tu as choisi dans « Tes affiches ». Elles se règlent dans l'appli Nuvio, pas dans ton lien d'addon." }),
-      el("div", { class: "pp-lien" }, url, copier),
-      el("ol", null,
-        el("li", null, "Dans Nuvio : ", el("b", { text: "Paramètres → Disposition → Custom Poster Source" }), ". Le plus simple : ", el("b", { text: "Configure via Phone" }), ", puis colle le lien depuis ton téléphone."),
-        el("li", null, "En dessous, dans « Apply to », laisse tout activé (Home, Collections, Library, Search, Details Screen…). Les affiches se mettent à jour au fil de la navigation."))));
-  ov.addEventListener("click", (e) => { if (e.target === ov) fermer(); });
-  ov.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); fermer(); } });
-  document.body.append(ov);
-  copier.focus();
+function lienAffichesMaj() {
+  $("u-affiches").textContent = NV.lienPerso();
+  const m = LA.memoireDe(NV.reglages.affiches);
+  $("aff-resume").innerHTML = "";
+  $("aff-resume").append("Style en cours : ", el("b", { text: m ? NOMS_MEMOIRES[m] : "perso" }), ".");
 }
-$("pp-ouvrir").addEventListener("click", ppFenetre);
+const allumee = (r, v) => (v === "texte" ? true : v === "sortie" ? r.sortie.nb : r[v].on);
+const sansEffet = (r, v) => !r.titre.on && ["note", "genre", "annee", "texte", "fondu"].includes(v);
+function resume(r, v) {
+  if (v === "texte") return pct(r.texte.taille) + " · " + SEPS[r.texte.sep];
+  if (v === "sortie") return r.sortie.nb ? "Noir et blanc" : "En couleur";
+  if (!r[v].on) return "Éteint";
+  return {
+    statut: () => (r.statut.style === "etiquette" ? "Étiquette" : "Texte discret"),
+    tendance: () => (r.tendance.style === "ruban" ? "Ruban doré" : "↗ N°4"),
+    qualite: () => (r.qualite.montrer === "4k" ? "4K seul" : "4K · DV · HDR") + (r.qualite.style === "pastille" ? " · pastille" : ""),
+    titre: () => "Logo · " + pct(r.titre.taille),
+    note: () => (r.note.source === "tmdb" ? "TMDB" : "IMDb") + (r.note.style === "grand" ? " · grand" : r.note.style === "nu" ? " · sans ★" : ""),
+    genre: () => (r.genre.forme === "complet" ? "Complet" : "Court"),
+    annee: () => "Allumée",
+    fondu: () => (r.fondu.couleur === "affiche" ? "Couleurs" : "Noir") + " · " + ({ s: "léger", m: "moyen", l: "fort" })[r.fondu.force],
+  }[v]();
+}
+
+// Le tiroir d'une voie : 2 ou 3 choix (boutons) et, pour les tailles, un curseur de 60 à 140 %.
+function choix(titre, options, actuel, choisir) {
+  const d = el("div", { class: "choix" }, el("span", { text: titre }));
+  options.forEach(([val, txt]) => d.append(el("button", { type: "button", text: txt, "aria-pressed": String(val === actuel), onclick: () => choisir(val) })));
+  return d;
+}
+function curseur(titre, val, regler) {
+  const out = el("output", { text: pct(val) });
+  const input = el("input", { type: "range", min: "60", max: "140", step: "5", value: String(Math.round(val * 100)), "aria-label": titre });
+  input.addEventListener("input", () => { out.textContent = input.value + " %"; regler(Number(input.value) / 100); });
+  return el("div", { class: "choix" }, el("span", { text: titre }), el("div", { class: "curseur" }, input, out));
+}
+function tiroir(v) {
+  const r = regieR, t = $("regie-tiroir"), regle = (f, cle) => regieChange(f, cle);
+  const nom = document.querySelector('.voie[data-voie="' + v + '"] .nom b').textContent;
+  t.textContent = "";
+  t.append(el("h3", { text: nom }));
+  if (sansEffet(r, v)) { t.append(el("p", { text: "Sans le titre (logo), la ligne du bas et le fondu ne s'affichent pas : allume la voie Titre." })); return; }
+  const ajoute = (...x) => t.append(...x);
+  if (v === "statut") ajoute(choix("Style", [["texte", "Texte discret"], ["etiquette", "Étiquette"]], r.statut.style, (x) => regle((r) => { r.statut.style = x; })),
+    el("p", { text: "« Nouveau », « Nouvelle saison », « En salle » ou « Bientôt », seulement quand c'est le cas." }));
+  if (v === "tendance") ajoute(choix("Style", [["fleche", "↗ N°4"], ["ruban", "Ruban doré"]], r.tendance.style, (x) => regle((r) => { r.tendance.style = x; })));
+  if (v === "qualite") ajoute(
+    choix("Montrer", [["plus", "4K + DV/HDR"], ["4k", "4K seul"]], r.qualite.montrer, (x) => regle((r) => { r.qualite.montrer = x; })),
+    choix("Style", [["texte", "Texte nu"], ["pastille", "Pastille claire"]], r.qualite.style, (x) => regle((r) => { r.qualite.style = x; })));
+  if (v === "titre") ajoute(curseur("Taille du logo", r.titre.taille, (x) => regle((r) => { r.titre.taille = x; }, "titre.taille")));
+  if (v === "note") ajoute(
+    choix("Source", [["imdb", "IMDb"], ["tmdb", "TMDB"]], r.note.source, (x) => regle((r) => { r.note.source = x; })),
+    choix("Style", [["etoile", "★ 8,4"], ["nu", "8,4"], ["grand", "Grand chiffre"]], r.note.style, (x) => regle((r) => { r.note.style = x; })));
+  if (v === "genre") ajoute(choix("Forme", [["court", "Court (SF)"], ["complet", "Complet (Science-fiction)"]], r.genre.forme, (x) => regle((r) => { r.genre.forme = x; })));
+  if (v === "annee") ajoute(el("p", { text: "Rien à régler : allume ou éteins l'année avec sa lampe." }));
+  if (v === "texte") ajoute(
+    curseur("Texte du bas", r.texte.taille, (x) => regle((r) => { r.texte.taille = x; }, "texte.taille")),
+    curseur("Badges du haut", r.texte.haut, (x) => regle((r) => { r.texte.haut = x; }, "texte.haut")),
+    choix("Séparateur", [["point", "·"], ["barre", "|"], ["puce", "•"]], r.texte.sep, (x) => regle((r) => { r.texte.sep = x; })));
+  if (v === "fondu") ajoute(
+    choix("Couleur", [["noir", "Noir"], ["affiche", "Couleurs de l'affiche"]], r.fondu.couleur, (x) => regle((r) => { r.fondu.couleur = x; })),
+    choix("Intensité", [["s", "Léger"], ["m", "Moyen"], ["l", "Fort"]], r.fondu.force, (x) => regle((r) => { r.fondu.force = x; })));
+  if (v === "sortie") ajoute(
+    choix("Aussi au cinéma", [[false, "Non"], [true, "Oui"]], r.sortie.salle, (x) => regle((r) => { r.sortie.salle = x; })),
+    choix("Cacher la note", [[true, "Oui"], [false, "Non"]], r.sortie.cacherNote, (x) => regle((r) => { r.sortie.cacherNote = x; })),
+    el("p", { text: "Les titres pas encore sortis en France passent en noir et blanc. « Aussi au cinéma » y ajoute ceux qui ne sont qu'en salle." }));
+}
+
+function regieDessine(garderTiroir) {
+  const r = regieR, m = LA.memoireDe(r);
+  document.querySelectorAll("#regie-memoires [data-memoire]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.memoire === m)));
+  $("regie-perso").hidden = !!m;
+  document.querySelectorAll("#regie-voies .voie").forEach((d) => {
+    const v = d.dataset.voie, lampe = d.querySelector(".lampe");
+    lampe.setAttribute("aria-pressed", String(allumee(r, v)));
+    lampe.disabled = v === "texte";
+    d.classList.toggle("sans-effet", sansEffet(r, v));
+    d.classList.toggle("ouverte", v === regieVoie);
+    d.querySelector(".nom").setAttribute("aria-expanded", String(v === regieVoie));
+    d.querySelector(".nom small").textContent = sansEffet(r, v) ? "Sans effet" : resume(r, v);
+  });
+  $("regie-tiroir").hidden = !regieVoie;
+  // Pendant un glissé de curseur, le tiroir reste tel quel (le reconstruire couperait le glissé).
+  if (regieVoie && !garderTiroir) tiroir(regieVoie);
+  $("regie-annuler").disabled = !regieHisto.length;
+  seg($("regie-format"), ["Portrait", "Paysage"], regieForme === "landscape" ? 1 : 0, (i) => { regieForme = i ? "landscape" : "poster"; regieDessine(); regieApercus(); });
+  lienAffichesMaj();
+}
+
+// Chaque affiche redessinée est un dessin chez Vercel : une rafale de clics n'en déclenche qu'un, à la fin.
+// « Annuler » revient d'un changement : un changement sans effet ne compte pas, et un même curseur glissé
+// (cle) compte pour un seul changement.
+let regieCleDerniere = "", regieDernier = 0;
+function regieChange(modif, cle) {
+  const avant = LA.ecrireReglages(regieR);
+  modif(regieR);
+  const suite = cle && cle === regieCleDerniere && Date.now() - regieDernier < 800;
+  if (LA.ecrireReglages(regieR) !== avant && !suite) { regieHisto.push(avant); if (regieHisto.length > 60) regieHisto.shift(); }
+  regieCleDerniere = cle || ""; regieDernier = Date.now();
+  NV.reglages.affiches = regieR;
+  regieDessine(!!cle);
+  clearTimeout(regieAttente);
+  regieAttente = setTimeout(regieApercus, 400);
+  if (window.sfx && !cle) sfx.click();
+}
+
+function regieApercus() {
+  const t = regieTitres[regieChoisi];
+  const grande = $("regie-grande");
+  $("regie-plateau").classList.toggle("paysage", regieForme === "landscape");
+  if (t) {
+    const src = NV.ppSrc(t, regieForme, regieR);
+    if (src && grande.dataset.src !== src) {
+      grande.classList.add("attente");
+      grande.onload = () => grande.classList.remove("attente");
+      grande.onerror = () => grande.classList.remove("attente");
+      grande.dataset.src = src; grande.src = src;
+    }
+    grande.alt = "Affiche de " + (t.name || "ce titre");
+    $("regie-legende").textContent = (t.name || "") + (t.legende ? " · " + t.legende : "");
+  }
+  document.querySelectorAll("#regie-coulisses button").forEach((b, i) => {
+    const img = b.querySelector("img"), src = NV.ppSrc(regieTitres[i], "poster", regieR);
+    if (src && img.dataset.src !== src) { img.dataset.src = src; img.src = src; }
+    b.setAttribute("aria-pressed", String(i === regieChoisi));
+  });
+}
+
+// Les 6 titres de démonstration : pris dans les catalogues de l'addon pour être toujours à jour (tendance,
+// pas encore sorti, en salle, série), plus deux titres fixes (un film en 4K, un film au logo travaillé).
+async function regieCharge() {
+  if (regieTitres.length) return;
+  const premier = async (type, id, genre, legende) => {
+    try {
+      const d = await fetchJSON(NV_ORIG + "/catalog/" + type + "/" + id + "/genre=" + encodeURIComponent(genre) + ".json");
+      const m = ((d && d.metas) || []).find((x) => /^(tt\\d+|tmdb:\\d+)$/.test(String(x.id)));
+      return m ? { id: m.id, type, name: m.name, imdb_id: m.imdb_id, legende } : null;
+    } catch (e) { return null; }
+  };
+  const lus = await Promise.all([
+    premier("movie", "films-tendances", "Aujourd'hui", "Tendance du jour"),
+    premier("movie", "films-cinema", "Prochainement", "Prochainement"),
+    premier("movie", "films-cinema", "En ce moment", "Au cinéma"),
+    premier("series", "series-tendances", "Aujourd'hui", "Série tendance"),
+  ]);
+  const fixes = [{ id: "tt1375666", type: "movie", name: "Inception", legende: "En 4K" }, { id: "tt15239678", type: "movie", name: "Dune : Deuxième partie", legende: "Logo fin" }];
+  regieTitres = [...lus.filter(Boolean), ...fixes].slice(0, 6);
+  const c = $("regie-coulisses");
+  c.textContent = "";
+  regieTitres.forEach((t, i) => c.append(el("button", { type: "button", "aria-pressed": "false", "aria-label": "Voir " + (t.name || "ce titre") + " en grand",
+    onclick: () => { regieChoisi = i; regieApercus(); } }, el("img", { alt: "" }), document.createTextNode(t.legende))));
+}
+
+function regieOuvre(declencheur) {
+  regieDeclencheur = declencheur || null;
+  regieR = NV.reglages.affiches;
+  regieHisto = [];
+  regieVoie = null;
+  $("regie").hidden = false;
+  document.body.classList.add("regie-ouverte");
+  regieDessine();
+  regieCharge().then(regieApercus);
+  $("regie-fermer").focus();
+}
+function regieFerme() {
+  clearTimeout(regieAttente);
+  $("regie").hidden = true;
+  document.body.classList.remove("regie-ouverte");
+  if (!NV.reglages.pp) { NV.reglages.pp = true; drawPP(); }
+  E.pp();
+  if (regieDeclencheur) regieDeclencheur.focus();
+}
+$("regie-ouvrir").addEventListener("click", (e) => regieOuvre(e.currentTarget));
+$("pp-ouvrir").addEventListener("click", (e) => regieOuvre(e.currentTarget));
+$("regie-fermer").addEventListener("click", regieFerme);
+$("regie").addEventListener("click", (e) => { if (e.target === $("regie")) regieFerme(); });
+$("regie").addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); regieFerme(); } });
+$("regie-annuler").addEventListener("click", () => {
+  if (!regieHisto.length) return;
+  regieR = LA.lireReglages(new URLSearchParams("s=1." + regieHisto.pop()));
+  NV.reglages.affiches = regieR;
+  regieDessine();
+  clearTimeout(regieAttente);
+  regieAttente = setTimeout(regieApercus, 400);
+});
+$("regie-copier").addEventListener("click", (e) => copy(e.currentTarget, $("u-affiches"), "Copier mon lien d'affiches"));
+document.querySelectorAll("#regie-memoires [data-memoire]").forEach((b) => b.addEventListener("click", () => {
+  const m = LA.MEMOIRES[b.dataset.memoire];
+  regieChange((r) => { const copie = JSON.parse(JSON.stringify(m)); Object.keys(copie).forEach((k) => { r[k] = copie[k]; }); });
+}));
+document.querySelectorAll("#regie-voies .voie").forEach((d) => {
+  const v = d.dataset.voie;
+  d.querySelector(".lampe").addEventListener("click", () => regieChange((r) => {
+    if (v === "sortie") r.sortie.nb = !r.sortie.nb;
+    else if (v !== "texte") r[v].on = !r[v].on;
+  }));
+  d.querySelector(".nom").addEventListener("click", () => { regieVoie = regieVoie === v ? null : v; regieDessine(); });
+});
+$("copy-affiches").addEventListener("click", (e) => copy(e.currentTarget, $("u-affiches"), "Copier"));
+lienAffichesMaj();
+// Ouverte directement depuis le guide (étape 8) : /configure#regie.
+if (hashDepart === "#regie") addEventListener("load", () => regieOuvre($("regie-ouvrir")));
 function drawFmt() {
   seg($("fmt"), ["Affiches verticales", "Paysage"], NV.reglages.format === "l" ? 1 : 0, (i) => {
     NV.reglages.format = i ? "l" : "p";

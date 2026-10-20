@@ -998,7 +998,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
   <section class="act" id="affiches">
     <header><span class="num">08</span><span class="label">Finitions</span><h2>Les affiches maison</h2></header>
     <p class="lead">Le logo du titre, sa note, son genre et son année, et quand il y a lieu son rang dans les tendances du jour et sa qualité (4K, DV, HDR). Le lien est le même pour tout le monde.</p>
-    <p class="note">Envie de choisir ce qui s'affiche dessus ? Règle-les en salle 2, section <a href="${esc(origin)}/configure#s-affiches">« Tes affiches »</a> : le lien ci-dessous devient alors le tien, sur cet appareil.</p>
+    <p class="note">Envie de choisir ce qui s'affiche dessus, et comment ? <a href="${esc(origin)}/configure#regie">Régler mes affiches</a> ouvre la régie de la salle 2 : le lien ci-dessous devient alors le tien, sur cet appareil.</p>
     <div class="copy long"><code id="u-poster">${esc(POSTER_URL)}</code><button type="button" data-copy="u-poster">Copier</button></div>
     <ol>
       <li>Dans Nuvio : <span class="path">Paramètres → Disposition → Custom Poster Source</span>. Le plus simple : <b>Configure via Phone</b>, puis colle le lien depuis ton téléphone.</li>

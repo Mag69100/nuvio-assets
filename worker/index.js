@@ -30,6 +30,7 @@ import {
 import { configurePage } from "./page.js";
 import { guidePage, NUVIO_TV_APK } from "./guide.js";
 import { AFFICHES_URL } from "./reglages.js";
+import { lireReglages, ecrireReglages } from "./lien-affiches.js";
 import { lienPage } from "./lien.js";
 import { copiePage } from "./copie.js";
 import { hallPage } from "./hall.js";
@@ -1731,13 +1732,13 @@ const app = {
     const af = path.match(/^\/affiche\/(movie|series)\/(poster|landscape)\/(tt\d{1,10}|tmdb%3A\d{1,10}|tmdb:\d{1,10})$/);
     if (af) {
       const id = decodeURIComponent(af[3]), imdb = url.searchParams.get("imdb") || "";
-      const o = "tqngal".split("").filter((k) => (url.searchParams.get("o") || "").includes(k)).join("");
+      // Réglages de la régie remis dans leur forme canonique (même lien, même cache chez Vercel).
+      const s = ecrireReglages(lireReglages(url.searchParams));
       const q = new URLSearchParams();
       if (/^tt\d{1,10}$/.test(imdb)) q.set("imdb", imdb);
-      if (o) q.set("o", o);
-      if (url.searchParams.get("r") === "tmdb" && !o.includes("n")) q.set("r", "tmdb");
+      if (s) q.set("s", "1." + s);
       const src = `${AFFICHES_URL}/${af[1]}/${af[2]}/${id}.jpg${q.size ? "?" + q : ""}`;
-      const key = new Request(`https://cache.local/affiche-v2/${af[1]}/${af[2]}/${id}?${q}`);
+      const key = new Request(`https://cache.local/affiche-v3/${af[1]}/${af[2]}/${id}?${q}`);
       const hitA = await caches.default.match(key);
       if (hitA) return hitA;
       const r = await fetch(src, { cf: { cacheTtl: 86400, cacheEverything: true } }).catch(() => null);

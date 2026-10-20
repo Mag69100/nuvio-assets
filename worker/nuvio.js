@@ -7,7 +7,8 @@
  *
  * Les mesures viennent du code de Nuvio TV (écran de référence 960 × 540 dp) : 1 dp = 1/9,6 cqw.
  */
-import { parametresNuvio, POSTER_URL, lienAffiches } from "./reglages.js";
+import { parametresNuvio, POSTER_URL } from "./reglages.js";
+import { creerLienAffiches } from "./lien-affiches.js";
 
 export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cramoisi) ---------- */
 .nvo { position: absolute; inset: 0; overflow: hidden; background: #0D0D0D; color: #fff; font-family: Inter, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
@@ -428,9 +429,12 @@ const parametresJSON = (posterUrl) => {
 /** La donnée du script commun propre au site qui sert la page : origin = l'adresse de l'addon. */
 export const nuvioDonnees = (origin) => "const NV_ORIG = " + JSON.stringify(origin) + ";";
 
-/** Le script commun : window.NV, avec le lien des affiches maison (lienAffiches, repris de reglages.js) et les écrans
- *  des Paramètres. Servi à part (statique.js, gardé en cache par le navigateur), après nuvioDonnees. */
-export const NUVIO_JS = "const NV_PP = " + JSON.stringify(POSTER_URL) + ", NV_PAR = " + parametresJSON(POSTER_URL) + ";\n" + lienAffiches + "\n" + `window.NV = (() => {
+/** Le script commun : window.NV, avec les réglages et le lien des affiches maison (LA = creerLienAffiches, repris tel
+ *  quel de lien-affiches.js) et les écrans des Paramètres. Servi à part (statique.js, gardé en cache par le
+ *  navigateur), après nuvioDonnees. */
+// Le code d'une fonction recopiée telle quelle (creerLienAffiches.toString()) peut contenir des appels à __name,
+// que l'outil de Cloudflare ajoute en préparant le worker : dans le navigateur, __name ne fait rien.
+export const NUVIO_JS = "var __name = function (f) { return f; };\nconst NV_PP = " + JSON.stringify(POSTER_URL) + ", NV_PAR = " + parametresJSON(POSTER_URL) + ";\nconst LA = (" + creerLienAffiches + ")();\n" + `window.NV = (() => {
   const mkd = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
   const cssUrl = (u) => "url('" + String(u).replace(/'/g, "%27") + "')";
   // Fonds envoyés en w1920 (ou original, w1280 selon la version de l'addon) : on demande la taille utile.
@@ -448,24 +452,28 @@ export const NUVIO_JS = "const NV_PP = " + JSON.stringify(POSTER_URL) + ", NV_PA
     set format(v) { ecrit("apercu-format", v === "l" ? "l" : "p"); },
     get pp() { return lit("apercu-pp-v2") !== "0"; },
     set pp(v) { ecrit("apercu-pp-v2", v ? "1" : "0"); },
+    // Réglages de la régie (worker/lien-affiches.js), gardés sous leur forme écrite (s) ; les anciens réglages
+    // de « Tes affiches » (affiches-v1 : o, r) sont convertis la première fois.
     get affiches() {
-      try { const a = JSON.parse(lit("affiches-v1") || "{}"); return { o: typeof a.o === "string" ? a.o : "", r: a.r === "tmdb" ? "tmdb" : "imdb" }; }
-      catch (e) { return { o: "", r: "imdb" }; }
+      const s = lit("affiches-v2");
+      if (s !== null) return LA.lireReglages(new URLSearchParams(s ? "s=1." + s : ""));
+      try { const a = JSON.parse(lit("affiches-v1") || "{}"); return LA.lireReglages(new URLSearchParams({ o: a.o || "", r: a.r || "" })); }
+      catch (e) { return LA.lireReglages(new URLSearchParams("")); }
     },
-    set affiches(a) { ecrit("affiches-v1", JSON.stringify({ o: a.o || "", r: a.r === "tmdb" ? "tmdb" : "imdb" })); },
+    set affiches(r) { ecrit("affiches-v2", LA.ecrireReglages(r)); },
   };
   // L'ancienne clé TMDB (elle ne servait qu'aux affiches Posters+) n'est plus lue : on l'efface.
   try { localStorage.removeItem("tmdb-key"); } catch (e) {}
-  /** Le lien d'affiches à coller dans Nuvio, avec les options de ce navigateur. */
-  const lienPerso = () => lienAffiches(reglages.affiches);
-  const ppSrc = (m, forme) => {
-    if (!reglages.pp || !m || !m.id) return "";
+  /** Le lien d'affiches à coller dans Nuvio, avec les réglages de ce navigateur. */
+  const lienPerso = () => LA.lienAffiches(reglages.affiches);
+  /** Affiche maison d'un titre, demandée au worker (/affiche/…) ; r : d'autres réglages que ceux du navigateur (la régie). */
+  const ppSrc = (m, forme, r) => {
+    if ((!r && !reglages.pp) || !m || !m.id) return "";
     const id = String(m.id), imdb = m.imdb_id || (id.startsWith("tt") ? id : "");
     if (!/^(tt\\d+|tmdb:\\d+)$/.test(id)) return "";
-    const q = new URLSearchParams(), a = reglages.affiches;
+    const q = new URLSearchParams(), s = LA.ecrireReglages(r || reglages.affiches);
     if (imdb && imdb !== id) q.set("imdb", imdb);
-    if (a.o) q.set("o", a.o);
-    if (a.r === "tmdb" && !a.o.includes("n")) q.set("r", "tmdb");
+    if (s) q.set("s", "1." + s);
     return NV_ORIG + "/affiche/" + (m.type === "series" ? "series" : "movie") + "/" + forme + "/" + encodeURIComponent(id) + (String(q) ? "?" + q : "");
   };
 

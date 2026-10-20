@@ -104,23 +104,7 @@ const pageHTML = ({ id, chap, side, title, sub, body, parent }) =>
 // Disposition → Custom Poster Source. Sans réglage, le même pour tout le monde (et le cache est partagé).
 export const AFFICHES_URL = "https://affiches-catalogue-fr.vercel.app";
 export const POSTER_URL = AFFICHES_URL + "/{type}/{shape}/{id}.jpg?imdb={imdb_id?}";
-// Ce qu'on peut retirer des affiches (salle 2, « Tes affiches »), chacun avec sa lettre dans le lien.
-export const ELEMENTS_AFFICHES = [
-  ["t", "Rang des tendances", "« ↗ N°4 » en haut à gauche, pour le top 20 du jour"],
-  ["q", "Qualité", "« 4K | DV » en haut à droite, quand le titre existe en 4K"],
-  ["n", "Note", "La note sur la ligne du bas"],
-  ["g", "Genre", "Le genre sur la ligne du bas"],
-  ["a", "Année", "L'année sur la ligne du bas"],
-  ["l", "Titre maison", "Le logo du titre sur l'image sans texte ; sinon, l'affiche d'origine"],
-];
-/** Lien d'affiches pour des options { o: lettres retirées, r: "tmdb" pour la note TMDB }. Fonction autonome :
- *  le script commun des pages (nuvio.js) la reprend telle quelle. */
-export function lienAffiches(opts) {
-  const o = (opts && opts.o) || "", base = "https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?imdb={imdb_id?}";
-  const coupe = "tqngal".split("").filter((k) => o.includes(k)).join("");
-  // Note coupée : sa source ne change rien, elle ne va pas dans le lien.
-  return base + (coupe ? "&o=" + coupe : "") + (opts && opts.r === "tmdb" && !coupe.includes("n") ? "&r=tmdb" : "");
-}
+// Les réglages de la régie (salle 2) et leur écriture dans ce lien : worker/lien-affiches.js.
 
 
 const PAGES = (posterUrl) => [

@@ -409,27 +409,26 @@ test("affiche_relaie_le_service_maison", async () => {
     calls.push(String(url));
     return new Response(new Uint8Array([0xff, 0xd8, 0xff]), { headers: { "Content-Type": "image/jpeg" } });
   };
-  const res = await get("/affiche/movie/poster/tt15239678?o=tq&r=tmdb");
+  const res = await get("/affiche/movie/poster/tt15239678?s=1.Q0T0");
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("Content-Type"), "image/jpeg");
   const u = new URL(calls[0]);
   assert.equal(u.origin + u.pathname, `${AFFICHES_URL}/movie/poster/tt15239678.jpg`);
-  assert.equal(u.searchParams.get("o"), "tq");
-  assert.equal(u.searchParams.get("r"), "tmdb");
+  assert.equal(u.searchParams.get("s"), "1.T0Q0");   // remis dans l'ordre canonique
   assert.ok(!calls[0].includes("api_key") && !calls[0].includes("tmdb_key"));
 });
 
 test("affiche_options_nettoyees", async () => {
   globalThis.fetch = async (url) => { calls.push(String(url)); return new Response(new Uint8Array([0xff]), { headers: { "Content-Type": "image/jpeg" } }); };
-  await get("/affiche/series/landscape/tmdb:94605?imdb=tt11126994&o=zq%26x&r=autre");
+  await get("/affiche/series/landscape/tmdb:94605?imdb=tt11126994&s=1.zz9yN0nt&o=x");
   const u = new URL(calls[0]);
   assert.equal(u.searchParams.get("imdb"), "tt11126994");
-  assert.equal(u.searchParams.get("o"), "q");
-  assert.equal(u.searchParams.get("r"), null);
-  // Note coupée : r=tmdb n'est pas transmis (même affiche, même cache).
+  assert.equal(u.searchParams.get("s"), "1.N0");
+  assert.equal(u.searchParams.get("o"), null);
+  // Réglages par défaut (ou s invalide) : pas de s du tout, pour partager le cache.
   calls.length = 0;
-  await get("/affiche/movie/poster/tt1?o=n&r=tmdb");
-  assert.equal(new URL(calls[0]).searchParams.get("r"), null);
+  await get("/affiche/movie/poster/tt1?s=n'importe");
+  assert.equal(new URL(calls[0]).search, "");
 });
 
 test("affiche_service_en_panne", async () => {

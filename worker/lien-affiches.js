@@ -43,7 +43,12 @@ export function creerLienAffiches() {
   // Chaque code : [lettre, voie, champ, { caractère: valeur }, quand l'écrire]. L'ordre du tableau est l'ordre du lien.
   const titreOn = (r) => r.titre.on;
   const noteOn = (r) => r.titre.on && r.note.on;
-  const styleCommun = (r) => r.haut.style !== "auto";
+  // Un badge en haut (statut, tendance, qualité, ou la plateforme en coin) : les réglages des badges servent.
+  const hautOn = (r) => r.statut.on || r.tendance.on || r.qualite.on || (r.plateforme.on && r.plateforme.place === "coin");
+  const styleCommun = (r) => hautOn(r) && r.haut.style !== "auto";
+  // La couleur d'accent sert à l'étoile, à la flèche ou au ruban de tendance, au bandeau, à la barre fine, au texte « accent » des badges.
+  const accentOn = (r) => r.tendance.on || (r.bandeau.on && (r.statut.on || r.tendance.on))
+    || (r.titre.on && ((r.note.on && r.note.style === "etoile") || r.ligne.barre === "fine")) || (styleCommun(r) && r.haut.couleur === "or");
   const CODES = [
     ["S", "statut", "on", { 0: false }],
     ["s", "statut", "style", { e: "etiquette" }, (r) => r.statut.on],
@@ -52,14 +57,14 @@ export function creerLienAffiches() {
     ["Q", "qualite", "on", { 0: false }],
     ["q", "qualite", "montrer", { 4: "4k", t: "tout" }, (r) => r.qualite.on],
     ["k", "qualite", "style", { p: "pastille" }, (r) => r.qualite.on],
-    ["I", "haut", "inverse", { 1: true }],
-    ["H", "haut", "style", { p: "plein", v: "verre", c: "contour" }],
+    ["I", "haut", "inverse", { 1: true }, hautOn],
+    ["H", "haut", "style", { p: "plein", v: "verre", c: "contour" }, hautOn],
     ["y", "haut", "forme", { c: "carre", p: "pilule" }, styleCommun],
     ["a", "haut", "opacite", { s: "s", m: "m" }, styleCommun],
     ["C", "haut", "couleur", { o: "or", n: "noir" }, styleCommun],
-    ["J", "bandeau", "on", { 1: true }],
-    ["K", "bandeau", "porte", { t: "tendance" }, (r) => r.bandeau.on],
-    ["E", "bandeau", "coin", { g: "g" }, (r) => r.bandeau.on],
+    ["J", "bandeau", "on", { 1: true }, (r) => r.statut.on || r.tendance.on],
+    ["K", "bandeau", "porte", { t: "tendance" }, (r) => r.bandeau.on && (r.statut.on || r.tendance.on)],
+    ["E", "bandeau", "coin", { g: "g" }, (r) => r.bandeau.on && (r.statut.on || r.tendance.on)],
     ["L", "titre", "on", { 0: false }],
     ["l", "titre", "taille", TAILLES, titreOn],
     ["o", "titre", "place", { g: "gauche", c: "centre" }, titreOn],
@@ -78,13 +83,13 @@ export function creerLienAffiches() {
     ["A", "annee", "on", { 0: false }, titreOn],
     ["D", "duree", "on", { 1: true }, titreOn],
     ["Y", "age", "on", { 1: true }, titreOn],
-    ["P", "plateforme", "on", { 1: true }],
+    ["P", "plateforme", "on", { 1: true }, (r) => r.titre.on || r.plateforme.place === "coin"],
     ["v", "plateforme", "place", { c: "coin" }, (r) => r.plateforme.on],
     ["O", "ligne", "ordre", { n: "nga", a: "agn" }, titreOn],
     ["r", "ligne", "barre", { v: "verre", f: "fine" }, titreOn],
     ["x", "texte", "taille", TAILLES, titreOn],
     ["p", "texte", "sep", { b: "barre", u: "puce" }, titreOn],
-    ["z", "texte", "haut", TAILLES, (r) => r.statut.on || r.tendance.on || r.qualite.on],
+    ["z", "texte", "haut", TAILLES, hautOn],
     ["w", "texte", "police", { b: "bebas" }, (r) => r.titre.on || r.statut.on || r.tendance.on || r.qualite.on],
     ["F", "fondu", "on", { 0: false }, titreOn],
     ["f", "fondu", "couleur", { a: "affiche" }, (r) => r.titre.on && r.fondu.on],
@@ -92,9 +97,9 @@ export function creerLienAffiches() {
     ["d", "fondu", "flou", { 1: true }, (r) => r.titre.on && r.fondu.on],
     ["W", "fondu", "hauteur", { c: "court", l: "long" }, (r) => r.titre.on && r.fondu.on],
     ["U", "image", "source", { o: "officielle", f: "fond" }, titreOn],
-    ["V", "ambiance", "voile", { 0: "0", s: "s", l: "l" }],
+    ["V", "ambiance", "voile", { 0: "0", s: "s", l: "l" }, (r) => hautOn(r) || (r.bandeau.on && (r.statut.on || r.tendance.on))],
     ["X", "ambiance", "vignette", { 1: true }],
-    ["Z", "ambiance", "accent", { b: "blanc", r: "rouge", u: "bleu", a: "affiche" }],
+    ["Z", "ambiance", "accent", { b: "blanc", r: "rouge", u: "bleu", a: "affiche" }, accentOn],
     ["B", "sortie", "nb", { 0: false }],
     ["h", "sortie", "cacherNote", { 0: false }, (r) => r.titre.on && r.note.on],
   ];

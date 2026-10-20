@@ -169,3 +169,16 @@ test("copies_identiques", () => {
   const b = readFileSync(new URL("../affiches/lib/lien-affiches.js", import.meta.url), "utf8").replace(/\r\n/g, "\n");
   assert.equal(a, b);
 });
+
+// Revue : un réglage sans effet n'est pas écrit (sinon deux liens pour un même dessin, deux copies en cache).
+test("revue_codes_sans_effet", () => {
+  assert.equal(ecrit("s=1.S0T0Q0I1Hv"), "S0T0Q0");      // côtés et style des badges, sans aucun badge
+  assert.equal(ecrit("s=1.S0T0J1"), "S0T0");            // bandeau sans statut ni tendance à porter
+  assert.equal(ecrit("s=1.L0P1"), "L0");                // plateforme dans la ligne, sans titre (pas de ligne)
+  assert.equal(ecrit("s=1.L0P1vc"), "L0P1vc");          // en coin, elle se dessine quand même
+  assert.equal(ecrit("s=1.S0T0Q0J0V0"), "S0T0Q0");      // voile du haut sans rien en haut
+  assert.equal(ecrit("s=1.S0T0Q0L0Zr"), "S0T0Q0L0");    // accent sans rien qui l'utilise
+  assert.equal(ecrit("s=1.Zr"), "Zr");                  // l'étoile de la note l'utilise
+  // La taille des badges vaut aussi pour la plateforme en coin.
+  assert.equal(ecrit("s=1.S0T0Q0P1vczq"), "S0T0Q0P1vczq");
+});

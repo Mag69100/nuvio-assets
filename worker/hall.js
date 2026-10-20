@@ -150,7 +150,7 @@ ${scripts("scene.js")}
 <script>${apercuDonnees(origin)}</script>
 ${scripts("nuvio.js", "apercu.js")}
 <script>
-// Le mur : les 6 premiers films de « Tendances de la semaine · Films ».
+// Le mur : les 6 premiers films de « Tendances du jour · Films ».
 fetch(${JSON.stringify(origin)} + "/catalog/movie/accueil-top10.json").then((r) => r.json()).then((d) => {
   const box = document.getElementById("affiches");
   const metas = (d.metas || []).filter((m) => m.poster).slice(0, 6);

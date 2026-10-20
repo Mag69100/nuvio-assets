@@ -10,8 +10,8 @@
 
 const ROW_HINTS = {
   "accueil-saison": "Change toute seule : Halloween, Noël, Saint-Valentin, Pâques, été, sinon les films à l'affiche",
-  "accueil-top10": "Les films dont tout le monde parle cette semaine",
-  "accueil-tendances-series": "Les séries dont tout le monde parle cette semaine",
+  "accueil-top10": "Les films dont tout le monde parle aujourd'hui, dans l'ordre du classement",
+  "accueil-tendances-series": "Les séries dont tout le monde parle aujourd'hui, dans l'ordre du classement",
   "accueil-nouveautes-plateformes": "Arrivés depuis 3 mois sur les plateformes que tu choisis plus bas",
   "accueil-series-a-devorer": "Séries notées 8/10 et plus",
   "accueil-mini-series": "Une seule saison, idéal pour un week-end",

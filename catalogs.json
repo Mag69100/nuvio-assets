@@ -3,16 +3,16 @@
   {
    "id": "accueil-top10",
    "type": "movie",
-   "name": "Tendances de la semaine · Films",
+   "name": "Tendances du jour · Films",
    "home": true,
-   "endpoint": "/trending/movie/week"
+   "endpoint": "/trending/movie/day"
   },
   {
    "id": "accueil-tendances-series",
    "type": "series",
-   "name": "Tendances de la semaine · Séries",
+   "name": "Tendances du jour · Séries",
    "home": true,
-   "endpoint": "/trending/tv/week"
+   "endpoint": "/trending/tv/day"
   },
   {
    "id": "accueil-nouveautes-plateformes",

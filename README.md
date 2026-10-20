@@ -7,7 +7,7 @@ Un addon Nuvio / Stremio en français, servi en direct depuis TMDB, avec son sit
 |---|---|
 | Le site (hall, guide, personnalisation) | https://nuvio-assets.xnzxflix.workers.dev |
 | L'addon à installer dans Nuvio | `https://nuvio-assets.xnzxflix.workers.dev/manifest.json` |
-| Les collections (Collections → Importer → URL ; sur PC, coller le contenu du lien) | `https://nuvio-assets.xnzxflix.workers.dev/collections.json` |
+| Les collections (copier tout son contenu, puis dans Nuvio, onglet Collections, bouton presse-papiers en haut à droite, sur téléphone comme sur PC ; sur téléphone, le lien marche aussi par Importer → URL) | `https://nuvio-assets.xnzxflix.workers.dev/collections.json` |
 
 Le plus simple : ouvrir le site, salle 1 (le guide) si tu n'as pas encore Nuvio, salle 2 pour régler ton lien.
 

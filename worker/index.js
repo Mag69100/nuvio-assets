@@ -39,7 +39,7 @@ import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updat
 import { isFixedId, readFixed, fixedRoute, fixedAvailable } from "./fixe.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.26.4";
+const VERSION = "5.26.5";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une

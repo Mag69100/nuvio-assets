@@ -446,6 +446,9 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .coll details .chips { margin-top: 10px; }
 .coll .chip span { padding: 6px 11px; font-size: .84rem; }
 .coll.off { opacity: .55; }
+/* Repère : sur l'accueil de Nuvio, les rangées du Catalogue FR passent entre Plateformes et les autres collections. */
+.coll-rangees { margin: 0; padding: 10px 14px; border: 1.5px dashed var(--seat); border-radius: 12px; text-align: center; font: 700 .86rem/1.4 var(--body); color: var(--dim); }
+.coll-rangees b { color: var(--bulb); }
 
 @media (max-width: 520px) { .two { grid-template-columns: 1fr; } }
 
@@ -684,7 +687,7 @@ ${copy ? "" : `        <p class="sub">Le lien partagé sature ? <a href="${origi
 
       <section class="act" id="s-collections">
         <header><span>Grand écran</span><h2>Les collections</h2></header>
-        <p class="sub">Les grandes tuiles en haut de l'accueil, à importer avec le second lien de ton billet. Choisis les collections, puis les tuiles de chacune.</p>
+        <p class="sub">Les grandes tuiles de l'accueil, à importer avec le second lien de ton billet. Plateformes reste tout en haut ; les autres viennent après tes rangées. Choisis les collections, puis les tuiles de chacune.</p>
         <div id="collections" style="display:grid;gap:10px"></div>
       </section>
 
@@ -1142,6 +1145,7 @@ function renderCollections() {
       wrap.append(det);
     }
     box.append(wrap);
+    if (c.id === "plateformes-streaming") box.append(el("p", { class: "coll-rangees" }, "↓ Ici, sur l'accueil : ", el("b", { text: "tes rangées du Catalogue FR" }), " ↓"));
   });
 }
 function renderAll() {

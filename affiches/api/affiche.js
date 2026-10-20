@@ -10,7 +10,8 @@ import { titleFacts } from "../lib/tmdb.js";
 import { ratingOf } from "../lib/notes.js";
 import { trendingRank } from "../lib/tendances.js";
 import { qualityOf } from "../lib/qualite.js";
-import { posterContent, contentKey, optionsDe } from "../lib/contenu.js";
+import { posterContent, contentKey } from "../lib/contenu.js";
+import { lireReglages, ecrireReglages } from "../lib/lien-affiches.js";
 import { draw, imageUrls } from "../lib/dessin.js";
 
 // CDN : 3 jours, puis redessinée en arrière-plan (limite de calcul gratuite : 4 h par mois).
@@ -47,11 +48,11 @@ function qualiteATemps(type, facts, fetchImpl, relais) {
 }
 
 /**
- * Forme normale des options d'un lien, dans l'ordre imdb, o, r : imdb seulement s'il est valable (celui de
- * l'id pour un « tt… »), o avec les seules lettres connues dans l'ordre tqngal, r seulement pour « tmdb ».
- * Un imdb vide (Nuvio l'envoie ainsi quand il n'en a pas) reste tel quel.
+ * Forme normale des options d'un lien, dans l'ordre imdb, s : imdb seulement s'il est valable (celui de
+ * l'id pour un « tt… »), s dans sa forme canonique (lib/lien-affiches.js), absent si tout est par défaut.
+ * Un imdb vide (Nuvio l'envoie ainsi quand il n'en a pas) reste tel quel. Les anciens o et r sont convertis.
  */
-function optionsNormales(q, id) {
+function optionsNormales(q, id, reglages) {
   const p = new URLSearchParams();
   const imdb = q.get("imdb");
   if (imdb !== null) {
@@ -59,10 +60,8 @@ function optionsNormales(q, id) {
     else if (id.startsWith("tt")) p.set("imdb", id);
     else if (/^tt\d{1,10}$/.test(imdb)) p.set("imdb", imdb);
   }
-  const o = "tqngal".split("").filter((k) => (q.get("o") || "").includes(k)).join("");
-  if (o) p.set("o", o);
-  // Note coupée : sa source ne change rien à l'affiche.
-  if (q.get("r") === "tmdb" && !o.includes("n")) p.set("r", "tmdb");
+  const s = ecrireReglages(reglages);
+  if (s) p.set("s", "1." + s);
   return String(p);
 }
 
@@ -75,40 +74,41 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
     // Un lien bricolé (paramètre en trop, lettres dans le désordre…) ferait dessiner une copie de plus de la
     // même affiche : on le renvoie, sans rien dessiner, vers sa forme normale (Nuvio suit les redirections).
     const recues = new URLSearchParams([...q].filter(([k]) => !["type", "shape", "id"].includes(k)));
-    const normales = optionsNormales(q, id);
+    const reglages = lireReglages(q);
+    const normales = optionsNormales(q, id, reglages);
     if (String(recues) !== normales) {
       return new Response(null, { status: 308, headers: { ...CORS, ...ABSENT, Location: `/${type}/${shape}/${id}.jpg${normales ? "?" + normales : ""}` } });
     }
-    const opts = optionsDe(q);
-    const noteImdb = opts.n && opts.r !== "tmdb", qualite = opts.q && env.QUALITE !== "off";
+    const tendance = reglages.tendance.on, qualite = reglages.qualite.on && env.QUALITE !== "off";
+    const noteImdb = reglages.titre.on && reglages.note.on && reglages.note.source !== "tmdb";
     try {
       // Notes IMDb et tendances ne dépendent pas du titre : sur une instance qui démarre, on les charge
       // pendant que TMDB répond (elles sont ensuite gardées en mémoire).
       if (noteImdb) ratingOf("tt0", fetchImpl).catch(() => {});
-      if (opts.t) trendingRank(env, type, 0, fetchImpl).catch(() => {});
+      if (tendance) trendingRank(env, type, 0, fetchImpl).catch(() => {});
       const facts = await titleFacts(env, { type, id, imdb }, fetchImpl);
       if (!facts) return absent();
       // Les images ne dépendent que du titre : on les demande tout de suite (sauf pour une revérification
       // par ETag, qui finit presque toujours en 304 sans rien dessiner).
-      const brouillon = posterContent(facts, {}, shape, opts);
+      const brouillon = posterContent(facts, {}, shape, reglages);
       if (!brouillon) return absent();
       const images = fetchImages(fetchImpl);
-      const peutDessiner = brouillon.full || opts.t || qualite;
+      const peutDessiner = brouillon.full || brouillon.statut || brouillon.gris || tendance || qualite;
       if (peutDessiner && !request.headers.get("If-None-Match")) imageUrls(brouillon).forEach((u) => images(u).catch(() => {}));
       const relais = new URL(request.url).origin;
       const [imdbRating, rank, { enRetard, quality }] = await Promise.all([
         noteImdb && facts.imdbId ? ratingOf(facts.imdbId, fetchImpl) : undefined,
-        opts.t ? trendingRank(env, type, facts.tmdbId, fetchImpl) : null,
+        tendance ? trendingRank(env, type, facts.tmdbId, fetchImpl) : null,
         qualite ? qualiteATemps(type, facts, fetchImpl, relais) : { enRetard: false, quality: null },
       ]);
-      const content = posterContent(facts, { imdbRating, rank, quality }, shape, opts);
-      // Rien à poser sur l'image : l'appli va la chercher directement chez TMDB, sans la redessiner ici.
-      if (!content.full && !content.rank && !content.quality) {
+      const content = posterContent(facts, { imdbRating, rank, quality }, shape, reglages);
+      // Rien à poser ni à griser : l'appli va chercher l'image directement chez TMDB, sans la redessiner ici.
+      if (!content.full && !content.rank && !content.quality && !content.statut && !content.gris) {
         return new Response(null, { status: 302, headers: { ...CORS, ...(enRetard ? COURT : OK_CACHE), Location: imageUrls(content)[0] } });
       }
       const etag = `"${contentKey(content)}"`;
-      // Une affiche classée revérifiée chaque jour par l'appli : son « N° » suit le classement.
-      const cache = enRetard ? COURT : content.rank ? { ...OK_CACHE, "Cache-Control": "public, max-age=86400" } : OK_CACHE;
+      // Une affiche classée ou avec un statut est revérifiée chaque jour par l'appli : elle suit le calendrier.
+      const cache = enRetard ? COURT : content.rank || content.statut ? { ...OK_CACHE, "Cache-Control": "public, max-age=86400" } : OK_CACHE;
       const headers = { ...CORS, ...cache, ETag: etag };
       if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });
       const jpg = await draw(content, images);

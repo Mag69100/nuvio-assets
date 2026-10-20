@@ -12,6 +12,15 @@ test("film : rien de sorti → bientôt", () => {
   assert.equal(statutDe(film(sorties([3, jours(30)]), jours(30)), AUJ), "bientot");
 });
 
+// Le statut se lit côté France : sorti au Japon mais pas encore en salle en France, ni en numérique → bientôt.
+test("film : sorti ailleurs, pas encore en France → bientôt", () => {
+  const releases = [
+    { iso_3166_1: "JP", release_dates: [{ type: 3, release_date: jours(-20) + "T00:00:00.000Z" }] },
+    { iso_3166_1: "FR", release_dates: [{ type: 3, release_date: jours(30) + "T00:00:00.000Z" }] },
+  ];
+  assert.equal(statutDe(film(releases), AUJ), "bientot");
+});
+
 test("film : aucune date du tout → bientôt", () => {
   assert.equal(statutDe(film([], ""), AUJ), "bientot");
 });

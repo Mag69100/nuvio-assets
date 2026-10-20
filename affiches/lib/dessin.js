@@ -1,7 +1,8 @@
 /**
  * Le dessin d'une affiche maison. sharp pose les images (fond, dégradés, logo) et fait le JPEG ;
  * satori écrit les textes (police Inter) sous forme de tracés SVG, donc sans police à installer.
- * Mesures : maquette « Gras + léger » validée, ×2 en portrait (maquette de 200 px), ×2,25 en paysage.
+ * Les styles viennent des réglages de la régie (content.styles, voir lib/contenu.js).
+ * Mesures de base : maquette « Gras + léger » validée, en pixels d'une affiche de 400 px de large.
  */
 import { readFileSync } from "node:fs";
 import sharp from "sharp";
@@ -10,7 +11,7 @@ import satori from "satori";
 export const SIZES = { poster: [400, 600], landscape: [800, 450] };
 const IMG = "https://image.tmdb.org/t/p/";
 const DELAI_MS = 3000;
-const OR = "#f5c518";
+const OR = "#f5c518", OR_PASTILLE = "#d4a53c", ENCRE = "#120b0e", CREME = "#f3ead7";
 
 const police = (fichier) => readFileSync(new URL(`../fonts/${fichier}`, import.meta.url));
 const FONTS = [
@@ -19,11 +20,16 @@ const FONTS = [
   { name: "Inter", data: police("Inter-ExtraBold.ttf"), weight: 800, style: "normal" },
 ];
 
-// Mesures par forme (en pixels de l'affiche).
+// Mesures par forme (en pixels de l'affiche), puis facteurs des réglages.
 const MESURES = {
-  poster: { texte: 26, marge: 20, haut: 18, ligneBas: 24, logoBas: 72, logoL: 0.8, logoH: 0.24 },
-  landscape: { texte: 29, marge: 22, haut: 20, ligneBas: 27, logoBas: 81, logoL: 0.55, logoH: 0.3 },
+  poster: { texte: 26, marge: 20, haut: 18, ligneBas: 24, logoL: 0.8, logoH: 0.24 },
+  landscape: { texte: 29, marge: 22, haut: 20, ligneBas: 27, logoL: 0.55, logoH: 0.3 },
 };
+const TAILLE = { s: 0.85, m: 1, l: 1.15 };
+const LOGO = { s: 0.8, m: 1, l: 1.15 };
+const FORCE = { s: 0.7, m: 0.88, l: 0.96 };
+const SEPARATEURS = { point: "·", barre: "|", puce: "•" };
+const STYLES_DEFAUT = { statut: "texte", tendance: "fleche", qualite: "texte", titre: "m", note: "etoile", texte: "m", sep: "point", fondu: { couleur: "noir", force: "m" } };
 
 async function telecharger(url, fetchImpl) {
   const res = await fetchImpl(url, { signal: AbortSignal.timeout(DELAI_MS) });
@@ -39,60 +45,124 @@ const svg = (taille, viewBox, d, fill) => ({
 const ETOILE = "M12 2l2.9 6.9 7.1.6-5.4 4.7 1.6 7-6.2-3.8-6.2 3.8 1.6-7L2 9.5l7.1-.6z";
 const FLECHE = "M7 17L17 7M9 7h8v8";
 const OMBRE = "0 2px 8px rgba(0,0,0,0.7)";
+const fleche = (t) => ({
+  type: "svg",
+  props: { width: t * 0.9, height: t * 0.9, viewBox: "0 0 24 24", style: { marginRight: t * 0.3 },
+    children: { type: "path", props: { d: FLECHE, fill: "none", stroke: OR, strokeWidth: 3, strokeLinecap: "round", strokeLinejoin: "round" } } },
+});
 
-/** Calque des textes (ligne du bas, rang, qualité), en SVG transparent de la taille de l'affiche. */
-async function calqueTexte(content, [w, hgt], m) {
-  const enfants = [];
-  if (content.line && content.line.length) {
-    const morceaux = [];
-    content.line.forEach((txt, i) => {
-      if (i) morceaux.push(h("span", { margin: `0 ${m.texte * 0.35}px`, opacity: 0.9 }, "·"));
-      const estNote = /^\d+,\d$/.test(txt), estAnnee = /^\d{4}$/.test(txt);
-      if (estNote) morceaux.push(h("div", { display: "flex", marginRight: m.texte * 0.25 }, svg(m.texte * 0.8, "0 0 24 24", ETOILE, OR)));
-      morceaux.push(h("span", estAnnee ? { fontWeight: 500, opacity: 0.7 } : {}, txt));
+/** Hauteur occupée par la ligne du bas (pour poser le logo juste au-dessus). */
+function hauteurLigne(content, m) {
+  if (!content.line) return 0;
+  const t = m.texte * TAILLE[content.styles.texte];
+  return content.styles.note === "grand" && content.line.note ? t * 2.45 : t * 1.2;
+}
+
+/** La ligne du bas : genre · note · année, ou la note en grand chiffre entre le genre et l'année. */
+function ligneDuBas(content, m) {
+  const st = content.styles, t = m.texte * TAILLE[st.texte], { genre, note, annee } = content.line;
+  const grand = st.note === "grand" && note;
+  const morceaux = [];
+  if (grand) {
+    if (genre) morceaux.push(h("span", { fontSize: t * 0.77, opacity: 0.8, marginRight: t * 0.5 }, genre));
+    morceaux.push(h("span", { fontSize: t * 2.45, fontWeight: 800, color: "#fff", lineHeight: 1 }, note));
+    if (annee) morceaux.push(h("span", { fontSize: t * 0.77, fontWeight: 500, opacity: 0.8, marginLeft: t * 0.5 }, annee));
+  } else {
+    const parts = [];
+    if (genre) parts.push(h("span", {}, genre));
+    if (note) {
+      parts.push(h("div", { display: "flex", alignItems: "center" }, st.note === "etoile"
+        ? [h("div", { display: "flex", marginRight: t * 0.25 }, svg(t * 0.8, "0 0 24 24", ETOILE, OR)), h("span", {}, note)]
+        : [h("span", {}, note)]));
+    }
+    if (annee) parts.push(h("span", { fontWeight: 500, opacity: 0.7 }, annee));
+    parts.forEach((p, i) => {
+      if (i) morceaux.push(h("span", { margin: `0 ${t * 0.35}px`, opacity: 0.9 }, SEPARATEURS[st.sep]));
+      morceaux.push(p);
     });
-    enfants.push(h("div", {
-      position: "absolute", left: 0, right: 0, bottom: m.ligneBas, display: "flex", justifyContent: "center", alignItems: "center",
-      fontSize: m.texte, fontWeight: 600, color: "rgba(255,255,255,0.9)", textShadow: OMBRE,
-    }, morceaux));
+  }
+  return h("div", {
+    position: "absolute", left: 0, right: 0, bottom: m.ligneBas, display: "flex", justifyContent: "center", alignItems: "center",
+    fontSize: t, fontWeight: 600, color: "rgba(255,255,255,0.9)", textShadow: OMBRE,
+  }, morceaux);
+}
+
+/** En haut à gauche : le statut, puis le rang de tendance dessous. */
+function hautGauche(content, m) {
+  const st = content.styles, t = m.texte, pile = [];
+  if (content.statut) {
+    pile.push(st.statut === "etiquette"
+      ? h("div", { display: "flex", background: CREME, color: ENCRE, borderRadius: 5, padding: "4px 8px", fontSize: t * 0.62, fontWeight: 800, letterSpacing: t * 0.05 }, content.statut)
+      : h("div", { display: "flex", fontSize: t * 0.7, fontWeight: 800, letterSpacing: t * 0.08, color: "#fff", textShadow: OMBRE }, content.statut));
   }
   if (content.rank) {
-    enfants.push(h("div", {
-      position: "absolute", left: m.marge, top: m.haut, display: "flex", alignItems: "center",
-      fontSize: m.texte, fontWeight: 800, color: "#fff", textShadow: OMBRE,
-    }, [
-      { type: "svg", props: { width: m.texte * 0.9, height: m.texte * 0.9, viewBox: "0 0 24 24", style: { marginRight: m.texte * 0.3 },
-        children: { type: "path", props: { d: FLECHE, fill: "none", stroke: OR, strokeWidth: 3, strokeLinecap: "round", strokeLinejoin: "round" } } } },
-      h("span", {}, `N°${content.rank}`),
-    ]));
-  }
-  if (content.quality) {
-    const q = [h("span", {}, "4K")];
-    if (content.quality.extra) {
-      q.push(h("div", { display: "flex", width: 3, height: m.texte * 0.92, background: "rgba(255,255,255,0.55)", margin: `0 ${m.texte * 0.45}px` }));
-      q.push(h("span", { fontWeight: 500, opacity: 0.85 }, content.quality.extra));
+    if (st.tendance === "pastille") {
+      pile.push(h("div", { display: "flex", background: "rgba(14,14,16,0.8)", border: `1.5px solid ${OR_PASTILLE}`, borderRadius: 9, padding: "4px 10px", fontSize: t * 0.8, fontWeight: 800, color: "#fff" }, `#${content.rank} Aujourd'hui`));
+    } else if (st.tendance === "ruban") {
+      pile.push(h("div", { display: "flex", background: OR, color: ENCRE, marginLeft: -m.marge, borderRadius: "0 6px 6px 0", padding: `4px 12px 4px ${m.marge}px`, fontSize: t * 0.92, fontWeight: 800 }, `N°${content.rank}`));
+    } else {
+      pile.push(h("div", { display: "flex", alignItems: "center", fontSize: t, fontWeight: 800, color: "#fff", textShadow: OMBRE }, [fleche(t), h("span", {}, `N°${content.rank}`)]));
     }
-    enfants.push(h("div", {
-      position: "absolute", right: m.marge, top: m.haut, display: "flex", alignItems: "center",
-      fontSize: m.texte, fontWeight: 800, color: "#fff", textShadow: OMBRE,
-    }, q));
   }
+  if (!pile.length) return null;
+  return h("div", { position: "absolute", left: m.marge, top: m.haut, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: t * 0.25 }, pile);
+}
+
+/** En haut à droite : la qualité (« 4K | DV »), en texte nu ou en pastille claire. */
+function hautDroite(content, m) {
+  const t = m.texte, pastille = content.styles.qualite === "pastille";
+  const q = [h("span", {}, "4K")];
+  if (content.quality.extra) {
+    q.push(h("div", { display: "flex", width: 3, height: t * 0.92, background: pastille ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.55)", margin: `0 ${t * 0.45}px` }));
+    q.push(h("span", { fontWeight: 500, opacity: 0.85 }, content.quality.extra));
+  }
+  const style = { position: "absolute", right: m.marge, top: m.haut, display: "flex", alignItems: "center", fontSize: t, fontWeight: 800 };
+  return h("div", pastille
+    ? { ...style, background: "rgba(255,255,255,0.92)", color: ENCRE, borderRadius: 6, padding: "3px 9px", fontSize: t * 0.85 }
+    : { ...style, color: "#fff", textShadow: OMBRE }, q);
+}
+
+/** Calque des textes, en SVG transparent de la taille de l'affiche. */
+async function calqueTexte(content, [w, hgt], m) {
+  const enfants = [];
+  if (content.line) enfants.push(ligneDuBas(content, m));
+  const gauche = hautGauche(content, m);
+  if (gauche) enfants.push(gauche);
+  if (content.quality) enfants.push(hautDroite(content, m));
   if (!enfants.length) return null;
   const racine = h("div", { width: w, height: hgt, display: "flex", position: "relative", fontFamily: "Inter" }, enfants);
   return Buffer.from(await satori(racine, { width: w, height: hgt, fonts: FONTS }));
 }
 
-/** Dégradés (bas sous le logo et la ligne, voile du haut sous les badges), en SVG. */
-function calqueDegrades(content, [w, hgt]) {
-  const bas = content.full, haut = !!(content.rank || content.quality);
-  if (!bas && !haut) return null;
+/** Teinte du fondu « couleurs de l'affiche » : la couleur moyenne du bas de l'image, sombre et saturée. */
+async function teinteDe(base, [w, hgt]) {
+  const bande = await sharp(base).extract({ left: 0, top: Math.round(hgt * 0.6), width: w, height: Math.round(hgt * 0.4) }).toBuffer();
+  const [r, g, b] = (await sharp(bande).stats()).channels.map((c) => c.mean / 255);
+  // RGB → HSL, puis luminosité 18 % et saturation × 1,4.
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+  let hue = 0, s = 0;
+  if (d) {
+    s = d / (1 - Math.abs(2 * l - 1));
+    hue = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  }
+  const L = 0.18, S = Math.min(1, s * 1.4), C = (1 - Math.abs(2 * L - 1)) * S, X = C * (1 - Math.abs((hue % 2) - 1)), M = L - C / 2;
+  const [r1, g1, b1] = hue < 1 ? [C, X, 0] : hue < 2 ? [X, C, 0] : hue < 3 ? [0, C, X] : hue < 4 ? [0, X, C] : hue < 5 ? [X, 0, C] : [C, 0, X];
+  const hex = (v) => Math.round((v + M) * 255).toString(16).padStart(2, "0");
+  return `#${hex(r1)}${hex(g1)}${hex(b1)}`;
+}
+
+/** Dégradés : le fondu du bas (noir ou teinté) sous le logo et la ligne, le voile du haut sous les badges. */
+function calqueDegrades(content, [w, hgt], teinte) {
+  const fondu = content.full && content.styles.fondu, haut = !!(content.statut || content.rank || content.quality);
+  if (!fondu && !haut) return null;
   const hb = Math.round(hgt * 0.52), hh = Math.round(hgt * 0.22);
+  const couleur = fondu && fondu.couleur === "affiche" && teinte ? teinte : "#000", force = fondu ? FORCE[fondu.force] : 0;
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${hgt}">
   <defs>
-    <linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.88"/></linearGradient>
+    <linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${couleur}" stop-opacity="0"/><stop offset="1" stop-color="${couleur}" stop-opacity="${force}"/></linearGradient>
     <linearGradient id="h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0.45"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>
   </defs>
-  ${bas ? `<rect x="0" y="${hgt - hb}" width="${w}" height="${hb}" fill="url(#b)"/>` : ""}
+  ${fondu ? `<rect x="0" y="${hgt - hb}" width="${w}" height="${hb}" fill="url(#b)"/>` : ""}
   ${haut ? `<rect x="0" y="0" width="${w}" height="${hh}" fill="url(#h)"/>` : ""}
 </svg>`);
 }
@@ -104,10 +174,12 @@ const urlLogo = (content) => (content.full && content.logo ? IMG + (/\.svg$/i.te
 /** Les images que draw() téléchargera : on peut les demander en avance. */
 export const imageUrls = (content) => [urlFond(content), urlLogo(content)].filter(Boolean);
 
-/** Le logo du titre, réduit dans sa boîte et centré au-dessus de la ligne. */
+/** Le logo du titre, réduit dans sa boîte (selon la taille choisie) et centré au-dessus de la ligne. */
 async function calqueLogo(content, [w, hgt], m, fetchImpl) {
   const url = urlLogo(content);
   if (!url) return null;
+  const echelle = LOGO[content.styles.titre] || 1;
+  const boiteL = Math.round(w * m.logoL * echelle), boiteH = Math.round(hgt * m.logoH * echelle);
   const svgLogo = /\.svg$/i.test(content.logo);
   const brut = await telecharger(url, fetchImpl);
   // Marges transparentes retirées : seule la partie visible du logo compte pour sa taille et sa place.
@@ -115,18 +187,19 @@ async function calqueLogo(content, [w, hgt], m, fetchImpl) {
   let options = {};
   if (svgLogo) {
     const { width } = await sharp(brut).metadata();
-    options = { density: Math.min(300, Math.max(1, (72 * 2 * w * m.logoL) / (width || 1))) };
+    options = { density: Math.min(300, Math.max(1, (72 * 2 * boiteL) / (width || 1))) };
   }
   const source = await sharp(brut, options).ensureAlpha().png().toBuffer();
   const zone = cadreVisible(await sharp(source).raw().toBuffer({ resolveWithObject: true }));
   const { data, info } = await sharp(source).extract(zone)
-    .resize({ width: Math.round(w * m.logoL), height: Math.round(hgt * m.logoH), fit: "inside" })
+    .resize({ width: boiteL, height: boiteH, fit: "inside" })
     .png().toBuffer({ resolveWithObject: true });
   // Centré sur sa partie pleine (les lettres) : halos et traînées semi-transparents ne le décalent pas.
   const plein = cadreVisible(await sharp(data).raw().toBuffer({ resolveWithObject: true }), 128);
   const centre = plein.left + plein.width / 2;
   const left = Math.min(Math.max(Math.round(w / 2 - centre), 0), w - info.width);
-  return { input: data, left, top: hgt - m.logoBas - info.height };
+  const bas = m.ligneBas + hauteurLigne(content, m) + m.texte * 0.65;
+  return { input: data, left, top: Math.max(0, Math.round(hgt - bas - info.height)) };
 }
 
 /** Cadre des pixels d'opacité > seuil d'une image RGBA brute ; l'image entière si aucun ne l'est. */
@@ -142,6 +215,7 @@ function cadreVisible({ data, info }, seuil = 16) {
 
 /** JPEG d'une affiche (400×600 en portrait, 800×450 en paysage). Lève une erreur si l'image de base manque. */
 export async function draw(content, fetchImpl = fetch) {
+  content = { ...content, styles: { ...STYLES_DEFAUT, ...(content.styles || {}) } };
   const taille = SIZES[content.shape], m = MESURES[content.shape];
   const [w, hgt] = taille;
   const [fond, logo, texte] = await Promise.all([
@@ -151,12 +225,17 @@ export async function draw(content, fetchImpl = fetch) {
     calqueLogo(content, taille, m, fetchImpl),
     calqueTexte(content, taille, m),
   ]);
+  // Pas encore sorti : l'image en noir et blanc ; les badges, posés ensuite, gardent leurs couleurs.
+  let image = sharp(fond).resize(w, hgt, { fit: "cover", position: "attention" });
+  if (content.gris) image = image.grayscale().toColourspace("srgb");
+  const base = await image.toBuffer();
+  const fondu = content.full && content.styles.fondu;
+  const teinte = fondu && fondu.couleur === "affiche" ? await teinteDe(base, taille) : null;
   const calques = [];
-  const degrades = calqueDegrades(content, taille);
+  const degrades = calqueDegrades(content, taille, teinte);
   if (degrades) calques.push({ input: degrades, left: 0, top: 0 });
   if (logo) calques.push(logo);
   if (texte) calques.push({ input: texte, left: 0, top: 0 });
-  const base = await sharp(fond).resize(w, hgt, { fit: "cover", position: "attention" }).toBuffer();
   // JPEG standard plutôt que mozjpeg : 3 fois moins de calcul pour des fichiers à peine plus lourds.
   return sharp(base).composite(calques).jpeg({ quality: 82 }).toBuffer();
 }

@@ -98,7 +98,8 @@ test("Torrentio en panne : affiche sans badge qualité, à temps", async () => {
   assert.equal(res.status, 200);
   assert.ok(Date.now() - t0 < 3000, `trop long : ${Date.now() - t0} ms`);
   const facts = { tmdbId: 693134, type: "movie", imdbId: "tt15239678", genreIds: [878], year: "2024", vote: { average: 8.1, count: 6000 },
-    poster: "/fr.jpg", textlessPoster: "/nu.jpg", backdrop: "/bd.jpg", textlessBackdrop: null, logo: "/logo.png", lastSeason: null };
+    poster: "/fr.jpg", textlessPoster: "/nu.jpg", backdrop: "/bd.jpg", textlessBackdrop: null, logo: "/logo.png", lastSeason: null,
+    releases: [], releaseDate: "2024-02-27", firstAir: "", seasons: [] };
   const attendu = contentKey(posterContent(facts, { imdbRating: undefined, rank: null, quality: null }, "poster"));
   assert.equal(res.headers.get("ETag"), `"${attendu}"`);
 });
@@ -160,7 +161,7 @@ test("imdb en paramètre pour un id tmdb", async () => {
 
 test("options : appels évités", async () => {
   const f = internet();
-  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&o=tqn"));
+  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.T0Q0N0"));
   assert.equal(res.status, 200);
   assert.ok(!f.calls.some((u) => u.includes("torrentio")), "Torrentio appelé");
   assert.ok(!f.calls.some((u) => u.includes("/trending/")), "tendances appelées");
@@ -169,7 +170,7 @@ test("options : appels évités", async () => {
 
 test("options : note TMDB sans lire les notes IMDb", async () => {
   const f = internet();
-  await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&r=tmdb"));
+  await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.nt"));
   assert.ok(!f.calls.some((u) => u.includes("imdb-ratings.bin")));
 });
 
@@ -182,12 +183,12 @@ test("qualité demandée au relais du service, pas à Torrentio directement", as
 // Rien à dessiner (pas de titre maison, ni rang ni qualité) : l'image d'origine de TMDB, sans la redessiner.
 test("rien à dessiner : redirection vers l'image TMDB", async () => {
   const f = internet();
-  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&o=tqngal"));
+  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.S0T0Q0L0B0"));
   assert.equal(res.status, 302);
   assert.equal(res.headers.get("Location"), "https://image.tmdb.org/t/p/w500/fr.jpg");
   assert.equal(res.headers.get("Cache-Control"), "public, max-age=604800");
   assert.ok(!f.calls.some((u) => u.includes("image.tmdb.org")), "image téléchargée pour rien");
-  const pays = await makeHandler({ fetchImpl: internet(), env })(req("type=movie&shape=landscape&id=tt15239678&o=tqngal"));
+  const pays = await makeHandler({ fetchImpl: internet(), env })(req("type=movie&shape=landscape&id=tt15239678&s=1.S0T0Q0L0B0"));
   assert.equal(pays.headers.get("Location"), "https://image.tmdb.org/t/p/w780/bd.jpg");
 });
 
@@ -215,13 +216,17 @@ test("logo introuvable : 502 sans cache", async () => {
 test("lien non canonique : redirection sans appel", async () => {
   const cas = [
     ["type=movie&shape=poster&id=tt15239678&x=1", "/movie/poster/tt15239678.jpg"],
-    ["type=movie&shape=poster&id=tt15239678&imdb=tt15239678&o=qt", "/movie/poster/tt15239678.jpg?imdb=tt15239678&o=tq"],
-    ["type=movie&shape=poster&id=tt15239678&o=zq", "/movie/poster/tt15239678.jpg?o=q"],
+    // Anciens liens (o, r) : convertis dans le format de la régie.
+    ["type=movie&shape=poster&id=tt15239678&imdb=tt15239678&o=qt", "/movie/poster/tt15239678.jpg?imdb=tt15239678&s=1.T0Q0"],
+    ["type=movie&shape=poster&id=tt15239678&o=zq", "/movie/poster/tt15239678.jpg?s=1.Q0"],
     ["type=movie&shape=poster&id=tt15239678&r=imdb", "/movie/poster/tt15239678.jpg"],
+    ["type=movie&shape=poster&id=tt15239678&o=n&r=tmdb", "/movie/poster/tt15239678.jpg?s=1.N0"],
     ["type=movie&shape=poster&id=tt15239678&imdb=tt999", "/movie/poster/tt15239678.jpg?imdb=tt15239678"],
     ["type=series&shape=landscape&id=tmdb:94605&imdb=abc", "/series/landscape/tmdb:94605.jpg"],
-    // Note coupée : la source de la note ne change rien, elle ne doit pas faire une copie de plus.
-    ["type=movie&shape=poster&id=tt15239678&o=n&r=tmdb", "/movie/poster/tt15239678.jpg?o=n"],
+    // Format de la régie : codes remis dans l'ordre, sous-réglages d'une voie éteinte retirés.
+    ["type=movie&shape=poster&id=tt15239678&s=1.Q0T0", "/movie/poster/tt15239678.jpg?s=1.T0Q0"],
+    ["type=movie&shape=poster&id=tt15239678&s=1.N0nt", "/movie/poster/tt15239678.jpg?s=1.N0"],
+    ["type=movie&shape=poster&id=tt15239678&s=", "/movie/poster/tt15239678.jpg"],
   ];
   for (const [q, cible] of cas) {
     const f = internet();
@@ -235,8 +240,39 @@ test("lien non canonique : redirection sans appel", async () => {
 
 test("liens normaux : pas de redirection", async () => {
   for (const q of ["type=movie&shape=poster&id=tt15239678&imdb=tt15239678", "type=movie&shape=poster&id=tt15239678&imdb=",
-    "type=series&shape=poster&id=tmdb:94605&imdb=tt11126994&o=tq&r=tmdb", "type=movie&shape=landscape&id=tt15239678"]) {
+    "type=series&shape=poster&id=tmdb:94605&imdb=tt11126994&s=1.T0Q0nt", "type=movie&shape=landscape&id=tt15239678"]) {
     const res = await makeHandler({ fetchImpl: internet(), env })(req(q));
     assert.notEqual(res.status, 308, q);
   }
+});
+
+test("ancien_lien_redirige_puis_servi", async () => {
+  const res = await makeHandler({ fetchImpl: internet(), env })(req("type=movie&shape=poster&id=tt15239678&imdb=tt15239678&o=tga&r=tmdb"));
+  assert.equal(res.status, 308);
+  const loc = new URL(res.headers.get("Location"), "https://affiches.test");
+  assert.equal(loc.search, "?imdb=tt15239678&s=1.T0ntG0A0");
+  const suite = await makeHandler({ fetchImpl: internet(), env })(req("type=movie&shape=poster&id=tt15239678&imdb=tt15239678&s=1.T0ntG0A0"));
+  assert.equal(suite.status, 200);
+});
+
+const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+const avecSorties = (...dates) => json({ ...film, release_dates: { results: [{ iso_3166_1: "FR", release_dates: dates.map(([type, d]) => ({ type, release_date: d })) }] } });
+
+test("statut_cache_court", async () => {
+  const res = await makeHandler({ fetchImpl: internet({ detail: avecSorties([4, jour(-5)]) }), env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("Cache-Control"), "public, max-age=86400");
+});
+
+// Pas encore sorti : dessiné en gris, jamais redirigé vers l'image TMDB en couleur.
+test("bientot_jamais_redirige", async () => {
+  const sansRien = await makeHandler({ fetchImpl: internet({ detail: avecSorties([3, jour(40)]) }), env })(req("type=movie&shape=poster&id=tt15239678&s=1.S0T0Q0L0"));
+  assert.equal(sansRien.status, 200);
+  assert.equal(sansRien.headers.get("Content-Type"), "image/jpeg");
+});
+
+test("voies_eteintes_sans_appel", async () => {
+  const f = internet();
+  await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.T0Q0"));
+  assert.ok(!f.calls.some((u) => u.includes("/trending/") || u.includes("/qualite/")), f.calls.join("\n"));
 });

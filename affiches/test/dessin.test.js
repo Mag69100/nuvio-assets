@@ -69,6 +69,32 @@ test("bas assombri sous la ligne", async () => {
   assert.ok(await moyenneBas(buf) <= 88, `pas assez sombre : ${await moyenneBas(buf)}`);
 });
 
+/** Centre horizontal de la zone blanche (> 240) d'une affiche : là où est le logo blanc opaque. */
+async function centreBlanc(buf) {
+  const { data, info } = await sharp(buf).greyscale().raw().toBuffer({ resolveWithObject: true });
+  let min = info.width, max = -1;
+  for (let y = 0; y < info.height; y++) for (let x = 0; x < info.width; x++) if (data[y * info.width + x] > 240) { min = Math.min(min, x); max = Math.max(max, x); }
+  return (min + max) / 2;
+}
+const logoFait = (svg) => ({ corps: async () => sharp(Buffer.from(svg)).png().toBuffer(), type: "image/png" });
+
+test("logo : les marges transparentes ne décentrent pas le nom", async () => {
+  // Bloc blanc de 300 px puis 100 px de vide à droite.
+  const g = images({ "/base.jpg": { corps: () => gris(500, 750), type: "image/jpeg" },
+    "/marge.png": logoFait(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="100"><rect width="300" height="100" fill="#fff"/></svg>`) });
+  const buf = await draw({ ...base, logo: "/marge.png", line: null, rank: null, quality: null }, g);
+  assert.ok(Math.abs(await centreBlanc(buf) - 200) <= 3, `centre ${await centreBlanc(buf)}`);
+});
+
+test("logo : une traînée pâle d'un côté compte moins que les lettres", async () => {
+  // Lettres opaques (300 px) puis une traînée semi-transparente de 60 px à droite (comme le logo de
+  // Dune : Troisième partie) : ce sont les lettres qui sont centrées, pas la traînée.
+  const g = images({ "/base.jpg": { corps: () => gris(500, 750), type: "image/jpeg" },
+    "/trainee.png": logoFait(`<svg xmlns="http://www.w3.org/2000/svg" width="360" height="100"><rect width="300" height="100" fill="#fff"/><rect x="300" width="60" height="100" fill="#fff" fill-opacity="0.4"/></svg>`) });
+  const buf = await draw({ ...base, logo: "/trainee.png", line: null, rank: null, quality: null }, g);
+  assert.ok(Math.abs(await centreBlanc(buf) - 200) <= 3, `lettres à ${await centreBlanc(buf)}`);
+});
+
 test("image introuvable : erreur", async () => {
   await assert.rejects(draw({ ...base, image: "/absente.jpg" }, f));
 });

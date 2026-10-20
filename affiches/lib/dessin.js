@@ -110,10 +110,28 @@ async function calqueLogo(content, [w, hgt], m, fetchImpl) {
   if (!url) return null;
   const svgLogo = /\.svg$/i.test(content.logo);
   const brut = await telecharger(url, fetchImpl);
-  const { data, info } = await sharp(brut, svgLogo ? { density: 300 } : {})
+  // Marges transparentes retirées : seule la partie visible du logo compte pour sa taille et sa place.
+  const source = await sharp(brut, svgLogo ? { density: 300 } : {}).ensureAlpha().png().toBuffer();
+  const zone = cadreVisible(await sharp(source).raw().toBuffer({ resolveWithObject: true }));
+  const { data, info } = await sharp(source).extract(zone)
     .resize({ width: Math.round(w * m.logoL), height: Math.round(hgt * m.logoH), fit: "inside" })
     .png().toBuffer({ resolveWithObject: true });
-  return { input: data, left: Math.round((w - info.width) / 2), top: hgt - m.logoBas - info.height };
+  // Centré sur sa partie pleine (les lettres) : halos et traînées semi-transparents ne le décalent pas.
+  const plein = cadreVisible(await sharp(data).raw().toBuffer({ resolveWithObject: true }), 128);
+  const centre = plein.left + plein.width / 2;
+  const left = Math.min(Math.max(Math.round(w / 2 - centre), 0), w - info.width);
+  return { input: data, left, top: hgt - m.logoBas - info.height };
+}
+
+/** Cadre des pixels d'opacité > seuil d'une image RGBA brute ; l'image entière si aucun ne l'est. */
+function cadreVisible({ data, info }, seuil = 16) {
+  let l = info.width, r = -1, t = info.height, b = -1;
+  for (let y = 0; y < info.height; y++) {
+    for (let x = 0; x < info.width; x++) {
+      if (data[(y * info.width + x) * 4 + 3] > seuil) { if (x < l) l = x; if (x > r) r = x; if (y < t) t = y; if (y > b) b = y; }
+    }
+  }
+  return r < 0 ? { left: 0, top: 0, width: info.width, height: info.height } : { left: l, top: t, width: r - l + 1, height: b - t + 1 };
 }
 
 /** JPEG d'une affiche (400×600 en portrait, 800×450 en paysage). Lève une erreur si l'image de base manque. */

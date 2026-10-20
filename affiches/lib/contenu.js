@@ -6,7 +6,7 @@
 import { createHash } from "node:crypto";
 
 // À changer quand le dessin change : l'ETag change avec, et Nuvio recharge les affiches.
-export const DESIGN = "1";
+export const DESIGN = "2";
 
 // Genres TMDB en français, en version courte pour tenir sur la ligne (repris de worker/index.js).
 export const SHORT_GENRES = {

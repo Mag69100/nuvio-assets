@@ -123,14 +123,19 @@ test("bientot_gris_sans_note", () => {
   assert.equal(contenu(bientot, plein, "poster", reglages("S0")).statut, null);
 });
 
-test("salle_gris_si_demande", () => {
+// « Pas sorti » = pas encore chez soi en VF, comme les rangées de l'addon : un film seulement au cinéma l'est.
+test("en_salle_pas_encore_sorti", () => {
   const c = contenu(enSalle, plein);
   assert.equal(c.statut, "EN SALLE");
-  assert.equal(c.gris, false);
-  assert.equal(c.line.note, "8,4");
-  const aussi = contenu(enSalle, plein, "poster", reglages("c1"));
-  assert.equal(aussi.gris, true);
-  assert.equal(aussi.line.note, undefined);
+  assert.equal(c.gris, true);
+  assert.equal(c.line.note, undefined);
+});
+
+test("sorti_sans_vf_pas_encore_sorti", () => {
+  const sansVf = { ...facts, originalLanguage: "en", releases: [{ iso_3166_1: "US", release_dates: [{ type: 4, release_date: "2026-10-01" }] }], releaseDate: "2026-09-01" };
+  const c = contenu(sansVf, plein);
+  assert.equal(c.gris, true);
+  assert.equal(c.statut, "BIENTÔT");
 });
 
 test("note_seule_sans_logo", () => {

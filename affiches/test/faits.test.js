@@ -68,12 +68,13 @@ test("images choisies", async () => {
 });
 
 test("dates pour le statut", async () => {
-  const avecDates = { ...movie, release_dates: { results: [{ iso_3166_1: "FR", release_dates: [{ type: 3, release_date: "2024-02-28T00:00:00.000Z" }] }] } };
+  const avecDates = { ...movie, original_language: "en", release_dates: { results: [{ iso_3166_1: "FR", release_dates: [{ type: 3, release_date: "2024-02-28T00:00:00.000Z" }] }] } };
   const f = fauxFetch([["/movie/693134", json(avecDates)]]);
   const facts = await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, f);
   assert.equal(new URL(f.calls[0]).searchParams.get("append_to_response"), "images,external_ids,release_dates");
   assert.deepEqual(facts.releases, avecDates.release_dates.results);
   assert.equal(facts.releaseDate, "2024-02-27");
+  assert.equal(facts.originalLanguage, "en");
   const serie = { ...movie, id: 94605, release_date: undefined, first_air_date: "2021-11-06", seasons: [{ season_number: 1, air_date: "2021-11-06", name: "S1" }] };
   const s = await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fauxFetch([["/tv/94605", json(serie)]]));
   assert.equal(s.firstAir, "2021-11-06");

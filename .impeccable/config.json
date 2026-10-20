@@ -38,6 +38,15 @@
         ],
         "createdAt": "2026-10-20T02:12:27.199Z",
         "reason": "Claude, choix délégué par l'utilisateur (« le mieux ») : lettre de marquise qui se raccroche à son clou, mouvement de pendule réel où le dépassement est physique"
+      },
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "worker/page.js"
+        ],
+        "createdAt": "2026-10-20T21:54:01.072Z",
+        "reason": "assistant judgment: #regie-grande in the hidden régie dialog gets its src from JS when the dialog opens; alt is empty and it never shows a broken icon"
       }
     ]
   }

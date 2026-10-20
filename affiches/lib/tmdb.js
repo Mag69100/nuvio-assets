@@ -70,6 +70,7 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch) {
     // Pour le statut (lib/statut.js).
     releases: type === "series" ? [] : (d.release_dates && d.release_dates.results) || [],
     releaseDate: type === "series" ? "" : d.release_date || "",
+    originalLanguage: d.original_language || "",
     firstAir: type === "series" ? d.first_air_date || "" : "",
     seasons: type === "series" ? (d.seasons || []).map((s) => ({ season_number: s.season_number, air_date: s.air_date || "" })) : [],
   };

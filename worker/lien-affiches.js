@@ -22,7 +22,7 @@ export function creerLienAffiches() {
     annee: { on: true },
     texte: { taille: 1, sep: "point", haut: 1 },
     fondu: { on: true, couleur: "noir", force: "m" },
-    sortie: { nb: true, salle: false, cacherNote: true },
+    sortie: { nb: true, cacherNote: true },
   });
 
   // Tailles réglables à la main : de 60 % à 140 % par pas de 5 %, une lettre par cran (a = 0,6, i = 1, q = 1,4).
@@ -54,7 +54,6 @@ export function creerLienAffiches() {
     ["f", "fondu", "couleur", { a: "affiche" }, (r) => r.titre.on && r.fondu.on],
     ["i", "fondu", "force", { s: "s", l: "l" }, (r) => r.titre.on && r.fondu.on],
     ["B", "sortie", "nb", { 0: false }],
-    ["c", "sortie", "salle", { 1: true }, (r) => r.sortie.nb],
     ["h", "sortie", "cacherNote", { 0: false }, (r) => r.titre.on && r.note.on],
   ];
 

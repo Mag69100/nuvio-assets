@@ -25,7 +25,7 @@ const CHOIX = {
   "genre.on": [true, false], "genre.forme": ["court", "complet"], "annee.on": [true, false],
   "texte.taille": [0.7, 0.95, 1, 1.1, 1.4], "texte.sep": ["point", "barre", "puce"], "texte.haut": [0.6, 1, 1.15, 1.4],
   "fondu.on": [true, false], "fondu.couleur": ["noir", "affiche"], "fondu.force": ["s", "m", "l"],
-  "sortie.nb": [true, false], "sortie.salle": [true, false], "sortie.cacherNote": [true, false],
+  "sortie.nb": [true, false], "sortie.cacherNote": [true, false],
 };
 
 test("aller_retour", () => {

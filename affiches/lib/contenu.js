@@ -6,7 +6,7 @@
  */
 import { createHash } from "node:crypto";
 import { DEFAUT_REGLAGES } from "./lien-affiches.js";
-import { statutDe } from "./statut.js";
+import { etatSortie } from "./statut.js";
 
 // À changer quand le dessin change : l'ETag change avec, et Nuvio recharge les affiches.
 export const DESIGN = "3";
@@ -45,8 +45,9 @@ export function posterContent(facts, { imdbRating, rank, quality }, shape, r = D
   const full = !!(r.titre.on && sansTexte && facts.logo);
   const image = full ? sansTexte : normale || null;
   if (!image) return null;
-  const statut = statutDe(facts, today);
-  const pasSorti = statut === "bientot" || (r.sortie.salle && statut === "salle");
+  // Pas sorti = pas encore chez soi en VF, comme les rangées de l'addon (au cinéma compris).
+  const { sorti, statut } = etatSortie(facts, today);
+  const pasSorti = !sorti;
   const line = {};
   if (full) {
     const genres = r.genre.forme === "complet" ? GENRES_COMPLETS : SHORT_GENRES;

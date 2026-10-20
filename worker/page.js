@@ -1276,9 +1276,8 @@ function tiroir(v) {
     choix("Couleur", [["noir", "Noir"], ["affiche", "Couleurs de l'affiche"]], r.fondu.couleur, (x) => regle((r) => { r.fondu.couleur = x; })),
     choix("Intensité", [["s", "Léger"], ["m", "Moyen"], ["l", "Fort"]], r.fondu.force, (x) => regle((r) => { r.fondu.force = x; })));
   if (v === "sortie") ajoute(
-    choix("Aussi au cinéma", [[false, "Non"], [true, "Oui"]], r.sortie.salle, (x) => regle((r) => { r.sortie.salle = x; })),
     choix("Cacher la note", [[true, "Oui"], [false, "Non"]], r.sortie.cacherNote, (x) => regle((r) => { r.sortie.cacherNote = x; })),
-    el("p", { text: "Les titres pas encore sortis en France passent en noir et blanc. « Aussi au cinéma » y ajoute ceux qui ne sont qu'en salle." }));
+    el("p", { text: "Les titres pas encore disponibles chez soi en VF passent en noir et blanc, comme dans les rangées : ceux qui ne sont qu'au cinéma, ou sortis ailleurs sans version française." }));
 }
 
 function regieDessine(garderTiroir) {

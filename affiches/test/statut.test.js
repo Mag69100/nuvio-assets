@@ -1,12 +1,37 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { statutDe } from "../lib/statut.js";
+import { statutDe, etatSortie } from "../lib/statut.js";
 
 const AUJ = "2026-10-20";
 const jours = (n) => new Date(Date.parse(AUJ) + n * 86400000).toISOString().slice(0, 10);
 // Dates de sortie TMDB : type 2/3 = salle, 4 = numérique.
 const sorties = (...dates) => [{ iso_3166_1: "FR", release_dates: dates.map(([type, d]) => ({ type, release_date: d + "T00:00:00.000Z" })) }];
-const film = (releases, date = "") => ({ type: "movie", releases, releaseDate: date });
+const pays = (code, ...dates) => ({ iso_3166_1: code, release_dates: dates.map(([type, d]) => ({ type, release_date: d + "T00:00:00.000Z" })) });
+const film = (releases, date = "", langue = "en") => ({ type: "movie", releases, releaseDate: date, originalLanguage: langue });
+
+// « Sorti » = disponible chez soi en VF, comme pour les rangées de l'addon : sortie chez soi (numérique, vidéo,
+// télé, sinon salle + 45 jours) ET une VF probable (film français, ou sorti en France, Belgique, Suisse,
+// Luxembourg ou au Canada).
+test("VF : sorti chez soi aux États-Unis seulement → pas sorti, bientôt", () => {
+  const e = etatSortie(film([pays("US", [4, jours(-20)])]), AUJ);
+  assert.deepEqual(e, { sorti: false, statut: "bientot" });
+});
+
+test("VF : film français sorti en numérique → sorti, nouveau", () => {
+  assert.deepEqual(etatSortie(film([pays("US", [4, jours(-5)])], "", "fr"), AUJ), { sorti: true, statut: "nouveau" });
+});
+
+test("VF : numérique aux États-Unis il y a 40 jours, en France il y a 10 jours → nouveau depuis la VF", () => {
+  assert.deepEqual(etatSortie(film([pays("US", [4, jours(-40)]), pays("FR", [4, jours(-10)])]), AUJ), { sorti: true, statut: "nouveau" });
+});
+
+test("VF : au cinéma en France, pas encore chez soi → pas sorti, en salle", () => {
+  assert.deepEqual(etatSortie(film(sorties([3, jours(-10)])), AUJ), { sorti: false, statut: "salle" });
+});
+
+test("VF : sorti au Québec → VF probable", () => {
+  assert.equal(etatSortie(film([pays("US", [4, jours(-60)]), pays("CA", [3, jours(-100)])]), AUJ).sorti, true);
+});
 
 test("film : rien de sorti → bientôt", () => {
   assert.equal(statutDe(film(sorties([3, jours(30)]), jours(30)), AUJ), "bientot");

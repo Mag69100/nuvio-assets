@@ -2642,6 +2642,7 @@
   {
    "id": "films-annees",
    "name": "Par année",
+   "yearly": true,
    "options": [
     {
      "label": "2026",
@@ -2650,8 +2651,7 @@
        "sort_by": "popularity.desc",
        "primary_release_year": 2026,
        "vote_count.gte": 30
-      },
-      "availableHere": true
+      }
      }
     },
     {
@@ -2661,8 +2661,7 @@
        "sort_by": "popularity.desc",
        "primary_release_year": 2025,
        "vote_count.gte": 30
-      },
-      "availableHere": true
+      }
      }
     },
     {
@@ -3625,6 +3624,7 @@
   {
    "id": "series-annees",
    "name": "Par année",
+   "yearly": true,
    "options": [
     {
      "label": "2026",

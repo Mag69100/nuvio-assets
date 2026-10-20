@@ -1,4 +1,4 @@
-import { test, beforeEach } from "node:test";
+import { test, beforeEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import worker, { resetPostersPlus } from "../worker/index.js";
 import { resetFails } from "../worker/hote.js";
@@ -485,5 +485,34 @@ test("decouvrir_seulement_dispo_dans_le_pays", async () => {
     calls.length = 0;
     await get(path);
     assert.ok(discover().length && discover().every((u) => !u.searchParams.has("with_watch_monetization_types")), path);
+  }
+});
+
+// « Par année » au 1er janvier : l'année nouvelle s'ajoute d'elle-même, et le filtre « déjà dispo »
+// passe aux deux dernières années (films seulement).
+test("par_annee_suit_l_annee_en_cours", async () => {
+  mock.timers.enable({ apis: ["Date"], now: Date.parse("2027-01-02T12:00:00Z") });
+  try {
+    const m = await (await get("/manifest.json")).json();
+    for (const id of ["films-annees", "series-annees"]) {
+      const labels = m.catalogs.find((c) => c.id === id).genres;
+      assert.deepEqual(labels.slice(0, 3), ["2027", "2026", "2025"], id);
+    }
+    const discover = () => calls.map((u) => new URL(u)).filter((u) => u.pathname.endsWith("/discover/movie"));
+    for (const [year, dispo] of [["2027", true], ["2026", true], ["2025", false]]) {
+      calls.length = 0;
+      await get(`/catalog/movie/films-annees/genre=${year}.json`);
+      assert.ok(discover().length, year);
+      for (const u of discover()) {
+        assert.equal(u.searchParams.get("primary_release_year"), year);
+        assert.equal(u.searchParams.has("with_watch_monetization_types"), dispo, year);
+      }
+    }
+    calls.length = 0;
+    await get("/catalog/series/series-annees/genre=2027.json");
+    const tv = calls.map((u) => new URL(u)).filter((u) => u.pathname.endsWith("/discover/tv"));
+    assert.ok(tv.length && tv.every((u) => u.searchParams.get("first_air_date_year") === "2027" && !u.searchParams.has("with_watch_monetization_types")));
+  } finally {
+    mock.timers.reset();
   }
 });

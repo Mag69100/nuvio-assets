@@ -187,9 +187,34 @@ function homeDefs(today, cfg) {
 /** Taille d'une page : 20, ou 40 pour une rangée qui mélange films et séries (20 + 20). */
 const pageSizeOf = (def) => (def.mix ? PAGE * def.mix.length : PAGE);
 
+/**
+ * Catalogues de Découvrir pour aujourd'hui. « Par année » (yearly) commence toujours à l'année
+ * en cours : au 1er janvier, elle s'ajoute d'elle-même sur le modèle de la plus récente de
+ * catalogs.json. Films de l'année et de l'an dernier : seulement ceux déjà dispo dans le pays.
+ */
+let discoverMemo = { year: 0, defs: [] };
+function discoverDefs(today) {
+  const year = Number(today.slice(0, 4));
+  if (discoverMemo.year === year) return discoverMemo.defs;
+  const defs = DEFS.discover.map((d) => {
+    if (!d.yearly) return d;
+    const key = d.type === "series" ? "first_air_date_year" : "primary_release_year";
+    const model = d.options[0].def;
+    const added = [];
+    for (let y = year; y > model.discover[key]; y--) added.push({ label: String(y), def: { ...model, discover: { ...model.discover, [key]: y } } });
+    const options = [...added, ...d.options].filter((o) => o.def.discover[key] <= year).map((o) => {
+      const { availableHere, ...def } = o.def;
+      return d.type === "movie" && o.def.discover[key] >= year - 1 ? { ...o, def: { ...def, availableHere: true } } : { ...o, def };
+    });
+    return { ...d, options };
+  });
+  discoverMemo = { year, defs };
+  return defs;
+}
+
 function manifest(today, cfg, cfgSeg, url, alerts) {
   const paging = { name: "skip" };
-  const discover = DEFS.discover.filter((d) => cfg.d.includes(d.id)).map((d) => {
+  const discover = discoverDefs(today).filter((d) => cfg.d.includes(d.id)).map((d) => {
     const labels = d.options.map((o) => o.label);
     return {
       type: d.type, id: d.id, name: d.name, showInHome: false, pageSize: PAGE,
@@ -882,7 +907,7 @@ async function catalog(env, ctx, type, id, extra, today, cfg) {
     const page = Math.floor(skip / pageSizeOf(home)) + 1;
     return fetchPage(env, ctx, home, type, page, today, opts);
   }
-  const disc = DEFS.discover.find((d) => d.id === id && d.type === type);
+  const disc = discoverDefs(today).find((d) => d.id === id && d.type === type);
   if (disc) {
     // Sans filtre (Nuvio ouvre Découvrir sur « Par défaut ») : le 1er filtre (« Tout »…).
     const opt = extra.genre ? disc.options.find((o) => o.label === extra.genre) : disc.options[0];

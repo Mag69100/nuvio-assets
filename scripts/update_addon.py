@@ -223,6 +223,31 @@ SEASON_TITLES = {
 }
 
 
+def discover_defs() -> list[dict]:
+    """Catalogues de Découvrir. « Par année » commence à l'année en cours (ajoutée d'elle-même
+    sur le modèle de la plus récente) ; films de l'année et de l'an dernier : déjà dispo en France."""
+    out = []
+    for d in DEFS.get("discover", []):
+        if not d.get("yearly"):
+            out.append(d)
+            continue
+        key = "first_air_date_year" if d["type"] == "series" else "primary_release_year"
+        model = d["options"][0]["def"]
+        added = [{"label": str(y), "def": {**model, "discover": {**model["discover"], key: y}}}
+                 for y in range(TODAY.year, model["discover"][key], -1)]
+        options = []
+        for o in added + d["options"]:
+            year = o["def"]["discover"][key]
+            if year > TODAY.year:
+                continue
+            defn = {k: v for k, v in o["def"].items() if k != "availableHere"}
+            if d["type"] == "movie" and year >= TODAY.year - 1:
+                defn["availableHere"] = True
+            options.append({**o, "def": defn})
+        out.append({**d, "options": options})
+    return out
+
+
 def season_defs(season: str) -> list[dict]:
     if season == "a-laffiche":
         films = {"endpoint": "/movie/now_playing", "params": {"region": "FR"}}
@@ -376,7 +401,7 @@ def main() -> None:
     # ignorent "showInHome" afficheraient sinon tous les catalogues des tuiles sur l'accueil.
     # Les tuiles utilisent les sources TMDB intégrées à Nuvio (définies dans catalogs.json pour mémoire).
     defs = season_defs(season) + [d for d in DEFS["catalogs"] if d.get("home")]
-    discover = DEFS.get("discover", [])
+    discover = discover_defs()
     counts, failed = {}, []
     pages_out: dict[str, list[dict]] = {}   # chemin relatif -> fiches de la page
 

@@ -114,7 +114,7 @@ code { font: .9em "Courier Prime", monospace; background: #0f080c; padding: 1px 
       <li>Ouvre <b>ton</b> site (l'adresse de ton Worker, ou celle de ton serveur).</li>
       <li>Va en <b>salle 2</b>, puis clique sur l'onglet <b>«&nbsp;Hébergeur&nbsp;»</b> en haut. Raccourci : ajoute <code>/configure#s-hote</code> au bout de ton adresse.</li>
       <li>Connecte-toi avec ton mot de passe, celui de <code>ADMIN_PASSWORD</code>.</li>
-      <li>Facultatif : coche «&nbsp;Alertes de mise à jour dans Nuvio&nbsp;», puis réinstalle ton lien dans Nuvio pour être prévenu sur ton accueil.</li>
+      <li>Facultatif : coche «&nbsp;Alertes de mise à jour dans Nuvio&nbsp;», puis réinstalle ton lien dans Nuvio pour être prévenu sur ton accueil (avec un lien fixe, « Actualiser les addons » suffit).</li>
     </ol>
   </section>
 

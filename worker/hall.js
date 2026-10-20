@@ -1,7 +1,7 @@
 /**
  * Le hall (servi à la racine « / ») : l'entrée du cinéma. Deux portes :
  * salle 1, le guide (pour qui n'a pas encore Nuvio) ; salle 2, la programmation (pour qui l'a déjà).
- * Au mur, les films à l'affiche cette semaine, tirés du Catalogue FR.
+ * Au mur, les films dont tout le monde parle aujourd'hui, tirés du Catalogue FR (Tendances du jour).
  */
 import { STAGE_HEAD, stageTop, secretsHTML, BEAM_HTML, CREDITS_HTML } from "./stage.js";
 import { ICONE_APERCU, apercuDonnees } from "./apercu.js";
@@ -96,7 +96,7 @@ a { color: var(--bulb); }
 .apercu-lien:hover { border-color: var(--bulb); color: var(--bulb); }
 .apercu-lien svg { width: 20px; height: 20px; }
 
-/* Le mur des affiches : les films à l'affiche cette semaine, sous des cadres lumineux. */
+/* Le mur des affiches : les Tendances du jour, sous des cadres lumineux. */
 .mur { display: grid; gap: 16px; text-align: center; }
 .mur h2 { margin: 0; font: 400 2.2rem/1 var(--display); letter-spacing: .04em; }
 .mur p { margin: 0; color: var(--dim); }
@@ -141,7 +141,7 @@ ${copy ? "" : `  <p class="propre-salle">Tu veux ta propre salle, avec tes clés
 
   <section class="mur" aria-labelledby="a-laffiche">
     <h2 id="a-laffiche">Actuellement à l'affiche</h2>
-    <p>Les films dont tout le monde parle cette semaine, avec les affiches qu'ils auront sur ton accueil.</p>
+    <p>Les films dont tout le monde parle aujourd'hui, avec les affiches qu'ils auront sur ton accueil.</p>
     <div class="affiches" id="affiches">${'<div class="cadre vide"></div>'.repeat(6)}</div>
   </section>
   <footer>${CREDITS_HTML}</footer>

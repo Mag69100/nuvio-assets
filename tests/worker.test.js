@@ -400,3 +400,15 @@ test("rangee_sur_mesure_tele_realite", async () => {
   await get(`/${seg({ x: [{ n: "Drames", t: 1, g: [GENRES.findIndex(([n]) => n === "Drame")] }] })}/catalog/series/perso-0.json`);
   assert.ok(discover().every((u) => u.searchParams.get("without_genres").split("|").includes("10764")));
 });
+
+test("tendances_du_jour_dans_l_ordre_meme_avec_les_films_a_venir", async () => {
+  const serie = (id) => ({ id, name: `Série ${id}`, first_air_date: "2099-01-01" });
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: [serie(1), serie(2), serie(3)], page: 1, total_pages: 1 }));
+    if (u.includes("postersplus")) return new Response(JSON.stringify({ metas: [{ id: "tmdb:3" }, { id: "tmdb:1" }] }));
+    return new Response("{}");
+  };
+  const { metas } = await (await get(`/${seg({ u: 1 })}/catalog/series/accueil-tendances-series.json`)).json();
+  assert.deepEqual(metas.map((m) => m.id), ["tmdb:3", "tmdb:1", "tmdb:2"]);
+});

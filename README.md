@@ -113,7 +113,7 @@ chaque correction. Rien ne change sans ton accord.
   connexion avec `ADMIN_PASSWORD`. Tu y vois la nouvelle version, ses nouveautés, et deux boutons :
   « Mettre à jour » (Cloudflare : « Sync fork » sur GitHub, puis redéploiement automatique ;
   Docker : `docker compose pull && docker compose up -d`) et « Plus tard » (plus rien jusqu'au palier suivant).
-- **Dans Nuvio** : coche « Alertes de mise à jour dans Nuvio » dans l'espace hébergeur et réinstalle ton lien.
+- **Dans Nuvio** : coche « Alertes de mise à jour dans Nuvio » dans l'espace hébergeur et réinstalle ton lien (avec un lien fixe, « Actualiser les addons » dans Nuvio suffit).
   Une rangée « Mise à jour » apparaît en tête de l'accueil quand une version sort (si tu as réorganisé tes
   rangées, remonte-la une fois). Les liens que tu donnes aux autres n'ont jamais cette rangée.
 

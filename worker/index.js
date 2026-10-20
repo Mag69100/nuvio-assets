@@ -39,7 +39,7 @@ import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updat
 import { isFixedId, readFixed, fixedRoute, fixedAvailable } from "./fixe.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.26.1";
+const VERSION = "5.26.2";
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -580,7 +580,9 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
   if (def.endpoint) {
     const params = { ...(def.params || {}) };
     if (params.region) params.region = opts.region;
-    data = await tmdb(env, def.endpoint, { ...params, page }, opts.lang);
+    // Tendances du jour, films pas encore sortis compris (réglage « u ») : aussi dans l'ordre de Posters+.
+    const [d, ranks] = await Promise.all([tmdb(env, def.endpoint, { ...params, page }, opts.lang), trendingRanks(def, kind)]);
+    data = d.results ? { ...d, results: byRank(d.results, ranks, page) } : d;
   } else {
     const endpoint = `/discover/${kind === "series" ? "tv" : "movie"}`;
     const params = discoverParams(def, kind, today, opts);
@@ -608,18 +610,13 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
 const MAX_CHECKED = 40;   // fiches TMDB lues au plus par page (limite d'appels de Cloudflare)
 async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
   const [ranks, ...lists] = await Promise.all([
-    def.endpoint.endsWith("/day") ? postersPlusRanks(kind) : new Map(),
+    trendingRanks(def, kind),
     ...[page, page + 1].map((p) => tmdb(env, def.endpoint, { ...(def.params || {}), page: p }, opts.lang)),
   ]);
-  // Sans rang chez Posters+ : sa place chez TMDB (juste après le rang égal), pas la fin de la
-  // liste, d'où il sortirait de la page sans revenir à la suivante. Un titre passé d'une page de
-  // TMDB à l'autre entre deux lectures n'est gardé qu'une fois.
-  const pos = new Map();
-  const released = lists.flatMap((d) => d.results || [])
-    .map((it, i) => { pos.set(it, ranks.get(it.id) || (page - 1) * PAGE + i + 1.5); return it; })
+  // Un titre passé d'une page de TMDB à l'autre entre deux lectures n'est gardé qu'une fois.
+  const released = byRank(lists.flatMap((d) => d.results || []), ranks, page)
     .filter((it, i, all) => all.findIndex((x) => x.id === it.id) === i)
-    .filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; })
-    .sort((a, b) => pos.get(a) - pos.get(b));
+    .filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; });
   let picked = released.slice(0, PAGE);
   if (kind === "movie") {
     const infos = new Map();
@@ -647,6 +644,14 @@ async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
  * (classés par AniList) n'y sont pas. Posters+ injoignable : liste vide, l'ordre de TMDB reste.
  */
 const PP_TRENDING = "https://postersplus.stremio.ru/trending/catalog";
+const trendingRanks = (def, kind) => (/^[/]trending[/].+[/]day$/.test(def.endpoint || "") ? postersPlusRanks(kind) : Promise.resolve(new Map()));
+/** Titres d'une page (page N de TMDB et suivantes) dans l'ordre de Posters+. Sans rang chez lui : sa place
+ *  chez TMDB, juste après le rang égal (pas la fin de la liste, d'où il sortirait de la page). */
+function byRank(results, ranks, page) {
+  if (!ranks.size) return results;
+  const pos = new Map(results.map((it, i) => [it, ranks.get(it.id) || (page - 1) * PAGE + i + 1.5]));
+  return [...results].sort((a, b) => pos.get(a) - pos.get(b));
+}
 async function postersPlusRanks(kind) {
   const url = `${PP_TRENDING}/${kind === "series" ? "series/pp.trending.series" : "movie/pp.trending.movie"}.json`;
   const d = await fetch(url, { cf: { cacheTtl: 3600, cacheEverything: true } })

@@ -1028,7 +1028,7 @@ export const STAGE_JS = String.raw`
     const r = th[4];
     if (window.ajouterRangee) {
       const res = window.ajouterRangee(r);
-      if (res === "ok") { toast("Rangée « " + r.n + " » ajoutée ! Copie ton nouveau lien sur le billet."); sfx.punch(); }
+      if (res === "ok") { toast("Rangée « " + r.n + " » ajoutée ! " + (window.lienFixe && window.lienFixe() ? "Ton lien fixe la reçoit : « Actualiser les addons » dans Nuvio." : "Copie ton nouveau lien sur le billet.")); sfx.punch(); }
       else if (res === "deja") toast("La rangée « " + r.n + " » est déjà dans ta programmation.");
       else toast("Tu as déjà 12 rangées sur mesure : supprime-en une d'abord.");
       drawSecrets();

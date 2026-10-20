@@ -85,7 +85,7 @@ function hoteRender() {
   alertes.addEventListener("change", () => { state.al = alertes.checked ? hote.jeton : ""; update(); });
   box.append(el("label", { class: "switch" }, alertes, el("span", {},
     el("b", { text: "Alertes de mise à jour dans Nuvio" }),
-    el("small", { text: "Ajoute à ton lien une rangée « Mise à jour », en tête de l'accueil, visible seulement quand une nouvelle version est sortie. Réinstalle ton lien après l'avoir coché, et ne coche pas pour les liens que tu donnes aux autres." }))));
+    el("small", { text: "Ajoute à ton lien une rangée « Mise à jour », en tête de l'accueil, visible seulement quand une nouvelle version est sortie. Réinstalle ton lien après l'avoir coché (avec un lien fixe, « Actualiser les addons » dans Nuvio suffit), et ne coche pas pour les liens que tu donnes aux autres." }))));
   box.append(hote.maj ? hoteBanner(hote.maj)
     : hote.verification === "impossible"
       ? el("p", { class: "alerte", role: "alert", text: "Impossible de vérifier les mises à jour pour l'instant (GitHub ne répond pas). Réessaie plus tard." })
@@ -588,7 +588,7 @@ ${feuilles("scene.css", "nuvio.css")}
     <div class="marquee"><small>Nuvio · en français</small><h1>Ta programmation</h1></div>
     <p class="tagline">Ton accueil, ta salle, tes règles.</p>
     <a class="guide-link" href="${origin}/guide">Pas encore Nuvio ? Suis le guide de A à Z →</a>
-    <p>Choisis ce qui passe sur ton accueil, crée tes propres rangées, renomme-les, filtre ce que tu ne veux pas voir. <b>L'écran se met à jour en direct</b>, et ton billet contient ton lien d'installation. Rien n'est enregistré : tout tient dans le lien.</p>
+    <p>Choisis ce qui passe sur ton accueil, crée tes propres rangées, renomme-les, filtre ce que tu ne veux pas voir. <b>L'écran se met à jour en direct</b>, et ton billet contient ton lien d'installation. Rien n'est enregistré : tout tient dans le lien. Ou crée un <b>lien fixe</b> : il ne change plus, et tes changements arrivent dans Nuvio sans réinstaller.</p>
   </div>
 
   <div class="layout">
@@ -747,7 +747,7 @@ ${copy ? HOTE_HTML : ""}
             <button type="button" class="btn line" id="share-btn">Offrir ce billet</button>
             <button type="button" class="btn line full" id="img-btn">Télécharger le billet en image</button>
           </div>
-          <div class="qr" id="qr" hidden><div id="qr-code" class="qr-wait">Impression du QR code…</div><p>Scanne-le avec ton téléphone : cette page s'ouvre avec les mêmes réglages, il ne reste qu'à copier les liens.</p></div>
+          <div class="qr" id="qr" hidden><div id="qr-code" class="qr-wait">Impression du QR code…</div><p>Scanne-le avec ton téléphone : cette page s'ouvre avec les mêmes réglages, il ne reste qu'à copier les liens. Avec un lien fixe, le téléphone pourra aussi le modifier : ne montre ce QR code à personne d'autre.</p></div>
         </div>
         <div class="stub"><span>Admis · 1 salle</span></div>
         <div class="stamp" aria-hidden="true">Copié</div>
@@ -1022,6 +1022,8 @@ function renderScreen() {
 
 // ---------- Les salles du foyer ajoutent leur rangée sur mesure ----------
 window.rangeePresente = (nom) => state.x.some((x) => x.n === nom);
+// Lien fixe modifiable ici : les messages ne parlent pas de « nouveau lien » (voir stage.js).
+window.lienFixe = () => !!(fixe && fixe.modif);
 window.ajouterRangee = (r) => {
   if (state.x.some((x) => x.n === r.n)) return "deja";
   if (state.x.length >= D.maxCustom) return "plein";

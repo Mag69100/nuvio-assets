@@ -461,17 +461,27 @@ export const NUVIO_JS = "var __name = function (f) { return f; };\nconst NV_PP =
       catch (e) { return LA.lireReglages(new URLSearchParams("")); }
     },
     set affiches(r) { ecrit("affiches-v2", LA.ecrireReglages(r)); },
+    // Réglages à part du paysage (régie, onglet Paysage) ; null = les mêmes que le portrait.
+    get affichesPaysage() {
+      const s = lit("affiches-v2-paysage");
+      return s === null ? null : LA.lireReglages(new URLSearchParams(s ? "s=1." + s : ""));
+    },
+    set affichesPaysage(r) {
+      if (r) ecrit("affiches-v2-paysage", LA.ecrireReglages(r));
+      else try { localStorage.removeItem("affiches-v2-paysage"); } catch (e) {}
+    },
   };
   // L'ancienne clé TMDB (elle ne servait qu'aux affiches Posters+) n'est plus lue : on l'efface.
   try { localStorage.removeItem("tmdb-key"); } catch (e) {}
   /** Le lien d'affiches à coller dans Nuvio, avec les réglages de ce navigateur. */
-  const lienPerso = () => LA.lienAffiches(reglages.affiches);
+  const lienPerso = () => LA.lienAffiches(reglages.affiches, reglages.affichesPaysage);
   /** Affiche maison d'un titre, demandée au worker (/affiche/…) ; r : d'autres réglages que ceux du navigateur (la régie). */
   const ppSrc = (m, forme, r) => {
     if ((!r && !reglages.pp) || !m || !m.id) return "";
     const id = String(m.id), imdb = m.imdb_id || (id.startsWith("tt") ? id : "");
     if (!/^(tt\\d+|tmdb:\\d+)$/.test(id)) return "";
-    const q = new URLSearchParams(), s = LA.ecrireReglages(r || reglages.affiches);
+    const propres = r || (forme === "landscape" && reglages.affichesPaysage) || reglages.affiches;
+    const q = new URLSearchParams(), s = LA.ecrireReglages(propres);
     if (imdb && imdb !== id) q.set("imdb", imdb);
     if (s) q.set("s", "1." + s);
     return NV_ORIG + "/affiche/" + (m.type === "series" ? "series" : "movie") + "/" + forme + "/" + encodeURIComponent(id) + (String(q) ? "?" + q : "");

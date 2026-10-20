@@ -96,3 +96,12 @@ test("redessin_une_fois_par_rafale", () => {
   assert.match(corps, /regieAttente = setTimeout\(regieApercus, 400\)/);
   assert.doesNotMatch(corps, /regieApercus\(\)/);
 });
+
+// Régie v2 : réglages à part pour le paysage, gardés dans ce navigateur et écrits dans le lien (sp).
+test("reglages_paysage_a_part", async () => {
+  const { NUVIO_JS } = await import("../worker/nuvio.js");
+  assert.match(NUVIO_JS, /"affiches-v2-paysage"/);
+  assert.match(NUVIO_JS, /LA\.lienAffiches\(reglages\.affiches, reglages\.affichesPaysage\)/);
+  // Aperçu en paysage sans réglages donnés : ceux du paysage s'il y en a.
+  assert.match(NUVIO_JS, /forme === "landscape" && reglages\.affichesPaysage/);
+});

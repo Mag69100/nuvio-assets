@@ -290,6 +290,9 @@ aside.long .stage:not(.big) { position: sticky; top: var(--stage-top, 18px); }
 .fixe p b { color: var(--ink); }
 .fixe .etat { font-weight: 800; color: #2f6b3a; }
 .fixe .t-btns { grid-template-columns: 1fr; }
+/* Le lien pour modifier : discret, pour qu'on ne le prenne pas pour celui à coller dans Nuvio. */
+.fixe .autre { font: 600 .76rem/1.45 var(--body); color: #7a5a4c; }
+.fixe .discret { padding: 0; border: 0; background: none; font: inherit; font-weight: 800; color: var(--ink); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 
 .howto { background: var(--velvet-2); border: 1px solid var(--seat); border-radius: 16px; padding: 16px 18px; font-size: .9rem; color: var(--dim); display: grid; gap: 8px; }
 .howto b { color: var(--cream); }
@@ -733,10 +736,8 @@ ${copy ? HOTE_HTML : ""}
           </div>
           <div class="fixe" id="fixe" hidden>
             <p id="fixe-txt"></p>
-            <div class="t-btns">
-              <button type="button" class="btn solid" id="fixe-creer">Créer mon lien fixe</button>
-              <button type="button" class="btn line" id="fixe-modif">Copier le lien pour modifier ailleurs</button>
-            </div>
+            <div class="t-btns"><button type="button" class="btn solid" id="fixe-creer">Créer mon lien fixe</button></div>
+            <p class="autre" id="fixe-autre" hidden>Modifier depuis un autre appareil ? <button type="button" class="discret" id="fixe-modif">Copier le lien de modification</button> (à ouvrir dans un navigateur, pas dans Nuvio)</p>
             <p class="alerte" id="fixe-err" role="alert"></p>
           </div>
           <div class="t-label">Collections · Collections → Importer → URL</div>
@@ -1237,13 +1238,13 @@ function dessineFixe(seg) {
   const box = $("fixe");
   box.hidden = !D.fixedOk && !fixe;
   if (box.hidden) return;
-  const txt = $("fixe-txt"), creer = $("fixe-creer"), modif = $("fixe-modif");
+  const txt = $("fixe-txt"), creer = $("fixe-creer"), autre = $("fixe-autre");
   txt.textContent = "";
   if (!fixe) {
-    txt.append(el("b", { text: "Lien fixe : " }), "plus besoin de réinstaller l'addon quand tu changes tes réglages, Nuvio les reprend tout seul.");
+    txt.append(el("b", { text: "Lien fixe : " }), "crée-le avant d'installer l'addon. Ensuite, plus besoin de réinstaller quand tu changes tes réglages.");
   } else if (fixe.modif) {
     const etat = { attente: "Changements en attente…", envoi: "Enregistrement…", ok: "Enregistré ✓" }[etatFixe] || "";
-    txt.append(el("b", { text: "Lien fixe. " }), "Tes changements s'enregistrent tout seuls. Dans Nuvio, « Actualiser les addons » les affiche tout de suite (sinon, Nuvio les reprend de lui-même dans les 6 heures). ");
+    txt.append(el("b", { text: "Lien fixe ✓ " }), "C'est le lien du dessus qu'on colle dans Nuvio, une seule fois. Ensuite tes changements s'enregistrent tout seuls : dans Nuvio, « Actualiser les addons » et c'est à jour. ");
     if (etat) txt.append(el("span", { class: "etat", text: etat }));
   } else if (seg === segDepart) {
     txt.append(el("b", { text: "Lien fixe. " }), "Pour le modifier, ouvre cette page sur l'appareil qui l'a créé, ou avec son « lien pour modifier ».");
@@ -1251,7 +1252,7 @@ function dessineFixe(seg) {
     txt.append(el("b", { text: "Ce navigateur ne peut pas modifier ce lien fixe : " }), "tes changements font un lien habituel, à réinstaller. Ou crée un nouveau lien fixe avec ces réglages.");
   }
   creer.hidden = !D.fixedOk || !!(fixe && (fixe.modif || seg === segDepart));
-  modif.hidden = !(fixe && fixe.modif);
+  autre.hidden = !(fixe && fixe.modif);
 }
 let fixe = D.fixed ? { id: D.fixed, modif: "" } : null;
 let segDepart = null, dernierEnvoye = null;
@@ -1279,7 +1280,7 @@ $("fixe-creer").addEventListener("click", async (e) => {
 });
 $("fixe-modif").addEventListener("click", async (e) => {
   const btn = e.currentTarget, label = btn.textContent;
-  try { await navigator.clipboard.writeText(lienModif()); btn.textContent = "Copié ✓ : garde-le pour toi"; popcorn(btn); }
+  try { await navigator.clipboard.writeText(lienModif()); btn.textContent = "Copié ✓"; toast("Lien de modification copié : ouvre-le dans le navigateur de l'autre appareil. Dans Nuvio, c'est toujours le lien du billet."); }
   catch (err) { toast("Copie impossible : ouvre cette page sur l'autre appareil avec le QR code « Continuer sur le téléphone ».", true); }
   setTimeout(() => { btn.textContent = label; }, 2200);
 });

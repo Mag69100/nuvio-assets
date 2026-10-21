@@ -682,8 +682,10 @@ const tendancesDuJour = (def) => /^\/trending\/(movie|tv)\/day$/.test(def.endpoi
 /** Une page (1, 2, 3…) d'une définition de liste. */
 async function fetchPage(env, ctx, def, kind, page, today, opts) {
   if (def.mix) {
-    // Rangée mélangée : page N des films + page N des séries, en alternance.
-    const lists = await Promise.all(def.mix.map((sub) => fetchPage(env, ctx, sub, sub.type, page, today, opts)));
+    // Rangée mélangée : page N des films + page N des séries, en alternance. Les séries (et suivantes) par un appel de
+    // l'addon à lui-même s'il le peut (40 fiches à lire frôlaient les 50 appels permis), sinon ici.
+    const lists = await Promise.all(def.mix.map(async (sub, k) => (k > 0 && opts.moitie && await opts.moitie(k, page, opts.bilan))
+      || fetchPage(env, ctx, sub, sub.type, page, today, { ...opts, moitie: null })));
     const out = [];
     for (let i = 0; i < Math.max(...lists.map((l) => l.length)); i++) {
       lists.forEach((l) => { if (l[i]) out.push(l[i]); });
@@ -735,8 +737,9 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
     if (gardes.length < PAGE && page < (data.total_pages || 0)) {
       const suite = await tmdb(env, def.endpoint, { ...(def.params || {}), region: opts.region, page: page + 1 }, opts.lang);
       const vus = new Set(gardes.map(([it]) => it.id));
-      // (+1 : de quoi remplacer un titre retiré, sans dépasser les 50 appels de Cloudflare avec les sources.)
-      gardes = gardes.concat(await garder((suite.results || []).filter((it) => !vus.has(it.id)).slice(0, PAGE - gardes.length + 1)));
+      // (+1 : de quoi remplacer un titre retiré ; MAX_FILL au plus, pour rester loin des 50 appels de Cloudflare. Page
+      // encore courte : Nuvio demande la suivante, voir pageOf.)
+      gardes = gardes.concat(await garder((suite.results || []).filter((it) => !vus.has(it.id)).slice(0, Math.min(PAGE - gardes.length + 1, MAX_FILL))));
     }
     gardes = gardes.slice(0, PAGE);
     data = { ...data, results: gardes.map(([it]) => it) };
@@ -747,6 +750,28 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
 }
 
 /**
+ * Une moitié (k) d'une rangée mélangée, préparée par un appel de l'addon à lui-même (liaison SELF de wrangler.toml) :
+ * cet appel a son propre budget de 50 appels sortants, et garde sa page en cache comme une autre. Réglages passés
+ * dans l'adresse (prefixe = « /<segment> », même pour un lien fixe : pas de base à relire). null sans la liaison
+ * (copies Docker, sans limite d'appels) ; la fonction rend null si l'appel échoue : la moitié est alors lue ici.
+ */
+function moitieParSelf(env, prefixe, type, id) {
+  if (!env.SELF) return null;
+  return async (k, page, bilan) => {
+    try {
+      const res = await env.SELF.fetch(`https://self${prefixe}/catalog/${type}/${encodeURIComponent(id)}/partie=${k}&page=${page}.json`);
+      const metas = res.ok ? (await res.json()).metas : null;
+      if (!Array.isArray(metas)) return null;
+      // Moitié incomplète (TMDB a refusé des fiches) : la rangée entière l'est aussi.
+      if (bilan && res.headers.get("X-Partiel")) { bilan.vus += metas.length; bilan.rates += metas.length; }
+      return metas;
+    } catch (e) {
+      return null;
+    }
+  };
+}
+
+/**
  * Tendances avec seulement ce qu'on peut déjà regarder chez soi : TMDB y classe aussi les films
  * attendus dès leur bande-annonce (Godzilla Minus Zero, voir « Les plus attendus ») et ceux qui
  * ne sont encore qu'au cinéma (Street Fighter, voir « Bientôt dispo »). Séries : déjà diffusées.
@@ -754,7 +779,11 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
  * demande la suite avec skip = titres déjà reçus et ignore les doublons : rien ne manque ni ne
  * s'affiche deux fois. Les infos lues pour trier (dates de sortie) resservent pour les fiches.
  */
-const MAX_CHECKED = 40;   // fiches TMDB lues au plus par page (limite d'appels de Cloudflare)
+// Fiches TMDB lues au plus par page (50 appels sortants par requête chez Cloudflare, cache, base des liens fixes et
+// « pour qui » compris) : de quoi garder une marge, au pire une quarantaine d'appels en tout.
+const MAX_CHECKED = 30;   // Tendances : titres examinés pour en garder 20 déjà regardables
+const MAX_FILL = 8;       // « Prochainement » : titres de la page TMDB suivante pour compléter la page
+const MAX_VF = 28;        // « Dispo depuis peu », « Bientôt dispo » : candidats examinés
 async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
   // Dans l'ordre de la photo du jour (celle des « N° » des affiches maison), sinon de TMDB.
   const [lists, photo] = await Promise.all([
@@ -845,7 +874,7 @@ async function fetchVfPage(env, ctx, def, kind, page, today, opts) {
   lists.flatMap((d) => d.results || []).sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
     .forEach((it) => { if (!seen.has(it.id)) { seen.add(it.id); merged.push(it); } });
   if (!merged.length) return [];
-  const metas = await toMetas(env, ctx, merged.slice(0, 36), kind, { ...opts, lireSources: true }, today);
+  const metas = await toMetas(env, ctx, merged.slice(0, MAX_VF), kind, { ...opts, lireSources: true }, today);
   const from = addDays(today, def.digital[0]), to = addDays(today, def.digital[1]);
   const when = (m) => m._digital || (future ? m._guess : "");
   return metas
@@ -976,16 +1005,16 @@ async function runSearch(env, type, query, page, opts, trace) {
  */
 const pageOf = (skip, size) => Math.ceil(Math.max(0, skip) / size) + 1;
 
-async function catalog(env, ctx, type, id, extra, today, cfg) {
+async function catalog(env, ctx, type, id, extra, today, cfg, prefixe = "") {
   // Fiches TMDB de la page (extraInfo) et celles restées sans réponse (limite d'appels de TMDB, panne).
   const bilan = { vus: 0, rates: 0 };
-  const metas = await catalogPage(env, ctx, type, id, extra, today, cfg, bilan);
+  const metas = await catalogPage(env, ctx, type, id, extra, today, cfg, bilan, prefixe);
   // Plus d'une sur dix sans ses infos (IMDb, dates, logo, bande-annonce) : page incomplète, gardée 5 min seulement.
   if (metas.length && bilan.rates > bilan.vus / 10) metas.degrade = true;
   return metas;
 }
 
-async function catalogPage(env, ctx, type, id, extra, today, cfg, bilan) {
+async function catalogPage(env, ctx, type, id, extra, today, cfg, bilan, prefixe) {
   const skip = Number(extra.skip || 0);
   const opts = { cfg, ctx, lang: langOf(cfg), region: cfg.g, filtered: hasGlobalFilters(cfg), bilan };
   const search = SEARCH.find((c) => c.id === id && c.type === type);
@@ -1005,8 +1034,14 @@ async function catalogPage(env, ctx, type, id, extra, today, cfg, bilan) {
   const wanted = id === "accueil-en-ce-moment" ? "accueil-saison" : id;
   const home = homeDefs(today, cfg).find((d) => d.id === wanted && d.type === type);
   if (home) {
+    // Une moitié d'une rangée mélangée, demandée par l'addon lui-même (voir moitieParSelf) : sa page N telle quelle.
+    if (extra.partie !== undefined) {
+      const sub = home.mix && /^[1-9]$/.test(extra.partie) ? home.mix[Number(extra.partie)] : null;
+      const p = Number(extra.page);
+      return sub && Number.isInteger(p) && p >= 1 && p <= 500 ? fetchPage(env, ctx, sub, sub.type, p, today, opts) : [];
+    }
     const page = pageOf(skip, pageSizeOf(home));
-    return fetchPage(env, ctx, home, type, page, today, opts);
+    return fetchPage(env, ctx, home, type, page, today, { ...opts, moitie: home.mix ? moitieParSelf(env, prefixe, type, home.id) : null });
   }
   const disc = discoverDefs(today).find((d) => d.id === id && d.type === type);
   if (disc) {
@@ -2011,11 +2046,14 @@ const app = {
     const hit = await caches.default.match(cacheKey);
     // Page gardée incomplète (X-Partiel) : Nuvio ne la garde qu'une minute.
     const clientCc = fixedId ? `public, max-age=${CACHE_CLIENT_S}` : `public, max-age=${CACHE_CLIENT_LONG_S}, stale-while-revalidate=${CACHE_CLIENT_LONG_S}`;
-    if (hit) return new Response(hit.body, { headers: { ...HEADERS, "Cache-Control": hit.headers.get("X-Partiel") ? "public, max-age=60" : clientCc } });
+    if (hit) {
+      const partiel = hit.headers.get("X-Partiel") ? { "X-Partiel": "1" } : {};
+      return new Response(hit.body, { headers: { ...HEADERS, ...partiel, "Cache-Control": partiel["X-Partiel"] ? "public, max-age=60" : clientCc } });
+    }
 
     let metas = [];
     try {
-      metas = await catalog(env, ctx, type, id, extra, today, cfg);
+      metas = await catalog(env, ctx, type, id, extra, today, cfg, cfgSeg ? `/${cfgSeg}` : "");
     } catch (e) {
       return json({ metas: [], error: String(e) }, 60);
     }
@@ -2029,6 +2067,7 @@ const app = {
     }
     const out = json({ metas }, metas.partial ? 0 : 60);
     if (!metas.partial && !metas.degrade) out.headers.set("Cache-Control", clientCc);
+    if (metas.degrade) out.headers.set("X-Partiel", "1");   // lu aussi par moitieParSelf
     return out;
   },
 };

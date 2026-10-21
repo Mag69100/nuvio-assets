@@ -148,6 +148,79 @@ test("rangee_triee_apres_coup_page_suivante", async () => {
   assert.deepEqual(pages, [1, 2]);
 });
 
+// ---------- budget d'appels (50 par requête chez Cloudflare) ----------
+// TMDB simulé : des pages pleines, 15 films sur 20 sortis il y a 10 jours au cinéma (pas encore regardables : les
+// Tendances en examinent le plus possible), chaque appel sortant et chaque accès au cache comptés.
+function compteur() {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const n = { sortants: 0, cache: 0, self: [] };
+  const match = globalThis.caches.default.match, put = globalThis.caches.default.put;
+  globalThis.caches.default.match = (...a) => { n.cache++; return match(...a); };
+  globalThis.caches.default.put = (...a) => { n.cache++; return put(...a); };
+  globalThis.fetch = async (url) => {
+    n.sortants++;
+    const u = String(url), p = Number(new URL(u).searchParams.get("page")) || 1;
+    if (/\/(discover|trending|movie\/upcoming)/.test(u)) {
+      return new Response(JSON.stringify({ results: Array.from({ length: 20 }, (_, i) => ({ id: p * 100 + i, title: `T${p}-${i}`, name: `T${p}-${i}`,
+        original_language: "en", release_date: jour(u.includes("upcoming") ? 10 : -10), first_air_date: jour(-10), popularity: 100 - i })), page: p, total_pages: 20 }));
+    }
+    const m = /\/(movie|tv)\/(\d+)\?/.exec(u);
+    const vod = m && Number(m[2]) % 100 >= 15;
+    if (m) return new Response(JSON.stringify({ id: Number(m[2]), imdb_id: `tt${m[2]}`, original_language: "en",
+      release_dates: { results: [{ iso_3166_1: "US", release_dates: [{ type: vod ? 4 : 3, release_date: jour(vod ? -100 : -10) + "T00:00:00.000Z" }] }] } }));
+    return new Response(JSON.stringify({ results: [] }));
+  };
+  return n;
+}
+// Liaison SELF simulée : la moitié d'une rangée mélangée, et la préparation des « pour qui » (clé Gemini du lien).
+const avecSelf = (n) => ({ ...env, SELF: { fetch: async (url) => {
+  n.sortants++;
+  if (!String(url).includes("/catalog/")) return new Response("{}");
+  n.self.push(String(url));
+  return new Response(JSON.stringify({ metas: [{ id: "tmdb:1", type: "series", name: "Série d'à côté" }] }));
+} } });
+const cle = `/${Buffer.from(JSON.stringify({ k: "AIzaSyCleDeTest0123456789abcdefghijkl" })).toString("base64url")}`;
+
+test("budget_rangee_melangee_moitie_par_self", async () => {
+  const n = compteur();
+  const { metas } = await (await get(`${cle}/catalog/movie/accueil-nouveautes-plateformes.json`, avecSelf(n))).json();
+  assert.equal(n.self.length, 1);
+  assert.equal(n.self[0], `https://self${cle}/catalog/movie/accueil-nouveautes-plateformes/partie=1&page=1.json`);
+  assert.equal(metas.length, 21);
+  assert.deepEqual(metas.slice(0, 2).map((m) => m.name), ["T1-0", "Série d'à côté"]);
+  assert.ok(n.sortants + n.cache <= 37, `${n.sortants} appels sortants + ${n.cache} accès au cache`);
+});
+
+test("rangee_melangee_moitie_demandee_par_l_addon", async () => {
+  compteur();
+  const { metas } = await (await get("/catalog/movie/accueil-nouveautes-plateformes/partie=1&page=2.json")).json();
+  assert.equal(metas.length, 20);
+  assert.ok(metas.every((m) => m.type === "series" && /^T2-/.test(m.name)));
+  // Autre chose qu'une moitié existante : rien.
+  for (const x of ["partie=2&page=1", "partie=0&page=1", "partie=1&page=0", "partie=1&page=x"]) {
+    assert.deepEqual((await (await get(`/catalog/movie/accueil-nouveautes-plateformes/${x}.json`)).json()).metas, [], x);
+  }
+});
+
+test("rangee_melangee_sans_self_lue_ici", async () => {
+  const n = compteur();
+  const { metas } = await (await get("/catalog/movie/accueil-nouveautes-plateformes.json")).json();
+  assert.equal(metas.length, 40);
+  assert.equal(n.self.length, 0);
+});
+
+// Au pire 37 (appels sortants, SELF et cache comptés) : de quoi relire un lien fixe (cache, base) sous 40.
+test("budget_pire_cas_des_rangees", async () => {
+  for (const path of ["/catalog/movie/accueil-top10.json", "/catalog/movie/accueil-vod-bientot.json", "/catalog/movie/accueil-vod-semaine.json",
+    "/catalog/movie/films-cinema/genre=Prochainement.json", "/catalog/movie/accueil-attendus.json", "/catalog/series/accueil-series-a-devorer.json"]) {
+    store.clear();
+    const n = compteur();
+    const { metas } = await (await get(cle + path, avecSelf(n))).json();
+    assert.ok(n.sortants + n.cache <= 37, `${path} : ${n.sortants} appels sortants + ${n.cache} accès au cache`);
+    if (path.includes("top10")) assert.ok(metas.length > 0 && n.sortants >= 33, `${path} : pire cas pas atteint (${n.sortants})`);
+  }
+});
+
 test("erreur_imprevue_reponse_propre", async () => {
   // Cache en panne : l'erreur remonte jusqu'en haut ; la réponse reste du JSON, jamais gardée, sans le détail.
   globalThis.caches = { default: { match: async () => { throw new Error("cache cassé https://x/?api_key=secret"); }, put: async () => {} } };

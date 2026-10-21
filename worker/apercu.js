@@ -244,7 +244,9 @@ export const APERCU_JS = `// ---------- L'accueil qu'on aura à la fin du guide 
     seg.append(bV, bP); outils.append(bAA, bRet, seg, bPP); boutons();
     const AA = avantApres(ecran, bAA, legende, { normal, avant: texteAvant });
     bAA.setAttribute("aria-pressed", "false");
-    bAA.addEventListener("click", () => AA.bascule(!AA.actif, true));
+    // En avant / après, le menu ouvert de lui-même à l'arrivée serait caché sous Nuvio de base (et « Échap » le fermerait d'abord) : on le referme.
+    const sansMenu = () => { if (AA.actif && ecran.querySelector(".nvo-menu")) E.retour(); };
+    bAA.addEventListener("click", () => { AA.bascule(!AA.actif, true); sansMenu(); });
     // Fenêtre modale : le reste de la page devient inerte (le focus reste dans l'aperçu) ; à la fermeture,
     // le focus revient au bouton qui l'a ouverte.
     const avant = document.activeElement, fond = [...document.body.children].filter((x) => !x.inert);
@@ -289,7 +291,7 @@ export const APERCU_JS = `// ---------- L'accueil qu'on aura à la fin du guide 
         io.observe(section);
       });
       collections.filter((c) => !c.pinToTop).forEach(rangeeTuiles);
-      E.pret();
+      E.pret(); sansMenu();
     } catch (e) {
       const { piste } = E.rangee("Aperçu indisponible"); piste.append(mkd("p", "vide", "Vérifie ta connexion et réessaie."));
     }

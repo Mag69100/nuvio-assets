@@ -38,6 +38,7 @@ import { nuvioDonnees } from "./nuvio.js";
 import { POSTER_URL } from "./reglages.js";
 import { feuilles, scripts } from "./statique.js";
 import { esc } from "./outils-serveur.js";
+import { GUICHET_DEPART, guichetHTML } from "./guichet.js";
 
 // Espace hébergeur d'une copie auto-hébergée (absent de l'instance principale) : connexion avec le mot de
 // passe ADMIN_PASSWORD, lien avec alertes (rangée « Mise à jour » dans Nuvio), bannière de mise à jour.
@@ -147,7 +148,7 @@ ${STAGE_HEAD}
 <meta property="og:title" content="Compose ta programmation Nuvio">
 <meta property="og:image" content="${LOGO}">
 <link rel="icon" href="${LOGO}">
-${feuilles("polices.css", "salle2.css", "scene.css", "nuvio.css", "salle2-fin.css")}
+${feuilles("polices.css", "salle2.css", "scene.css", "nuvio.css", "salle2-fin.css", "salle2-guichet.css")}
 </head>
 <body>
   <div class="valance" aria-hidden="true"></div>
@@ -167,6 +168,7 @@ ${feuilles("polices.css", "salle2.css", "scene.css", "nuvio.css", "salle2-fin.cs
         <a href="#s-nom">Nom</a><a href="#s-pays">Pays</a><a href="#s-rangees">Rangées</a><a href="#s-saison">Saison</a>
         <a href="#s-plateformes">Plateformes</a><a href="#s-filtres">Filtres</a><a href="#s-ia">IA</a><a href="#s-decouvrir">Découvrir</a><a href="#s-collections">Collections</a><a href="#s-affiches">Affiches</a>${copy ? '<a href="#s-hote">Hébergeur</a>' : ""}<a href="#s-mode">Installer</a>
       </nav>
+${GUICHET_DEPART}
 
       <section class="act" id="s-nom">
         <header><span>Affiche</span><h2>Le nom de ton addon</h2></header>
@@ -393,13 +395,14 @@ ${copy ? HOTE_HTML : ""}
       </div>
     </div>
   </div>
+${guichetHTML()}
 
 <script>${nuvioDonnees(origin)}</script>
 ${scripts("nuvio.js")}
 <script>
 const D = ${json};
 </script>
-${scripts("outils.js", "salle2.js")}
+${scripts("outils.js", "salle2.js", "salle2-guichet.js")}
 ${copy ? scripts("salle2-hote.js") : ""}
 ${scripts("scene.js")}
 </body>
@@ -2110,26 +2113,34 @@ $("name").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preven
 // « Revenir à la programmation d'origine » : tout revient par défaut sauf la clé Gemini et le jeton d'alerte.
 // « Annuler » pendant 10 secondes remet tout comme avant (rangées sur mesure, noms, ordre) ; un lien fixe
 // reçoit alors de nouveau l'ancien réglage.
-let annuleT = 0;
+let annuleT = 0, annuleRetour = null;
 function annuleFin() {
   clearTimeout(annuleT); annuleT = 0;
-  if (document.activeElement === $("annule-btn")) $("reset").focus();
+  if (document.activeElement === $("annule-btn")) (annuleRetour || $("reset")).focus();
   $("annule").hidden = true;
 }
-$("reset").addEventListener("click", () => {
-  const avant = clone(state), ordreAvant = [...order];
-  Object.assign(state, clone(D.defaults), { k: state.k, al: state.al });
-  $("builder").hidden = true; renderAll();
-  $("annule-txt").textContent = "Programmation d'origine remise.";
+/**
+ * Toute la programmation vient d'être remplacée (remise d'origine, guichet, soirée à deux) : « Annuler » pendant
+ * 10 secondes remet l'état d'avant (avant, ordreAvant) ; retour : où rendre le focus ensuite.
+ */
+function proposeAnnuler(texte, avant, ordreAvant, retour) {
+  annuleRetour = retour || null;
+  $("annule-txt").textContent = texte;
   $("annule").hidden = false;
   $("annule-btn").onclick = () => {
     annuleFin();
     Object.assign(state, avant); renderAll();
     order = ordreAvant; renderRows();
-    $("reset").focus();
+    (retour && retour.isConnected ? retour : $("reset")).focus();
     effet("toast", "Tes réglages sont revenus.");
   };
   clearTimeout(annuleT); annuleT = setTimeout(annuleFin, 10000);
+}
+$("reset").addEventListener("click", () => {
+  const avant = clone(state), ordreAvant = [...order];
+  Object.assign(state, clone(D.defaults), { k: state.k, al: state.al });
+  $("builder").hidden = true; renderAll();
+  proposeAnnuler("Programmation d'origine remise.", avant, ordreAvant);
 });
 
 // ---------- lien fixe (voir fixe.js) : les réglages gardés par le site, le lien ne change plus ----------

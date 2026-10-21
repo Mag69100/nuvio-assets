@@ -127,3 +127,12 @@ test("apercus_versionnes", async () => {
   assert.ok(APERCU_V);
   assert.ok(NUVIO_JS.includes(`q.set("v", "${APERCU_V}")`));
 });
+
+// Revue : onglets au clavier (flèches, Début, Fin) ; chaque ligne dit quels réglages elle ouvre (aria-controls).
+test("regie_accessible_au_clavier", () => {
+  const html = salle2();
+  assert.match(html, /e\.key === "Home"/);
+  assert.match(html, /e\.key === "End"/);
+  assert.match(html, /"aria-controls": "corps-" \+ v/);
+  assert.match(html, /id: "corps-" \+ v/);
+});

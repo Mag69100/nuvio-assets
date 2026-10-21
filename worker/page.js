@@ -1402,7 +1402,7 @@ function regieLignes() {
     const [nom, signe] = VOIES[v], on = allumee(r, v), ouverte = v === regieVoie, vide = sansEffet(r, v);
     const ligne = el("div", { class: "ligne" + (ouverte ? " ouverte" : "") + (on === false || vide ? " eteinte" : ""), "data-voie": v });
     const tete = el("div", { class: "ligne-tete" },
-      el("button", { type: "button", class: "ligne-nom", "aria-expanded": String(ouverte), "data-cle": "ouvrir:" + v, onclick: () => { regieVoie = ouverte ? null : v; regieDessine(); } },
+      el("button", { type: "button", class: "ligne-nom", "aria-expanded": String(ouverte), "aria-controls": "corps-" + v, "data-cle": "ouvrir:" + v, onclick: () => { regieVoie = ouverte ? null : v; regieDessine(); } },
         el("span", { class: "pastille", text: signe, "aria-hidden": "true" }),
         el("span", { class: "ligne-txt" }, el("b", { text: nom }), el("small", { text: vide ? "Sans effet sans le titre" : resume(r, v) })),
         el("span", { class: "chevron", text: ouverte ? "⌄" : "›", "aria-hidden": "true" })));
@@ -1411,7 +1411,7 @@ function regieLignes() {
         onclick: () => regieChange((r) => { if (v === "sortie") r.sortie.nb = !r.sortie.nb; else r[v].on = !r[v].on; }) }));
     }
     ligne.append(tete);
-    if (ouverte) ligne.append(el("div", { class: "ligne-corps" }, ...reglagesDe(v)));
+    if (ouverte) ligne.append(el("div", { class: "ligne-corps", id: "corps-" + v }, ...reglagesDe(v)));
     boite.append(ligne);
   });
 }
@@ -1545,13 +1545,16 @@ document.querySelectorAll("#regie-memoires [data-memoire]").forEach((b) => b.add
   const m = LA.MEMOIRES[b.dataset.memoire];
   regieChange((r) => { const copie = JSON.parse(JSON.stringify(m)); Object.keys(copie).forEach((k) => { r[k] = copie[k]; }); });
 }));
-// Onglets : clic, et flèches gauche/droite d'un onglet à l'autre (rôle tablist).
+// Onglets : clic, flèches gauche/droite d'un onglet à l'autre, Début et Fin pour le premier et le dernier (rôle tablist).
 const ongletsListe = [...document.querySelectorAll("#regie-onglets [data-onglet]")];
 ongletsListe.forEach((b, i) => {
   b.addEventListener("click", () => { regieOnglet = b.dataset.onglet; regieVoie = null; regieDessine(); });
   b.addEventListener("keydown", (e) => {
-    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-    const suivant = ongletsListe[(i + (e.key === "ArrowRight" ? 1 : ongletsListe.length - 1)) % ongletsListe.length];
+    const n = ongletsListe.length;
+    const vers = e.key === "ArrowRight" ? (i + 1) % n : e.key === "ArrowLeft" ? (i + n - 1) % n : e.key === "Home" ? 0 : e.key === "End" ? n - 1 : -1;
+    if (vers < 0) return;
+    e.preventDefault();
+    const suivant = ongletsListe[vers];
     regieOnglet = suivant.dataset.onglet; regieVoie = null; regieDessine(); suivant.focus();
   });
 });

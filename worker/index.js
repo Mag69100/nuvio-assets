@@ -38,7 +38,7 @@ import { statique } from "./statique.js";
 import { smartSearch, prepareWords, isExact, norm, capQuery } from "./search.js";
 import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
-import { isFixedId, readFixed, fixedRoute, fixedAvailable } from "./fixe.js";
+import { isFixedId, readFixed, fixedRoute, fixedAvailable, noteLecture } from "./fixe.js";
 import { sha256 } from "./outils-serveur.js";
 import { secondesAvantBascule, jourTendances, routeTendances, prendrePhotos } from "./tendances.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
@@ -1961,6 +1961,8 @@ const app = {
       // Lien fixe : même adresse, nouveaux réglages. « Actualiser les addons » dans Nuvio doit relire le manifest
       // à chaque fois, jamais le ressortir d'un cache. Un lien habituel change d'adresse avec ses réglages : 5 min.
       if (fixedId) res.headers.set("Cache-Control", "no-cache, max-age=0, must-revalidate");
+      // « Ta TV l'a reçu » (billet du lien fixe) : l'heure de cette lecture, notée sans retarder la réponse.
+      if (fixedId) ctx.waitUntil(noteLecture(env, fixedId, request));
       return res;
     }
     if (path === "/collections.json") return json(await collections(cfg), CACHE_CLIENT_S);

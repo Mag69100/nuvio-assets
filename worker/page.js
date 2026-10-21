@@ -312,6 +312,7 @@ ${copy ? HOTE_HTML : ""}
           </div>
           <div class="fixe" id="fixe" hidden>
             <p id="fixe-txt"></p>
+            <p class="recu" id="fixe-recu" hidden></p>
             <div class="t-btns"><button type="button" class="btn solid" id="fixe-creer">Créer mon lien fixe</button></div>
             <p class="autre" id="fixe-autre" hidden>Modifier depuis un autre appareil ? <button type="button" class="discret" id="fixe-modif">Copier le lien de modification</button> (à ouvrir dans un navigateur, pas dans Nuvio)</p>
             <p class="alerte" id="fixe-err" role="alert"></p>
@@ -558,6 +559,16 @@ aside.long .stage:not(.big) { position: sticky; top: var(--stage-top, 18px); }
 /* Le lien pour modifier : discret, pour qu'on ne le prenne pas pour celui à coller dans Nuvio. */
 .fixe .autre { font: 600 .76rem/1.45 var(--body); color: #7a5a4c; }
 .fixe .discret { padding: 0; border: 0; background: none; font: inherit; font-weight: 800; color: var(--ink); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+/* « Ta TV l'a reçu » : un voyant devant la phrase (vert : reçu ; ambre qui clignote : en attente ; éteint : pas encore). */
+.fixe .recu { position: relative; padding: 7px 10px 7px 28px; border-radius: 8px; background: rgba(42,26,20,.06); font: 600 .8rem/1.45 var(--body); }
+.fixe .recu::before { content: ""; position: absolute; left: 10px; top: .78em; width: 9px; height: 9px; border-radius: 50%; background: #a8968c; }
+.fixe .recu small { display: block; font-weight: 600; color: #7a5a4c; }
+.fixe .recu.ok { background: rgba(47,107,58,.12); }
+.fixe .recu.ok b { color: #2f6b3a; }
+.fixe .recu.ok::before { background: #3a9a4c; box-shadow: 0 0 0 3px rgba(58,154,76,.22); }
+.fixe .recu.attente { background: rgba(217,140,30,.13); }
+.fixe .recu.attente::before { background: #d98c1e; animation: voyant 1.4s ease-in-out infinite; }
+@keyframes voyant { 50% { opacity: .3; } }
 
 .howto { background: var(--velvet-2); border: 1px solid var(--seat); border-radius: 16px; padding: 16px 18px; font-size: .9rem; color: var(--dim); display: grid; gap: 8px; }
 .howto b { color: var(--cream); }
@@ -2158,6 +2169,7 @@ function enregistre(seg) {
       if (!r.ok) throw new Error(j.error || "Enregistrement impossible : réessaie dans un instant.");
       if (dernierEnvoye === seg) { etatFixe = "ok"; fixeErreur(""); }
       if (attenteLue() === seg) attenteGarde(null);
+      if (recu && j.t) { recu.t = Math.max(recu.t, j.t); recuPlanifie(true); }
     } catch (err) {
       if (dernierEnvoye === seg) { dernierEnvoye = null; etatFixe = ""; fixeErreur((err && err.message && !/fetch|network/i.test(err.message) ? err.message : "Enregistrement impossible : vérifie ta connexion.") + " Tes changements seront renvoyés au prochain réglage."); }
     }
@@ -2197,7 +2209,58 @@ function dessineFixe(seg) {
   }
   creer.hidden = !D.fixedOk || !!(fixe && (fixe.modif || seg === segDepart));
   autre.hidden = !(fixe && fixe.modif);
+  dessineRecu();
 }
+// « Ta TV l'a reçu » : le site note quand Nuvio relit le manifest du lien fixe (vu, voir fixe.js) ; le billet compare
+// avec le dernier enregistrement (t). Heures du site : decalage rattrape l'horloge de l'appareil. Relu doucement,
+// seulement en attente, billet à l'écran et onglet visible ; sinon seul le texte « il y a … » avance, sans rien demander.
+let recu = null, recuT = 0, recuLu = 0, recuVisible = false, recuEtat = "";
+function recuNote(j) {
+  if (j && typeof j.vu === "number") recu = { vu: j.vu, t: j.t || 0, decalage: (Number(j.maintenant) || Date.now()) - Date.now() };
+}
+function ilYa(ms) {
+  const m = Math.floor(Math.max(0, ms) / 60000), h = Math.floor(m / 60), j = Math.floor(h / 24);
+  return m < 1 ? "à l'instant" : m < 60 ? "il y a " + m + " min" : h < 24 ? "il y a " + h + " h" : "il y a " + j + " jour" + (j > 1 ? "s" : "");
+}
+function dessineRecu() {
+  const p = $("fixe-recu");
+  p.hidden = !(fixe && fixe.modif && recu);
+  if (p.hidden) return;
+  const maintenant = Date.now() + recu.decalage, enCours = etatFixe === "attente" || etatFixe === "envoi";
+  const etat = !recu.vu ? "pas-encore" : enCours || recu.vu < recu.t ? "attente" : "ok";
+  p.className = "recu " + etat; p.textContent = "";
+  if (etat === "pas-encore") p.append(el("b", { text: "Pas encore reçu : " }), "Nuvio n'a pas encore lu ce lien. Colle-le dans Nuvio (Addons), ou fais « Actualiser les addons » s'il y est déjà.");
+  else if (etat === "attente") p.append(el("b", { text: "En attente : " }), "dans Nuvio, fais « Actualiser les addons ». ", el("small", { text: "Dernière lecture par Nuvio " + ilYa(maintenant - recu.vu) + "." }));
+  else p.append(el("b", { text: "Ta TV l'a reçu ✓ " }), "Nuvio a relu ta programmation " + ilYa(maintenant - recu.vu) + ".");
+  // Le passage au ✓ est annoncé une fois (message de la salle, lu par les lecteurs d'écran), pas chaque minute.
+  if (etat === "ok" && recuEtat && recuEtat !== "ok") effet("toast", "Ta TV a reçu ta programmation ✓");
+  recuEtat = etat;
+}
+async function recuLire() {
+  if (!fixe || !fixe.modif || Date.now() - recuLu < 15000) return;
+  recuLu = Date.now();
+  try {
+    const r = await fetch(D.origin + "/lien-fixe/" + fixe.id + "/lire", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modif: fixe.modif }) });
+    if (r.ok) recuNote(await r.json());
+  } catch (e) {}
+}
+/** En attente : relu toutes les 20 s pendant 10 min après l'enregistrement, puis toutes les 2 min jusqu'à 1 h. */
+function recuPlanifie(tout) {
+  clearTimeout(recuT); recuT = 0;
+  if (tout) dessineRecu();
+  if (!fixe || !fixe.modif || !recu || !recuVisible || document.visibilityState !== "visible") return;
+  const attente = recu.vu < recu.t, age = Date.now() + recu.decalage - recu.t;
+  const delai = !attente ? 60000 : age < 600000 ? 20000 : age < 3600000 ? 120000 : 0;
+  if (delai) recuT = setTimeout(async () => { if (attente) await recuLire(); recuPlanifie(true); }, delai);
+}
+// Billet revenu à l'écran, onglet repris (souvent : on revient de la TV) : relu tout de suite s'il attend encore.
+function recuReveil() {
+  if (recuVisible && document.visibilityState === "visible" && recu && recu.vu < recu.t) recuLire().then(() => recuPlanifie(true));
+  else recuPlanifie(true);
+}
+if ("IntersectionObserver" in window) new IntersectionObserver(([e]) => { recuVisible = e.isIntersecting; recuReveil(); }).observe($("fixe"));
+document.addEventListener("visibilitychange", recuReveil);
+
 let fixe = D.fixed ? { id: D.fixed, modif: "" } : null;
 let segDepart = null, dernierEnvoye = null, etatDepart = null;
 if (fixe) {
@@ -2223,6 +2286,7 @@ function lireSecrets() {
         update(); return;
       }
       if (!r.ok) throw new Error(j.error || "");
+      recuNote(j);
       // Ce que le site a enregistré : les réglages du début de la page, avec la clé et le jeton.
       const depart = compact({ ...(etatDepart || state), k: j.k || "", al: j.al || "" });
       segDepart = dernierEnvoye = Object.keys(depart).length ? enc(depart) : "";
@@ -2239,6 +2303,7 @@ function lireSecrets() {
       // Sinon, ce qui vient d'être réglé l'emporte et part maintenant.
       if ((Object.keys(c).length ? enc(c) : "") === segDepart) { repriseAttente(); dessineFixe(segDepart); }
       else { demarre = true; update(); }
+      recuPlanifie();
     } catch (err) {
       fixeErreur("Ton lien fixe ne répond pas pour le moment : tes changements seront enregistrés dès qu'il répondra (vérifie ta connexion).");
       dessineFixe(segDepart);
@@ -2256,7 +2321,8 @@ $("fixe-creer").addEventListener("click", async (e) => {
     if (!r.ok || !j.id) throw new Error(j.error || "Création impossible : réessaie dans un instant.");
     fixeGarde(j.id, j.modif);
     fixe = { id: j.id, modif: j.modif }; segDepart = dernierEnvoye = seg; etatFixe = "ok";
-    update(); effet("popcorn", btn); bruit("punch");
+    recu = { vu: 0, t: Date.now(), decalage: 0 };   // tout neuf : Nuvio ne l'a pas encore lu
+    update(); effet("popcorn", btn); bruit("punch"); recuPlanifie();
     effet("toast", "Ton lien fixe est prêt : installe-le une fois, ensuite « Actualiser les addons » dans Nuvio suffit.");
   } catch (err) {
     fixeErreur(err && err.message && !/fetch|network/i.test(err.message) ? err.message : "Création impossible : vérifie ta connexion.");

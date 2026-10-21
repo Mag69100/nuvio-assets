@@ -9,6 +9,7 @@ function fakeD1() {
     bind: (...a) => stmt(sql, a),
     async run() {
       if (sql.startsWith("CREATE")) return {};
+      if (sql.startsWith("UPDATE liens SET vu")) return {};   // lecture par Nuvio notée (voir recu.test.js)
       if (sql.startsWith("INSERT")) { const [h, c, e, t] = args; rows.set(h, { c, e, t }); return {}; }
       if (sql.startsWith("UPDATE")) { const [c, t, h] = args; rows.set(h, { ...rows.get(h), c, t }); return {}; }
       throw new Error("requête inattendue : " + sql);
@@ -179,7 +180,10 @@ test("lien_fixe_page_sans_cle_gemini", async () => {
   const lire = await post(`/lien-fixe/${id}/lire`, { modif });
   assert.equal(lire.status, 200);
   assert.equal(lire.headers.get("Cache-Control"), "no-store");
-  assert.deepEqual(await lire.json(), { k, al });
+  // Avec, l'heure de la dernière lecture par Nuvio et du dernier enregistrement (« Ta TV l'a reçu », recu.test.js).
+  const { vu, t, maintenant, ...secrets } = await lire.json();
+  assert.deepEqual(secrets, { k, al });
+  assert.ok(typeof vu === "number" && typeof t === "number" && maintenant > 0);
   // Sans la bonne clé de modification, sans Origin, ou pour un lien inconnu : rien.
   const refus = await post(`/lien-fixe/${id}/lire`, { modif: "x".repeat(22) });
   assert.equal(refus.status, 403);

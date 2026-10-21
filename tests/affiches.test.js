@@ -95,7 +95,9 @@ test("regie_clavier", () => {
   const corps = html.slice(debut, html.indexOf("\n}\n", debut));
   assert.match(corps, /dataset\.cle/);
   assert.match(corps, /\.focus\(\)/);
-  assert.match(html, /document\.addEventListener\("keydown", \(e\) => \{ if \(e\.key === "Escape" && !\$\("regie"\)\.hidden\)/);
+  // Échap, depuis tout le document : ferme le panneau « Plus de réglages » s'il est ouvert, sinon la régie.
+  assert.ok(html.includes('document.addEventListener("keydown", (e) => {\n  if (e.key !== "Escape" || $("regie").hidden) return;') || html.includes('document.addEventListener("keydown", (e) => {\r\n  if (e.key !== "Escape" || $("regie").hidden) return;'));
+  assert.ok(html.includes("regieFerme();"));
 });
 
 // Chaque réglage changé redessine les affiches de la régie (un dessin par affiche chez Vercel) : une rafale
@@ -155,7 +157,12 @@ test("regie_v3_vignettes_et_nuancier", () => {
   assert.ok(html.includes("const NOMS_COULEURS = ["));
 });
 
-test("regie_focus_apres_regler", () => {
+// « Plus de réglages » : un panneau posé par-dessus le bas de la console ; les cartes ne bougent pas (pas de repli,
+// pas de vignettes réduites). Échap ferme d'abord le panneau, puis la régie ; le focus va dans le panneau.
+test("regie_plus_de_reglages_sans_decalage", () => {
   const html = salle2();
-  assert.ok(html.includes('actif.startsWith("regler:")'));
+  assert.match(html, /id="regie-plus"/);
+  assert.ok(!html.includes("repliee") && !html.includes("reglage-ouvert"));
+  assert.ok(html.includes("if (regieVoie) { fermePlus(); return; }"));
+  assert.ok(html.includes("regieFocusPlus"));
 });

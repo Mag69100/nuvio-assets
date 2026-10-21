@@ -318,3 +318,8 @@ test("v3_styles_hors_defaut", () => {
   assert.equal(contenu(v3, plein, "poster", reglages("0db")).styles.fondu.teinte, PALETTE.b);
   assert.equal(contenu(v3, plein, "poster", reglages("1fo")).styles.cadre, "#f5c518");
 });
+
+test("fondu_precis_dans_les_styles", () => {
+  assert.deepEqual(contenu(v3, plein, "poster", reglages("1ho1im")).styles.fondu, { couleur: "noir", force: "m", opacite: 1, taille: 0.85 });
+  assert.deepEqual(contenu(v3, plein).styles.fondu, { couleur: "noir", force: "m" });
+});

@@ -224,3 +224,13 @@ test("revue_v3_liens_canoniques", () => {
   assert.equal(ecrit("s=1.L02am2bt"), "L0");            // majuscules et espacement : seulement pour la ligne du bas
   assert.equal(ecrit("s=1.S0T0Q03b1Zr"), "S0T0Q0Zr3b1"); // Incontournable seul : l'accent sert (étoile du badge)
 });
+
+// Fondu réglé finement : force de 30 à 100 % (1h, a = 0,30… o = 1,00), hauteur de 25 à 85 % (1i, a = 0,25… m = 0,85).
+test("fondu_precis", () => {
+  const x = lire("s=1.1ho1im");
+  assert.deepEqual([x.fondu.opacite, x.fondu.taille], [1, 0.85]);
+  const y = clone(DEFAUT_REGLAGES); y.fondu.opacite = 0.62; y.fondu.taille = 0.5;
+  assert.equal(ecrireReglages(y), "1hg1if");            // ramenés au cran le plus proche (0,60 et 0,50)
+  assert.equal(ecrit("s=1.F01ho1im"), "F0");             // sans fondu : rien
+  assert.equal(ecrireReglages(DEFAUT_REGLAGES), "");
+});

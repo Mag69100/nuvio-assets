@@ -394,9 +394,9 @@ function calqueDegrades(content, [w, hgt], teinte) {
   const st = content.styles, fondu = content.full && st.fondu;
   const voile = VOILE[st.voile ?? "m"], haut = voile > 0 && !!(content.statut || content.rank || content.quality || content.bandeau || content.coin || content.culte);
   if (!fondu && !haut && !st.vignette && !st.cadre) return null;
-  const hb = Math.round(hgt * HAUTEUR_FONDU[(fondu && fondu.hauteur) || "normal"]), hh = Math.round(hgt * 0.22);
+  const hb = Math.round(hgt * ((fondu && fondu.taille) || HAUTEUR_FONDU[(fondu && fondu.hauteur) || "normal"])), hh = Math.round(hgt * 0.22);
   // Couleur du fondu : celle du nuancier si elle est choisie, sinon les couleurs de l'affiche ou le noir.
-  const couleur = fondu && fondu.teinte ? fondu.teinte : fondu && fondu.couleur === "affiche" && teinte ? teinte : "#000", force = fondu ? FORCE[fondu.force] : 0;
+  const couleur = fondu && fondu.teinte ? fondu.teinte : fondu && fondu.couleur === "affiche" && teinte ? teinte : "#000", force = fondu ? fondu.opacite || FORCE[fondu.force] : 0;
   const bords = teinte && fondu && fondu.couleur === "affiche" ? teinte : "#000";
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${hgt}">
   <defs>
@@ -606,7 +606,7 @@ export async function draw(content, fetchImpl = fetch) {
   let floue = null;
   const flouDe = () => (floue = floue || sharp(base).blur(Math.max(1, w / 40)).toBuffer());
   const calques = [];
-  if (fondu && fondu.flou) calques.push(await calqueFlou(flouDe, taille, HAUTEUR_FONDU[fondu.hauteur || "normal"]));
+  if (fondu && fondu.flou) calques.push(await calqueFlou(flouDe, taille, fondu.taille || HAUTEUR_FONDU[fondu.hauteur || "normal"]));
   const degrades = calqueDegrades(content, taille, fondu && fondu.couleur === "affiche" && hsl ? teinteSombre(hsl) : null);
   if (degrades) calques.push({ input: degrades, left: 0, top: 0 });
   if (content.line && content.full && st.barre === "verre") calques.push(...(await calquesBarreVerre(flouDe, content, taille, m)));

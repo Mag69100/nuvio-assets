@@ -478,7 +478,7 @@ select:hover { border-color: rgba(255,207,107,.5); }
 
 /* La console : styles tout prêts en vignettes (vraies petites affiches), 6 onglets, une carte par élément (icône,
    nom, interrupteur, choix principaux visibles ; réglages fins dans « Plus de réglages », un seul ouvert). */
-.regie-console { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: auto; padding: 12px 14px; background: linear-gradient(#231d22, #161117); border-left: 3px solid #3a2f36; }
+.regie-console { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow: auto; padding: 12px 14px; background: linear-gradient(#231d22, #161117); border-left: 3px solid #3a2f36; }
 .regie-memoires { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
 .regie-memoires button { display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; padding: 3px; border: 1.5px solid transparent; border-radius: 9px; background: none; color: #d8cab2; font: 600 .62rem/1.1 system-ui, sans-serif; cursor: pointer; }
 .regie-memoires img { display: block; width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 6px; background: #2a2126; }
@@ -492,8 +492,8 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .regie-onglets button { flex: 1; min-width: 0; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; color: #c2b4a6; font: 600 .74rem system-ui, sans-serif; padding: 8px 0; cursor: pointer; white-space: nowrap; }
 .regie-onglets button:hover { color: var(--cream); }
 .regie-onglets button[aria-selected="true"] { color: var(--cream); border-bottom-color: var(--bulb); }
-.regie-voies { display: flex; flex-direction: column; gap: 6px; }
-.regie-voies .carte { display: grid; gap: 7px; padding: 8px 10px; border-radius: 12px; background: #1d171b; border: 1px solid #30272d; }
+.regie-voies { display: flex; flex-direction: column; gap: 5px; }
+.regie-voies .carte { display: grid; gap: 6px; padding: 7px 10px; border-radius: 12px; background: #1d171b; border: 1px solid #30272d; }
 .regie-voies .carte.ouverte { border-color: #5a4a53; }
 .regie-voies .carte-tete { display: flex; align-items: center; gap: 9px; }
 .regie-voies .carte-icone { width: 28px; height: 28px; flex: none; border-radius: 8px; display: grid; place-items: center; background: #2a2126; }
@@ -503,13 +503,19 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .regie-voies .eteinte .carte-tete b { color: #b9aa97; }
 .regie-voies .carte-corps { display: grid; gap: 6px; }
 .regie-voies .carte-fin { border-top: 1px dashed #3a2f36; padding-top: 7px; }
-.regie-voies .carte-plus { justify-self: start; border: 0; background: none; color: var(--bulb); font: 600 .7rem system-ui, sans-serif; padding: 0; cursor: pointer; }
-.regie-voies .carte-plus::after { content: " ›"; }
-.regie-voies .carte-plus[aria-expanded="true"]::after { content: " ‹"; }
-.regie-voies .carte.repliee { padding-top: 5px; padding-bottom: 5px; }
-.regie-console.reglage-ouvert .regie-memoires img { display: none; }
-.regie-console.reglage-ouvert .regie-memoires span { display: block; padding: 4px 0; }
-.regie-console.reglage-ouvert .regie-memoires button { border-color: #3a2f36; }
+.regie-voies .carte-plus { flex: none; border: 1px solid #4a3d45; border-radius: 99px; background: none; color: var(--bulb); font: 600 .66rem system-ui, sans-serif; padding: 3px 9px; cursor: pointer; }
+.regie-voies .carte-plus:hover, .regie-voies .carte-plus[aria-expanded="true"] { border-color: var(--bulb); }
+/* Panneau « Plus de réglages » : posé par-dessus le bas de la console, il ne déplace rien ; il défile s'il est long. */
+.regie-console { position: relative; }
+.regie-plus { position: absolute; left: 10px; right: 10px; bottom: 10px; max-height: calc(100% - 150px); overflow: auto; display: grid; gap: 8px;
+  padding: 10px 12px 12px; border-radius: 14px; background: #241c22; border: 1px solid #5a4a53; box-shadow: 0 -12px 40px rgba(0,0,0,.6); animation: plus-monte .18s ease both; z-index: 2; }
+.regie-plus[hidden] { display: none; }
+.regie-plus .plus-tete { display: flex; align-items: center; gap: 8px; }
+.regie-plus .plus-tete b { flex: 1; font-size: .84rem; color: var(--bulb); }
+.regie-plus .plus-fermer { width: 28px; height: 28px; border-radius: 50%; border: 1px solid #5a4a53; background: transparent; color: var(--cream); cursor: pointer; }
+.regie-plus .carte-corps { display: grid; gap: 7px; }
+@keyframes plus-monte { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .regie-plus { animation: none; } }
 .regie-console .interrupteur { width: 36px; height: 20px; flex: none; border: 0; border-radius: 99px; background: #4a3d45; position: relative; cursor: pointer; padding: 0; }
 .regie-console .interrupteur::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #d8cab2; transition: transform .15s ease; }
 .regie-console .interrupteur[aria-checked="true"] { background: var(--bulb); }
@@ -963,6 +969,7 @@ ${copy ? HOTE_HTML : ""}
           <button type="button" role="tab" id="onglet-haut" data-onglet="haut" aria-selected="true" aria-controls="regie-voies">Haut</button><button type="button" role="tab" id="onglet-titre" data-onglet="titre" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Titre</button><button type="button" role="tab" id="onglet-infos" data-onglet="infos" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Infos</button><button type="button" role="tab" id="onglet-image" data-onglet="image" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Image</button><button type="button" role="tab" id="onglet-couleurs" data-onglet="couleurs" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Couleurs</button><button type="button" role="tab" id="onglet-paysage" data-onglet="paysage" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Paysage</button>
         </div>
         <div class="regie-voies" id="regie-voies" role="tabpanel" aria-labelledby="onglet-haut"></div>
+        <div class="regie-plus" id="regie-plus" role="region" aria-label="Plus de réglages" hidden></div>
       </div>
       </div>
     </div>
@@ -1411,15 +1418,23 @@ function carteDe(v) {
         curseur("Couleurs", r.image.satur, (x) => regle((r) => { r.image.satur = x; }, "image.satur"), 0, 160, 10),
         choix("Grain", [[false, "Non"], [true, "Oui"]], r.image.grain, (x) => regle((r) => { r.image.grain = x; }))] },
     fondu: { nom: "Fondu", ...onOff("fondu"),
-      principal: () => [choix("Force", [["s", "Léger"], ["m", "Moyen"], ["l", "Fort"]], r.fondu.force, (x) => regle((r) => { r.fondu.force = x; }))],
-      plus: () => [choix("Couleur", [["noir", "Noir"], ["affiche", "De l'affiche"]], r.fondu.couleur, (x) => regle((r) => { r.fondu.couleur = x; })),
-        choix("Hauteur", [["court", "Court"], ["normal", "Normal"], ["long", "Long"]], r.fondu.hauteur, (x) => regle((r) => { r.fondu.hauteur = x; })),
+      // Réglé finement au curseur : force de 30 à 100 %, hauteur de 25 à 85 % de l'image (départ : les anciens crans).
+      principal: () => [curseur("Force", r.fondu.opacite || ({ s: 0.7, m: 0.9, l: 0.95 })[r.fondu.force], (x) => regle((r) => { r.fondu.opacite = x; }, "fondu.opacite"), 30, 100, 5)],
+      plus: () => [curseur("Hauteur", r.fondu.taille || ({ court: 0.4, normal: 0.5, long: 0.65 })[r.fondu.hauteur], (x) => regle((r) => { r.fondu.taille = x; }, "fondu.taille"), 25, 85, 5),
+        choix("Couleur", [["noir", "Noir"], ["affiche", "De l'affiche"]], r.fondu.couleur, (x) => regle((r) => { r.fondu.couleur = x; })),
         choix("Flou", [[false, "Non"], [true, "Oui"]], r.fondu.flou, (x) => regle((r) => { r.fondu.flou = x; }))] },
     ambiance: { nom: "Voile et vignette",
       principal: () => [choix("Voile", [["0", "Aucun"], ["s", "Léger"], ["m", "Moyen"], ["l", "Fort"]], r.ambiance.voile, (x) => regle((r) => { r.ambiance.voile = x; })),
         choix("Vignette", [[false, "Non"], [true, "Oui"]], r.ambiance.vignette, (x) => regle((r) => { r.ambiance.vignette = x; }))] },
     cadre: { nom: "Cadre",
-      principal: () => [choix("Cadre", [["aucun", "Aucun"], ["blanc", "Blanc"], ["or", "Doré"], ["couleur", "Couleur"]], r.image.cadre, (x) => regle((r) => { r.image.cadre = x; }))] },
+      // « Couleur » : une couleur d'office (sinon il restait blanc) et le nuancier s'ouvre dans le panneau du bas.
+      principal: () => [choix("Cadre", [["aucun", "Aucun"], ["blanc", "Blanc"], ["or", "Doré"], ["couleur", "Couleur"]], r.image.cadre, (x) => {
+        if (x === "couleur") { regieVoie = "cadre"; regieFocusPlus = true; }
+        regle((r) => { r.image.cadre = x; if (x === "couleur" && !r.image.cadreC) r.image.cadreC = "e"; });
+      })],
+      plus: () => r.image.cadre === "couleur"
+        ? [nuancier("Couleur du cadre", r.image.cadreC, (x) => regle((r) => { r.image.cadreC = x || "e"; }))]
+        : [aide("Choisis « Couleur » pour prendre une teinte du nuancier.")] },
     sortie: { nom: "Pas encore sorti", on: () => r.sortie.nb, bascule: () => regle((r) => { r.sortie.nb = !r.sortie.nb; }),
       principal: () => [choix("Note", [[true, "Cachée"], [false, "Montrée"]], r.sortie.cacherNote, (x) => regle((r) => { r.sortie.cacherNote = x; }))],
       plus: () => [aide("Noir et blanc tant que le titre n'est pas disponible chez soi en VF, comme dans les rangées.")] },
@@ -1431,7 +1446,7 @@ function carteDe(v) {
       principal: () => r.haut.style === "plein" ? [nuancier("Fond des badges", r.haut.fond, (x) => regle((r) => { r.haut.fond = x; }))] : [aide("Choisis le style « Plein » (onglet Haut, Badges) pour colorer leur fond.")] },
     "c-fondu": { nom: "Fondu", couleur: true, principal: () => [nuancier("Fondu", r.fondu.teinte, (x) => regle((r) => { r.fondu.teinte = x; }))] },
     "c-cadre": { nom: "Cadre", couleur: true,
-      principal: () => r.image.cadre === "couleur" ? [nuancier("Cadre", r.image.cadreC, (x) => regle((r) => { r.image.cadreC = x; }))] : [aide("Choisis un cadre « Couleur » (onglet Image) pour lui donner une couleur du nuancier.")] },
+      principal: () => r.image.cadre === "couleur" ? [nuancier("Cadre", r.image.cadreC, (x) => regle((r) => { r.image.cadreC = x || "e"; }))] : [aide("Choisis un cadre « Couleur » (onglet Image) pour lui donner une couleur du nuancier.")] },
   };
   return C[v];
 }
@@ -1458,22 +1473,42 @@ function regieCartes() {
     const tete = el("div", { class: "carte-tete" }, el("span", { class: "carte-icone" }, icone(c.couleur ? "couleur" : v)), el("b", { text: c.nom }));
     if (allume !== null) tete.append(el("button", { type: "button", class: "interrupteur", role: "switch", "aria-checked": String(allume), "aria-label": c.nom, "data-cle": "on:" + v, onclick: c.bascule }));
     carte.append(tete);
-    // Une autre carte est ouverte : celle-ci se replie sur son titre (tout tient sans défiler), avec « Régler ».
-    const repliee = regieVoie && !ouverte;
     if (vide) carte.append(aide("Sans effet sans le titre (onglet Titre)."));
-    else if (repliee && allume !== false) {
-      carte.classList.add("repliee");
-      tete.insertBefore(el("button", { type: "button", class: "carte-plus", "data-cle": "regler:" + v, text: "Régler", onclick: () => { regieVoie = c.plus ? v : null; regieDessine(); } }), tete.lastChild && tete.lastChild.classList && tete.lastChild.classList.contains("interrupteur") ? tete.lastChild : null);
-    } else if (allume !== false) {
+    else if (allume !== false) {
       if (c.principal) carte.append(el("div", { class: "carte-corps" }, ...c.principal()));
-      if (c.plus) {
-        carte.append(el("button", { type: "button", class: "carte-plus", "aria-expanded": String(ouverte), "aria-controls": "corps-" + v, "data-cle": "plus:" + v,
-          text: ouverte ? "Moins de réglages" : "Plus de réglages", onclick: () => { regieVoie = ouverte ? null : v; regieDessine(); } }));
-        if (ouverte) carte.append(el("div", { class: "carte-corps carte-fin", id: "corps-" + v }, ...c.plus()));
-      }
+      // Les réglages fins s'ouvrent dans le panneau du bas, par-dessus les cartes : rien ne bouge. Le bouton est
+      // dans la ligne de titre (avant l'interrupteur), pour que chaque carte reste courte.
+      if (c.plus) tete.insertBefore(el("button", { type: "button", class: "carte-plus", "aria-expanded": String(ouverte), "aria-controls": "corps-" + v, "data-cle": "plus:" + v,
+        text: "Plus de réglages", onclick: () => { if (ouverte) fermePlus(); else { regieVoie = v; regieFocusPlus = true; regieDessine(); } } }), tete.querySelector(".interrupteur"));
     }
     boite.append(carte);
   });
+}
+
+/** Le panneau « Plus de réglages » de la carte ouverte (regieVoie), par-dessus le bas de la console. */
+let regieFocusPlus = false;
+function regiePanneau() {
+  const panneau = $("regie-plus"), v = regieVoie, c = v && regieOnglet !== "paysage" && ONGLETS[regieOnglet].includes(v) ? carteDe(v) : null;
+  panneau.textContent = "";
+  panneau.hidden = !(c && c.plus);
+  if (panneau.hidden) return false;
+  panneau.append(
+    el("div", { class: "plus-tete" }, el("b", { text: c.nom }), el("button", { type: "button", class: "plus-fermer", text: "✕", "aria-label": "Fermer ces réglages", "data-cle": "fermer-plus", onclick: fermePlus })),
+    el("div", { class: "carte-corps", id: "corps-" + v }, ...c.plus()));
+  // Ouvert à l'instant : le focus entre dans le panneau (son premier réglage).
+  if (!regieFocusPlus) return false;
+  regieFocusPlus = false;
+  const premier = panneau.querySelector("[aria-pressed='true'], input, button:not(.plus-fermer)");
+  (premier || panneau.querySelector("button")).focus();
+  return true;
+}
+/** Ferme le panneau ; le focus revient sur le bouton « Plus de réglages » de la carte. */
+function fermePlus() {
+  const v = regieVoie;
+  regieVoie = null;
+  regieDessine();
+  const bouton = [...$("regie").querySelectorAll("[data-cle]")].find((b) => b.dataset.cle === "plus:" + v);
+  if (bouton) bouton.focus();
 }
 
 function regieDessine(garderCorps) {
@@ -1488,17 +1523,15 @@ function regieDessine(garderCorps) {
   // Pendant un glissé de curseur, les cartes restent telles quelles (les reconstruire couperait le glissé).
   if (!garderCorps) regieCartes();
   // Une carte ouverte : les vignettes des styles se réduisent à leurs noms, pour laisser la place à ses réglages.
-  document.querySelector(".regie-console").classList.toggle("reglage-ouvert", !!regieVoie && regieOnglet !== "paysage");
+  // Pendant un glissé de curseur (dans le panneau), il reste tel quel lui aussi.
+  const focusDansPanneau = !garderCorps && regiePanneau();
   $("regie-annuler").disabled = !regieHisto.length;
   seg($("regie-format"), ["Portrait", "Paysage"], regieForme === "landscape" ? 1 : 0, (i) => { regieForme = i ? "landscape" : "poster"; regieDessine(); regieApercus(); });
   [...$("regie-format").children].forEach((b, i) => { b.dataset.cle = "format:" + i; });
   lienAffichesMaj();
   if (actif) {
-    // « Régler » disparaît une fois la carte ouverte : le focus va sur son « Moins de réglages », sinon son interrupteur.
-    const cles = actif.startsWith("regler:") ? ["plus:" + actif.slice(7), "on:" + actif.slice(7)] : [actif];
-    const boutons = [...$("regie").querySelectorAll("[data-cle]")];
-    const retour = cles.map((c) => boutons.find((b) => b.dataset.cle === c)).find(Boolean);
-    if (retour) retour.focus();
+    const retour = [...$("regie").querySelectorAll("[data-cle]")].find((b) => b.dataset.cle === actif);
+    if (retour && !focusDansPanneau) retour.focus();
   }
 }
 
@@ -1605,7 +1638,12 @@ $("pp-ouvrir").addEventListener("click", (e) => regieOuvre(e.currentTarget));
 $("regie-fermer").addEventListener("click", regieFerme);
 $("regie").addEventListener("click", (e) => { if (e.target === $("regie")) regieFerme(); });
 // Échap ferme la régie où que soit le focus (des cartes reconstruites peuvent l'avoir fait retomber sur la page).
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("regie").hidden) { e.stopPropagation(); regieFerme(); } });
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || $("regie").hidden) return;
+  e.stopPropagation();
+  if (regieVoie) { fermePlus(); return; }
+  regieFerme();
+});
 $("regie-annuler").addEventListener("click", () => {
   if (!regieHisto.length) return;
   const [s, sp] = JSON.parse(regieHisto.pop());

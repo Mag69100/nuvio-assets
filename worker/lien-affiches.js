@@ -30,7 +30,8 @@ export function creerLienAffiches() {
     texte: { taille: 1, sep: "point", haut: 1, police: "inter", couleur: "", casse: "normal", espace: "normal", ombre: "normale" },
     infos: { ligne2: "aucune", culte: false },
     image: { source: "sanstexte", lum: 1, contraste: 1, satur: 1, filtre: "aucun", grain: false, cadre: "aucun", cadreC: "" },
-    fondu: { on: true, couleur: "noir", force: "m", flou: false, hauteur: "normal", teinte: "" },
+    // opacite et taille : réglage fin du fondu (0 = pas réglé : on garde force et hauteur en crans).
+    fondu: { on: true, couleur: "noir", force: "m", flou: false, hauteur: "normal", teinte: "", opacite: 0, taille: 0 },
     ambiance: { voile: "m", vignette: false, accent: "or", accentC: "" },
     sortie: { nb: true, cacherNote: true },
   });
@@ -42,6 +43,9 @@ export function creerLienAffiches() {
   const MONTEES = Object.freeze({ a: 0, b: 0.05, c: 0.1, d: 0.15, e: 0.2, f: 0.25, g: 0.3 });
   // Retouches de l'image : luminosité et contraste de 70 à 130 % (g = 100 %), saturation de 0 à 160 % (k = 100 %).
   const RETOUCHES = Object.freeze(Object.fromEntries([..."abcdefghijklm"].map((c, i) => [c, Math.round(70 + i * 5) / 100])));
+  // Fondu réglé finement : force de 30 à 100 % (a = 0,30… o = 1,00), hauteur de 25 à 85 % de l'image (a = 0,25… m = 0,85).
+  const FORCES_FONDU = Object.freeze(Object.fromEntries([..."abcdefghijklmno"].map((c, i) => [c, Math.round(30 + i * 5) / 100])));
+  const HAUTEURS_FONDU = Object.freeze(Object.fromEntries([..."abcdefghijklm"].map((c, i) => [c, Math.round(25 + i * 5) / 100])));
   const SATURATIONS = Object.freeze(Object.fromEntries([..."abcdefghijklmnopq"].map((c, i) => [c, i / 10])));
   // Nuancier : 36 couleurs, une par caractère (0–9, a–z) : blancs et gris, ors et oranges, rouges et roses,
   // violets et bleus, cyans et verts, bruns et crèmes.
@@ -55,7 +59,7 @@ export function creerLienAffiches() {
   ][i]])));
   /** Le cran le plus proche dans une échelle de nombres. */
   const procheDe = (echelle, v) => Object.keys(echelle).reduce((a, c) => (Math.abs(echelle[c] - v) < Math.abs(echelle[a] - v) ? c : a));
-  const ECHELLES = [TAILLES, RETOUCHES, SATURATIONS];
+  const ECHELLES = [TAILLES, RETOUCHES, SATURATIONS, FORCES_FONDU, HAUTEURS_FONDU];
   const COULEUR = Object.freeze(Object.fromEntries(Object.keys(PALETTE).map((c) => [c, c])));
 
   // Chaque code : [lettre, voie, champ, { caractère: valeur }, quand l'écrire]. L'ordre du tableau est l'ordre du lien.
@@ -147,6 +151,8 @@ export function creerLienAffiches() {
     ["3c", "statut", "episode", { 1: true }, (r) => r.statut.on],
     ["3d", "statut", "forme", { c: "compte" }, (r) => r.statut.on],
     ["3e", "haut", "coinStatut", COINS, (r) => r.statut.on || r.tendance.on || r.infos.culte],
+    ["1h", "fondu", "opacite", FORCES_FONDU, (r) => r.titre.on && r.fondu.on && r.fondu.opacite > 0],
+    ["1i", "fondu", "taille", HAUTEURS_FONDU, (r) => r.titre.on && r.fondu.on && r.fondu.taille > 0],
     ["3f", "haut", "coinQualite", COINS, (r) => r.qualite.on || (r.plateforme.on && r.plateforme.place === "coin")],
   ];
 

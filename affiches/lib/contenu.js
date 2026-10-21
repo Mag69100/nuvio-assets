@@ -189,6 +189,9 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
   if (t.couleur) st.texteC = PALETTE[t.couleur];
   if (st.badges && b.style === "plein" && b.fond) st.badges = { ...st.badges, fond: PALETTE[b.fond] };
   if (st.fondu && r.fondu.teinte) st.fondu = { ...st.fondu, teinte: PALETTE[r.fondu.teinte] };
+  // Fondu réglé finement (curseurs) : force et hauteur exactes, à la place des crans.
+  if (st.fondu && r.fondu.opacite > 0) st.fondu = { ...st.fondu, opacite: r.fondu.opacite };
+  if (st.fondu && r.fondu.taille > 0) st.fondu = { ...st.fondu, taille: r.fondu.taille };
   const retouche = {
     ...(img.lum !== 1 ? { lum: img.lum } : {}), ...(img.contraste !== 1 ? { contraste: img.contraste } : {}), ...(img.satur !== 1 ? { satur: img.satur } : {}),
     ...(img.filtre !== "aucun" ? { filtre: img.filtre } : {}), ...(img.grain ? { grain: true } : {}),

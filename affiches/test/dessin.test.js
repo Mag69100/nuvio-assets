@@ -540,3 +540,11 @@ test("revue_v3_deux_blocs_meme_coin", async () => {
   assert.ok(await compte(buf, [0, 0, 150, 60], blanc) > 40, "la qualité n'est pas passée à gauche");
   assert.ok(await compte(buf, [250, 0, 150, 60], blanc) > 40, "le statut n'est pas à droite");
 });
+
+test("fondu_precis_dessine", async () => {
+  const fondu = (st) => draw({ ...seul, line: null, logo: null, styles: { ...STYLES, fondu: { couleur: "noir", force: "m", ...st } } }, f);
+  const [fort] = await zone(await fondu({ opacite: 1 }), 0, 560, 400, 40), [leger] = await zone(await fondu({ opacite: 0.3 }), 0, 560, 400, 40);
+  assert.ok(fort < leger - 30, `force sans effet : ${fort} / ${leger}`);
+  const [haut] = await zone(await fondu({ taille: 0.85 }), 0, 200, 400, 40), [bas] = await zone(await fondu({ taille: 0.25 }), 0, 200, 400, 40);
+  assert.ok(haut < bas - 5, `hauteur sans effet : ${haut} / ${bas}`);
+});

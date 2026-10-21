@@ -5,19 +5,19 @@ import { makeQualite } from "../api/qualite.js";
 const req = (q) => new Request(`https://affiches.test/api/qualite?${q}`);
 const torrentio = (streams, calls = []) => async (u) => { calls.push(String(u)); return new Response(JSON.stringify({ streams })); };
 
-test("qualité d'un film, gardée 3 jours au CDN", async () => {
+test("qualité d'un film, gardée un jour au CDN", async () => {
   const calls = [];
   const res = await makeQualite({ fetchImpl: torrentio([{ name: "4k DV" }], calls) })(req("type=movie&video=tt15239678"));
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { uhd: true, extra: "DV", fhd: false, hdr10p: false, atmos: false });
-  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=259200");
-  assert.deepEqual(calls, ["https://torrentio.strem.fun/stream/movie/tt15239678.json"]);
+  assert.deepEqual(await res.json(), { uhd: true, extra: "DV", fhd: false, hdr10p: false, atmos: false, vf: false, sources: 1 });
+  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=86400");
+  assert.deepEqual(calls, ["https://torrentio.strem.fun/language=french/stream/movie/tt15239678.json"]);
 });
 
 test("épisode d'une série", async () => {
   const calls = [];
   await makeQualite({ fetchImpl: torrentio([], calls) })(req("type=series&video=tt11126994:2:1"));
-  assert.deepEqual(calls, ["https://torrentio.strem.fun/stream/series/tt11126994:2:1.json"]);
+  assert.deepEqual(calls, ["https://torrentio.strem.fun/language=french/stream/series/tt11126994:2:1.json"]);
 });
 
 test("demandes invalides : 404 sans appel", async () => {

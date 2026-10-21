@@ -37,7 +37,7 @@ function internet({ detail = json(film), torrentio } = {}) {
     const u = String(url);
     if (u.includes("torrentio")) return lireTorrentio(u, opts);
     calls.push(u);
-    const relais = /^https:\/\/affiches\.test\/qualite\/(movie|series)\/(.+)\.json(\?v=2)?$/.exec(u);
+    const relais = /^https:\/\/affiches\.test\/qualite\/(movie|series)\/(.+)\.json(\?v=[23])?$/.exec(u);
     if (relais) return makeQualite({ fetchImpl: lireTorrentio })(new Request(`https://affiches.test/api/qualite?type=${relais[1]}&video=${relais[2]}`));
     const photo = /^https:\/\/affiches\.test\/tendances\/(movie|series)\.json$/.exec(u);
     if (photo) return makeTendances({ fetchImpl: f, env: { TMDB_API_KEY: "k" } })(new Request(`https://affiches.test/api/tendances?type=${photo[1]}`));
@@ -214,7 +214,7 @@ test("options : note TMDB sans lire les notes IMDb", async () => {
 test("qualité demandée au relais du service, pas à Torrentio directement", async () => {
   const f = internet();
   await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678"));
-  assert.ok(f.calls.includes("https://affiches.test/qualite/movie/tt15239678.json?v=2"), f.calls.join("\n"));
+  assert.ok(f.calls.includes("https://affiches.test/qualite/movie/tt15239678.json?v=3"), f.calls.join("\n"));
 });
 
 // Rien à dessiner (pas de titre maison, ni rang ni qualité) : l'image d'origine de TMDB, sans la redessiner.
@@ -449,4 +449,20 @@ test("revue_v3_nouvel_episode_cache_quotidien", async () => {
   const res = await makeHandler({ fetchImpl: internet({ detail: json(serie) }), env })(req("type=series&shape=poster&id=tmdb:94605&s=1.3c1"));
   assert.equal(res.status, 200);
   assert.ok(age(res, "Cache-Control") <= secondesAvantBascule() + 2, res.headers.get("Cache-Control"));
+});
+
+// Titre récent : les sources sont lues même sans le badge de qualité (elles disent s'il est en VF) ; vieux titre ou
+// QUALITE=off : jamais.
+test("sources_lues_pour_un_titre_recent", async () => {
+  const recent = () => internet({ detail: avecSorties([4, jour(-20)]) });
+  const f = recent();
+  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.Q0"));
+  assert.equal(res.status, 200);
+  assert.ok(f.calls.some((u) => u.includes("/qualite/movie/tt15239678.json?v=3")), f.calls.join("\n"));
+  const off = recent();
+  await makeHandler({ fetchImpl: off, env: { ...env, QUALITE: "off" } })(req("type=movie&shape=poster&id=tt15239678&s=1.Q0"));
+  assert.ok(!off.calls.some((u) => u.includes("/qualite/")));
+  const vieux = internet();
+  await makeHandler({ fetchImpl: vieux, env })(req("type=movie&shape=poster&id=tt15239678&s=1.Q0"));
+  assert.ok(!vieux.calls.some((u) => u.includes("/qualite/")));
 });

@@ -173,3 +173,53 @@ test("date : série pas encore lancée → sortie le", () => {
   assert.deepEqual(etatSortie(serie(jours(15)), AUJ).quand, { quoi: "sortie", date: jours(15), vers: false });
   assert.equal(etatSortie(serie(""), AUJ).quand, undefined);
 });
+
+// Les sources décident (titre de moins d'un an) : ce qu'on obtient en faisant « Lire ». Les dates ne servent plus
+// que si Torrentio n'a pas répondu (sources null).
+test("sources : la VF trouvée décide pour un film récent", () => {
+  // Oasis : au cinéma en France, sortie chez soi aux États-Unis ; les dates disent « dispo », les sources non.
+  const oasis = film([pays("FR", [3, jours(-42)]), pays("US", [3, jours(-40)], [4, jours(-12)])]);
+  assert.equal(etatSortie(oasis, AUJ).sorti, true);
+  assert.deepEqual(etatSortie(oasis, AUJ, { vf: false, sources: 20 }), { sorti: false, statut: "salle" });
+  // Bad Apples : aucune date francophone, mais des sources VF.
+  assert.deepEqual(etatSortie(film([pays("DE", [3, jours(-41)])]), AUJ, { vf: true, sources: 36 }), { sorti: true, statut: "nouveau" });
+  // Sorti en VO seulement, pas au cinéma en France : « EN VO ».
+  const vo = film([pays("US", [3, jours(-60)], [4, jours(-20)]), pays("CA", [3, jours(-59)])]);
+  assert.deepEqual(etatSortie(vo, AUJ, { vf: false, sources: 30 }), { sorti: false, statut: "vo" });
+  // Aucune source du tout : pas dispo.
+  assert.equal(etatSortie(vo, AUJ, { vf: false, sources: 0 }).statut, "bientot");
+  // Sources inconnues (Torrentio en panne, ancienne réponse) : les dates.
+  assert.deepEqual(etatSortie(vo, AUJ, null), etatSortie(vo, AUJ));
+  assert.deepEqual(etatSortie(vo, AUJ, { vf: null, sources: null }), etatSortie(vo, AUJ));
+  // Vieux film : les sources ne changent rien.
+  assert.deepEqual(etatSortie(film([pays("US", [3, jours(-800)])]), AUJ, { vf: false, sources: 5 }), { sorti: true, statut: null });
+});
+
+test("sources : série récente sans VF → EN VO", () => {
+  const s = { ...serie(jours(-10), [{ season_number: 1, air_date: jours(-10) }]), lastEpisode: jours(-3) };
+  assert.deepEqual(etatSortie(s, AUJ, { vf: false, sources: 14 }), { sorti: false, statut: "vo" });
+  assert.deepEqual(etatSortie(s, AUJ, { vf: true, sources: 14 }), { sorti: true, statut: "nouveau" });
+  // Aucune source : rien ne change (pas de quoi juger).
+  assert.deepEqual(etatSortie(s, AUJ, { vf: false, sources: 0 }), { sorti: true, statut: "nouveau" });
+  // Vieille série (dernier épisode il y a plus d'un an) : rien ne change.
+  const vieille = { ...serie("2018-01-01"), lastEpisode: "2019-05-01" };
+  assert.deepEqual(etatSortie(vieille, AUJ, { vf: false, sources: 14 }), etatSortie(vieille, AUJ));
+});
+
+// 3670 : projeté en festival et sorti en Corée il y a plus d'un an, sortie au cinéma en France dans un mois : pas un
+// vieux film (« SORTIE LE … »). Une vraie reprise d'un vieux film (Quand la mer monte, 2004) reste un vieux film.
+test("vieux film : pas avec une sortie en France à venir, sauf vraie reprise", () => {
+  const f3670 = film([pays("KR", [1, jours(-540)], [3, jours(-413)]), pays("FR", [1, jours(-357)], [3, jours(28)])], "", "ko");
+  assert.deepEqual(etatSortie(f3670, AUJ), { sorti: false, statut: "bientot", quand: { quoi: "cinema", date: jours(28), vers: false } });
+  assert.equal(etatSortie(film([pays("FR", [3, "2004-10-27"], [3, jours(28)])], "", "fr"), AUJ).sorti, true);
+});
+
+test("sources_utiles : seulement pour un titre récent", async () => {
+  const { sourcesUtiles } = await import("../lib/statut.js");
+  assert.equal(sourcesUtiles(film([pays("US", [4, jours(-20)])]), AUJ), true);
+  assert.equal(sourcesUtiles(film([pays("US", [3, jours(-800)])]), AUJ), false);
+  assert.equal(sourcesUtiles(film([pays("FR", [3, jours(30)])], jours(30)), AUJ), false);
+  assert.equal(sourcesUtiles(film([], "2024-01-01"), AUJ), false);
+  assert.equal(sourcesUtiles({ ...serie(jours(-10)), lastEpisode: jours(-3) }, AUJ), true);
+  assert.equal(sourcesUtiles({ ...serie("2018-01-01"), lastEpisode: "2019-05-01" }, AUJ), false);
+});

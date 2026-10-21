@@ -28,7 +28,7 @@ export const GENRES_COMPLETS = {
   10764: "Téléréalité", 10765: "SF & Fantastique", 10766: "Feuilleton", 10767: "Talk-show",
   10768: "Guerre & Politique",
 };
-const LIBELLES_STATUT = { bientot: "BIENTÔT", salle: "AU CINÉMA", nouveau: "NOUVEAU", saison: "NOUVELLE SAISON" };
+const LIBELLES_STATUT = { bientot: "BIENTÔT", salle: "AU CINÉMA", nouveau: "NOUVEAU", saison: "NOUVELLE SAISON", vo: "EN VO" };
 const MOIS = ["JANV.", "FÉVR.", "MARS", "AVR.", "MAI", "JUIN", "JUIL.", "AOÛT", "SEPT.", "OCT.", "NOV.", "DÉC."];
 const DEBUTS = { dispo: "DISPO LE", cinema: "SORTIE LE", sortie: "SORTIE LE" };
 
@@ -123,7 +123,8 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
   }
   if (!image) return null;
   // Pas sorti = pas encore chez soi en VF, comme les rangées de l'addon (au cinéma compris).
-  const { sorti, statut, quand } = etatSortie(facts, today);
+  // Les sources lues avec la qualité (VF ou pas) décident pour un titre récent ; sinon, les dates.
+  const { sorti, statut, quand } = etatSortie(facts, today, quality ? { vf: quality.vf, sources: quality.sources } : null);
   const pasSorti = !sorti;
   const plateforme = r.plateforme.on && facts.provider ? facts.provider.logo : null;
   const line = {};

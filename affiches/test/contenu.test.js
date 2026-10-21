@@ -350,3 +350,12 @@ test("titre_ecrit_sans_logo", () => {
   // Avec un logo : pas de titre écrit (ETag inchangé).
   assert.equal("titreTexte" in contenu({ ...facts, titre: "Dune" }), false);
 });
+
+// Sources sans VF (lues avec la qualité) : en noir et blanc, « EN VO ».
+test("statut_en_vo", () => {
+  const recent = { ...facts, releases: [{ iso_3166_1: "US", release_dates: [{ type: 4, release_date: "2026-10-01" }] }, { iso_3166_1: "CA", release_dates: [{ type: 3, release_date: "2026-08-01" }] }], releaseDate: "2026-08-01" };
+  const vo = contenu(recent, { ...extra, quality: { uhd: false, extra: null, vf: false, sources: 8 } });
+  assert.deepEqual([vo.statut, vo.gris], ["EN VO", true]);
+  const vf = contenu(recent, { ...extra, quality: { uhd: false, extra: null, vf: true, sources: 8 } });
+  assert.deepEqual([vf.statut, vf.gris], ["NOUVEAU", false]);
+});

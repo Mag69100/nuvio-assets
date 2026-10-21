@@ -1,6 +1,6 @@
 /**
  * /qualite/{movie|series}/{tt…|tt…:saison:1}.json (réécrit vers /api/qualite par vercel.json) : la qualité
- * d'une vidéo lue chez Torrentio, gardée 3 jours par le cache de Vercel. Les affiches la demandent ici :
+ * d'une vidéo (et la VF de ses sources) lue chez Torrentio, gardée un jour par le cache de Vercel. Les affiches la demandent ici :
  * une seule lecture sert à toutes les instances du service.
  */
 import { lireTorrentio } from "../lib/qualite.js";
@@ -17,7 +17,7 @@ export function makeQualite({ fetchImpl = fetch } = {}) {
     const qualite = await lireTorrentio(`${type}/${video}`, fetchImpl);
     if (!qualite) return new Response(null, { status: 503, headers: { "Cache-Control": "no-store" } });
     return new Response(JSON.stringify(qualite), {
-      headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=86400", "Vercel-CDN-Cache-Control": "max-age=259200" },
+      headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=86400", "Vercel-CDN-Cache-Control": "max-age=86400" },
     });
   };
 }

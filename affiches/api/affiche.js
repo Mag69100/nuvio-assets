@@ -11,7 +11,7 @@ import { ratingOf } from "../lib/notes.js";
 import { trendingRank, secondesAvantBascule } from "../lib/tendances.js";
 import { qualityOf } from "../lib/qualite.js";
 import { posterContent, contentKey } from "../lib/contenu.js";
-import { etatSortie } from "../lib/statut.js";
+import { etatSortie, sourcesUtiles } from "../lib/statut.js";
 import { lireReglages, lireReglagesPaysage, ecrireReglages } from "../lib/lien-affiches.js";
 import { notesPlus } from "../lib/notes-plus.js";
 import { draw, imageUrls } from "../lib/dessin.js";
@@ -120,6 +120,8 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       // Les images ne dépendent que du titre : on les demande tout de suite (sauf pour une revérification
       // par ETag, qui finit presque toujours en 304 sans rien dessiner).
       const brouillon = posterContent(facts, {}, shape, reglages);
+      // Les sources (lues avec la qualité) disent si le titre est en VF : lues aussi sans le badge, pour un titre récent.
+      const lireSources = qualite || (env.QUALITE !== "off" && sourcesUtiles(facts, new Date().toISOString().slice(0, 10)));
       if (!brouillon) return absent();
       const images = fetchImages(fetchImpl);
       const peutDessiner = brouillon.full || brouillon.statut || brouillon.gris || brouillon.bandeau || brouillon.coin || tendance || qualite
@@ -130,7 +132,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const [imdbRating, place, { enRetard: qualiteEnRetard, quality }, notes] = await Promise.all([
         noteImdb && facts.imdbId ? ratingOf(facts.imdbId, fetchImpl) : undefined,
         tendance ? trendingRank(env, type, facts.tmdbId, fetchImpl, relais) : null,
-        qualite ? qualiteATemps(type, facts, fetchImpl, relais) : { enRetard: false, quality: null },
+        lireSources ? qualiteATemps(type, facts, fetchImpl, relais) : { enRetard: false, quality: null },
         notesUtiles && facts.imdbId ? notesPlus(facts.imdbId, fetchImpl, relais) : undefined,
       ]);
       // Notes des autres sites demandées mais pas lues (quota, panne) : cache court, pour les avoir ensuite.

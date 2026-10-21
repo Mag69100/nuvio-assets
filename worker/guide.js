@@ -326,24 +326,15 @@ a { color: var(--bulb); font-weight: 700; text-underline-offset: 3px; }
   .copy .qr-btn { display: block; }
   .vers-tel { display: inline-flex; align-items: center; gap: 8px; }
 }
-.qr-modal, .lien-recu { position: fixed; inset: 0; z-index: 88; display: grid; place-items: center; padding: 16px; background: rgba(5,3,4,.84); animation: rise .25s ease both; }
-.qr-modal .boite, .lien-recu .boite { position: relative; display: grid; gap: 12px; justify-items: center; text-align: center; width: min(420px, 100%); padding: 24px; border-radius: 18px; background: var(--velvet-2); border: 1px solid rgba(255,207,107,.35); box-shadow: 0 30px 80px rgba(0,0,0,.7); }
-.qr-modal h2, .lien-recu h2 { margin: 0; font: 400 1.8rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
+.qr-modal { position: fixed; inset: 0; z-index: 88; display: grid; place-items: center; padding: 16px; background: rgba(5,3,4,.84); animation: rise .25s ease both; }
+.qr-modal .boite { position: relative; display: grid; gap: 12px; justify-items: center; text-align: center; width: min(420px, 100%); padding: 24px; border-radius: 18px; background: var(--velvet-2); border: 1px solid rgba(255,207,107,.35); box-shadow: 0 30px 80px rgba(0,0,0,.7); }
+.qr-modal h2 { margin: 0; font: 400 1.8rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
 .qr-modal .code-qr { width: 270px; height: 270px; padding: 12px; border-radius: 12px; background: #fff; }
 .qr-modal .code-qr svg { width: 100%; height: 100%; display: block; }
-.qr-modal p, .lien-recu p { margin: 0; color: #e6d6c8; font-size: .95rem; }
+.qr-modal p { margin: 0; color: #e6d6c8; font-size: .95rem; }
 .qr-modal small { color: var(--dim); max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 .78rem var(--type); }
-.qr-modal .fermer, .lien-recu .fermer { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%; border: 0; background: rgba(255,255,255,.08); color: var(--cream); font: 800 1.1rem/1 var(--body); cursor: pointer; }
-.lien-recu code { display: block; width: 100%; max-height: 7.5em; overflow: auto; padding: 10px 12px; border-radius: 10px; background: #0f080c; border: 1px solid var(--seat); font: 400 .8rem/1.45 var(--type); word-break: break-all; text-align: left; color: #f0e2cf; }
-.lien-recu .copier { width: 100%; font: 800 1.05rem var(--body); padding: 14px; border-radius: 12px; border: 0; background: var(--bulb); color: var(--ink); cursor: pointer; }
+.qr-modal .fermer { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%; border: 0; background: rgba(255,255,255,.08); color: var(--cream); font: 800 1.1rem/1 var(--body); cursor: pointer; }
 
-
-.compat { overflow-x: auto; border: 1px solid var(--seat); border-radius: 12px; }
-.compat table { width: 100%; border-collapse: collapse; font-size: .9rem; min-width: 520px; }
-.compat th { text-align: left; font: 700 .7rem var(--body); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); padding: 10px 12px; background: rgba(255,255,255,.03); }
-.compat td { padding: 10px 12px; border-top: 1px solid var(--seat); vertical-align: top; color: #e6d6c8; }
-.compat td:first-child { font-weight: 800; color: var(--cream); }
-.compat td:nth-child(2) { font: 700 .9rem var(--type); color: var(--bulb); white-space: nowrap; }
 /* Le choix de l’appareil : des cartes par famille, repliées sur l’appareil choisi et sa configuration. */
 .choix-appareil { display: grid; gap: 10px; }
 .ca-titre { margin: 0; font: 700 .72rem var(--body); letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
@@ -400,9 +391,6 @@ a { color: var(--bulb); font-weight: 700; text-underline-offset: 3px; }
 .compat-box { border: 1px solid var(--bulb); border-radius: 14px; padding: 16px 18px; display: grid; gap: 12px; background: linear-gradient(180deg, rgba(255,207,107,.08), rgba(255,207,107,.02)); scroll-margin-top: 20px; }
 .compat-box h3 { margin: 0; font: 400 1.5rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
 .compat-box p { margin: 0; color: #e6d6c8; }
-.compat tr.adapt td { background: rgba(255,207,107,.06); }
-.compat tr.adapt td:first-child { box-shadow: inset 3px 0 0 var(--bulb); }
-.compat td:nth-child(3) b { color: var(--bulb); }
 .tag-adapt { font: 800 .66rem var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); background: var(--bulb); border-radius: 4px; padding: 2px 6px; white-space: nowrap; }
 .tips li { color: #e6d6c8; }
 .code { justify-self: start; display: grid; gap: 2px; padding: 12px 22px 10px; border-radius: 12px; background: var(--cream); color: var(--ink); box-shadow: 0 0 0 3px var(--bulb), 0 10px 30px rgba(0,0,0,.4); }
@@ -1437,25 +1425,11 @@ document.getElementById("cles-tel").addEventListener("click", () => {
   // La clé passe par l'image, pas par le serveur du site ; mais l'appli qui lit le QR code la voit.
   montrerQr("Ta clé sur ton téléphone", "Scanne avec l'appareil photo du téléphone : le guide s'ouvre avec ta clé et tes liens prêts. Ta clé passe par l'image, pas par notre serveur ; évite les applis de scan, qui voient ce qu'elles lisent.", ORIGINE + "/guide#cles=" + b, "");
 });
-// Arrivée sur le téléphone avec un lien envoyé depuis le PC : on le montre avec un gros bouton Copier.
-(() => {
-  if (location.hash.indexOf("#lien=") !== 0) return;
-  const p = new URLSearchParams(location.hash.slice(1)), lien = p.get("lien") || "", nom = p.get("nom") || "Ton lien";
-  history.replaceState(null, "", location.pathname);
-  if (!/^https?:[/][/]/.test(lien)) return;
-  const ov = document.createElement("div"); ov.className = "lien-recu"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", "Lien reçu");
-  ov.innerHTML = '<div class="boite"><button type="button" class="fermer" aria-label="Fermer">×</button><h2>Lien reçu</h2><p></p><code></code><button type="button" class="copier">Copier le lien</button><p class="aide">Puis colle-le dans la page « Gérer depuis le téléphone » de Nuvio.</p></div>';
-  ov.querySelector("p").textContent = "Envoyé depuis ton ordinateur : " + nom + ".";
-  ov.querySelector("code").textContent = lien;
-  document.body.append(ov);
-  const btn = ov.querySelector(".copier");
-  btn.addEventListener("click", () => {
-    const fini = (t) => { btn.textContent = t; popcorn(btn); };
-    try { navigator.clipboard.writeText(lien).then(() => fini("Copié ✓"), () => { const r = document.createRange(); r.selectNodeContents(ov.querySelector("code")); getSelection().removeAllRanges(); getSelection().addRange(r); btn.textContent = "Sélectionné : copie-le"; }); }
-    catch (e) { btn.textContent = "Appuie longuement sur le lien pour le copier"; }
-  });
-  ov.querySelector(".fermer").addEventListener("click", () => ov.remove());
-})();
+// Ancien format des QR codes (/guide#lien=…) : on passe à la page /lien, qui les ouvre aujourd'hui.
+if (location.hash.indexOf("#lien=") === 0) {
+  const p = new URLSearchParams(location.hash.slice(1));
+  location.replace(ORIGINE + "/lien#" + new URLSearchParams({ u: p.get("lien") || "", nom: p.get("nom") || "" }).toString());
+}
 
 // ---------- Réclames d'avant-séance : une nouvelle toutes les 7 secondes ----------
 (() => {

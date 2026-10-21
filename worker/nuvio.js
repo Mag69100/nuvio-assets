@@ -433,20 +433,12 @@ const parametresJSON = (posterUrl) => {
 /** La donnée du script commun propre au site qui sert la page : origin = l'adresse de l'addon. */
 export const nuvioDonnees = (origin) => "const NV_ORIG = " + JSON.stringify(origin) + ";";
 
-/** Le script commun : window.NV, avec les réglages et le lien des affiches maison (LA = creerLienAffiches, repris tel
- *  quel de lien-affiches.js) et les écrans des Paramètres. Servi à part (statique.js, gardé en cache par le
- *  navigateur), après nuvioDonnees. */
-// Le code d'une fonction recopiée telle quelle (creerLienAffiches.toString()) peut contenir des appels à __name,
-// que l'outil de Cloudflare ajoute en préparant le worker : dans le navigateur, __name ne fait rien.
-export const NUVIO_JS = "var __name = function (f) { return f; };\nconst NV_PP = " + JSON.stringify(POSTER_URL) + ", NV_PAR = " + parametresJSON(POSTER_URL) + ";\nconst LA = (" + creerLienAffiches + ")();\n" + `window.NV = (() => {
-  const mkd = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
-  const cssUrl = (u) => "url('" + String(u).replace(/'/g, "%27") + "')";
-  // Fonds envoyés en w1920 (ou original, w1280 selon la version de l'addon) : on demande la taille utile.
-  const imgW = (u, w) => String(u || "").replace(/[/](original|w1920|w1280)[/]/, "/" + w + "/");
+// Les réglages de l'aperçu et l'adresse des affiches maison (ppSrc) : dans l'écran Nuvio (NUVIO_JS) et, seuls,
+// sur le mur du hall (AFFICHES_JS), qui n'a besoin de l'écran entier qu'au clic sur « Voir l'accueil… ».
+// Utilisent LA (lien-affiches.js) et NV_ORIG (nuvioDonnees).
+const REGLAGES_AFFICHES = `  const cssUrl = (u) => "url('" + String(u).replace(/'/g, "%27") + "')";
   const lit = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const ecrit = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
-  const tactile = matchMedia("(hover: none), (pointer: coarse)").matches;
-  const calme = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // ---------- Réglages de l'aperçu (les mêmes partout : hall, guide, salle 2) ----------
   // Affiches maison : activées d'office (c'est le réglage de l'étape 8), avec les options choisies en
@@ -475,8 +467,6 @@ export const NUVIO_JS = "var __name = function (f) { return f; };\nconst NV_PP =
       else try { localStorage.removeItem("affiches-v2-paysage"); } catch (e) {}
     },
   };
-  // L'ancienne clé TMDB (elle ne servait qu'aux affiches Posters+) n'est plus lue : on l'efface.
-  try { localStorage.removeItem("tmdb-key"); } catch (e) {}
   /** Le lien d'affiches à coller dans Nuvio, avec les réglages de ce navigateur. */
   const lienPerso = () => LA.lienAffiches(reglages.affiches, reglages.affichesPaysage);
   /** Affiche maison d'un titre, demandée au worker (/affiche/…) ; r : d'autres réglages que ceux du navigateur (la régie). */
@@ -490,7 +480,23 @@ export const NUVIO_JS = "var __name = function (f) { return f; };\nconst NV_PP =
     if (s) q.set("s", "1." + s);
     q.set("v", "${APERCU_V}");   // version du dessin : un aperçu de l'ancienne version ne ressort pas du cache
     return NV_ORIG + "/affiche/" + (m.type === "series" ? "series" : "movie") + "/" + forme + "/" + encodeURIComponent(id) + (String(q) ? "?" + q : "");
-  };
+  };`;
+
+/** Le script commun : window.NV, avec les réglages et le lien des affiches maison (LA = creerLienAffiches, repris tel
+ *  quel de lien-affiches.js) et les écrans des Paramètres. Servi à part (statique.js, gardé en cache par le
+ *  navigateur), après nuvioDonnees. */
+// Le code d'une fonction recopiée telle quelle (creerLienAffiches.toString()) peut contenir des appels à __name,
+// que l'outil de Cloudflare ajoute en préparant le worker : dans le navigateur, __name ne fait rien.
+export const NUVIO_JS = "var __name = function (f) { return f; };\nconst NV_PP = " + JSON.stringify(POSTER_URL) + ", NV_PAR = " + parametresJSON(POSTER_URL) + ";\nconst LA = (" + creerLienAffiches + ")();\n" + `window.NV = (() => {
+  const mkd = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  // Fonds envoyés en w1920 (ou original, w1280 selon la version de l'addon) : on demande la taille utile.
+  const imgW = (u, w) => String(u || "").replace(/[/](original|w1920|w1280)[/]/, "/" + w + "/");
+  const tactile = matchMedia("(hover: none), (pointer: coarse)").matches;
+  const calme = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+${REGLAGES_AFFICHES}
+  // L'ancienne clé TMDB (elle ne servait qu'aux affiches Posters+) n'est plus lue : on l'efface.
+  try { localStorage.removeItem("tmdb-key"); } catch (e) {}
 
   // ---------- Données de l'addon (fiches, bandes-annonces), gardées en mémoire ----------
   const caches = { meta: new Map(), ba: new Map() };
@@ -1585,5 +1591,12 @@ export const NUVIO_JS = "var __name = function (f) { return f; };\nconst NV_PP =
 
   return { mkd, cssUrl, imgW, lit, ecrit, tactile, calme, reglages, lienPerso, ppSrc, fiche, baCle, youtube, typeGenre, duree, dateSortie, lignesInfos, imdbEl,
     hero, carte, remplit, peint, tuile, gif, pilote, glisse, vientDeGlisser, menu, MENU, liste, dansListe, basculeListe, ouvreFiche, item, ecran };
+})();
+`;
+
+/** Le mur du hall : les affiches maison sans l'écran Nuvio (nuvio.js, chargé au premier aperçu). Tout reste dans
+ *  window.NV_AFFICHES : nuvio.js, chargé ensuite sur la même page, redéclare LA et le reste à sa façon. */
+export const AFFICHES_JS = "var __name = function (f) { return f; };\nwindow.NV_AFFICHES = (() => {\n  const LA = (" + creerLienAffiches + ")();\n" + `${REGLAGES_AFFICHES}
+  return { cssUrl, ppSrc };
 })();
 `;

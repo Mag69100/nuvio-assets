@@ -7,7 +7,7 @@
  */
 import { STAGE_CSS, STAGE_JS } from "./stage.js";
 import { APERCU_CSS, APERCU_JS } from "./apercu.js";
-import { NUVIO_CSS, NUVIO_JS } from "./nuvio.js";
+import { NUVIO_CSS, NUVIO_JS, AFFICHES_JS } from "./nuvio.js";
 import { REGLAGES_CSS, REGLAGES_JS } from "./reglages.js";
 import { LIENS_JS } from "./liens.js";
 import { POLICES, policesCss } from "./polices.js";
@@ -20,7 +20,7 @@ import { GUIDE_CSS, GUIDE_RECLAMES_CSS, GUIDE_FIN_CSS, GUIDE_JS, GUIDE_FIN_JS } 
 let fichiers = null;
 const FICHIERS = () => fichiers || (fichiers = {
   "scene.css": STAGE_CSS, "scene.js": STAGE_JS,
-  "nuvio.css": NUVIO_CSS, "nuvio.js": NUVIO_JS,
+  "nuvio.css": NUVIO_CSS, "nuvio.js": NUVIO_JS, "affiches.js": AFFICHES_JS,
   "apercu.css": APERCU_CSS, "apercu.js": APERCU_JS,
   "reglages.css": REGLAGES_CSS, "reglages.js": REGLAGES_JS,
   "liens.js": LIENS_JS,
@@ -59,6 +59,8 @@ const adresse = (nom) => `/statique/${nom}?v=${empreinte(nom)}`;
 /** Les balises à écrire dans la page, à la place du contenu, dans le même ordre. */
 export const feuilles = (...noms) => noms.map((n) => `<link rel="stylesheet" href="${adresse(n)}">`).join("\n");
 export const scripts = (...noms) => noms.map((n) => `<script src="${adresse(n)}"></script>`).join("\n");
+/** L'adresse versionnée d'un fichier, pour un script qui le charge plus tard (hall : l'aperçu au premier clic). */
+export const adresseStatique = adresse;
 
 /** Le contenu d'un fichier (texte, ou ArrayBuffer d'une police) ; undefined s'il n'existe pas. Pour les tests. */
 export const contenuStatique = (nom) => (Object.hasOwn(FICHIERS(), nom) ? contenu(nom) : undefined);

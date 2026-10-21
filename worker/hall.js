@@ -5,7 +5,7 @@
  */
 import { STAGE_HEAD, stageTop, secretsHTML, BEAM_HTML, CREDITS_HTML } from "./stage.js";
 import { ICONE_APERCU, apercuDonnees } from "./apercu.js";
-import { feuilles, scripts } from "./statique.js";
+import { feuilles, scripts, adresseStatique } from "./statique.js";
 import { esc } from "./outils-serveur.js";
 
 
@@ -146,7 +146,39 @@ ${copy ? "" : `  <p class="propre-salle">Tu veux ta propre salle, avec tes clés
 </main>
 ${scripts("scene.js")}
 <script>${apercuDonnees(origin)}</script>
-${scripts("nuvio.js", "apercu.js")}
+${scripts("affiches.js")}
+<script>
+// « Voir l'accueil que tu auras à la fin » : l'écran Nuvio (nuvio.js, le plus gros script du site) et l'aperçu
+// (apercu.js) ne se chargent qu'au premier clic, qui est ensuite rejoué ; arrivée avec « #apercu » : tout de suite.
+// Chaque script une seule fois (nuvio.js rechargé redéclarerait ses constantes) ; en échec, le clic suivant réessaie.
+(() => {
+  const boutons = [...document.querySelectorAll("[data-resultat]")];
+  const charges = {};
+  const script = (src) => charges[src] || (charges[src] = new Promise((ok, ko) => {
+    const sc = document.createElement("script"); sc.src = src;
+    sc.onload = ok; sc.onerror = () => { delete charges[src]; sc.remove(); ko(); };
+    document.body.append(sc);
+  }));
+  const charger = () => script(${JSON.stringify(adresseStatique("nuvio.js"))}).then(() => script(${JSON.stringify(adresseStatique("apercu.js"))}));
+  const premier = (e) => {
+    const b = e.currentTarget;
+    boutons.forEach((x) => x.removeEventListener("click", premier));
+    b.setAttribute("aria-busy", "true");
+    charger().then(() => { b.removeAttribute("aria-busy"); b.click(); }, () => {
+      b.removeAttribute("aria-busy");
+      boutons.forEach((x) => x.addEventListener("click", premier));
+      if (window.toast) toast("Aperçu indisponible : vérifie ta connexion et réessaie.", true);
+    });
+  };
+  boutons.forEach((b) => b.addEventListener("click", premier));
+  // La TV des boutons ne vacille que lorsqu'ils sont à l'écran (comme apercu.js le fera, une fois chargé).
+  if ("IntersectionObserver" in window) {
+    const vu = new IntersectionObserver((es) => es.forEach((e) => e.target.classList.toggle("ap-vu", e.isIntersecting)));
+    boutons.forEach((b) => vu.observe(b));
+  }
+  if (location.hash === "#apercu") charger().catch(() => {});
+})();
+</script>
 <script>
 // Le mur : les 6 premiers films de « Tendances du jour · Films ». Rien à montrer (liste vide, erreur) :
 // le mur disparaît, plutôt que de rester en attente.
@@ -159,7 +191,7 @@ fetch(${JSON.stringify(origin)} + "/catalog/movie/accueil-top10.json").then((r) 
   metas.forEach((m) => {
     const c = document.createElement("div"); c.className = "cadre"; c.title = m.name; c.setAttribute("role", "img"); c.setAttribute("aria-label", m.name);
     // Les affiches maison du réglage conseillé (étape 8), celles qu'on aura sur l'accueil
-    const pp = NV.ppSrc(m, "poster"), pose = (u) => { c.style.backgroundImage = NV.cssUrl(u); };
+    const pp = NV_AFFICHES.ppSrc(m, "poster"), pose = (u) => { c.style.backgroundImage = NV_AFFICHES.cssUrl(u); };
     if (pp) { const im = new Image(); im.onload = () => pose(pp); im.onerror = () => pose(m.poster); im.src = pp; } else pose(m.poster);
     box.append(c);
   });

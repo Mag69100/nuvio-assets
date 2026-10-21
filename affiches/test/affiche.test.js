@@ -91,8 +91,9 @@ test("affiche OK", async () => {
   assert.equal(res.headers.get("Content-Type"), "image/jpeg");
   assert.match(res.headers.get("ETag"), /^"[0-9a-f]{40}"$/);
   assert.equal(res.headers.get("Cache-Control"), "public, max-age=604800");
-  // 3 jours au CDN : chaque affiche vue est redessinée au plus tous les 3 jours (limite de calcul gratuite).
-  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=259200, stale-while-revalidate=604800");
+  // 7 jours au CDN : chaque affiche vue est redessinée au plus une fois par semaine (limite de calcul gratuite) ;
+  // service en panne : l'ancienne resservie un jour de plus.
+  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=604800, stale-while-revalidate=604800, stale-if-error=86400");
   assert.equal((await sharp(Buffer.from(await res.arrayBuffer())).metadata()).width, 400);
 });
 
@@ -150,7 +151,8 @@ test("Torrentio lent : pas plus d'1 s d'attente, cache court", async () => {
   assert.equal(res.status, 200);
   assert.ok(Date.now() - t0 < 1500, `trop long : ${Date.now() - t0} ms`);
   assert.equal(res.headers.get("Cache-Control"), "public, max-age=3600");
-  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=600");
+  // Redessinée 10 min plus tard ; l'ancienne servie pendant qu'on la redessine.
+  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=600, stale-while-revalidate=3600");
 });
 
 test("Torrentio en échec : cache court, pour avoir le badge à la prochaine demande", async () => {
@@ -158,7 +160,7 @@ test("Torrentio en échec : cache court, pour avoir le badge à la prochaine dem
   const res = await makeHandler({ fetchImpl: internet({ torrentio: refus }), env })(req("type=movie&shape=poster&id=tt15239678"));
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("Cache-Control"), "public, max-age=3600");
-  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=600");
+  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=600, stale-while-revalidate=3600");
 });
 
 test("images téléchargées pendant qu'on attend Torrentio", async () => {
@@ -244,6 +246,8 @@ test("affiche classée : cache jusqu'au changement de photo", async () => {
     const s = secondesAvantBascule();
     assert.ok(Math.abs(age(res, "Cache-Control") - s) <= 2, res.headers.get("Cache-Control"));
     assert.ok(Math.abs(age(res, "Vercel-CDN-Cache-Control") - s) <= 2, res.headers.get("Vercel-CDN-Cache-Control"));
+    // Après le changement, la première demande reçoit encore l'ancienne pendant qu'on la redessine.
+    assert.match(res.headers.get("Vercel-CDN-Cache-Control"), /, stale-while-revalidate=3600, stale-if-error=86400$/);
   }
 });
 
@@ -257,14 +261,21 @@ test("presque classée sans rien à poser : redirection courte", async () => {
   assert.ok(age(res, "Vercel-CDN-Cache-Control") <= secondesAvantBascule());
 });
 
-// Le titre ne doit jamais manquer : logo introuvable sur une image sans texte → erreur (Nuvio montre
-// l'affiche d'origine), jamais une affiche sans nom gardée en cache.
-test("logo introuvable : 502 sans cache", async () => {
+// Le titre ne doit jamais manquer : logo introuvable sur une image sans texte → l'affiche d'origine de TMDB (avec son
+// titre), gardée une heure, jamais une affiche sans nom (une erreur 502 n'est jamais gardée : chaque demande redessinerait).
+test("logo introuvable : redirection vers l'affiche d'origine, gardée une heure", async () => {
   const base = internet();
   const f = async (url, opts) => (String(url).endsWith("/logo.png") ? new Response("non", { status: 404 }) : base(url, opts));
   const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678"));
-  assert.equal(res.status, 502);
-  assert.equal(res.headers.get("Cache-Control"), "no-store");
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get("Location"), "https://image.tmdb.org/t/p/w500/fr.jpg");
+  assert.equal(res.headers.get("Cache-Control"), "public, max-age=3600");
+  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=3600");
+  const avecFond = internet({ detail: json({ ...film, images: { ...film.images, backdrops: [{ iso_639_1: null, file_path: "/bdnu.jpg" }] } }) });
+  const g = async (url, opts) => (String(url).endsWith("/logo.png") ? new Response("non", { status: 404 }) : avecFond(url, opts));
+  const pays = await makeHandler({ fetchImpl: g, env })(req("type=movie&shape=landscape&id=tt15239678"));
+  assert.equal(pays.status, 302);
+  assert.equal(pays.headers.get("Location"), "https://image.tmdb.org/t/p/w780/bd.jpg");
 });
 
 // Lien bricolé (paramètre en trop, lettres dans le désordre ou inconnues, imdb qui contredit l'id) : redirigé
@@ -288,6 +299,9 @@ test("lien non canonique : redirection sans appel", async () => {
     const f = internet();
     const res = await makeHandler({ fetchImpl: f, env })(req(q));
     assert.equal(res.status, 308, q);
+    // Gardée 7 jours : la forme normale ne change qu'avec une mise en ligne (qui vide le cache).
+    assert.equal(res.headers.get("Cache-Control"), "public, max-age=604800", q);
+    assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=604800", q);
     const loc = new URL(res.headers.get("Location"), "https://affiches.test");
     assert.equal(decodeURIComponent(loc.pathname) + loc.search, cible, q);
     assert.equal(f.calls.length, 0, q);

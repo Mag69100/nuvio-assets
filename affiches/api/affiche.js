@@ -1,8 +1,9 @@
 /**
  * /{type}/{shape}/{id}.jpg?imdb=… (réécrit vers /api/affiche par vercel.json) : l'affiche maison d'un titre.
- * Toute erreur répond par un code HTTP d'erreur : Nuvio montre alors l'affiche d'origine.
- * Caches : Nuvio garde l'image une semaine (puis revérifie l'ETag) ; le CDN de Vercel la garde un jour
- * et la redessine en arrière-plan ensuite, ce qui tient dans les limites de l'offre gratuite.
+ * TMDB injoignable : erreur 502, et Nuvio montre l'affiche d'origine ; dessin impossible (logo cassé…) : redirection
+ * vers l'affiche d'origine chez TMDB, gardée une heure.
+ * Caches : Nuvio garde l'image une semaine (puis revérifie l'ETag) ; le CDN de Vercel aussi, et la redessine en
+ * arrière-plan ensuite, ce qui tient dans les limites de l'offre gratuite.
  * Vitesse : les images sont téléchargées pendant qu'on lit les notes et la qualité, et on n'attend pas
  * Torrentio plus d'1 s ; sans réponse, l'affiche part sans badge, avec un cache court pour l'avoir ensuite.
  */
@@ -18,29 +19,46 @@ import { draw, imageUrls } from "../lib/dessin.js";
 import { sansTexte } from "../lib/texte.js";
 import { jourParis, secondesAvantMinuitParis } from "../lib/jour.js";
 
-// CDN : 3 jours, puis redessinée en arrière-plan (limite de calcul gratuite : 4 h par mois).
-const OK_CACHE = { "Cache-Control": "public, max-age=604800", "Vercel-CDN-Cache-Control": "max-age=259200, stale-while-revalidate=604800" };
-const COURT = { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=600" };
+// CDN : 7 jours, comme l'appli, puis redessinée en arrière-plan (limite de calcul gratuite : 4 h par mois). Une
+// affiche sans statut ni N° ne change qu'avec sa note (fichier IMDb de la semaine) ou son badge 4K : quelques jours
+// de retard au plus, pour deux fois moins de dessins qu'avec 3 jours. Le service en panne (erreur 5xx) : le CDN
+// ressert l'ancienne un jour de plus (stale-if-error).
+const OK_CACHE = { "Cache-Control": "public, max-age=604800", "Vercel-CDN-Cache-Control": "max-age=604800, stale-while-revalidate=604800, stale-if-error=86400" };
+// Cache court (une donnée en retard) : redessinée 10 min plus tard, l'ancienne servie pendant ce temps.
+const COURT = { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=600, stale-while-revalidate=3600" };
 
 /**
  * Durées de cache d'une réponse. Une affiche classée ou presque (place sur la photo des tendances), ou avec un
  * statut (une date, « Nouveau »…), expire au changement de photo des tendances, dans l'appli comme au CDN :
  * son N° et sa date restent ceux du jour. Un statut expire aussi à minuit à Paris (« DEMAIN » devient
- * « AUJOURD'HUI »). Torrentio en retard : cache court, pour avoir le badge ensuite.
+ * « AUJOURD'HUI »). Une donnée en retard (Torrentio pas encore lu…) : cache court, pour l'avoir ensuite.
+ * Au CDN, la première demande après l'expiration reçoit encore l'ancienne pendant qu'on la redessine (une heure au plus).
  */
 function cacheDe({ enRetard, place, statut }) {
   const base = enRetard ? COURT : OK_CACHE;
   if (!place && !statut) return base;
   const s = statut ? Math.min(secondesAvantBascule(), secondesAvantMinuitParis()) : secondesAvantBascule();
   const age = (h) => Number(/max-age=(\d+)/.exec(base[h])[1]);
-  return { "Cache-Control": `public, max-age=${Math.min(age("Cache-Control"), s)}`, "Vercel-CDN-Cache-Control": `max-age=${Math.min(age("Vercel-CDN-Cache-Control"), s)}` };
+  return { "Cache-Control": `public, max-age=${Math.min(age("Cache-Control"), s)}`,
+    "Vercel-CDN-Cache-Control": `max-age=${Math.min(age("Vercel-CDN-Cache-Control"), s)}, stale-while-revalidate=3600${enRetard ? "" : ", stale-if-error=86400"}` };
 }
 const ABSENT = { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" };
+// Redirection vers la forme normale d'un lien : elle ne change qu'avec une mise en ligne, qui vide le cache de toute façon.
+const CANONIQUE = { "Cache-Control": "public, max-age=604800", "Vercel-CDN-Cache-Control": "max-age=604800" };
+// Dessin impossible (logo cassé, SVG illisible) : l'affiche d'origine, redemandée dans une heure.
+const SECOURS = { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" };
 const CORS = { "Access-Control-Allow-Origin": "*" };
 const ATTENTE_QUALITE_MS = 1000;
 
 const absent = () => new Response(null, { status: 404, headers: { ...CORS, ...ABSENT } });
 const panne = () => new Response(null, { status: 502, headers: { ...CORS, "Cache-Control": "no-store" } });
+/** L'affiche (ou le fond) d'origine du titre chez TMDB, aux tailles de dessin.js ; null s'il n'en a pas. */
+const imageOrigine = (facts, shape) => {
+  const chemin = shape === "landscape" ? facts.backdrop : facts.poster;
+  return chemin ? `https://image.tmdb.org/t/p/${shape === "landscape" ? "w780" : "w500"}${chemin}` : null;
+};
+/** Redirection vers l'affiche d'origine, gardée le temps donné (en-têtes de cache). */
+const versOrigine = (url, cache) => new Response(null, { status: 302, headers: { ...CORS, ...cache, Location: url } });
 
 /** fetch qui ne télécharge qu'une fois chaque image TMDB : une demande faite en avance resservira à draw(). */
 function fetchImages(fetchImpl) {
@@ -97,7 +115,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
     const reglages = shape === "landscape" ? lireReglagesPaysage(q) : lireReglages(q);
     const normales = optionsNormales(q, id);
     if (String(recues) !== normales) {
-      return new Response(null, { status: 308, headers: { ...CORS, ...ABSENT, Location: `/${type}/${shape}/${id}.jpg${normales ? "?" + normales : ""}` } });
+      return new Response(null, { status: 308, headers: { ...CORS, ...CANONIQUE, Location: `/${type}/${shape}/${id}.jpg${normales ? "?" + normales : ""}` } });
     }
     const tendance = reglages.tendance.on, qualite = reglages.qualite.on && env.QUALITE !== "off";
     // Note IMDb : pour la note affichée, ou pour le badge « Incontournable ».
@@ -120,10 +138,10 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
         const [cle, liste] = fond ? ["textlessBackdrop", facts.textlessBackdrops] : ["textlessPoster", facts.textlessPosters];
         facts = { ...facts, [cle]: await sansTexte(liste, fetchImpl) };
       }
-      // Les images ne dépendent que du titre : on les demande tout de suite (sauf pour une revérification
-      // par ETag, qui finit presque toujours en 304 sans rien dessiner).
       // Le jour à Paris, le même pour tout le calcul (statut, sources utiles).
       const aujourdhui = jourParis();
+      // Les images ne dépendent que du titre : on les demande tout de suite (sauf pour une revérification
+      // par ETag, qui finit presque toujours en 304 sans rien dessiner).
       const brouillon = posterContent(facts, {}, shape, reglages, aujourdhui);
       // Les sources (lues avec la qualité) disent si le titre est en VF : lues aussi sans le badge, pour un titre récent.
       const lireSources = qualite || (env.QUALITE !== "off" && sourcesUtiles(facts, aujourdhui));
@@ -156,7 +174,17 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const cache = cacheDe({ enRetard, place, statut: suitLeCalendrier });
       const headers = { ...CORS, ...cache, ETag: etag };
       if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });
-      const jpg = await draw(content, images);
+      let jpg;
+      try {
+        jpg = await draw(content, images);
+      } catch (e) {
+        // Dessin impossible (logo introuvable ou illisible, SVG cassé…) : l'affiche d'origine, qui porte le titre,
+        // gardée une heure (une erreur 502 n'est jamais gardée : chaque demande redessinerait).
+        console.error(`dessin ${type}/${shape}/${id} : ${e && e.message}`);
+        const origine = imageOrigine(facts, shape);
+        if (!origine) throw e;
+        return versOrigine(origine, SECOURS);
+      }
       return new Response(jpg, { status: 200, headers: { ...headers, "Content-Type": "image/jpeg" } });
     } catch (e) {
       console.error(`affiche ${type}/${shape}/${id} : ${e && e.message}`);

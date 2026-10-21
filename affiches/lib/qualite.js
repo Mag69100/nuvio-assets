@@ -2,7 +2,7 @@
  * Qualité d'un titre (4K, puis DV ou HDR), lue dans les noms des flux de Torrentio, comme le fait
  * un addon de sources. Seulement la 4K : en dessous, pas de badge. Un échec ou un délai dépassé
  * donne null, et l'affiche part sans badge plutôt qu'avec un badge faux.
- * Sur Vercel, elle passe par le relais /qualite/… du service, gardé 3 jours par le cache de Vercel :
+ * Sur Vercel, elle passe par le relais /qualite/… du service, gardé un jour par le cache de Vercel :
  * ce qu'une instance a lu sert à toutes les autres (même badge partout, donc même ETag).
  */
 export const TORRENTIO = "https://torrentio.strem.fun";

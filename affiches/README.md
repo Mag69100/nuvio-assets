@@ -27,18 +27,24 @@ Mesures à la mise en ligne (2026-10-20) :
 
 Caches :
 - **Nuvio** garde une affiche une semaine, puis revérifie son `ETag`.
-- **Le CDN de Vercel** la garde trois jours, puis la redessine en arrière-plan.
+- **Le CDN de Vercel** la garde sept jours, puis la redessine en arrière-plan ; si le service tombe en panne, il
+  ressert l'ancienne un jour de plus.
+- **Chaque mise en ligne vide le cache du CDN** (il dépend du déploiement) : toutes les affiches sont redessinées
+  ensuite. Mieux vaut grouper les mises en ligne.
 - **Un lien bricolé** (paramètre en trop, lettres dans le désordre) est redirigé vers sa forme normale, sans
-  dessiner une copie de plus.
-- **Une affiche classée** (« N° ») est revérifiée chaque jour par l'appli.
+  dessiner une copie de plus (redirection gardée sept jours).
+- **Dessin impossible** (logo cassé, SVG illisible) : redirection vers l'affiche d'origine chez TMDB, gardée une heure.
+- **Une affiche classée** (« N° ») est revérifiée chaque jour par l'appli ; une affiche avec un statut, aussi à
+  minuit à Paris.
 - **Rien à dessiner** (style « Nue », ou titre sans logo ni rang ni 4K) : redirection vers l'image TMDB d'origine.
-- **La qualité** passe par le relais `/qualite/…` du service, gardé 3 jours par le CDN : une seule lecture
+- **La qualité** passe par le relais `/qualite/…` du service, gardé un jour par le CDN : une seule lecture
   de Torrentio sert à toutes les instances.
 
 Estimation pour environ 300 personnes actives par jour :
 - **Requêtes :** 600 000 à 900 000 par mois.
-- **Calcul :** environ 0,1 à 0,2 s par affiche dessinée, chaque affiche vue étant redessinée au plus tous les
-  3 jours, soit environ 1,5 à 3 h par mois.
+- **Calcul :** environ 0,1 à 0,2 s par affiche dessinée. Une affiche sans statut ni N° est redessinée au plus
+  une fois par semaine ; une affiche avec, une ou deux fois par jour. Avec des redessins tous les 3 jours, on
+  comptait 1,5 à 3 h par mois.
 
 On est près des limites gratuites : il faut regarder Usage → Active CPU dans les 48 h.
 - **Requêtes trop hautes :** allonger le `max-age` de Nuvio dans `api/affiche.js`.

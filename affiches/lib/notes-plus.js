@@ -4,6 +4,8 @@
  * /notes/{imdb}.json du service, gardé 7 jours par le CDN de Vercel : une lecture sert à toutes les instances.
  * Sans clé, quota épuisé ou panne : null, et l'affiche ne montre que les notes IMDb ou TMDB.
  */
+import { enteteRelais } from "./relais.js";
+
 const DELAI_MS = 2500, GARDE_MS = 86400 * 1000, GARDE_ECHEC_MS = 3600 * 1000, MAX_MEMO = 5000;
 const SOURCES = { tomatoes: "rt", metacritic: "mc", letterboxd: "lb" };
 
@@ -37,9 +39,9 @@ export async function lireMdblist(env, imdb, fetchImpl = fetch) {
   } catch (e) { console.warn(`MDBList injoignable pour ${imdb} : ${e && e.message}`); return null; }
 }
 
-async function lireRelais(relais, imdb, fetchImpl) {
+async function lireRelais(relais, imdb, fetchImpl, cle) {
   try {
-    const res = await fetchImpl(`${relais}/notes/${imdb}.json`, { signal: AbortSignal.timeout(DELAI_MS + 500) });
+    const res = await fetchImpl(`${relais}/notes/${imdb}.json`, { headers: enteteRelais(cle), signal: AbortSignal.timeout(DELAI_MS + 500) });
     if (!res.ok) return null;
     const d = await res.json();
     const nombre = (v) => (typeof v === "number" && v > 0 ? v : null);
@@ -48,12 +50,15 @@ async function lireRelais(relais, imdb, fetchImpl) {
   } catch { return null; }
 }
 
-/** Les notes d'un titre par le relais du service, gardées un jour en mémoire de l'instance (un échec : une heure). */
-export function notesPlus(imdb, fetchImpl = fetch, relais) {
+/**
+ * Les notes d'un titre par le relais du service, gardées un jour en mémoire de l'instance (un échec : une heure).
+ * cle : RELAIS_KEY, envoyée au relais (lib/relais.js).
+ */
+export function notesPlus(imdb, fetchImpl = fetch, relais, cle = null) {
   if (!/^tt\d{1,10}$/.test(imdb || "")) return Promise.resolve(null);
   const now = Date.now(), hit = memo.get(imdb);
   if (hit && now < hit.until) return hit.promesse;
-  const entry = { promesse: lireRelais(relais, imdb, fetchImpl), until: now + GARDE_MS };
+  const entry = { promesse: lireRelais(relais, imdb, fetchImpl, cle), until: now + GARDE_MS };
   memo.delete(imdb);
   memo.set(imdb, entry);
   while (memo.size > MAX_MEMO) memo.delete(memo.keys().next().value);

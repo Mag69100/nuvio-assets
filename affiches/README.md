@@ -60,6 +60,7 @@ une limite de débit dans le pare-feu de Vercel (Firewall → Rules) le complèt
 |---|---|
 | `TMDB_API_KEY` | Clé TMDB du service (secrète) |
 | `QUALITE` | `off` coupe le badge qualité (si Torrentio ne répond plus depuis Vercel) |
+| `RELAIS_KEY` | Clé des relais `/qualite`, `/notes` et `/vf.json` (secrète) : une adresse pas encore au CDN n'est lue chez Torrentio ou MDBList que pour le service et l'addon, qui envoient l'en-tête `X-Relais-Cle`. La même valeur doit être un secret de l'addon (`RELAIS_KEY`), mis en ligne avant |
 | `RENDUS_MINUTE`, `RENDUS_HEURE` | Dessins au plus par instance, par minute (60) et par heure (600) |
 
 ## Tests

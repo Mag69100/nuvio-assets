@@ -83,10 +83,10 @@ function fetchImages(fetchImpl) {
  * relais le garde 30 min) : cache normal sans badge, sinon chaque affiche serait redessinée toutes les 10 minutes
  * pendant toute la panne.
  */
-function qualiteATemps(type, facts, fetchImpl, relais) {
+function qualiteATemps(type, facts, fetchImpl, relais, cle) {
   let timer;
   const delai = new Promise((ok) => { timer = setTimeout(() => ok({ enRetard: true, quality: null }), ATTENTE_QUALITE_MS); });
-  const lue = qualityOf(type, facts.imdbId, facts.lastSeason, fetchImpl, relais).then((quality) => ({ enRetard: false, quality }));
+  const lue = qualityOf(type, facts.imdbId, facts.lastSeason, fetchImpl, relais, cle).then((quality) => ({ enRetard: false, quality }));
   return Promise.race([lue, delai])
     .finally(() => clearTimeout(timer));
 }
@@ -174,8 +174,8 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const [imdbRating, place, { enRetard: qualiteEnRetard, quality }, notes] = await Promise.all([
         noteImdb && facts.imdbId ? ratingOf(facts.imdbId, fetchImpl) : undefined,
         tendance ? trendingRank(env, type, facts.tmdbId, fetchImpl, relais) : null,
-        lireSources ? qualiteATemps(type, facts, fetchImpl, relais) : { enRetard: false, quality: null },
-        notesUtiles && facts.imdbId ? notesPlus(facts.imdbId, fetchImpl, relais) : undefined,
+        lireSources ? qualiteATemps(type, facts, fetchImpl, relais, env.RELAIS_KEY) : { enRetard: false, quality: null },
+        notesUtiles && facts.imdbId ? notesPlus(facts.imdbId, fetchImpl, relais, env.RELAIS_KEY) : undefined,
       ]);
       // Notes des autres sites demandées mais pas lues (quota, panne) : cache normal sans elles (le relais garde
       // l'échec une heure ; un cache court ferait redessiner sans fin pendant toute la panne).

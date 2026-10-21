@@ -8,6 +8,10 @@
  * avec une clé tirée de lui (les réglages contiennent parfois une clé Gemini). Seul qui a le lien
  * peut les lire. Les modifier demande en plus la clé de modification, que garde le navigateur qui a
  * créé le lien (ou le « lien pour modifier »).
+ *
+ * « Ta TV l'a reçu » : la ligne note aussi (colonne vu) quand Nuvio a relu le manifest pour la dernière fois, au
+ * plus une fois par 10 minutes, sauf juste après un enregistrement (t) : le billet sait alors dire si la TV a déjà
+ * les derniers réglages. Lue seulement avec la clé de modification (POST /lien-fixe/<id>/lire).
  */
 
 import { same } from "./hote.js";
@@ -18,6 +22,7 @@ const MODIF = /^[0-9A-Za-z]{22}$/;
 const MAX_SEG = 6000;               // réglages compactés (12 rangées sur mesure, clé, noms…) : bien moins
 const CACHE_S = 300;                // une ligne lue sert 5 min depuis le cache Cloudflare (modifs : 5 min + 6 h de Nuvio)
 const SECOURS_S = 7 * 86400;        // puis reste 7 jours en secours, relue seulement si la base ne répond pas
+const VU_MS = 10 * 60 * 1000;      // lecture par Nuvio notée au plus une fois par 10 min (écritures D1 comptées)
 const cacheKey = (h) => new Request(`https://cache.local/lien-fixe/${h}`);
 
 export const isFixedId = (s) => ID.test(s);
@@ -59,6 +64,15 @@ const keep = (h, r) => caches.default.put(cacheKey(h), new Response(JSON.stringi
 // passagère : surtout pas « introuvable », qui pousserait à refaire son lien et à perdre l'ancien.
 const noTable = (e) => /no such table/i.test(String((e && e.message) || e));
 
+// Colonne vu (dernière lecture par Nuvio) : absente des bases d'avant, ajoutée la première fois qu'on en a besoin.
+const noColumn = (e) => /no such column/i.test(String((e && e.message) || e));
+let colonneVu = null;
+const ajouteVu = (env) => (colonneVu = colonneVu || env.LIENS.prepare("ALTER TABLE liens ADD COLUMN vu INTEGER").run()
+  .catch((e) => { if (!/duplicate column/i.test(String((e && e.message) || e))) { colonneVu = null; throw e; } }));
+async function avecVu(env, requete) {
+  try { return await requete(); } catch (e) { if (!noColumn(e)) throw e; await ajouteVu(env); return requete(); }
+}
+
 async function row(env, h) {
   const hit = await caches.default.match(cacheKey(h)).then((r) => (r ? r.json() : null)).catch(() => null);
   // Lu il y a moins de 5 min (les lignes d'avant, sans heure, sont relues).
@@ -88,9 +102,28 @@ export async function readFixed(env, id) {
 }
 
 /**
+ * Nuvio vient de lire le manifest d'un lien fixe : l'heure est notée (vu), au plus une fois par 10 minutes, et
+ * toujours à la première lecture après un enregistrement (vu < t). Une seule requête, qui n'écrit rien quand il n'y
+ * a rien à noter. Pas les navigateurs : le lien ouvert dans un onglet (navigate) ou lu par le site lui-même.
+ */
+export async function noteLecture(env, id, request) {
+  if (!fixedAvailable(env) || !isFixedId(id)) return;
+  const h = request.headers;
+  if (h.get("sec-fetch-mode") === "navigate" || h.get("sec-fetch-site") === "same-origin") return;
+  const now = Date.now(), cle = await sha("lien:" + id);
+  try {
+    await avecVu(env, () => env.LIENS.prepare("UPDATE liens SET vu = ? WHERE h = ? AND (vu IS NULL OR vu < ? OR vu < t)")
+      .bind(now, cle, now - VU_MS).run());
+  } catch (e) {
+    if (!noTable(e)) console.warn("lien fixe, lecture :", String(e));
+  }
+}
+
+/**
  * POST /lien-fixe            { c }          → { id, modif }  (nouveau lien)
- * POST /lien-fixe/<id>       { c, modif }   → { ok: true }   (mêmes lien, nouveaux réglages)
- * POST /lien-fixe/<id>/lire  { modif }      → { k, al }      (clé Gemini et jeton d'alerte, voir plus bas)
+ * POST /lien-fixe/<id>       { c, modif }   → { ok: true, t }  (même lien, nouveaux réglages ; t : heure d'enregistrement)
+ * POST /lien-fixe/<id>/lire  { modif }      → { k, al, vu, t, maintenant }  (clé Gemini et jeton d'alerte, voir plus
+ *                                             bas ; vu : dernière lecture par Nuvio, t : dernier enregistrement, en ms)
  * `valid(seg)` dit si les réglages sont lisibles (decodeConfig) ; `secrets(seg)` en tire { k, al }.
  */
 export async function fixedRoute(request, env, path, valid, secrets) {
@@ -128,11 +161,11 @@ export async function fixedRoute(request, env, path, valid, secrets) {
     const r = await env.LIENS.prepare("SELECT e FROM liens WHERE h = ?").bind(h).first();
     if (!r) return reply({ error: "Lien fixe inconnu." }, 404);
     if (!same(r.e, await sha("modif:" + body.modif))) return reply({ error: "Ce navigateur n'a pas la clé pour modifier ce lien." }, 403);
-    const c = await seal(id, seg);
-    await env.LIENS.prepare("UPDATE liens SET c = ?, t = ? WHERE h = ?").bind(c, Date.now(), h).run();
+    const c = await seal(id, seg), t = Date.now();
+    await env.LIENS.prepare("UPDATE liens SET c = ?, t = ? WHERE h = ?").bind(c, t, h).run();
     // Ce centre de Cloudflare voit tout de suite les nouveaux réglages ; les autres d'ici 5 minutes.
     await keep(h, { c, e: r.e });
-    return reply({ ok: true });
+    return reply({ ok: true, t });
   } catch (e) {
     console.warn("lien fixe :", String(e));
     return reply({ error: "Enregistrement impossible pour le moment : réessaie dans quelques minutes." }, 503);
@@ -148,11 +181,13 @@ export async function fixedRoute(request, env, path, valid, secrets) {
 async function lireSecrets(env, id, modif, secrets, reply) {
   if (!isFixedId(id) || !MODIF.test(String(modif || ""))) return reply({ error: "Lien fixe inconnu." }, 404);
   try {
-    const r = await env.LIENS.prepare("SELECT c, e FROM liens WHERE h = ?").bind(await sha("lien:" + id)).first();
+    const h = await sha("lien:" + id);
+    const r = await avecVu(env, () => env.LIENS.prepare("SELECT c, e, t, vu FROM liens WHERE h = ?").bind(h).first());
     if (!r) return reply({ error: "Lien fixe inconnu." }, 404);
     if (!same(r.e, await sha("modif:" + modif))) return reply({ error: "Ce navigateur n'a pas la clé pour modifier ce lien." }, 403);
     const s = secrets(await open(id, r.c)) || {};
-    return reply({ k: s.k || "", al: s.al || "" });
+    // maintenant : l'heure du site, pour compter « il y a 3 min » même si l'horloge de l'appareil dérive.
+    return reply({ k: s.k || "", al: s.al || "", vu: Number(r.vu) || 0, t: Number(r.t) || 0, maintenant: Date.now() });
   } catch (e) {
     if (noTable(e)) return reply({ error: "Lien fixe inconnu." }, 404);
     console.warn("lien fixe :", String(e));

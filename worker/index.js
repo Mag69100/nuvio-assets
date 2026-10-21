@@ -46,10 +46,12 @@ import { statique } from "./statique.js";
 import { smartSearch, prepareWords, isExact, norm, capQuery } from "./search.js";
 import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
-import { isFixedId, readFixed, fixedRoute, fixedAvailable } from "./fixe.js";
 import { SEANCE_ID, carteSeance, rechercheSeance, routeSeance } from "./seance.js";
 import { routeDiagnostic } from "./diagnostic.js";
+import { isFixedId, readFixed, fixedRoute, fixedAvailable, noteLecture } from "./fixe.js";
 import { sha256 } from "./outils-serveur.js";
+import { programmationPublique } from "./soiree.js";
+import { galerieRoute } from "./galerie.js";
 import { secondesAvantBascule, jourTendances, routeTendances, prendrePhotos } from "./tendances.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
@@ -1914,6 +1916,8 @@ const app = {
     // Chemin brut (encodé) : on découpe « genre=…&skip=… » AVANT de décoder,
     // sinon un filtre comme « Action & Aventure » serait coupé en deux.
     let path = url.pathname.replace(/\/+$/, "");
+    // Galerie des styles d'affiches de la régie (salle 2) : jamais derrière une config (voir galerie.js).
+    if (path.startsWith("/galerie/")) return galerieRoute(request, env, url, path);
     const today = parisToday();
     const rows = allRows(today, null);
     // Nuvio « de base » de l'avant / après des aperçus : les rangées de Cinemeta, relayées (voir cinemeta.js).
@@ -2001,9 +2005,13 @@ const app = {
       // Lien fixe : même adresse, nouveaux réglages. « Actualiser les addons » dans Nuvio doit relire le manifest
       // à chaque fois, jamais le ressortir d'un cache. Un lien habituel change d'adresse avec ses réglages : 5 min.
       if (fixedId) res.headers.set("Cache-Control", "no-cache, max-age=0, must-revalidate");
+      // « Ta TV l'a reçu » (billet du lien fixe) : l'heure de cette lecture, notée sans retarder la réponse.
+      if (fixedId) ctx.waitUntil(noteLecture(env, fixedId, request));
       return res;
     }
     if (path === "/collections.json") return json(await collections(cfg), CACHE_CLIENT_S);
+    // Soirée à deux (salle 2) : les rangées d'un lien, sans clé Gemini ni jeton d'alerte (voir soiree.js).
+    if (path === "/programmation.json") return json(programmationPublique(cfg), fixedId ? 60 : 86400);
     // La photo du jour des tendances, lue par le service d'affiches (worker/tendances.js).
     const tend = !cfgSeg && /^\/tendances\/([a-z]+)\.json$/.exec(path);
     if (tend) return routeTendances(env, tend[1], HEADERS);

@@ -23,6 +23,17 @@ OUT = ROOT / "data" / "imdb-ratings.bin"
 BASE = "https://datasets.imdbws.com/"
 FILES = ["title.ratings.tsv.gz", "title.episode.tsv.gz"]
 MIN_VOTES = 50   # en dessous, la note est trop peu sûre : l'addon n'en affiche pas
+# Garde-fous : un fichier d'IMDb tronqué ou vide ne remplace pas les notes (≈ 340 000 titres en 2026).
+MIN_TITLES = 200_000
+MIN_SHARE = 0.8  # et au moins 80 % des titres du fichier actuel
+
+
+def check(count: int) -> None:
+    """Arrête tout (fichier non modifié) si le nouveau fichier a trop peu de titres."""
+    previous = struct.unpack("<I", OUT.read_bytes()[:4])[0] if OUT.exists() and OUT.stat().st_size >= 4 else 0
+    minimum = max(MIN_TITLES, int(previous * MIN_SHARE))
+    if count < minimum:
+        raise SystemExit(f"trop peu de titres ({count}, {minimum} au moins), {OUT.name} non modifié")
 
 
 def fetch(folder: Path) -> None:
@@ -46,6 +57,7 @@ def build(folder: Path) -> None:
             if tconst not in episodes and int(votes) >= MIN_VOTES and tconst.startswith("tt"):
                 rows.append((int(tconst[2:]), round(float(rating) * 10)))
     rows.sort()
+    check(len(rows))
     out = bytearray(struct.pack("<I", len(rows)))
     prev = 0
     for num, _ in rows:

@@ -26,6 +26,7 @@ OUT = ROOT / "data" / "search-words.json"
 KEY = os.environ.get("TMDB_API_KEY", "").strip()
 TOP_PAGES = 250      # les plus votés : 5 000 films et 5 000 séries
 POPULAR_PAGES = 100  # les plus populaires du moment : 2 000 de plus de chaque
+MIN_SHARE = 0.8      # garde-fou : le nouveau vocabulaire fait au moins 80 % de l'actuel
 
 
 def tmdb(path: str, **params) -> dict:
@@ -107,10 +108,24 @@ def from_catalogs() -> dict[str, float]:
     return weights
 
 
+def minimum_words(with_tmdb: bool) -> int:
+    """Taille minimale du nouveau vocabulaire. Depuis TMDB : 80 % du fichier actuel (≈ 15 000 mots),
+    pour qu'une panne partielle (pages manquées) ne remplace pas le vocabulaire par un vocabulaire troué.
+    Sans clé (en local, catalogues de addon/ seulement, forcément plus petit) : 1 000 mots."""
+    if not with_tmdb or not OUT.exists():
+        return 1000
+    try:
+        previous = len(json.loads(OUT.read_text(encoding="utf-8")))
+    except ValueError:
+        return 1000
+    return max(1000, int(previous * MIN_SHARE))
+
+
 def main() -> None:
     weights = from_tmdb() if KEY else from_catalogs()
-    if len(weights) < 1000:
-        raise SystemExit(f"vocabulaire trop petit ({len(weights)} mots), fichier non modifié")
+    minimum = minimum_words(bool(KEY))
+    if len(weights) < minimum:
+        raise SystemExit(f"vocabulaire trop petit ({len(weights)} mots, {minimum} au moins), fichier non modifié")
     data = {w: round(v, 1) for w, v in sorted(weights.items(), key=lambda x: -x[1])}
     OUT.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"{len(data)} mots : {OUT.relative_to(ROOT)} ({OUT.stat().st_size // 1024} Ko)")

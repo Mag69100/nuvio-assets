@@ -24,9 +24,20 @@ const FONTS = [
   { name: "Inter", data: police("Inter-SemiBold.ttf"), weight: 600, style: "normal" },
   { name: "Inter", data: police("Inter-ExtraBold.ttf"), weight: 800, style: "normal" },
   { name: "Bebas Neue", data: police("BebasNeue-Regular.ttf"), weight: 400, style: "normal" },
+  // Régie v3 : Élégante (Playfair Display), Arrondie (Nunito), Condensée (Oswald) — sous-ensembles latins (accents compris).
+  ...[["Playfair Display", "PlayfairDisplay", [500, 600, 800]], ["Nunito", "Nunito", [500, 600, 800]], ["Oswald", "Oswald", [500, 600, 700]]]
+    .flatMap(([name, fichier, poids]) => poids.map((weight) => ({ name, data: police(`${fichier}-${weight}.woff`), weight, style: "normal" }))),
 ];
-// Police « Cinéma » : Bebas Neue, haute et serrée, un peu agrandie pour se lire aussi bien qu'Inter.
-const POLICES = { inter: { nom: "Inter", echelle: 1 }, bebas: { nom: "Bebas Neue", echelle: 1.2 } };
+// Polices : Bebas Neue (« Cinéma ») et Oswald (« Condensée ») sont hautes et serrées, un peu agrandies pour se lire
+// aussi bien qu'Inter. lettre : largeur moyenne d'une lettre (pour estimer la largeur de la ligne du bas).
+const POLICES = {
+  inter: { nom: "Inter", echelle: 1, lettre: 0.6 }, bebas: { nom: "Bebas Neue", echelle: 1.2, lettre: 0.44 },
+  elegante: { nom: "Playfair Display", echelle: 1.02, lettre: 0.6 }, arrondie: { nom: "Nunito", echelle: 1.02, lettre: 0.58 },
+  condensee: { nom: "Oswald", echelle: 1.08, lettre: 0.48 },
+};
+// Ombre du texte : aucune, normale (défaut), forte.
+const OMBRES = { aucune: "0 0 0 transparent", normale: "0 2px 8px rgba(0,0,0,0.7)", forte: "0 2px 3px rgba(0,0,0,0.95), 0 0 14px rgba(0,0,0,0.85)" };
+const ESPACES = { aere: 0.05, tresaere: 0.12 };
 
 // Mesures par forme (en pixels de l'affiche), puis facteurs des réglages.
 const MESURES = {
@@ -55,7 +66,7 @@ const svg = (taille, viewBox, d, fill) => ({
 });
 const ETOILE = "M12 2l2.9 6.9 7.1.6-5.4 4.7 1.6 7-6.2-3.8-6.2 3.8 1.6-7L2 9.5l7.1-.6z";
 const FLECHE = "M7 17L17 7M9 7h8v8";
-const OMBRE = "0 2px 8px rgba(0,0,0,0.7)", SANS_OMBRE = "0 0 0 transparent";
+const SANS_OMBRE = "0 0 0 transparent";
 const BADGES_NOTE = { imdb: { fond: OR, nom: "IMDb" }, tmdb: { fond: "#01b4e4", nom: "TMDB" } };
 const fleche = (t, couleur) => ({
   type: "svg",
@@ -116,7 +127,7 @@ function blocNotes(content, t, accent) {
  * assez juste pour réduire le texte d'une ligne trop chargée avant qu'elle ne déborde ou ne passe à la ligne.
  */
 function largeurLigne(l, st, police) {
-  const c = police === "Bebas Neue" ? 0.44 : 0.6, mots = (x) => (x ? String(x).length * c : 0);
+  const c = (Object.values(POLICES).find((p) => p.nom === police) || POLICES.inter).lettre, mots = (x) => (x ? String(x).length * c : 0);
   if (st.note === "grand" && l.note) return mots(l.genre) * 0.77 + mots(l.note) * 2.45 + mots(l.annee) * 0.77 + mots(l.duree) * 0.77 + 2;
   const parts = [l.genre, l.note || (l.notes && l.notes.length), l.annee, l.duree].filter(Boolean).length;
   let em = mots(l.genre) + mots(l.annee) + mots(l.duree) + Math.max(0, parts - 1) * (0.7 + c);
@@ -178,8 +189,29 @@ function ligneDuBas(content, m, accent, images, [w]) {
   }[m.disposition];
   return h("div", {
     position: "absolute", bottom: m.ligneBas, display: "flex", ...place, whiteSpace: "nowrap",
-    fontSize: t, fontWeight: 600, color: "rgba(255,255,255,0.9)", textShadow: OMBRE,
+    fontSize: t, fontWeight: 600, color: st.texteC || "rgba(255,255,255,0.9)", textShadow: m.ombre, ...casseEtEspace(st, t),
   }, morceaux);
+}
+
+/** Majuscules et espacement des lettres choisis (rien par défaut). */
+const casseEtEspace = (st, t) => ({ ...(st.casse === "maj" ? { textTransform: "uppercase" } : {}), ...(ESPACES[st.espace] ? { letterSpacing: t * ESPACES[st.espace] } : {}) });
+
+/** Petite ligne sous la ligne du bas : réalisateur, accroche ou studio, raccourcie si elle ne tient pas. */
+function ligne2(content, m, [w]) {
+  const st = content.styles, t = m.texte2;
+  const place = m.disposition === "cote" ? { right: m.marge, justifyContent: "flex-end" } : m.disposition === "gauche" ? { left: m.marge } : { left: 0, right: 0, justifyContent: "center" };
+  const largeur = (m.disposition === "cote" ? w * 0.5 : w - 2 * m.marge), max = Math.max(8, Math.floor(largeur / (t * 0.56)));
+  const texte = content.line2.length > max ? content.line2.slice(0, max - 1).trimEnd() + "…" : content.line2;
+  return h("div", { position: "absolute", bottom: m.ligneBas2, display: "flex", ...place, whiteSpace: "nowrap", fontSize: t, fontWeight: 500,
+    color: st.texteC || "rgba(255,255,255,0.78)", textShadow: m.ombre, ...casseEtEspace(st, t) }, texte);
+}
+
+/** Badge « Incontournable » : une étoile et le mot, à la couleur d'accent. */
+function badgeCulte(t, accent, b) {
+  return h("div", b
+    ? { ...b, fontSize: t * 0.52, fontWeight: 800, letterSpacing: t * 0.05 }
+    : { display: "flex", alignItems: "center", border: `1.5px solid ${accent}`, color: accent, borderRadius: 999, padding: `${t * 0.1}px ${t * 0.35}px`, fontSize: t * 0.52, fontWeight: 800, letterSpacing: t * 0.05, background: "rgba(0,0,0,0.35)" },
+  [h("div", { display: "flex", marginRight: t * 0.2 }, svg(t * 0.55, "0 0 24 24", ETOILE, b ? b.color : accent)), h("span", {}, "INCONTOURNABLE")]);
 }
 
 /** Barre fine : un trait à la couleur d'accent juste au-dessus de la ligne du bas. */
@@ -193,27 +225,30 @@ function barreFine(content, m, [w], accent) {
 // ---------- Le haut ----------
 
 /** Boîte commune des badges du haut quand un style commun est choisi (plein, verre, contour). */
-function boite(badges, t, accent) {
+function boite(badges, t, accent, ombre = OMBRES.normale) {
   if (!badges) return null;
   const a = OPACITE[badges.opacite] || 1, rayon = { arrondi: t * 0.25, carre: 2, pilule: 999 }[badges.forme] || t * 0.25;
   const texte = badges.couleur === "or" ? accent : badges.couleur === "noir" ? ENCRE : "#fff";
+  // Fond du style plein : la couleur du nuancier choisie, sinon crème (texte noir) ou encre (texte clair).
+  const rvb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(",");
   const fond = {
-    plein: { background: badges.couleur === "noir" ? `rgba(243,234,215,${a})` : `rgba(18,11,14,${0.85 * a})` },
+    plein: { background: badges.fond ? `rgba(${rvb(badges.fond)},${a})` : badges.couleur === "noir" ? `rgba(243,234,215,${a})` : `rgba(18,11,14,${0.85 * a})` },
     verre: { background: `rgba(255,255,255,${0.18 * a})`, border: "1px solid rgba(255,255,255,0.35)" },
     contour: { border: `1.5px solid ${badges.couleur === "or" ? accent : "rgba(255,255,255,0.85)"}` },
   }[badges.style] || {};
-  return { display: "flex", alignItems: "center", borderRadius: rayon, padding: `${t * 0.14}px ${t * 0.38}px`, color: texte, textShadow: badges.style === "plein" ? SANS_OMBRE : OMBRE, ...fond };
+  return { display: "flex", alignItems: "center", borderRadius: rayon, padding: `${t * 0.14}px ${t * 0.38}px`, color: texte, textShadow: badges.style === "plein" ? SANS_OMBRE : ombre, ...fond };
 }
 
 /** Le statut, puis le rang de tendance dessous (en haut à gauche, ou à droite si les côtés sont inversés). */
-function blocStatut(content, m, accent, cote, descente) {
-  const st = content.styles, t = m.texte * (Number(st.haut) || 1), pile = [], b = boite(st.badges, t, accent);
+function blocStatut(content, m, accent, place, descente) {
+  const cote = place.cote;
+  const st = content.styles, t = m.texte * (Number(st.haut) || 1), pile = [], b = boite(st.badges, t, accent, m.ombre);
   if (content.statut) {
     pile.push(b
       ? h("div", { ...b, fontSize: t * 0.62, fontWeight: 800, letterSpacing: t * 0.05 }, content.statut)
       : st.statut === "etiquette"
         ? h("div", { display: "flex", background: CREME, color: ENCRE, borderRadius: 5, padding: "4px 8px", fontSize: t * 0.62, fontWeight: 800, letterSpacing: t * 0.05 }, content.statut)
-        : h("div", { display: "flex", fontSize: t * 0.7, fontWeight: 800, letterSpacing: t * 0.08, color: "#fff", textShadow: OMBRE }, content.statut));
+        : h("div", { display: "flex", fontSize: t * 0.7, fontWeight: 800, letterSpacing: t * 0.08, color: "#fff", textShadow: m.ombre }, content.statut));
   }
   if (content.rank) {
     if (b) {
@@ -224,11 +259,12 @@ function blocStatut(content, m, accent, cote, descente) {
         : { marginRight: -m.marge, borderRadius: "6px 0 0 6px", padding: `4px ${m.marge}px 4px 12px` };
       pile.push(h("div", { display: "flex", background: accent, color: ENCRE, fontSize: t * 0.92, fontWeight: 800, ...ruban }, `N°${content.rank}`));
     } else {
-      pile.push(h("div", { display: "flex", alignItems: "center", fontSize: t, fontWeight: 800, color: "#fff", textShadow: OMBRE }, [fleche(t, accent), h("span", {}, `N°${content.rank}`)]));
+      pile.push(h("div", { display: "flex", alignItems: "center", fontSize: t, fontWeight: 800, color: "#fff", textShadow: m.ombre }, [fleche(t, accent), h("span", {}, `N°${content.rank}`)]));
     }
   }
+  if (content.culte) pile.push(badgeCulte(t, accent, b));
   if (!pile.length) return null;
-  return h("div", { position: "absolute", [cote]: m.marge, top: m.haut + descente, display: "flex", flexDirection: "column", alignItems: cote === "left" ? "flex-start" : "flex-end", gap: t * 0.25 }, pile);
+  return h("div", { position: "absolute", ...positionBloc(m, place, descente), display: "flex", flexDirection: "column", alignItems: cote === "left" ? "flex-start" : "flex-end", gap: t * 0.25 }, pile);
 }
 
 // Logo Dolby Vision : deux « D » pleins, arrondis face à face au milieu (dessiné ici, en couleur du texte).
@@ -253,8 +289,9 @@ export function elementsQualite(extra, t, pastille, label = "4K", atmos = false)
 }
 
 /** La qualité (« 4K | HDR »…) et, dessous, le logo de plateforme en coin ; en haut à droite (à gauche si inversé). */
-function blocQualite(content, m, accent, cote, descente, images) {
-  const st = content.styles, t = m.texte * (Number(st.haut) || 1), b = boite(st.badges, t, accent), pile = [];
+function blocQualite(content, m, accent, place, descente, images) {
+  const cote = place.cote;
+  const st = content.styles, t = m.texte * (Number(st.haut) || 1), b = boite(st.badges, t, accent, m.ombre), pile = [];
   if (content.quality) {
     const pastille = !b && st.qualite === "pastille";
     const q = elementsQualite(content.quality.extra, t, pastille || (b && b.color === ENCRE), content.quality.label || "4K", !!content.quality.atmos);
@@ -262,11 +299,16 @@ function blocQualite(content, m, accent, cote, descente, images) {
       ? { ...b, fontSize: t * 0.85, fontWeight: 800 }
       : pastille
         ? { display: "flex", alignItems: "center", background: "rgba(255,255,255,0.92)", color: ENCRE, borderRadius: 6, padding: "3px 9px", fontSize: t * 0.85, fontWeight: 800 }
-        : { display: "flex", alignItems: "center", fontSize: t, fontWeight: 800, color: "#fff", textShadow: OMBRE }, q));
+        : { display: "flex", alignItems: "center", fontSize: t, fontWeight: 800, color: "#fff", textShadow: m.ombre }, q));
   }
   if (content.coin && images[content.coin]) pile.push(img(images[content.coin], Math.round(t * 1.45), { borderRadius: t * 0.3 }));
   if (!pile.length) return null;
-  return h("div", { position: "absolute", [cote]: m.marge, top: m.haut + descente, display: "flex", flexDirection: "column", alignItems: cote === "left" ? "flex-start" : "flex-end", gap: t * 0.3 }, pile);
+  return h("div", { position: "absolute", ...positionBloc(m, place, descente), display: "flex", flexDirection: "column", alignItems: cote === "left" ? "flex-start" : "flex-end", gap: t * 0.3 }, pile);
+}
+
+/** Place d'un bloc de badges : un coin du haut (sous le bandeau s'il est de ce côté), ou un coin du bas, juste au-dessus du titre. */
+function positionBloc(m, place, descente) {
+  return place.vertical === "bottom" ? { [place.cote]: m.marge, bottom: m.basBlocs } : { [place.cote]: m.marge, top: m.haut + descente };
 }
 
 /** Bandeau en coin : une bande à la couleur d'accent, en diagonale, qui porte le statut ou le N° de tendance. */
@@ -296,12 +338,17 @@ async function calqueTexte(content, taille, m, accent, images) {
   const [w, hgt] = taille, st = content.styles, enfants = [];
   if (content.line) enfants.push(ligneDuBas(content, m, accent, images, taille));
   if (content.line && st.barre === "fine" && content.full) enfants.push(barreFine(content, m, taille, accent));
+  if (content.line2) enfants.push(ligne2(content, m, taille));
+  // Coins des blocs : « auto » = statut à gauche et qualité à droite (ou l'inverse) en haut ; sinon le coin choisi.
   const [coteStatut, coteQualite] = st.inverse ? ["right", "left"] : ["left", "right"];
+  const coins = st.coins || {};
+  const placeDe = (coin, cote) => (coin && coin !== "auto" ? { cote: coin[1] === "g" ? "left" : "right", vertical: coin[0] === "b" ? "bottom" : "top" } : { cote, vertical: "top" });
+  const pStatut = placeDe(coins.statut, coteStatut), pQualite = placeDe(coins.qualite, coteQualite);
   const coinBandeau = content.bandeau ? (content.bandeau.coin === "g" ? "left" : "right") : null;
-  const descente = (cote) => (cote === coinBandeau ? descenteBandeau(content, taille) : 0);
-  const statut = blocStatut(content, m, accent, coteStatut, descente(coteStatut));
+  const descente = (p) => (p.vertical === "top" && p.cote === coinBandeau ? descenteBandeau(content, taille) : 0);
+  const statut = blocStatut(content, m, accent, pStatut, descente(pStatut));
   if (statut) enfants.push(statut);
-  const qualite = blocQualite(content, m, accent, coteQualite, descente(coteQualite), images);
+  const qualite = blocQualite(content, m, accent, pQualite, descente(pQualite), images);
   if (qualite) enfants.push(qualite);
   if (content.bandeau) enfants.push(bandeauEnCoin(content, m, taille, accent));
   if (!enfants.length) return null;
@@ -338,10 +385,11 @@ const teinteVive = (hsl) => hex({ hue: hsl.hue, s: Math.max(0.55, Math.min(1, hs
 /** Dégradés : fondu du bas, voile du haut sous les badges, vignette sur les bords. */
 function calqueDegrades(content, [w, hgt], teinte) {
   const st = content.styles, fondu = content.full && st.fondu;
-  const voile = VOILE[st.voile ?? "m"], haut = voile > 0 && !!(content.statut || content.rank || content.quality || content.bandeau || content.coin);
-  if (!fondu && !haut && !st.vignette) return null;
+  const voile = VOILE[st.voile ?? "m"], haut = voile > 0 && !!(content.statut || content.rank || content.quality || content.bandeau || content.coin || content.culte);
+  if (!fondu && !haut && !st.vignette && !st.cadre) return null;
   const hb = Math.round(hgt * HAUTEUR_FONDU[(fondu && fondu.hauteur) || "normal"]), hh = Math.round(hgt * 0.22);
-  const couleur = fondu && fondu.couleur === "affiche" && teinte ? teinte : "#000", force = fondu ? FORCE[fondu.force] : 0;
+  // Couleur du fondu : celle du nuancier si elle est choisie, sinon les couleurs de l'affiche ou le noir.
+  const couleur = fondu && fondu.teinte ? fondu.teinte : fondu && fondu.couleur === "affiche" && teinte ? teinte : "#000", force = fondu ? FORCE[fondu.force] : 0;
   const bords = teinte && fondu && fondu.couleur === "affiche" ? teinte : "#000";
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${hgt}">
   <defs>
@@ -352,6 +400,7 @@ function calqueDegrades(content, [w, hgt], teinte) {
   ${st.vignette ? `<rect x="0" y="0" width="${w}" height="${hgt}" fill="url(#v)"/>` : ""}
   ${fondu ? `<rect x="0" y="${hgt - hb}" width="${w}" height="${hb}" fill="url(#b)"/>` : ""}
   ${haut ? `<rect x="0" y="0" width="${w}" height="${hh}" fill="url(#h)"/>` : ""}
+  ${st.cadre ? `<rect x="2" y="2" width="${w - 4}" height="${hgt - 4}" fill="none" stroke="${st.cadre}" stroke-width="4"/>` : ""}
 </svg>`);
 }
 
@@ -428,13 +477,61 @@ async function calqueLogo(content, [w, hgt], m, fetchImpl) {
   if (m.disposition === "cote") {
     // Paysage : les lettres commencent à la marge de gauche, et le logo descend jusqu'au bas de la ligne.
     const left = Math.min(Math.max(Math.round(m.marge - plein.left), 0), w - info.width);
-    return { input: data, left, top: Math.max(0, Math.round(hgt - m.ligneBas - info.height - monte)) };
+    return avecEffet({ input: data, left, top: Math.max(0, Math.round(hgt - m.ligneBas - info.height - monte)) }, info, content.styles.effet, [w, hgt]);
   }
   // Au centre, ou à gauche (les lettres à la marge), au-dessus de la ligne du bas.
   const voulu = m.disposition === "gauche" ? m.marge - plein.left : w / 2 - (plein.left + plein.width / 2);
   const left = Math.min(Math.max(Math.round(voulu), 0), w - info.width);
   const bas = m.ligneBas + hauteurLigne(content, m) + m.texte * 0.65 + monte;
-  return { input: data, left, top: Math.max(0, Math.round(hgt - bas - info.height)) };
+  return avecEffet({ input: data, left, top: Math.max(0, Math.round(hgt - bas - info.height)) }, info, content.styles.effet, [w, hgt]);
+}
+
+/**
+ * Ombre ou halo sous le logo : sa silhouette (noire ou blanche) floutée, posée juste dessous. Sans effet : le logo
+ * seul (même objet qu'avant). La silhouette est recadrée pour rester dans l'affiche.
+ */
+async function avecEffet(calque, info, effet, [w, hgt]) {
+  if (effet !== "ombre" && effet !== "halo") return calque;
+  const pad = 18, couleur = effet === "halo" ? { r: 255, g: 255, b: 255 } : { r: 0, g: 0, b: 0 };
+  const etendu = await sharp(calque.input).extend({ top: pad, bottom: pad, left: pad, right: pad, background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+  const W = info.width + 2 * pad, H = info.height + 2 * pad;
+  const forme = await sharp({ create: { width: W, height: H, channels: 4, background: { ...couleur, alpha: effet === "halo" ? 0.8 : 1 } } })
+    .composite([{ input: etendu, blend: "dest-in" }]).png().toBuffer();
+  let silhouette = await sharp(forme).blur(effet === "halo" ? 9 : 4).png().toBuffer();
+  let left = calque.left - pad + (effet === "ombre" ? 4 : 0), top = calque.top - pad + (effet === "ombre" ? 6 : 0);
+  // Recadrée dans l'affiche (sharp ne pose pas une image qui dépasse).
+  const x0 = Math.max(0, -left), y0 = Math.max(0, -top), x1 = Math.min(W, w - left), y1 = Math.min(H, hgt - top);
+  if (x1 - x0 < 1 || y1 - y0 < 1) return calque;
+  silhouette = await sharp(silhouette).extract({ left: x0, top: y0, width: x1 - x0, height: y1 - y0 }).png().toBuffer();
+  return { ...calque, sous: { input: silhouette, left: left + x0, top: top + y0 } };
+}
+
+/**
+ * Grain de film : chaque pixel est éclairci ou assombri d'un peu (± 14), selon un tirage toujours le même
+ * (même affiche, même image). Ajouté directement aux pixels : rapide et exact.
+ */
+async function ajouterGrain(base) {
+  const { data, info } = await sharp(base).raw().toBuffer({ resolveWithObject: true });
+  let x = 12345;
+  for (let i = 0; i < info.width * info.height; i++) {
+    // Générateur 32 bits exact (Math.imul) : un calcul en nombres flottants perdrait sa précision.
+    x = (Math.imul(x, 1664525) + 1013904223) >>> 0;
+    const d = Math.round((x / 4294967296 - 0.5) * 28);
+    for (let c = 0; c < 3; c++) { const k = i * info.channels + c; data[k] = Math.max(0, Math.min(255, data[k] + d)); }
+  }
+  return sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } }).png().toBuffer();
+}
+
+/** Retouches de l'image, une étape après l'autre (sharp n'applique qu'un seul « linear » par passage). */
+async function retoucher(buf, rt) {
+  const etape = async (f) => { buf = await f(sharp(buf)).toBuffer(); };
+  if (rt.lum !== undefined || rt.satur !== undefined) await etape((x) => x.modulate({ brightness: rt.lum ?? 1, saturation: rt.satur ?? 1 }));
+  if (rt.contraste !== undefined) await etape((x) => x.linear(rt.contraste, 128 * (1 - rt.contraste)));
+  if (rt.filtre === "nb") await etape((x) => x.grayscale().toColourspace("srgb"));
+  if (rt.filtre === "sepia") await etape((x) => x.recomb([[0.393, 0.769, 0.189], [0.349, 0.686, 0.168], [0.272, 0.534, 0.131]]));
+  if (rt.filtre === "froid") await etape((x) => x.linear([0.9, 1, 1.12], [0, 4, 12]));
+  if (rt.filtre === "chaud") await etape((x) => x.linear([1.1, 1.02, 0.86], [10, 4, 0]));
+  return buf;
 }
 
 /** Cadre des pixels d'opacité > seuil d'une image RGBA brute ; l'image entière si aucun ne l'est. */
@@ -457,8 +554,13 @@ function mesures(content) {
   m.disposition = !st.place || st.place === "auto" ? (m.cote ? "cote" : "centre") : st.place;
   m.police = police.nom;
   m.texte *= police.echelle;
+  m.ombre = OMBRES[st.ombre] || OMBRES.normale;
+  // Petite ligne sous la ligne du bas : la ligne (et le logo au-dessus) remontent d'autant.
+  m.texte2 = m.texte * (m.ligne || 1) * 0.62 * (Number(st.texte) || 1);
+  if (content.line2) { m.ligneBas2 = m.ligneBas; m.ligneBas += Math.round(m.texte2 * 1.4); }
   return m;
 }
+const coinsBas = (st) => !!st.coins && [st.coins.statut, st.coins.qualite].some((c) => c && c[0] === "b");
 
 /** JPEG d'une affiche (400×600 en portrait, 800×450 en paysage). Lève une erreur si l'image de base manque. */
 export async function draw(content, fetchImpl = fetch) {
@@ -466,23 +568,30 @@ export async function draw(content, fetchImpl = fetch) {
   const st = content.styles, taille = SIZES[content.shape], m = mesures(content);
   const [w, hgt] = taille;
   const imagesP = imagesPlateforme(content, fetchImpl);
-  // Le texte se dessine pendant les téléchargements, sauf avec l'accent « couleur de l'affiche », qui attend l'image.
-  const accentFixe = st.accent !== "affiche";
+  // Le texte se dessine pendant les téléchargements, sauf avec l'accent « couleur de l'affiche », qui attend l'image,
+  // et avec des badges en bas, qui se posent au-dessus du logo (il faut connaître sa place).
+  const accentFixe = st.accent !== "affiche" || !!st.accentC, accentHex = st.accentC || ACCENTS[st.accent] || OR;
+  const enParallele = accentFixe && !coinsBas(st);
   const [fond, logo, images, texteFixe] = await Promise.all([
     telecharger(urlFond(content), fetchImpl),
     // Pas de repli sans logo : sur l'image sans texte, il porte le titre. Une erreur ici fait répondre
     // une erreur au service, et Nuvio montre l'affiche d'origine.
     calqueLogo(content, taille, m, fetchImpl),
     imagesP,
-    accentFixe ? imagesP.then((im) => calqueTexte(content, taille, m, ACCENTS[st.accent] || OR, im)) : null,
+    enParallele ? imagesP.then((im) => calqueTexte(content, taille, m, accentHex, im)) : null,
   ]);
+  // Badges en bas : juste au-dessus du logo (ou de la ligne du bas sans logo).
+  m.basBlocs = Math.round(logo ? hgt - logo.top + m.texte * 0.35 : m.ligneBas + hauteurLigne(content, m) + m.texte * 0.65);
   // Pas encore sorti : l'image en noir et blanc ; les badges, posés ensuite, gardent leurs couleurs.
   let image = sharp(fond).resize(w, hgt, { fit: "cover", position: "attention" });
   if (content.gris) image = image.grayscale().toColourspace("srgb");
-  const base = await image.toBuffer();
+  let base = await image.toBuffer();
+  // Retouches choisies (luminosité, contraste, saturation, filtre), puis grain de film.
+  if (st.retouche) base = await retoucher(base, st.retouche);
+  if (st.retouche && st.retouche.grain) base = await ajouterGrain(base);
   const fondu = content.full && st.fondu;
-  const hsl = (fondu && fondu.couleur === "affiche") || st.accent === "affiche" ? await hslDuBas(base, taille) : null;
-  const texte = accentFixe ? texteFixe : await calqueTexte(content, taille, m, hsl ? teinteVive(hsl) : OR, images);
+  const hsl = (fondu && fondu.couleur === "affiche") || (st.accent === "affiche" && !st.accentC) ? await hslDuBas(base, taille) : null;
+  const texte = enParallele ? texteFixe : await calqueTexte(content, taille, m, accentFixe ? accentHex : hsl ? teinteVive(hsl) : OR, images);
   // Un seul flou de l'image, calculé au premier besoin (fondu flou, barre de verre).
   let floue = null;
   const flouDe = () => (floue = floue || sharp(base).blur(Math.max(1, w / 40)).toBuffer());
@@ -491,7 +600,8 @@ export async function draw(content, fetchImpl = fetch) {
   const degrades = calqueDegrades(content, taille, fondu && fondu.couleur === "affiche" && hsl ? teinteSombre(hsl) : null);
   if (degrades) calques.push({ input: degrades, left: 0, top: 0 });
   if (content.line && content.full && st.barre === "verre") calques.push(...(await calquesBarreVerre(flouDe, content, taille, m)));
-  if (logo) calques.push(logo);
+  if (logo && logo.sous) calques.push(logo.sous);
+  if (logo) calques.push({ input: logo.input, left: logo.left, top: logo.top });
   if (texte) calques.push({ input: texte, left: 0, top: 0 });
   // JPEG standard plutôt que mozjpeg : 3 fois moins de calcul pour des fichiers à peine plus lourds.
   return sharp(base).composite(calques).jpeg({ quality: 82 }).toBuffer();

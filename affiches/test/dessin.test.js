@@ -169,6 +169,9 @@ test("styles : chaque choix se dessine", async () => {
     { bandeau: { texte: "NOUVEAU", coin: "g" }, statut: null, styles: { ...STYLES, badges: { style: "verre", forme: "carre", opacite: "s", couleur: "or" }, inverse: true, accent: "affiche", vignette: true, voile: "l", barre: "verre", monte: 0.3, large: 1.4 } },
     { line: { genre: "SF", note: "8,4", noteN: 5, notes: [{ s: "mc", v: "45", n: 4.5 }], duree: "3 saisons", ordre: "agn" }, quality: { label: "4K", extra: "DV", atmos: true }, styles: { ...STYLES, couleurNote: "halo", barre: "fine", badges: { style: "contour", forme: "arrondi", opacite: "m", couleur: "blanc" }, fondu: { couleur: "noir", force: "l", hauteur: "long", flou: true } } },
     { logo: null, line: { genre: "SF", note: "8,4" }, styles: { ...STYLES, note: "grand", couleurNote: "oui" } },
+    { line2: "Le destin d'un peuple, une très longue accroche qui ne tient pas sur une seule ligne de l'affiche", culte: true, styles: { ...STYLES, police: "elegante", casse: "maj", espace: "aere", ombre: "aucune", effet: "halo", texteC: "#46c46e", accentC: "#a970ff", cadre: "#f5c518", retouche: { lum: 0.7, contraste: 1.3, satur: 0, filtre: "froid", grain: true }, coins: { statut: "bg", qualite: "bd" } } },
+    { culte: true, statut: "NOUVEAU", styles: { ...STYLES, police: "condensee", effet: "ombre", retouche: { filtre: "chaud", satur: 1.6 }, coins: { statut: "hd", qualite: "hg" } } },
+    { line2: "Créée par Vince Gilligan", styles: { ...STYLES, police: "arrondie", badges: { style: "plein", forme: "pilule", opacite: "m", couleur: "noir", fond: "#a8f0ff" } } },
   ];
   for (const e of essais) {
     for (const shape of ["poster", "landscape"]) {
@@ -447,4 +450,76 @@ test("revue_qualite_atmos_dessinee", async () => {
   const sans = await draw({ ...seul, line: null, quality: { label: "4K", extra: null, atmos: false } }, f);
   const avecAtmos = await draw({ ...seul, line: null, quality: { label: "4K", extra: null, atmos: true } }, f);
   assert.ok(await compte(avecAtmos, [200, 0, 200, 60], blanc) > await compte(sans, [200, 0, 200, 60], blanc) + 60, "ATMOS absent");
+});
+
+// ---------- Régie v3 ----------
+const difference = async (a, b, zoneXY) => {
+  const [pa, pb] = [await pixels(a, ...zoneXY), await pixels(b, ...zoneXY)];
+  let n = 0;
+  for (let i = 0; i < pa.data.length; i++) if (Math.abs(pa.data[i] - pb.data[i]) > 40) n++;
+  return n;
+};
+const ligneSF = { genre: "SF", note: "8,4", annee: "2024" };
+
+test("v3_polices_casse_espace_ombre", async () => {
+  const defaut = await draw({ ...seul, line: ligneSF }, f);
+  for (const st of [{ police: "elegante" }, { police: "arrondie" }, { police: "condensee" }, { casse: "maj", line: { genre: "Drame" } }, { espace: "tresaere" }, { ombre: "forte" }]) {
+    const { line = ligneSF, ...styles } = st;
+    const buf = await draw({ ...seul, line, styles: { ...STYLES, ...styles } }, f);
+    const ref = line === ligneSF ? defaut : await draw({ ...seul, line }, f);
+    assert.ok(await difference(ref, buf, [0, 520, 400, 80]) > 200, JSON.stringify(st));
+  }
+});
+
+test("v3_couleurs", async () => {
+  const rouge = (r, g, b) => r > 190 && g < 110 && b < 120;
+  const texte = await draw({ ...seul, line: { genre: "Drame" }, styles: { ...STYLES, texteC: "#e5484d" } }, f);
+  assert.ok(await compte(texte, [0, 520, 400, 80], rouge) > 60, "texte pas rouge");
+  const accent = await draw({ ...seul, line: { note: "8,4" }, styles: { ...STYLES, accentC: "#e5484d" } }, f);
+  assert.ok(await compte(accent, [0, 520, 400, 80], rouge) > 30, "étoile pas rouge");
+  const fond = await draw({ ...seul, line: null, statut: "NOUVEAU", styles: { ...STYLES, badges: { style: "plein", forme: "arrondi", opacite: "l", couleur: "blanc", fond: "#e5484d" } } }, f);
+  assert.ok(await compte(fond, [0, 0, 160, 50], rouge) > 200, "fond des badges pas rouge");
+  const teinte = await draw({ ...seul, line: null, logo: null, styles: { ...STYLES, fondu: { couleur: "noir", force: "l", teinte: "#1f5fd1" } } }, f);
+  const [r, , b] = await zone(teinte, 0, 560, 400, 40);
+  assert.ok(b > r + 15, `fondu pas bleu : r ${r} b ${b}`);
+});
+
+test("v3_retouches_et_cadre", async () => {
+  const sans = await draw({ ...seul, line: null }, f);
+  const [m0] = await zone(sans, 100, 250, 200, 100);
+  const clair = await draw({ ...seul, line: null, styles: { ...STYLES, retouche: { lum: 1.3 } } }, f);
+  assert.ok((await zone(clair, 100, 250, 200, 100))[0] > m0 + 15, "pas plus lumineux");
+  const sepia = await draw({ ...seul, line: null, styles: { ...STYLES, retouche: { filtre: "sepia" } } }, f);
+  const [sr, sg, sb] = await zone(sepia, 100, 250, 200, 100);
+  assert.ok(sr > sg && sg > sb + 10, `pas sépia : ${sr} ${sg} ${sb}`);
+  const nb = await draw({ ...seul, line: null, styles: { ...STYLES, retouche: { filtre: "nb" } } }, avec(uni(200, 40, 40)));
+  const [nr, ng] = await zone(nb, 100, 250, 200, 100);
+  assert.ok(Math.abs(nr - ng) < 4, "pas en noir et blanc");
+  const grain = await draw({ ...seul, line: null, styles: { ...STYLES, retouche: { grain: true } } }, f);
+  const sd = async (buf) => (await sharp(await sharp(buf).extract({ left: 100, top: 250, width: 200, height: 100 }).toBuffer()).stats()).channels[0].stdev;
+  assert.ok(await sd(grain) > (await sd(sans)) + 2, "pas de grain");
+  const cadre = await draw({ ...seul, line: null, styles: { ...STYLES, cadre: "#e5484d" } }, f);
+  const rouge = (r, g, b) => r > 190 && g < 110 && b < 120;
+  assert.ok(await compte(cadre, [0, 200, 6, 200], rouge) > 150, "pas de cadre");
+});
+
+test("v3_effet_du_logo", async () => {
+  const sans = await draw({ ...base, line: null, rank: null, quality: null }, f);
+  const ombre = await draw({ ...base, line: null, rank: null, quality: null, styles: { ...STYLES, effet: "ombre" } }, f);
+  const halo = await draw({ ...base, line: null, rank: null, quality: null, styles: { ...STYLES, effet: "halo" } }, f);
+  assert.ok(await difference(sans, ombre, [0, 300, 400, 300]) > 200, "pas d'ombre");
+  assert.ok(await difference(sans, halo, [0, 300, 400, 300]) > 200, "pas de halo");
+});
+
+test("v3_ligne2_culte_coins", async () => {
+  const sans = await draw({ ...seul, line: ligneSF }, f);
+  const avecL2 = await draw({ ...seul, line: ligneSF, line2: "Un film de Denis Villeneuve" }, f);
+  assert.ok(await compte(avecL2, [0, 570, 400, 30], (r, g, b) => r > 150 && g > 150 && b > 150) > 40, "pas de ligne 2 en bas");
+  assert.ok(await difference(sans, avecL2, [0, 480, 400, 80]) > 200, "la ligne du bas n'est pas remontée");
+  const culte = await draw({ ...seul, line: null, culte: true }, f);
+  const jaune = (r, g, b) => r > 200 && g > 150 && b < 90;
+  assert.ok(await compte(culte, [0, 0, 220, 80], jaune) > 60, "pas de badge Incontournable");
+  const coin = await draw({ ...seul, line: ligneSF, statut: "NOUVEAU", styles: { ...STYLES, coins: { statut: "bd", qualite: "auto" } } }, f);
+  assert.ok(await compte(coin, [0, 0, 200, 60], blanc) < 10, "statut resté en haut");
+  assert.ok(await compte(coin, [200, 300, 200, 250], blanc) > 40, "statut pas en bas à droite");
 });

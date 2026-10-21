@@ -399,7 +399,7 @@ test("v2_plateforme_en_coin_seule_pas_redirigee", async () => {
 test("revue_bandeau_statut_cache_court", async () => {
   const res = await makeHandler({ fetchImpl: internet({ detail: avecSorties([4, jour(-5)]) }), env })(req("type=movie&shape=poster&id=tt15239678&s=1.J1"));
   assert.equal(res.status, 200);
-  assert.ok(age(res, "Cache-Control") <= secondesAvantBascule(), res.headers.get("Cache-Control"));
+  assert.ok(age(res, "Cache-Control") <= secondesAvantBascule() + 2, res.headers.get("Cache-Control"));   // deux lectures de l'heure, à une seconde près
 });
 
 // Revue : les autres notes ne sont pas demandées quand elles ne seraient pas dessinées (note en grand chiffre,

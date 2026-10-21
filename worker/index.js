@@ -61,7 +61,11 @@ const LOGO_V = 2;
 const NOISE_TV = ["10763", "10764", "10766", "10767"]; // actualité, téléréalité, soap, talk-show
 
 const CACHE_CATALOG_S = 3 * 3600;  // une page de catalogue reste 3 h dans le cache Cloudflare
-const CACHE_CLIENT_S = 300;        // et 5 min seulement dans le cache de Nuvio
+const CACHE_CLIENT_S = 300;        // et 5 min seulement dans le cache de Nuvio (manifest, liens fixes)
+// Rangées d'un lien habituel : 15 min dans Nuvio (qui les relit à chaque expiration). Leur adresse change avec les
+// réglages, rien à attendre pour voir un changement. Celles d'un lien fixe gardent leur adresse quand les réglages
+// changent : 5 min, pour que « Actualiser les addons » montre vite les nouvelles rangées.
+const CACHE_CLIENT_LONG_S = 900;
 const CACHE_DEGRADE_S = 300;       // page incomplète (fiches refusées par TMDB) : 5 min seulement
 const CACHE_IMDB_S = 30 * 86400;    // correspondance TMDB → IMDb : 30 jours
 
@@ -1996,7 +2000,8 @@ const app = {
     const cacheKey = new Request(`https://cache.local/c${CACHE_V}/${today}${path}?k=${await sha(contentKey(cfg))}${aiTag}&t=${jourTendances()}`);
     const hit = await caches.default.match(cacheKey);
     // Page gardée incomplète (X-Partiel) : Nuvio ne la garde qu'une minute.
-    if (hit) return new Response(hit.body, { headers: { ...HEADERS, "Cache-Control": `public, max-age=${hit.headers.get("X-Partiel") ? 60 : CACHE_CLIENT_S}` } });
+    const clientCc = fixedId ? `public, max-age=${CACHE_CLIENT_S}` : `public, max-age=${CACHE_CLIENT_LONG_S}, stale-while-revalidate=${CACHE_CLIENT_LONG_S}`;
+    if (hit) return new Response(hit.body, { headers: { ...HEADERS, "Cache-Control": hit.headers.get("X-Partiel") ? "public, max-age=60" : clientCc } });
 
     let metas = [];
     try {
@@ -2004,14 +2009,16 @@ const app = {
     } catch (e) {
       return json({ metas: [], error: String(e) }, 60);
     }
-    // Copie gardée côté Cloudflare quelques heures ; Nuvio, lui, ne garde la réponse
-    // que 5 minutes (son cache disque respecte max-age), pour voir vite les changements.
+    // Copie gardée côté Cloudflare quelques heures ; Nuvio, lui, ne garde la réponse que 5 ou 15 minutes
+    // (son cache disque respecte max-age, voir CACHE_CLIENT_LONG_S), pour voir vite les changements.
     // Page incomplète (TMDB a refusé des fiches) : gardée 5 minutes, pas 3 heures, pour vite retrouver la page entière.
     if (metas.length && !metas.partial) {
       const garde = json({ metas }, metas.degrade ? CACHE_DEGRADE_S : CACHE_CATALOG_S);
       if (metas.degrade) garde.headers.set("X-Partiel", "1");
       ctx.waitUntil(caches.default.put(cacheKey, garde));
     }
-    return json({ metas }, metas.partial ? 0 : metas.degrade ? 60 : CACHE_CLIENT_S);
+    const out = json({ metas }, metas.partial ? 0 : 60);
+    if (!metas.partial && !metas.degrade) out.headers.set("Cache-Control", clientCc);
+    return out;
   },
 };

@@ -105,7 +105,7 @@ test("panneau_de_la_cabine", () => {
   // Étape 12 : chaque panne est rangée sous au moins un voyant, et chaque voyant allume au moins une panne.
   const html = enLigne(guidePage({ origin: O, season: "" }));
   const voyants = [...html.matchAll(/class="voyant" data-moment="([a-z]+)"/g)].map((m) => m[1]);
-  const pannes = [...html.matchAll(/<details data-moment="([a-z ]+)">/g)].map((m) => m[1].split(" "));
+  const pannes = [...html.matchAll(/<details data-moment="([a-z ]+)"[^>]*>/g)].map((m) => m[1].split(" "));
   assert.equal(voyants.length, 5);
   assert.ok(pannes.length >= 10);
   for (const p of pannes) assert.ok(p.every((m) => voyants.includes(m)), p.join(" "));

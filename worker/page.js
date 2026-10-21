@@ -1225,12 +1225,19 @@ $("b-cancel").after(delBtn);
 // Il lit exactement ce que Nuvio recevra : le manifest.json et le collections.json de ce lien, dans leur ordre
 // (« Suivre l'ordre des addons »), avec Plateformes épinglée tout en haut.
 const byPos = (list) => [...list].sort((a, b) => (a.pos ?? 99) - (b.pos ?? 99));
+// Réponses gardées le temps de la visite : 50 au plus (les plus anciennes partent), et un échec (réseau,
+// erreur du serveur) n'est pas gardé, pour que l'écran réessaie au changement suivant.
 const jsonCache = new Map();
 function fetchJSON(url) {
-  if (!jsonCache.has(url)) jsonCache.set(url, fetch(url).then(r => r.ok ? r.json() : null).catch(() => null));
-  return jsonCache.get(url);
+  let p = jsonCache.get(url);
+  if (p) { jsonCache.delete(url); jsonCache.set(url, p); return p; }
+  p = fetch(url).then(r => r.ok ? r.json() : null).catch(() => null)
+    .then((d) => { if (d === null && jsonCache.get(url) === p) jsonCache.delete(url); return d; });
+  jsonCache.set(url, p);
+  while (jsonCache.size > 50) jsonCache.delete(jsonCache.keys().next().value);
+  return p;
 }
-let currentBase = D.origin, screenTimer = 0, screenToken = 0, lastZap = 0;
+let currentBase = D.origin, screenBase = null, screenTimer = 0, screenToken = 0, lastZap = 0;
 let configureUrl = D.origin + "/configure"; // adresse de cette page avec les réglages en cours
 let shareUrl = configureUrl;                  // la même, sans la clé Gemini : pour le billet partagé
 // L'écran grésille à chaque changement (pas plus de deux fois par seconde).
@@ -1800,8 +1807,11 @@ function update() {
   dessineFixe(seg);
   const manifest = base + "/manifest.json";
   // L'aperçu lit toujours les réglages en cours (le lien fixe, lui, garde la même adresse : le
-  // navigateur ressortirait ses anciennes rangées de son cache).
-  currentBase = D.origin + (seg ? "/" + seg : "");
+  // navigateur ressortirait ses anciennes rangées de son cache). Sans le nom, la clé Gemini ni le jeton
+  // d'alerte : ils ne changent pas les rangées (le nom de l'addon n'est pas à l'écran, la recherche de
+  // l'aperçu passe par l'adresse de base), et l'écran ne recharge pas tout à chaque lettre tapée.
+  const vu = compact({ ...state, n: D.defaults.n, k: "", al: "" });
+  currentBase = D.origin + (Object.keys(vu).length ? "/" + enc(vu) : "");
   // L'adresse de la page suit les réglages : on peut revenir, recharger ou partager sans rien perdre.
   configureUrl = base + "/configure";
   const shared = compact({ ...state, k: "", al: "" });
@@ -1829,7 +1839,7 @@ function update() {
   $("t-extra").textContent = extras.join(" · ");
   $("dock-count").textContent = state.r.length + " rangées, " + state.p.length + " plateformes";
   $("prov-warn").hidden = state.p.length > 0 || !state.r.includes("accueil-nouveautes-plateformes");
-  renderScreen();
+  if (currentBase !== screenBase) { screenBase = currentBase; renderScreen(); }
 }
 
 // ---------- tout le reste ----------

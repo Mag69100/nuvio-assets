@@ -58,6 +58,20 @@ test("mot_de_passe_trop_simple_signale", () => {
   assert.match(run({ ADMIN_PASSWORD: "choisis-un-mot-de-passe" }).stderr, /trop simple/);
 });
 
+// Même image de base à chaque construction, et un état « healthy » lisible par docker ps.
+test("image_de_base_fixee_et_etat_de_sante", () => {
+  const dockerfile = readFileSync("Dockerfile", "utf8");
+  assert.match(dockerfile, /^FROM node:22-[a-z]+-slim@sha256:[0-9a-f]{64}$/m);
+  assert.match(dockerfile, /^HEALTHCHECK .*\n\s+CMD \["node", "-e", ".*\/manifest\.json/m);
+});
+
+// Au démarrage, seuls les fichiers du volume qui ne sont pas à « node » changent de propriétaire.
+test("pas_de_chown_complet_du_volume", () => {
+  const ep = readFileSync("docker/entrypoint.sh", "utf8");
+  assert.doesNotMatch(ep, /chown -R/);
+  assert.match(ep, /find "\$DATA_DIR" .*! -user node/);
+});
+
 // Workers Builds redéploie à chaque « Sync fork » : les variables du tableau de bord doivent rester.
 test("variables_gardees_au_deploiement", () => {
   assert.match(readFileSync("wrangler.toml", "utf8"), /^keep_vars = true$/m);

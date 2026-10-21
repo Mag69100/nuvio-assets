@@ -56,10 +56,12 @@ fi
 cd "$APP_DIR"
 
 # Lancé en root (cas normal) : le volume et le fichier des clés passent à l'utilisateur « node », qui fait
-# tourner le Worker.
+# tourner le Worker. Seuls les fichiers qui ne sont pas encore à lui sont modifiés (pas tout le cache à chaque
+# démarrage, long sur un NAS ou une carte SD).
 run=""
 if [ "$(id -u)" = "0" ] && id node >/dev/null 2>&1 && command -v setpriv >/dev/null 2>&1; then
-  chown -R node:node "$DATA_DIR" "$VARS"
+  find "$DATA_DIR" \( ! -user node -o ! -group node \) -exec chown -h node:node {} +
+  chown node:node "$VARS"
   run="setpriv --reuid=node --regid=node --init-groups --"
   export HOME=/home/node
 fi

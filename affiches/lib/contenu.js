@@ -5,7 +5,7 @@
  * les éléments du haut.
  */
 import { createHash } from "node:crypto";
-import { DEFAUT_REGLAGES } from "./lien-affiches.js";
+import { DEFAUT_REGLAGES, PALETTE } from "./lien-affiches.js";
 import { etatSortie } from "./statut.js";
 
 // À changer quand le dessin change : l'ETag change avec, et Nuvio recharge les affiches.
@@ -31,6 +31,16 @@ export const GENRES_COMPLETS = {
 const LIBELLES_STATUT = { bientot: "BIENTÔT", salle: "EN SALLE", nouveau: "NOUVEAU", saison: "NOUVELLE SAISON" };
 const MOIS = ["JANV.", "FÉVR.", "MARS", "AVR.", "MAI", "JUIN", "JUIL.", "AOÛT", "SEPT.", "OCT.", "NOV.", "DÉC."];
 const DEBUTS = { dispo: "DISPO LE", cinema: "AU CINÉMA LE", sortie: "SORTIE LE" };
+
+const DEBUTS_COMPTE = { dispo: "DISPO", cinema: "AU CINÉMA", sortie: "SORTIE" };
+const jours = (de, a) => Math.round((Date.parse(a) - Date.parse(de)) / 86400000);
+
+/** Compte à rebours : « AU CINÉMA DANS 57 JOURS », « DISPO DANS ENV. 35 JOURS », « AU CINÉMA DEMAIN ». */
+function libelleCompte({ quoi, date, vers }, today) {
+  const n = jours(today, date);
+  const quand = n <= 0 ? "AUJOURD'HUI" : n === 1 ? "DEMAIN" : `DANS ${vers ? "ENV. " : ""}${n} JOURS`;
+  return `${DEBUTS_COMPTE[quoi]} ${quand}`;
+}
 
 /** « DISPO LE 2 NOV. », « DISPO VERS LE 3 DÉC. », « AU CINÉMA LE 12 MARS 2027 »… (comme les rangées de l'addon). */
 function libelleDate({ quoi, date, vers }, today) {
@@ -129,7 +139,9 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
     if (Object.keys(line).length && r.ligne.ordre !== "gna") line.ordre = r.ligne.ordre;
   }
   // Pas encore sorti : la date quand on la connaît, plutôt que « Bientôt » ou « En salle ».
-  let libelle = r.statut.on && statut ? (quand ? libelleDate(quand, today) : LIBELLES_STATUT[statut]) : null;
+  let libelle = r.statut.on && statut ? (quand ? (r.statut.forme === "compte" ? libelleCompte(quand, today) : libelleDate(quand, today)) : LIBELLES_STATUT[statut]) : null;
+  // Série dont un épisode est sorti il y a moins de 7 jours (si rien de plus fort à dire).
+  if (r.statut.on && r.statut.episode && !libelle && facts.type === "series" && facts.lastEpisode && facts.lastEpisode <= today && jours(facts.lastEpisode, today) <= 7) libelle = "NOUVEL ÉPISODE";
   let place = r.tendance.on && rank >= 1 && rank <= 20 ? rank : null;
   // Bandeau en coin : il porte le statut ou le N° de tendance, qui ne sont alors plus écrits en haut.
   let bandeau = null;
@@ -171,6 +183,32 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
       ...(a.accent !== "or" ? { accent: a.accent } : {}),
     },
   };
+  // Régie v3 : styles hors défaut seulement (couleurs du nuancier, retouches, textes, coins).
+  const st = content.styles, t = r.texte, img = r.image;
+  if (a.accentC) st.accentC = PALETTE[a.accentC];
+  if (t.couleur) st.texteC = PALETTE[t.couleur];
+  if (st.badges && b.style === "plein" && b.fond) st.badges = { ...st.badges, fond: PALETTE[b.fond] };
+  if (st.fondu && r.fondu.teinte) st.fondu = { ...st.fondu, teinte: PALETTE[r.fondu.teinte] };
+  const retouche = {
+    ...(img.lum !== 1 ? { lum: img.lum } : {}), ...(img.contraste !== 1 ? { contraste: img.contraste } : {}), ...(img.satur !== 1 ? { satur: img.satur } : {}),
+    ...(img.filtre !== "aucun" ? { filtre: img.filtre } : {}), ...(img.grain ? { grain: true } : {}),
+  };
+  if (Object.keys(retouche).length) st.retouche = retouche;
+  if (img.cadre !== "aucun") st.cadre = img.cadre === "blanc" ? "#ffffff" : img.cadre === "or" ? "#f5c518" : PALETTE[img.cadreC] || "#ffffff";
+  if (t.casse !== "normal") st.casse = t.casse;
+  if (t.espace !== "normal") st.espace = t.espace;
+  if (t.ombre !== "normale") st.ombre = t.ombre;
+  if (full && logo && r.titre.effet !== "aucun") st.effet = r.titre.effet;
+  if (b.coinStatut !== "auto" || b.coinQualite !== "auto") st.coins = { statut: b.coinStatut, qualite: b.coinQualite };
+  // Petite ligne sous la ligne du bas : réalisateur (ou créateurs), accroche, ou studio.
+  if (full && r.infos.ligne2 !== "aucune") {
+    const l2 = r.infos.ligne2 === "realisateur" ? (facts.director ? (facts.type === "series" ? "Créée par " : "Un film de ") + facts.director : null)
+      : r.infos.ligne2 === "accroche" ? facts.tagline : facts.studio;
+    if (l2) content.line2 = l2;
+  }
+  // Badge « Incontournable » : très bien noté (IMDb 8,0 ou plus, sinon TMDB) et très vu (3 000 votes TMDB ou plus).
+  const noteCulte = Number(imdbRating || (facts.vote && facts.vote.average) || 0);
+  if (r.infos.culte && noteCulte >= 8 && facts.vote && facts.vote.count >= 3000) content.culte = true;
   // Clés ajoutées seulement quand elles servent (même raison : l'ETag des autres affiches ne bouge pas).
   if (bandeau) content.bandeau = bandeau;
   if (plateforme && r.plateforme.place === "coin") content.coin = plateforme;

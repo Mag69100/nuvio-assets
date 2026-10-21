@@ -84,7 +84,7 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
     // Films : les dates de sortie détaillées servent au statut (« En salle », « Nouveau »…) et à l'âge conseillé ;
     // séries : les classifications par pays, pour l'âge.
     // Plateformes (watch/providers) pour le logo de plateforme ; logos dans les langues d'origine courantes.
-    language: "fr-FR", append_to_response: (type === "series" ? "images,external_ids,content_ratings" : "images,external_ids,release_dates") + (options.plateforme ? ",watch/providers" : ""),
+    language: "fr-FR", append_to_response: (type === "series" ? "images,external_ids,content_ratings" : "images,external_ids,release_dates") + (options.plateforme ? ",watch/providers" : "") + (options.credits && type !== "series" ? ",credits" : ""),
     include_image_language: options.vo ? LANGUES_IMAGES : "fr,en,null",
   }, fetchImpl);
   if (!d) return null;
@@ -108,6 +108,13 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
     runtime: type === "series" ? null : d.runtime || null,
     seasonsCount: type === "series" ? (d.seasons || []).filter((x) => x.season_number >= 1).length || null : null,
     provider: plateformeDe(d),
+    // Régie v3 : accroche, studio (ou chaîne d'une série), réalisateur (ou créateurs), dernier épisode diffusé.
+    tagline: d.tagline || null,
+    studio: ((d.production_companies || [])[0] || {}).name || ((d.networks || [])[0] || {}).name || null,
+    director: (type === "series"
+      ? (d.created_by || []).map((c) => c.name)
+      : ((d.credits && d.credits.crew) || []).filter((c) => c.job === "Director").map((c) => c.name)).slice(0, 2).join(" et ") || null,
+    lastEpisode: type === "series" && d.last_episode_to_air ? d.last_episode_to_air.air_date || null : null,
     lastSeason: type === "series" && d.last_episode_to_air ? d.last_episode_to_air.season_number : null,
     // Pour le statut (lib/statut.js).
     releases: type === "series" ? [] : (d.release_dates && d.release_dates.results) || [],

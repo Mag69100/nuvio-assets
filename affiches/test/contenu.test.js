@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { posterContent, contentKey, SHORT_GENRES } from "../lib/contenu.js";
-import { DEFAUT_REGLAGES, MEMOIRES, lireReglages } from "../lib/lien-affiches.js";
+import { DEFAUT_REGLAGES, MEMOIRES, lireReglages, PALETTE } from "../lib/lien-affiches.js";
 
 const AUJ = "2026-10-20";
 // Film sorti en salle en 2024, en numérique depuis longtemps : aucun statut.
@@ -272,4 +272,49 @@ test("v2_styles_hors_defaut_seulement", () => {
 test("revue_image_du_film_marque_fond_large", () => {
   assert.equal(contenu(v2, plein, "poster", reglages("Uf")).fondLarge, true);
   assert.equal(contenu(v2, plein).fondLarge, undefined);
+});
+
+// ---------- Régie v3 ----------
+const v3 = { ...v2, tagline: "Le destin d'un peuple.", studio: "Legendary", director: "Denis Villeneuve", vote: { average: 8.1, count: 6000 } };
+
+test("v3_ligne2", () => {
+  assert.equal(contenu(v3, plein, "poster", reglages("3ar")).line2, "Un film de Denis Villeneuve");
+  assert.equal(contenu(v3, plein, "poster", reglages("3aa")).line2, "Le destin d'un peuple.");
+  assert.equal(contenu(v3, plein, "poster", reglages("3as")).line2, "Legendary");
+  const serie = { ...v3, type: "series", releases: [], releaseDate: "", firstAir: "2020-01-01", seasons: [], director: "Vince Gilligan" };
+  assert.equal(contenu(serie, plein, "poster", reglages("3ar")).line2, "Créée par Vince Gilligan");
+  assert.equal(contenu({ ...v3, tagline: null }, plein, "poster", reglages("3aa")).line2, undefined);
+  assert.equal(contenu(v3, plein).line2, undefined);
+});
+
+test("v3_culte", () => {
+  assert.equal(contenu(v3, plein, "poster", reglages("3b1")).culte, true);
+  assert.equal(contenu(v3, { ...plein, imdbRating: "7.9" }, "poster", reglages("3b1")).culte, undefined);
+  assert.equal(contenu({ ...v3, vote: { average: 8.1, count: 900 } }, plein, "poster", reglages("3b1")).culte, undefined);
+  assert.equal(contenu(v3, plein).culte, undefined);
+});
+
+test("v3_statut_episode_et_compte", () => {
+  const serie = { ...facts, type: "series", releases: [], releaseDate: "", firstAir: "2020-01-01", seasons: [], lastEpisode: "2026-10-17" };
+  assert.equal(contenu(serie, plein, "poster", reglages("3c1")).statut, "NOUVEL ÉPISODE");
+  assert.equal(contenu({ ...serie, lastEpisode: "2026-10-01" }, plein, "poster", reglages("3c1")).statut, null);
+  assert.equal(contenu(serie, plein).statut, null);
+  assert.equal(contenu(bientot, plein, "poster", reglages("3dc")).statut, "AU CINÉMA DANS 57 JOURS");
+  assert.equal(contenu(enSalle, plein, "poster", reglages("3dc")).statut, "DISPO DANS ENV. 35 JOURS");
+  const demain = { ...facts, releases: [{ iso_3166_1: "FR", release_dates: [{ type: 3, release_date: "2026-10-21" }] }], releaseDate: "2026-10-21" };
+  assert.equal(contenu(demain, plein, "poster", reglages("3dc")).statut, "AU CINÉMA DEMAIN");
+});
+
+test("v3_styles_hors_defaut", () => {
+  assert.deepEqual(Object.keys(contenu(v3, plein).styles).sort(), Object.keys(contenu(facts, plein).styles).sort());
+  const st = contenu(v3, plein, "poster", reglages("Hp0az0bq0c51am1bc1co1dn1e11fc1g5wc2am2bt2cf2dh3e43f1")).styles;
+  assert.equal(st.accentC, PALETTE.z);
+  assert.equal(st.texteC, PALETTE.q);
+  assert.equal(st.badges.fond, PALETTE["5"]);
+  assert.deepEqual(st.retouche, { lum: 1.3, contraste: 0.8, satur: 1.4, filtre: "nb", grain: true });
+  assert.equal(st.cadre, PALETTE["5"]);
+  assert.deepEqual([st.police, st.casse, st.espace, st.ombre, st.effet], ["condensee", "maj", "tresaere", "forte", "halo"]);
+  assert.deepEqual(st.coins, { statut: "bd", qualite: "hg" });
+  assert.equal(contenu(v3, plein, "poster", reglages("0db")).styles.fondu.teinte, PALETTE.b);
+  assert.equal(contenu(v3, plein, "poster", reglages("1fo")).styles.cadre, "#f5c518");
 });

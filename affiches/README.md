@@ -69,6 +69,9 @@ une limite de débit dans le pare-feu de Vercel (Firewall → Rules) le complèt
 cd affiches && npm install && npm test
 ```
 
+Vercel les lance aussi avant chaque mise en ligne (`buildCommand` de `vercel.json`) : un test qui échoue bloque la
+mise en ligne, et l'ancienne version reste en service.
+
 ## Consommation
 
 Tableau de bord Vercel → le projet → Usage. Limites gratuites par mois : 1 000 000 de requêtes CDN, 4 h de

@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["cdg1"],
+  "buildCommand": "npm test",
   "rewrites": [
     { "source": "/qualite/:type/:video.json", "destination": "/api/qualite?type=:type&video=:video" },
     { "source": "/tendances/:type.json", "destination": "/api/tendances?type=:type" },

@@ -54,6 +54,23 @@ test("adresses_mal_encodees_sans_erreur_500", async () => {
   assert.deepEqual(metas, []);
 });
 
+// Une mise à jour de l'addon ne vide plus les caches : leurs clés suivent CACHE_V, pas VERSION.
+test("cles_de_cache_sans_la_version", async () => {
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    const u = String(url);
+    if (u.includes("/discover/")) return new Response(JSON.stringify({ results: [{ id: 5, name: "Série", first_air_date: "2020-01-01" }], page: 1, total_pages: 1 }));
+    if (/\/movie\/5\b/.test(u)) return new Response(JSON.stringify({ id: 5, title: "Film", imdb_id: "tt0000005" }));
+    return new Response(JSON.stringify({ results: [] }));
+  };
+  await get("/catalog/series/accueil-series-a-devorer.json");
+  await get("/meta/movie/tmdb:5.json");
+  const version = /const VERSION = "([\d.]+)"/.exec(await import("node:fs").then((fs) => fs.readFileSync(new URL("../worker/index.js", import.meta.url), "utf8")))[1];
+  const cles = [...store.keys()].filter((k) => /\/(catalog|meta)\//.test(k));
+  assert.ok(cles.some((k) => k.includes("/catalog/")) && cles.some((k) => k.includes("/meta/")), cles.join("\n"));
+  for (const k of cles) assert.ok(!k.includes(version), k);
+});
+
 test("erreur_imprevue_reponse_propre", async () => {
   // Cache en panne : l'erreur remonte jusqu'en haut ; la réponse reste du JSON, jamais gardée, sans le détail.
   globalThis.caches = { default: { match: async () => { throw new Error("cache cassé https://x/?api_key=secret"); }, put: async () => {} } };

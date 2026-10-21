@@ -44,6 +44,10 @@ import { secondesAvantBascule, jourTendances, routeTendances, prendrePhotos } fr
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
 const VERSION = "5.26.5";
+// Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
+// ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
+// vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
+const CACHE_V = 1;
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -1939,7 +1943,7 @@ const app = {
     }
     if (mm && decode(mm[2]) === null) return json({ meta: null }, 600);
     if (mm) {
-      const fullKey = `https://cache.local/${VERSION}/${today}/meta/${mm[1]}/${mm[2]}?l=${langOf(cfg)}&g=${cfg.g}&ai=${env.GEMINI_API_KEY ? 1 : 0}`;
+      const fullKey = `https://cache.local/c${CACHE_V}/${today}/meta/${mm[1]}/${mm[2]}?l=${langOf(cfg)}&g=${cfg.g}&ai=${env.GEMINI_API_KEY ? 1 : 0}`;
       // ?leger=1 : l'aperçu du site au survol. La fiche complète si elle est déjà prête, sinon une fiche sans IA.
       const leger = url.searchParams.get("leger") === "1";
       const metaKey = new Request(leger ? `${fullKey}&leger=1` : fullKey);
@@ -1972,7 +1976,7 @@ const app = {
     const extra = parseExtra(extraSeg);
     const aiTag = extra.search ? `&ai=${env.GEMINI_API_KEY ? 1 : 0}` : "";
     // La clé change aussi avec la photo des tendances (4 h UTC) : les rangées suivent les « N° » du jour.
-    const cacheKey = new Request(`https://cache.local/${VERSION}/${today}${path}?k=${await sha(contentKey(cfg))}${aiTag}&t=${jourTendances()}`);
+    const cacheKey = new Request(`https://cache.local/c${CACHE_V}/${today}${path}?k=${await sha(contentKey(cfg))}${aiTag}&t=${jourTendances()}`);
     const hit = await caches.default.match(cacheKey);
     if (hit) return new Response(hit.body, { headers: { ...HEADERS, "Cache-Control": `public, max-age=${CACHE_CLIENT_S}` } });
 

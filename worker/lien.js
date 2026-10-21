@@ -3,7 +3,10 @@
  * Le lien voyage dans l'ancre (#u=…&nom=…), qui n'est jamais envoyée au serveur : les liens qui
  * contiennent une clé (AllDebrid) restent sur le téléphone.
  * On choisit : copier le lien, ou copier le contenu du fichier (une configuration JSON, par exemple).
+ * Un lien d'affiches (QR code de la régie) : seulement « Copier le lien », avec l'endroit où le coller dans Nuvio.
  */
+import { AFFICHES_URL } from "./reglages.js";
+
 export function lienPage({ origin }) {
   const LOGO = origin + "/logo.png";
   return `<!doctype html>
@@ -48,7 +51,7 @@ summary.aide { padding: 10px 0; cursor: pointer; }
   <div class="choix" id="choix"></div>
   <p class="etat" id="etat" role="status"></p>
   <details id="apercu" hidden><summary class="aide">Voir ce qui sera copié</summary><pre id="texte"></pre></details>
-  <p class="aide">Puis colle-le là où le guide l'indique : dans Nuvio (« Gérer depuis le téléphone »), ou sur le site de l'addon. <a href="${origin}/guide" style="color: var(--bulb)">Retour au guide</a></p>
+  <p class="aide" id="aide">Puis colle-le là où le guide l'indique : dans Nuvio (« Gérer depuis le téléphone »), ou sur le site de l'addon. <a href="${origin}/guide" style="color: var(--bulb)">Retour au guide</a></p>
 </main>
 <script>
 (() => {
@@ -77,9 +80,16 @@ summary.aide { padding: 10px 0; cursor: pointer; }
   // Seuls les addons du guide (ce site, Torrentio, OpenSubtitles) ont le bouton d'installation directe.
   let site = "";
   try { site = new URL(valeur).hostname; } catch (e) {}
-  const connu = [location.hostname, "torrentio.strem.fun", "opensubtitles-v3.strem.io"].includes(site);
+  const AFFICHES = ${JSON.stringify(new URL(AFFICHES_URL).hostname)};
+  const connu = [location.hostname, AFFICHES, "torrentio.strem.fun", "opensubtitles-v3.strem.io"].includes(site);
   $("site").textContent = "Lien vers " + (site || "?") + (connu ? "" : " : un site qui n'est pas dans le guide, vérifie que tu l'attendais.");
   $("site").hidden = false;
+  // Lien d'affiches : un modèle ({type}, {id}…) que Nuvio remplit, rien à ouvrir ni à télécharger.
+  if (site === AFFICHES) {
+    bouton("Copier le lien", "Pour Nuvio : Paramètres → Disposition → Custom Poster Source", true, () => copier(valeur, "Lien copié ✓"));
+    $("aide").textContent = "Puis dans Nuvio : Paramètres → Disposition → Custom Poster Source, colle le lien.";
+    return;
+  }
   bouton("Copier le lien", "Le plus courant : à coller dans Nuvio ou sur le site d'un addon", true, () => { $("texte").textContent = valeur; copier(valeur, "Lien copié ✓"); });
   // Un lien d'addon s'installe aussi d'un geste dans l'appli Nuvio de ce téléphone (nuvio://…, que Stremio ne prend pas ; pas sous Windows, où Nuvio n'ouvre aucun lien).
   if (connu && /^https:[/][/][^/]+[/].*manifest[.]json$/.test(valeur) && !/Windows/.test(navigator.userAgent)) {

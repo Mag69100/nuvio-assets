@@ -174,3 +174,16 @@ test("regie_importer_un_lien", () => {
   assert.ok(html.includes("LA.reglagesDuLien("));
   assert.match(html, /id="regie-import-msg"[^>]*aria-live="polite"/);
 });
+
+// QR code du lien d'affiches : le téléphone ouvre /lien avec le lien prêt à copier (il voyage après le #).
+test("regie_qr_code", async () => {
+  const html = salle2();
+  for (const id of ["regie-qr-btn", "regie-qr", "regie-qr-code"]) assert.match(html, new RegExp(`id="${id}"`), id);
+  assert.match(html, /id="regie-qr-btn"[^>]*aria-controls="regie-qr"/);
+  assert.ok(/"\/lien#"\s*\+\s*new URLSearchParams\(\{\s*u:\s*NV\.lienPerso\(\)/.test(html), "QR code vers /lien avec le lien perso");
+  // La page /lien reconnaît le service d'affiches (pas d'avertissement « site pas dans le guide ») et dit où le coller.
+  const { lienPage } = await import("../worker/lien.js");
+  const lien = lienPage({ origin: "https://exemple.workers.dev" });
+  assert.ok(lien.includes("affiches-catalogue-fr.vercel.app"));
+  assert.ok(lien.includes("Custom Poster Source"));
+});

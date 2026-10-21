@@ -463,6 +463,13 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .regie-import input:focus-visible { outline: 2px solid var(--bulb); outline-offset: 1px; }
 .regie-import-msg { margin: 0; min-height: 1em; color: #c2b4a6; }
 .regie-import-msg.erreur { color: #ff8a8a; }
+/* QR code du lien d'affiches : même panneau, le code à gauche, l'explication à droite. */
+.regie-qr { width: min(440px, calc(100% - 32px)); grid-template-columns: 168px minmax(0, 1fr); align-items: center; gap: 14px; }
+.regie-qr p { margin: 0; line-height: 1.45; color: #e6d6c8; }
+.regie-qr-code { width: 168px; height: 168px; display: grid; place-items: center; padding: 6px; border-radius: 10px; background: #fff; color: #2a1a14; font: 400 .72rem var(--type); text-align: center; }
+.regie-qr-code svg { width: 100%; height: 100%; display: block; }
+.regie-qr-code.alerte { background: #3b1216; color: #ffe1d8; }
+@media (max-width: 520px) { .regie-qr { grid-template-columns: 1fr; justify-items: center; text-align: center; } }
 .regie-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .regie-x { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--seat); background: transparent; color: var(--cream); font-size: 1.05rem; cursor: pointer; }
 .regie-corps { display: grid; grid-template-columns: minmax(0, 1fr) 400px; min-height: 0; }
@@ -955,6 +962,7 @@ ${copy ? HOTE_HTML : ""}
         <h2 id="regie-titre">Tes affiches</h2>
         <div class="regie-actions">
           <button type="button" class="mini" id="regie-importer" aria-expanded="false" aria-controls="regie-import">Importer un lien</button>
+          <button type="button" class="mini" id="regie-qr-btn" aria-expanded="false" aria-controls="regie-qr">QR code</button>
           <button type="button" class="mini" id="regie-annuler" disabled>↶ Annuler</button>
           <button type="button" class="btn solid" id="regie-copier">Copier mon lien d'affiches</button>
           <button type="button" class="regie-x" id="regie-fermer" aria-label="Fermer la régie">✕</button>
@@ -966,6 +974,10 @@ ${copy ? HOTE_HTML : ""}
             <button type="button" class="btn solid" id="regie-import-ok">Importer</button>
           </div>
           <p class="regie-import-msg" id="regie-import-msg" aria-live="polite"></p>
+        </div>
+        <div class="regie-import regie-qr" id="regie-qr" role="region" aria-label="QR code du lien d'affiches" hidden>
+          <div id="regie-qr-code" class="regie-qr-code">Impression du QR code…</div>
+          <p>Scanne-le avec ton téléphone : ton lien d'affiches s'ouvre, prêt à copier. Colle-le ensuite dans Nuvio : Paramètres → Disposition → Custom Poster Source. Le QR code suit tes réglages.</p>
         </div>
       </div>
       <div class="regie-corps">
@@ -1321,6 +1333,27 @@ function lienAffichesMaj() {
   const m = LA.memoireDe(NV.reglages.affiches);
   $("aff-resume").innerHTML = "";
   $("aff-resume").append("Style en cours : ", el("b", { text: m ? NOMS_MEMOIRES[m] : "perso" }), NV.reglages.affichesPaysage ? " (paysage à part)." : ".");
+  regieQr();
+}
+
+// QR code du lien d'affiches (régie) : le téléphone ouvre /lien, où le lien est prêt à copier (il voyage après
+// le #, jamais envoyé au serveur). Ouvert, il suit les réglages.
+function regieQr() {
+  if ($("regie-qr").hidden) return;
+  const box = $("regie-qr-code");
+  const lien = location.origin + "/lien#" + new URLSearchParams({ u: NV.lienPerso(), nom: "Ton lien d'affiches" }).toString();
+  loadQr().then((qrcode) => {
+    const q = qrcode(0, lien.length > 300 ? "L" : "M"); q.addData(lien); q.make();
+    const n = q.getModuleCount(), w = n + 4; let d = "";
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += "M" + c + " " + r + "h1v1h-1z";
+    box.className = "regie-qr-code"; box.removeAttribute("role");
+    box.innerHTML = '<svg viewBox="-2 -2 ' + w + " " + w + '" role="img" aria-label="QR code de ton lien d\\'affiches" shape-rendering="crispEdges"><rect x="-2" y="-2" width="' + w + '" height="' + w + '" fill="#fff"/><path d="' + d + '" fill="#2a1a14"/></svg>';
+  }, () => { box.className = "regie-qr-code alerte"; box.setAttribute("role", "alert"); box.textContent = "QR code indisponible : vérifie ta connexion."; });
+}
+function qrOuvre(ouvert) {
+  $("regie-qr").hidden = !ouvert;
+  $("regie-qr-btn").setAttribute("aria-expanded", String(ouvert));
+  if (ouvert) { $("regie-import").hidden = true; $("regie-importer").setAttribute("aria-expanded", "false"); regieQr(); }
 }
 
 // ---- Les contrôles ----
@@ -1661,6 +1694,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape" || $("regie").hidden) return;
   e.stopPropagation();
   if (!$("regie-import").hidden) { importOuvre(false); return; }
+  if (!$("regie-qr").hidden) { qrOuvre(false); $("regie-qr-btn").focus(); return; }
   if (regieVoie) { fermePlus(); return; }
   regieFerme();
 });
@@ -1681,9 +1715,10 @@ function importOuvre(ouvert) {
   $("regie-import").hidden = !ouvert;
   $("regie-importer").setAttribute("aria-expanded", String(ouvert));
   $("regie-import-msg").textContent = ""; $("regie-import-msg").classList.remove("erreur");
-  if (ouvert) { $("regie-import-lien").value = ""; $("regie-import-lien").focus(); } else $("regie-importer").focus();
+  if (ouvert) { qrOuvre(false); $("regie-import-lien").value = ""; $("regie-import-lien").focus(); } else $("regie-importer").focus();
 }
 $("regie-importer").addEventListener("click", () => importOuvre($("regie-import").hidden));
+$("regie-qr-btn").addEventListener("click", () => qrOuvre($("regie-qr").hidden));
 function importe() {
   const lu = LA.reglagesDuLien($("regie-import-lien").value), msg = $("regie-import-msg");
   if (!lu) { msg.textContent = "Ce n'est pas un lien d'affiches : il doit finir par …/{type}/{shape}/{id}.jpg?…"; msg.classList.add("erreur"); return; }

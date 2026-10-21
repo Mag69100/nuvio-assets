@@ -10,6 +10,20 @@ Pour chaque titre, il dessine :
 
 Les affiches sont en portrait ou en paysage, au format JPEG.
 
+Les autres réglages se choisissent dans la régie (salle 2) et s'écrivent dans le lien (`s=1.…`, voir
+`lib/lien-affiches.js`). Parmi eux, ces options, éteintes par défaut (sans elles, le dessin ne change pas) :
+- **Langue** (`3g1`) : VF, MULTI (VF et VO), VOSTFR ou VO, sous la qualité, d'après les noms des sources lues chez
+  Torrentio (le même relais `/qualite/` que la qualité). Sans sources, pas de badge.
+- **Fin** et **Avancement** d'une série (`3h1`, `3i1`, réglages du statut) : « TERMINÉE » ou « ANNULÉE » (statut TMDB)
+  quand rien de plus fort n'est à dire (ordre dans `lib/statut.js`) ; une barre fine des épisodes sortis de la saison
+  en cours, cachée si elle est complète ou inconnue.
+- **Rang dans la saga** (`3j1`) : « SAGA · 3/5 », la place du film parmi ceux de sa collection TMDB déjà sortis
+  (`lib/saga.js`, un appel `/collection/` par saga, gardé une semaine).
+- **Habillage de la saison** (`3k1`) : cadre et ornements d'Halloween, de Noël, de la Saint-Valentin, de Pâques ou
+  d'été (`lib/habillage.js`) sur les films de la rangée « Spécial … » de l'addon, lue sur son `/saison.json`
+  (`lib/saison.js`, gardée 3 h). Nuvio ne dit pas de quelle rangée vient une affiche : ces films sont habillés
+  partout où ils apparaissent.
+
 ## Le lien à coller dans Nuvio
 
 Dans Nuvio : Paramètres → Disposition → Custom Poster Source, coller :
@@ -39,6 +53,9 @@ Caches :
 - **Rien à dessiner** (style « Nue », ou titre sans logo ni rang ni 4K) : redirection vers l'image TMDB d'origine.
 - **La qualité** passe par le relais `/qualite/…` du service, gardé un jour par le CDN : une seule lecture
   de Torrentio sert à toutes les instances.
+- **Options au choix** : « TERMINÉE » garde le cache normal ; la barre d'avancement expire au lendemain du prochain
+  épisode ; avec l'habillage de la saison, un film habillé expire à minuit à Paris, un autre au prochain changement de
+  fête.
 
 Estimation pour environ 300 personnes actives par jour :
 - **Requêtes :** 600 000 à 900 000 par mois.

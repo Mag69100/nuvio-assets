@@ -14,12 +14,12 @@ import { lireNoteImdb } from "../lib/notes.js";
 import { lireRang, secondesAvantBascule } from "../lib/tendances.js";
 import { qualityOf } from "../lib/qualite.js";
 import { posterContent, contentKey } from "../lib/contenu.js";
-import { etatSortie, sourcesUtiles } from "../lib/statut.js";
+import { etatSortie, sourcesUtiles, LIBELLES_FIN } from "../lib/statut.js";
 import { lireReglages, lireReglagesPaysage, ecrireReglages } from "../lib/lien-affiches.js";
 import { notesPlus } from "../lib/notes-plus.js";
 import { draw, imageUrls } from "../lib/dessin.js";
 import { choisirSansTexte } from "../lib/texte.js";
-import { jourParis, secondesAvantMinuitParis } from "../lib/jour.js";
+import { jourParis, secondesAvantMinuitParis, secondesAvantJourParis } from "../lib/jour.js";
 import { disjoncteurDe } from "../lib/disjoncteur.js";
 
 // CDN : 7 jours, comme l'appli, puis redessinée en arrière-plan (limite de calcul gratuite : 4 h par mois). Une
@@ -36,15 +36,17 @@ const COURT = { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Contr
  * son N° et sa date restent ceux du jour. Un statut expire aussi à minuit à Paris (« DEMAIN » devient
  * « AUJOURD'HUI »). Une donnée en retard (Torrentio pas encore lu…) : cache court, pour l'avoir ensuite.
  * Au CDN, la première demande après l'expiration reçoit encore l'ancienne pendant qu'on la redessine (une heure au plus).
+ * jusqua (secondes, facultatif) : une autre échéance (prochain épisode d'une série avec sa barre d'avancement…).
  */
-function cacheDe({ enRetard, place, statut }) {
+function cacheDe({ enRetard, place, statut, jusqua }) {
   const base = enRetard ? COURT : OK_CACHE;
-  if (!place && !statut) return base;
-  const s = statut ? Math.min(secondesAvantBascule(), secondesAvantMinuitParis()) : secondesAvantBascule();
+  if (!place && !statut && !jusqua) return base;
+  const s = Math.min(...(place || statut ? [statut ? Math.min(secondesAvantBascule(), secondesAvantMinuitParis()) : secondesAvantBascule()] : []), ...(jusqua ? [jusqua] : []));
   const age = (h) => Number(/max-age=(\d+)/.exec(base[h])[1]);
   return { "Cache-Control": `public, max-age=${Math.min(age("Cache-Control"), s)}`,
     "Vercel-CDN-Cache-Control": `max-age=${Math.min(age("Vercel-CDN-Cache-Control"), s)}, stale-while-revalidate=3600${enRetard ? "" : ", stale-if-error=86400"}` };
 }
+const lendemain = (iso) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(Date.parse(iso) + 86400000).toISOString().slice(0, 10) : "");
 const ABSENT = { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" };
 // Redirection vers la forme normale d'un lien : elle ne change qu'avec une mise en ligne, qui vide le cache de toute façon.
 const CANONIQUE = { "Cache-Control": "public, max-age=604800", "Vercel-CDN-Cache-Control": "max-age=604800" };
@@ -196,15 +198,20 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       // Rien à poser ni à griser : l'appli va chercher l'image directement chez TMDB, sans la redessiner ici.
       const retouchee = !!(content.styles.retouche || content.styles.cadre);
       if (!content.full && !content.rank && !content.quality && !content.statut && !content.gris && !content.bandeau && !content.coin && !content.culte && !retouchee
-        && !content.langue) {
+        && !content.langue && !content.avance) {
         return new Response(null, { status: 302, headers: { ...CORS, ...cacheDe({ enRetard, place }), Location: imageUrls(content)[0] } });
       }
       const etag = `"${contentKey(content)}"`;
       // Classée, presque classée ou avec un statut : jusqu'au changement de photo des tendances (voir cacheDe).
       // Un bandeau qui porte le statut (une date) suit la même règle que le statut.
       // « Nouvel épisode » allumé sur une série : revérifiée chaque jour aussi, pour l'afficher le jour même.
-      const suitLeCalendrier = content.statut || (content.bandeau && reglages.bandeau.porte === "statut") || (type === "series" && reglages.statut.on && reglages.statut.episode);
-      const cache = cacheDe({ enRetard, place, statut: suitLeCalendrier });
+      // « TERMINÉE », « ANNULÉE » ne changent pas avec le jour : pas revérifiées chaque jour pour elles.
+      const fixe = (x) => LIBELLES_FIN.includes(x);
+      const suitLeCalendrier = (content.statut && !fixe(content.statut)) || (content.bandeau && reglages.bandeau.porte === "statut" && !fixe(content.bandeau.texte))
+        || (type === "series" && reglages.statut.on && reglages.statut.episode);
+      // Barre d'avancement d'une série : jusqu'au lendemain de son prochain épisode (date connue de TMDB).
+      const jusqua = content.avance && facts.nextEpisode ? secondesAvantJourParis(lendemain(facts.nextEpisode)) : undefined;
+      const cache = cacheDe({ enRetard, place, statut: suitLeCalendrier, jusqua });
       const headers = { ...CORS, ...cache, ETag: etag };
       if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });
       let jpg;

@@ -123,3 +123,36 @@ export function etatSortie(facts, today, sources = null) {
 
 /** Le statut seul. */
 export const statutDe = (facts, today) => etatSortie(facts, today).statut;
+
+// ---------- La suite d'une série, une fois sortie ----------
+// Un seul libellé en haut à gauche, jamais deux, par ordre de priorité :
+// 1. la sortie (etatSortie : « BIENTÔT », la date ou le compte à rebours, « AU CINÉMA », « NOUVEAU », « NOUVELLE SAISON ») ;
+// 2. « NOUVEL ÉPISODE » (réglage Épisodes) : un épisode sorti il y a moins de 7 jours ;
+// 3. « TERMINÉE » ou « ANNULÉE » (réglage Fin) : statut TMDB Ended ou Canceled.
+// L'avancement de la saison (réglage Avancement) n'est pas un libellé : une barre fine sous le libellé (ou seule),
+// pour une série pas finie dont la saison en cours n'est pas complète.
+const FINS = { Ended: "TERMINÉE", Canceled: "ANNULÉE" };
+export const LIBELLES_FIN = Object.freeze(Object.values(FINS));
+const NOUVEL_EPISODE_JOURS = 7;
+
+/**
+ * { episode: un épisode sorti il y a moins de 7 jours, fin: "TERMINÉE" | "ANNULÉE" | null,
+ *   avance: { s: saison, n: épisodes diffusés, t: épisodes de la saison } | null }.
+ * Avancement : la saison du dernier épisode diffusé, avec son nombre d'épisodes connu et pas encore atteint.
+ */
+export function suiteSerie(facts, today) {
+  if (facts.type !== "series") return { episode: false, fin: null, avance: null };
+  const last = facts.lastEpisode;
+  const episode = !!last && last <= today && Math.round((Date.parse(today) - Date.parse(last)) / 86400000) < NOUVEL_EPISODE_JOURS;
+  const fin = FINS[facts.status] || null;
+  const saison = (facts.seasons || []).find((s) => s.season_number === facts.lastSeason);
+  const n = facts.lastEpisodeNumber, t = saison ? saison.episode_count : null;
+  const avance = !fin && facts.lastSeason >= 1 && Number.isInteger(n) && Number.isInteger(t) && n >= 1 && t > n ? { s: facts.lastSeason, n, t } : null;
+  return { episode, fin, avance };
+}
+
+/** Le libellé de la suite (priorités 2 et 3 ci-dessus), selon les réglages du statut ; null sans rien à dire. */
+export function libelleSuite(suite, { episode, fin }) {
+  if (episode && suite.episode) return "NOUVEL ÉPISODE";
+  return (fin && suite.fin) || null;
+}

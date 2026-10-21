@@ -401,3 +401,28 @@ test("langue_des_sources", () => {
   // Sans le badge qualité, la langue reste.
   assert.equal(contenu(facts, q("vf"), "poster", reglages("Q03g1")).langue, "VF");
 });
+
+// Fin et avancement d'une série (3h1, 3i1) : jamais deux libellés ; la sortie, puis le nouvel épisode, passent avant.
+test("serie_fin_et_avancement", () => {
+  const serie = { ...facts, type: "series", releases: [], releaseDate: "", firstAir: "2020-01-01", status: "Ended", lastEpisode: "2025-05-01",
+    lastSeason: 2, lastEpisodeNumber: 5, seasons: [{ season_number: 2, air_date: "2025-03-01", episode_count: 8 }] };
+  assert.equal(contenu(serie, plein, "poster", reglages("3h1")).statut, "TERMINÉE");
+  assert.equal(contenu({ ...serie, status: "Canceled" }, plein, "poster", reglages("3h1")).statut, "ANNULÉE");
+  assert.equal(contenu(serie, plein).statut, null);
+  assert.equal(contenu(serie, plein, "poster", reglages("S03h1")).statut, null);
+  // Un épisode de la semaine passe avant (réglage Épisodes) ; « NOUVEAU » (première diffusion récente) aussi.
+  assert.equal(contenu({ ...serie, lastEpisode: "2026-10-18" }, plein, "poster", reglages("3c13h1")).statut, "NOUVEL ÉPISODE");
+  assert.equal(contenu({ ...serie, firstAir: "2026-10-10" }, plein, "poster", reglages("3h1")).statut, "NOUVEAU");
+  // Bandeau qui porte le statut : « TERMINÉE » dans le bandeau.
+  assert.equal(contenu(serie, plein, "poster", reglages("J13h1")).bandeau.texte, "TERMINÉE");
+  // Avancement : série pas finie, saison pas complète.
+  const enCours = { ...serie, status: "Returning Series", lastEpisode: "2026-10-15" };
+  assert.deepEqual(contenu(enCours, plein, "poster", reglages("3i1")).avance, { s: 2, n: 5, t: 8 });
+  assert.equal("avance" in contenu(enCours, plein), false);
+  assert.equal("avance" in contenu(serie, plein, "poster", reglages("3i1")), false);
+  assert.equal("avance" in contenu(enCours, plein, "poster", reglages("S03i1")), false);
+  // Pas encore sortie en VF (sources sans VF) : pas de barre.
+  const vo = contenu({ ...enCours, firstAir: "2026-09-01" }, { ...plein, quality: { uhd: true, extra: null, vf: false, sources: 4 } }, "poster", reglages("3i1"));
+  assert.equal(vo.statut, "BIENTÔT");
+  assert.equal("avance" in vo, false);
+});

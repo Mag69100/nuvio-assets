@@ -30,3 +30,14 @@ export function prochainMinuitParis(now = Date.now()) {
 
 /** Secondes jusqu'au prochain minuit à Paris (une minute au moins). */
 export const secondesAvantMinuitParis = (now = Date.now()) => Math.max(60, Math.ceil((prochainMinuitParis(now) - now) / 1000));
+
+/**
+ * Secondes jusqu'au début (minuit à Paris) du jour iso (« 2026-10-23 ») ; un jour déjà commencé (date passée, donnée
+ * en retard) : jusqu'au prochain minuit, jamais moins (une affiche ne doit pas être redessinée à chaque minute).
+ */
+export function secondesAvantJourParis(iso, now = Date.now()) {
+  const [y, m, d] = String(iso).split("-").map(Number);
+  if (!y || !m || !d) return secondesAvantMinuitParis(now);
+  const minuitUtc = Date.UTC(y, m - 1, d), debut = minuitUtc - decalage(minuitUtc - 3 * 3600 * 1000);
+  return debut > now ? Math.max(60, Math.ceil((debut - now) / 1000)) : secondesAvantMinuitParis(now);
+}

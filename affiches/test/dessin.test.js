@@ -592,6 +592,17 @@ test("badge_langue", async () => {
   await draw({ ...seul, line: null, langue: "VO", styles: { ...STYLES, qualite: "pastille" } }, f);
 });
 
+// Barre d'avancement d'une série : à la couleur d'accent, sous le statut (ou seule), du côté du bloc.
+test("barre_avancement", async () => {
+  const jaune = (r, g, b) => r > 200 && g > 150 && b < 90;
+  const avec = await draw({ ...seul, line: null, statut: "NOUVEL ÉPISODE", avance: { s: 2, n: 5, t: 8 } }, f);
+  assert.ok(await compte(avec, [0, 30, 200, 50], jaune) > 40, "pas de barre jaune sous le statut");
+  const seule = await draw({ ...seul, line: null, avance: { s: 1, n: 1, t: 10 } }, f);
+  assert.ok(await compte(seule, [0, 0, 120, 50], jaune) > 5, "pas de barre seule en haut à gauche");
+  const inverse = await draw({ ...seul, line: null, avance: { s: 3, n: 7, t: 8 }, styles: { ...STYLES, inverse: true } }, f);
+  assert.ok(await compte(inverse, [250, 0, 150, 50], jaune) > 40, "pas de barre à droite côtés inversés");
+});
+
 // La petite ligne en Inter quand la police choisie n'a pas toutes ses lettres.
 test("ligne2_en_inter", async () => {
   const c = { ...base, line: null, line2: "Un film de Nuri Bilge Ceylan Ş", styles: { ...STYLES, police: "condensee" } };

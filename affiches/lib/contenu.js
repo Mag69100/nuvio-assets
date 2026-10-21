@@ -6,7 +6,7 @@
  */
 import { createHash } from "node:crypto";
 import { DEFAUT_REGLAGES, PALETTE } from "./lien-affiches.js";
-import { etatSortie } from "./statut.js";
+import { etatSortie, suiteSerie, libelleSuite } from "./statut.js";
 import { jourParis } from "./jour.js";
 import { policePour } from "./polices.js";
 
@@ -159,8 +159,10 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
     if (statut === "salle") { libelle = LIBELLES_STATUT.salle; if (quand) libelle2 = dateDe(quand); }
     else libelle = quand ? dateDe(quand) : LIBELLES_STATUT[statut];
   }
-  // Série dont un épisode est sorti il y a moins de 7 jours (si rien de plus fort à dire).
-  if (r.statut.on && r.statut.episode && !libelle && facts.type === "series" && facts.lastEpisode && facts.lastEpisode <= today && jours(facts.lastEpisode, today) < 7) libelle = "NOUVEL ÉPISODE";
+  // Série : « NOUVEL ÉPISODE » (un épisode sorti il y a moins de 7 jours), puis « TERMINÉE » ou « ANNULÉE », si rien
+  // de plus fort à dire (priorités : lib/statut.js).
+  const suite = suiteSerie(facts, today);
+  if (r.statut.on && !libelle) libelle = libelleSuite(suite, r.statut);
   let place = r.tendance.on && rank >= 1 && rank <= 20 ? rank : null;
   // Bandeau en coin : il porte le statut ou le N° de tendance, qui ne sont alors plus écrits en haut.
   let bandeau = null;
@@ -242,6 +244,8 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
   // Clés ajoutées seulement quand elles servent (même raison : l'ETag des autres affiches ne bouge pas).
   // Langue des sources (réglage Langue), sous la qualité ; rien sans sources lues.
   if (r.langue.on && quality && LIBELLES_LANGUE[quality.langue]) content.langue = LIBELLES_LANGUE[quality.langue];
+  // Avancement de la saison en cours (réglage Avancement) : pas pour une série pas encore sortie en VF.
+  if (r.statut.on && r.statut.avance && suite.avance && !pasSorti) content.avance = suite.avance;
   if (bandeau) content.bandeau = bandeau;
   if (libelle && libelle2) content.statut2 = libelle2;
   if (plateforme && r.plateforme.place === "coin") content.coin = plateforme;

@@ -1,10 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jourParis, prochainMinuitParis, secondesAvantMinuitParis } from "../lib/jour.js";
+import { jourParis, prochainMinuitParis, secondesAvantMinuitParis, secondesAvantJourParis } from "../lib/jour.js";
 import { posterContent } from "../lib/contenu.js";
 import { DEFAUT_REGLAGES } from "../lib/lien-affiches.js";
 
 const t = (iso) => Date.parse(iso);
+
+// Début d'un jour à Paris (barre d'avancement d'une série : jusqu'au lendemain du prochain épisode).
+test("debut_d_un_jour_a_paris", () => {
+  assert.equal(secondesAvantJourParis("2026-10-23", t("2026-10-21T22:00:00Z")), 24 * 3600);       // heure d'été : 22 h UTC
+  assert.equal(secondesAvantJourParis("2026-10-27", t("2026-10-26T22:00:00Z")), 3600);            // heure d'hiver : 23 h UTC
+  // Jour déjà commencé ou date illisible : jusqu'au prochain minuit, jamais une minute.
+  assert.equal(secondesAvantJourParis("2026-10-01", t("2026-10-21T21:30:00Z")), 1800);
+  assert.equal(secondesAvantJourParis("", t("2026-10-21T21:30:00Z")), 1800);
+});
 
 // Le jour change à minuit à Paris : 23 h UTC l'hiver, 22 h UTC l'été.
 test("jour_paris_hiver_et_ete", () => {

@@ -143,6 +143,11 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
       : ((d.credits && d.credits.crew) || []).filter((c) => c.job === "Director").map((c) => c.name)).slice(0, 2).join(" et ") || null,
     lastEpisode: type === "series" && d.last_episode_to_air ? d.last_episode_to_air.air_date || null : null,
     lastSeason: type === "series" && d.last_episode_to_air ? d.last_episode_to_air.season_number : null,
+    // Fin et avancement d'une série (réglages Fin et Avancement, lib/statut.js) : statut TMDB (Ended, Canceled…),
+    // numéro du dernier épisode diffusé, date du prochain.
+    status: type === "series" ? d.status || null : null,
+    lastEpisodeNumber: type === "series" && d.last_episode_to_air ? d.last_episode_to_air.episode_number ?? null : null,
+    nextEpisode: type === "series" && d.next_episode_to_air ? d.next_episode_to_air.air_date || null : null,
     // Pour le statut (lib/statut.js).
     releases: type === "series" ? [] : (d.release_dates && d.release_dates.results) || [],
     releaseDate: type === "series" ? "" : d.release_date || "",
@@ -150,6 +155,6 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
     plateformeFrance: type !== "series" && plateformeFrance(d),
     age: ageDe(type, d),
     firstAir: type === "series" ? d.first_air_date || "" : "",
-    seasons: type === "series" ? (d.seasons || []).map((s) => ({ season_number: s.season_number, air_date: s.air_date || "" })) : [],
+    seasons: type === "series" ? (d.seasons || []).map((s) => ({ season_number: s.season_number, air_date: s.air_date || "", episode_count: s.episode_count ?? null })) : [],
   };
 }

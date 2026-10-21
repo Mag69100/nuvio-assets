@@ -92,7 +92,7 @@ test("dates pour le statut", async () => {
   const serie = { ...movie, id: 94605, release_date: undefined, first_air_date: "2021-11-06", seasons: [{ season_number: 1, air_date: "2021-11-06", name: "S1" }] };
   const s = await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fauxFetch([["/tv/94605", json(serie)]]));
   assert.equal(s.firstAir, "2021-11-06");
-  assert.deepEqual(s.seasons, [{ season_number: 1, air_date: "2021-11-06" }]);
+  assert.deepEqual(s.seasons, [{ season_number: 1, air_date: "2021-11-06", episode_count: null }]);
 });
 
 // Âge conseillé en France : la classification FR du film (sortie en salle d'abord), ou celle de la série.
@@ -196,6 +196,18 @@ test("année et saison", async () => {
   const s = await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fauxFetch([["/tv/94605", json(serie)]]));
   assert.equal(s.year, "2021");
   assert.equal(s.lastSeason, 2);
+});
+
+// Fin et avancement d'une série : statut TMDB, dernier épisode diffusé, prochain, épisodes par saison.
+test("fin_et_avancement_serie", async () => {
+  const serie = { ...movie, id: 94605, release_date: undefined, first_air_date: "2021-11-06", status: "Returning Series",
+    last_episode_to_air: { season_number: 2, episode_number: 5, air_date: "2026-10-15" }, next_episode_to_air: { air_date: "2026-10-22" },
+    seasons: [{ season_number: 1, air_date: "2021-11-06", episode_count: 9 }, { season_number: 2, air_date: "2026-09-24", episode_count: 8 }] };
+  const s = await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fauxFetch([["/tv/94605", json(serie)]]));
+  assert.deepEqual([s.status, s.lastSeason, s.lastEpisodeNumber, s.nextEpisode], ["Returning Series", 2, 5, "2026-10-22"]);
+  assert.equal(s.seasons[1].episode_count, 8);
+  const film = await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, fauxFetch([["/movie/693134", json({ ...movie, status: "Released" })]]));
+  assert.deepEqual([film.status, film.lastEpisodeNumber, film.nextEpisode], [null, null, null]);
 });
 
 test("mémoire des correspondances plafonnée", async () => {

@@ -245,6 +245,18 @@ function boite(badges, t, accent, ombre = OMBRES.normale) {
   return { display: "flex", alignItems: "center", borderRadius: rayon, padding: `${t * 0.14}px ${t * 0.38}px`, color: texte, textShadow: badges.style === "plein" ? SANS_OMBRE : ombre, ...fond };
 }
 
+/**
+ * Avancement de la saison en cours : une barre fine (épisodes diffusés sur épisodes de la saison) à la couleur
+ * d'accent, et « S2 · 5/8 » à côté (du côté de l'image, pour rester aligné sur le bord).
+ */
+function barreAvance({ s, n, t: total }, t, accent, ombre, cote) {
+  const L = Math.round(t * 3.2), H = Math.max(3, Math.round(t * 0.16));
+  const barre = h("div", { display: "flex", width: L, height: H, borderRadius: H, background: "rgba(255,255,255,0.3)", boxShadow: "0 1px 4px rgba(0,0,0,0.5)" },
+    [h("div", { display: "flex", width: Math.max(H, Math.round((L * n) / total)), height: H, borderRadius: H, background: accent })]);
+  const texte = h("span", { fontSize: t * 0.46, fontWeight: 700, letterSpacing: t * 0.03, color: "#fff", opacity: 0.9, textShadow: ombre, [cote === "left" ? "marginLeft" : "marginRight"]: t * 0.3 }, `S${s} · ${n}/${total}`);
+  return h("div", { display: "flex", alignItems: "center", marginTop: t * 0.05 }, cote === "left" ? [barre, texte] : [texte, barre]);
+}
+
 /** Le statut, puis le rang de tendance dessous (en haut à gauche, ou à droite si les côtés sont inversés). */
 function blocStatut(content, m, accent, place, descente) {
   const cote = place.cote;
@@ -258,6 +270,7 @@ function blocStatut(content, m, accent, place, descente) {
     // Petite ligne sous le statut (« AU CINÉMA », puis « DISPO LE 1 DÉC. »).
     if (content.statut2) pile.push(h("div", { display: "flex", marginTop: -t * 0.12, fontSize: t * 0.5, fontWeight: 700, letterSpacing: t * 0.05, color: "#fff", opacity: 0.85, textShadow: m.ombre }, content.statut2));
   }
+  if (content.avance) pile.push(barreAvance(content.avance, t, accent, m.ombre, cote));
   if (content.rank) {
     if (b) {
       pile.push(h("div", { ...b, fontSize: t * 0.86, fontWeight: 800 }, [fleche(t * 0.86, b.color === ENCRE ? ENCRE : accent), h("span", {}, `N°${content.rank}`)]));
@@ -402,7 +415,7 @@ const teinteVive = (hsl) => hex({ hue: hsl.hue, s: Math.max(0.55, Math.min(1, hs
 function calqueDegrades(content, [w, hgt], teinte) {
   const st = content.styles, fondu = content.full && st.fondu;
   const voile = VOILE[st.voile ?? "m"], haut = voile > 0 && !!(content.statut || content.rank || content.quality || content.bandeau || content.coin || content.culte
-    || content.langue);
+    || content.langue || content.avance);
   if (!fondu && !haut && !st.vignette && !st.cadre) return null;
   const hb = Math.round(hgt * ((fondu && fondu.taille) || HAUTEUR_FONDU[(fondu && fondu.hauteur) || "normal"])), hh = Math.round(hgt * 0.22);
   // Couleur du fondu : celle du nuancier si elle est choisie, sinon les couleurs de l'affiche ou le noir.

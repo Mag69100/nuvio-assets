@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { statutDe, etatSortie } from "../lib/statut.js";
+import { statutDe, etatSortie, suiteSerie, libelleSuite } from "../lib/statut.js";
 
 const AUJ = "2026-10-20";
 const jours = (n) => new Date(Date.parse(AUJ) + n * 86400000).toISOString().slice(0, 10);
@@ -222,4 +222,28 @@ test("sources_utiles : seulement pour un titre récent", async () => {
   assert.equal(sourcesUtiles(film([], "2024-01-01"), AUJ), false);
   assert.equal(sourcesUtiles({ ...serie(jours(-10)), lastEpisode: jours(-3) }, AUJ), true);
   assert.equal(sourcesUtiles({ ...serie("2018-01-01"), lastEpisode: "2019-05-01" }, AUJ), false);
+});
+
+// La suite d'une série : nouvel épisode, fin (Ended, Canceled), avancement de la saison en cours.
+test("suite_serie", () => {
+  const s = { ...serie("2020-01-01", [{ season_number: 1, episode_count: 10 }, { season_number: 2, episode_count: 8 }]), lastSeason: 2, lastEpisodeNumber: 5, lastEpisode: jours(-2), status: "Returning Series" };
+  assert.deepEqual(suiteSerie(s, AUJ), { episode: true, fin: null, avance: { s: 2, n: 5, t: 8 } });
+  // Saison complète, nombre d'épisodes inconnu, pas d'épisode diffusé : pas de barre.
+  assert.equal(suiteSerie({ ...s, lastEpisodeNumber: 8 }, AUJ).avance, null);
+  assert.equal(suiteSerie({ ...s, seasons: [{ season_number: 2, episode_count: null }] }, AUJ).avance, null);
+  assert.equal(suiteSerie({ ...s, lastEpisodeNumber: null }, AUJ).avance, null);
+  assert.equal(suiteSerie({ ...s, lastSeason: 3 }, AUJ).avance, null);
+  // Finie : « TERMINÉE », « ANNULÉE », et jamais de barre (saison coupée en route).
+  assert.deepEqual(suiteSerie({ ...s, status: "Ended", lastEpisode: jours(-30) }, AUJ), { episode: false, fin: "TERMINÉE", avance: null });
+  assert.equal(suiteSerie({ ...s, status: "Canceled" }, AUJ).fin, "ANNULÉE");
+  assert.deepEqual(suiteSerie({ type: "movie", status: "Released" }, AUJ), { episode: false, fin: null, avance: null });
+});
+
+// Priorités du libellé : un nouvel épisode passe avant la fin ; chaque réglage seulement s'il est allumé.
+test("libelle_suite_priorites", () => {
+  const finie = { episode: true, fin: "TERMINÉE", avance: null };
+  assert.equal(libelleSuite(finie, { episode: true, fin: true }), "NOUVEL ÉPISODE");
+  assert.equal(libelleSuite(finie, { episode: false, fin: true }), "TERMINÉE");
+  assert.equal(libelleSuite({ ...finie, episode: false }, { episode: true, fin: true }), "TERMINÉE");
+  assert.equal(libelleSuite(finie, { episode: false, fin: false }), null);
 });

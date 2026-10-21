@@ -552,6 +552,26 @@ test("sources_lues_pour_un_titre_recent", async () => {
   assert.ok(!vieux.calls.some((u) => u.includes("/qualite/")));
 });
 
+// Fin d'une série : « TERMINÉE » ne change pas avec le jour, cache normal (pas redessinée chaque jour pour elle).
+// Avancement : jusqu'au lendemain du prochain épisode.
+test("serie_fin_et_avancement_caches", async () => {
+  const base = { ...film, id: 94605, release_date: undefined, first_air_date: "2020-01-01", last_episode_to_air: { air_date: "2025-02-01", season_number: 2, episode_number: 5 },
+    seasons: [{ season_number: 2, air_date: "2025-01-01", episode_count: 8 }] };
+  const finie = await makeHandler({ fetchImpl: internet({ detail: json({ ...base, status: "Ended" }) }), env })(req("type=series&shape=poster&id=tmdb:94605&s=1.3h1"));
+  assert.equal(finie.status, 200);
+  assert.equal(finie.headers.get("Cache-Control"), "public, max-age=604800");
+  const sansFin = await makeHandler({ fetchImpl: internet({ detail: json({ ...base, status: "Ended" }) }), env })(req("type=series&shape=poster&id=tmdb:94605"));
+  assert.notEqual(finie.headers.get("ETag"), sansFin.headers.get("ETag"));
+  const prochain = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
+  const enCours = { ...base, status: "Returning Series", next_episode_to_air: { air_date: prochain } };
+  const res = await makeHandler({ fetchImpl: internet({ detail: json(enCours) }), env })(req("type=series&shape=poster&id=tmdb:94605&s=1.3i1"));
+  assert.equal(res.status, 200);
+  assert.ok(age(res, "Cache-Control") <= 5 * 86400 && age(res, "Cache-Control") >= 2 * 86400, res.headers.get("Cache-Control"));
+  // Sans le réglage : cache normal.
+  const sans = await makeHandler({ fetchImpl: internet({ detail: json(enCours) }), env })(req("type=series&shape=poster&id=tmdb:94605"));
+  assert.equal(sans.headers.get("Cache-Control"), "public, max-age=604800");
+});
+
 // Badge Langue : les sources sont lues pour lui, même sans le badge de qualité ni titre récent ; pas avec QUALITE=off.
 test("langue_lue_dans_les_sources", async () => {
   const multi = () => internet({ torrentio: async () => json({ streams: [{ name: "Torrentio\n1080p", title: "Dune.Part.Two.2024.MULTi.VFF.1080p" }] }) });

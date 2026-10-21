@@ -40,6 +40,7 @@ import { feuilles, scripts } from "./statique.js";
 import { esc } from "./outils-serveur.js";
 import { GUICHET_DEPART, guichetHTML } from "./guichet.js";
 import { SOIREE_HTML } from "./soiree.js";
+import { GALERIE_BOUTON, GALERIE_HTML } from "./galerie.js";
 
 // Espace hébergeur d'une copie auto-hébergée (absent de l'instance principale) : connexion avec le mot de
 // passe ADMIN_PASSWORD, lien avec alertes (rangée « Mise à jour » dans Nuvio), bannière de mise à jour.
@@ -149,7 +150,7 @@ ${STAGE_HEAD}
 <meta property="og:title" content="Compose ta programmation Nuvio">
 <meta property="og:image" content="${LOGO}">
 <link rel="icon" href="${LOGO}">
-${feuilles("polices.css", "salle2.css", "scene.css", "nuvio.css", "salle2-fin.css", "salle2-guichet.css", "salle2-soiree.css")}
+${feuilles("polices.css", "salle2.css", "scene.css", "nuvio.css", "salle2-fin.css", "salle2-guichet.css", "salle2-soiree.css", "salle2-galerie.css")}
 </head>
 <body>
   <div class="valance" aria-hidden="true"></div>
@@ -353,6 +354,7 @@ ${copy ? HOTE_HTML : ""}
       <div class="regie-barre">
         <h2 id="regie-titre">Tes affiches</h2>
         <div class="regie-actions">
+          ${GALERIE_BOUTON}
           <button type="button" class="mini" id="regie-importer" aria-expanded="false" aria-controls="regie-import">Importer un lien</button>
           <button type="button" class="mini" id="regie-qr-btn" aria-expanded="false" aria-controls="regie-qr">QR code</button>
           <button type="button" class="mini" id="regie-annuler" disabled>↶ Annuler</button>
@@ -394,7 +396,7 @@ ${copy ? HOTE_HTML : ""}
         <div class="regie-voies" id="regie-voies" role="tabpanel" aria-labelledby="onglet-haut"></div>
         <div class="regie-plus" id="regie-plus" role="region" aria-label="Plus de réglages" hidden></div>
       </div>
-      </div>
+      </div>${GALERIE_HTML}
     </div>
   </div>
 ${guichetHTML()}
@@ -404,7 +406,7 @@ ${scripts("nuvio.js")}
 <script>
 const D = ${json};
 </script>
-${scripts("outils.js", "salle2.js", "salle2-guichet.js", "salle2-soiree.js")}
+${scripts("outils.js", "salle2.js", "salle2-guichet.js", "salle2-soiree.js", "salle2-galerie.js")}
 ${copy ? scripts("salle2-hote.js") : ""}
 ${scripts("scene.js")}
 </body>

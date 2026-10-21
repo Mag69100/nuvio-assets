@@ -50,6 +50,8 @@ Le plus simple : ouvrir le site, salle 1 (le guide) si tu n'as pas encore Nuvio,
 | `/guide` | Salle 1 : installer Nuvio et toute la configuration (`#apercu` : l'accueil final) | `worker/guide.js` |
 | `/configure` | Salle 2 : personnaliser son lien d'addon | `worker/page.js` |
 | `/f…/manifest.json` | Lien fixe : les réglages gardés dans la base D1 `LIENS` (créée toute seule au déploiement), modifiables sans réinstaller | `worker/fixe.js` |
+| `/<config ou f…>/programmation.json` | « Soirée à deux » (salle 2) : les rangées d'un lien, sans clé Gemini ni jeton d'alerte | `worker/soiree.js` |
+| `/galerie/…` | Galerie des styles d'affiches de la régie (table `galerie` de la même base D1, limite facultative `LIMITE_GALERIE`) | `worker/galerie.js` |
 | `/copie` | Monte ta propre salle : héberger sa copie | `worker/copie.js` |
 | `/lien#u=…` | Ouverte par les QR codes du guide, pour copier un lien sur le téléphone | `worker/lien.js` |
 | `/tv` | Adresse courte pour Downloader : télécharge l'APK de Nuvio TV | |

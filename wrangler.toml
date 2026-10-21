@@ -51,3 +51,10 @@ invocation_logs = false
 name = "LIMITE_LIENS"
 namespace_id = "1001"
 simple = { limit = 5, period = 60 }
+
+# Galerie des styles d'affiches (voir worker/galerie.js) : 3 publications et 3 imports comptés par minute au plus
+# depuis une même adresse IP. Facultatif, comme LIMITE_LIENS : sans cette liaison, pas de limite.
+[[ratelimits]]
+name = "LIMITE_GALERIE"
+namespace_id = "1002"
+simple = { limit = 3, period = 60 }

@@ -41,6 +41,7 @@ import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updat
 import { isFixedId, readFixed, fixedRoute, fixedAvailable, noteLecture } from "./fixe.js";
 import { sha256 } from "./outils-serveur.js";
 import { programmationPublique } from "./soiree.js";
+import { galerieRoute } from "./galerie.js";
 import { secondesAvantBascule, jourTendances, routeTendances, prendrePhotos } from "./tendances.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
@@ -1890,6 +1891,8 @@ const app = {
     // Chemin brut (encodé) : on découpe « genre=…&skip=… » AVANT de décoder,
     // sinon un filtre comme « Action & Aventure » serait coupé en deux.
     let path = url.pathname.replace(/\/+$/, "");
+    // Galerie des styles d'affiches de la régie (salle 2) : jamais derrière une config (voir galerie.js).
+    if (path.startsWith("/galerie/")) return galerieRoute(request, env, url, path);
     const today = parisToday();
     const rows = allRows(today, null);
 

@@ -7,6 +7,8 @@
  *   texte     → la réponse (HTML, un ou plusieurs paragraphes)
  */
 export const PANNES = [
+  { id: "chez-qui", moments: "accueil fiche recherche", titre: "Plus rien ne s'affiche : c'est chez moi ou chez vous ?",
+    texte: "<p>Regarde la <a href=\"/etat\">salle des machines</a> : le site y teste lui-même TMDB, l'addon, la recherche et les affiches, toutes les 5 minutes au plus. Un voyant rouge : la panne vient de chez nous (ou de TMDB), inutile de toucher à Nuvio, ça revient tout seul. Tout est vert : regarde les pannes ci-dessous.</p>" },
   { id: "metadonnees", moments: "fiche", titre: "« Aucun addon installé ne fournit de métadonnées pour… » en ouvrant un film",
     texte: "<p>Les fiches viennent du Catalogue FR : retire-le et rajoute-le (étape 6) pour que Nuvio voie qu'il fournit maintenant les fiches. Si tu avais un autre addon de fiches (TMDB Discover Plus, Cinemeta), tu peux le garder ou le supprimer.</p>" },
   { id: "recherche-absente", moments: "recherche", titre: "« Aucun catalogue de recherche trouvé dans les addons installés »",

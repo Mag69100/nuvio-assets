@@ -23,6 +23,9 @@
  * colle dans la salle 2. Facultatif : GEMINI_API_KEY, clé de l'instance pour /debug et, avec la
  * variable GEMINI_PUBLIC=on, pour tous les liens sans clé.
  *   /meta/<type>/<id>.json      fiche détaillée (résumé, casting, saisons, épisodes) en français
+ *   /cinemeta/<type>/<id>.json  rangées de Nuvio tel qu'installé (Cinemeta), pour l'avant / après des aperçus
+ *   /jeu                        le film du jour à deviner (image, indices et essais sur /jeu/<date>/…)
+ *   /etat, /etat.json           la salle des machines : l'état du site (TMDB, addon, recherche, affiches…)
  */
 import DEFS from "../catalogs.json";
 import {
@@ -36,6 +39,9 @@ import { lireReglages, ecrireReglages } from "./lien-affiches.js";
 import { lienPage } from "./lien.js";
 import { copiePage } from "./copie.js";
 import { hallPage } from "./hall.js";
+import { routeCinemeta } from "./cinemeta.js";
+import { routeJeu } from "./jeu.js";
+import { routeEtat } from "./etat.js";
 import { statique } from "./statique.js";
 import { smartSearch, prepareWords, isExact, norm, capQuery } from "./search.js";
 import { imdbRating } from "./ratings.js";
@@ -1910,6 +1916,21 @@ const app = {
     let path = url.pathname.replace(/\/+$/, "");
     const today = parisToday();
     const rows = allRows(today, null);
+    // Nuvio « de base » de l'avant / après des aperçus : les rangées de Cinemeta, relayées (voir cinemeta.js).
+    if (path.startsWith("/cinemeta/")) return routeCinemeta(path, HEADERS, ctx);
+    // Le film du jour à deviner : la page, son image, ses indices et ses essais (voir jeu.js).
+    if (path === "/jeu" || path.startsWith("/jeu/")) return routeJeu(request, env, ctx, url, path, today, HEADERS);
+    // La salle des machines : l'état du site, testé par le worker lui-même (voir etat.js). L'addon est appelé par la
+    // liaison SELF quand elle existe (son propre budget d'appels), sinon ici même.
+    if (path === "/etat" || path === "/etat.json") {
+      const appel = async (p) => {
+        if (env.SELF) {
+          try { const r = await env.SELF.fetch(new Request(url.origin + p)); if (r.status < 500) return r; } catch (e) { /* ici même */ }
+        }
+        return app.fetch(new Request(url.origin + p), env, ctx);
+      };
+      return routeEtat(request, env, ctx, url, path, { version: VERSION, assets: ASSETS, affiches: env.AFFICHES_URL || AFFICHES_URL, appel, today }, HEADERS);
+    }
 
     // Premier segment = config personnalisée, s'il n'est pas un mot réservé.
     let cfgSeg = "", fixedId = "";

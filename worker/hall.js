@@ -4,7 +4,7 @@
  * Au mur, les films dont tout le monde parle aujourd'hui, tirés du Catalogue FR (Tendances du jour).
  */
 import { STAGE_HEAD, stageTop, secretsHTML, BEAM_HTML, CREDITS_HTML } from "./stage.js";
-import { ICONE_APERCU, apercuDonnees } from "./apercu.js";
+import { ICONE_APERCU, ICONE_AVANT_APRES, apercuDonnees } from "./apercu.js";
 import { feuilles, scripts, adresseStatique } from "./statique.js";
 import { esc } from "./outils-serveur.js";
 
@@ -90,10 +90,24 @@ a { color: var(--bulb); }
 .texte small { max-width: 34ch; justify-self: center; color: var(--dim); font-size: .98rem; line-height: 1.5; }
 .texte em { justify-self: center; margin-top: 8px; font: normal 800 .95rem var(--body); padding: 10px 18px; border-radius: 99px; background: var(--bulb); color: var(--ink); }
 .porte + .porte .texte em { background: transparent; color: var(--bulb); box-shadow: inset 0 0 0 1.5px var(--bulb); }
+.apercu-boutons { justify-self: center; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; max-width: 640px; text-align: center; }
+.apercu-boutons p { flex-basis: 100%; margin: 0; color: var(--dim); font-size: .95rem; }
 .apercu-lien { justify-self: center; display: inline-flex; align-items: center; gap: 10px; font: 800 1rem var(--body); text-decoration: none; color: var(--cream); padding: 12px 20px; border-radius: 99px; border: 1px solid var(--seat); background: rgba(0,0,0,.25); }
 .apercu-lien:hover { border-color: var(--bulb); color: var(--bulb); }
 .apercu-lien svg { width: 20px; height: 20px; }
 
+/* Le film du jour : un billet avec une image en gros pixels, vers le jeu (/jeu). */
+.film-du-jour { justify-self: center; width: min(100%, 720px); display: grid; grid-template-columns: 132px minmax(0, 1fr) auto; align-items: center; gap: 18px; padding: 14px 18px 14px 14px;
+  border-radius: 16px; background: var(--cream); color: var(--ink); text-decoration: none; box-shadow: 0 14px 34px rgba(0,0,0,.4); transition: transform .25s ease, box-shadow .25s ease; }
+.film-du-jour:hover, .film-du-jour:focus-visible { transform: translateY(-3px) rotate(-.4deg); box-shadow: 0 18px 40px rgba(0,0,0,.5), 0 0 0 2px var(--bulb); }
+.fdj-image { aspect-ratio: 16 / 9; border-radius: 8px; image-rendering: pixelated; background: #2a1520 center / 100% 100% no-repeat;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4.5' shape-rendering='crispEdges'%3E%3Cpath fill='%233a2230' d='M0 0h8v4.5H0z'/%3E%3Cpath fill='%23c9874a' d='M1 0h1v1H1zM5 1h1v1H5zM2 3h2v1H2z'/%3E%3Cpath fill='%23e7c08a' d='M2 1h1v1H2zM6 0h1v1H6zM4 2h1v1H4z'/%3E%3Cpath fill='%237a3a2c' d='M0 2h2v1H0zM5 3h2v1.5H5zM3 0h2v1H3z'/%3E%3Cpath fill='%23f6e2b8' d='M3 1h1v1H3zM6 2h1v1H6z'/%3E%3Cpath fill='%23a8563a' d='M2 2h2v1H2zM0 1h1v1H0zM7 1h1v2H7z'/%3E%3Cpath fill='%23542a2a' d='M0 3h2v1.5H0zM4 3h1v1.5H4zM5 2h1v1H5z'/%3E%3C/svg%3E"); }
+.fdj-texte { display: grid; gap: 2px; }
+.fdj-texte small { font: 800 .7rem var(--body); letter-spacing: .16em; text-transform: uppercase; color: #8a3a2a; }
+.fdj-texte b { font: 400 1.9rem/1 var(--display); letter-spacing: .03em; }
+.fdj-texte span { color: #5a4036; font-size: .95rem; line-height: 1.4; }
+.film-du-jour em { font: normal 800 .95rem var(--body); padding: 10px 18px; border-radius: 99px; background: var(--ink); color: var(--bulb); }
+@media (max-width: 560px) { .film-du-jour { grid-template-columns: 88px minmax(0, 1fr); } .film-du-jour em { grid-column: 1 / -1; justify-self: start; } }
 /* Le mur des affiches : les Tendances du jour, sous des cadres lumineux. */
 .mur { display: grid; gap: 16px; text-align: center; }
 .mur h2 { margin: 0; font: 400 2.2rem/1 var(--display); letter-spacing: .04em; }
@@ -105,6 +119,8 @@ a { color: var(--bulb); }
 .cadre.vide { animation: attente 1.4s ease-in-out infinite; }
 @keyframes attente { 50% { opacity: .55; } }
 footer { text-align: center; }
+.machines-lien { margin: 18px 0 0; color: var(--dim); font-size: .95rem; }
+.machines-lien a { font-weight: 800; text-underline-offset: 3px; }
 .propre-salle { justify-self: center; margin-top: -8px; text-align: center; color: var(--dim); font-size: .95rem; }
 .propre-salle a { color: inherit; font-weight: 800; text-underline-offset: 3px; }
 .propre-salle a:hover { color: var(--cream, #f5ead8); }
@@ -113,7 +129,7 @@ footer { text-align: center; }
   .affiches { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .encadrement { width: 170px; height: 200px; }
 }
-@media (prefers-reduced-motion: reduce) { body::after, .cadre.vide { animation: none; } .battant, .porte { transition: none; } }
+@media (prefers-reduced-motion: reduce) { body::after, .cadre.vide { animation: none; } .battant, .porte, .film-du-jour { transition: none; } .film-du-jour:hover, .film-du-jour:focus-visible { transform: none; } }
 </style>
 ${feuilles("scene.css", "apercu.css", "nuvio.css")}
 </head>
@@ -135,14 +151,26 @@ ${secretsHTML("hall")}
   </nav>
 ${copy ? "" : `  <p class="propre-salle">Tu veux ta propre salle, avec tes clés et ton quota ? <a href="${origin}/copie">Monte-la</a></p>
 `}
-  <button type="button" class="apercu-lien" data-resultat>${ICONE_APERCU}Voir l'accueil que tu auras à la fin</button>
+  <div class="apercu-boutons">
+    <button type="button" class="apercu-lien" data-resultat>${ICONE_APERCU}Voir l'accueil que tu auras à la fin</button>
+    <button type="button" class="apercu-lien" data-resultat data-avant-apres>${ICONE_AVANT_APRES}Avant / après le guide</button>
+    <p>Nuvio tout juste installé est en anglais, avec un seul catalogue. Fais glisser le trait pour voir ce que le guide en fait.</p>
+  </div>
+
+  <a class="film-du-jour" href="${origin}/jeu">
+    <span class="fdj-image" aria-hidden="true"></span>
+    <span class="fdj-texte"><small>Un nouveau chaque jour</small><b>Le film du jour</b><span>Une image pixelisée, cinq essais : devine le film. Le même pour tout le monde.</span></span>
+    <em>Jouer</em>
+  </a>
 
   <section class="mur" aria-labelledby="a-laffiche">
     <h2 id="a-laffiche">Actuellement à l'affiche</h2>
     <p>Les films dont tout le monde parle aujourd'hui, avec les affiches qu'ils auront sur ton accueil.</p>
     <div class="affiches" id="affiches">${'<div class="cadre vide"></div>'.repeat(6)}</div>
   </section>
-  <footer>${CREDITS_HTML}</footer>
+  <footer>${CREDITS_HTML}
+    <p class="machines-lien"><a href="${origin}/etat">Salle des machines</a> : est-ce que tout tourne en ce moment ?</p>
+  </footer>
 </main>
 ${scripts("scene.js")}
 <script>${apercuDonnees(origin)}</script>
@@ -176,7 +204,7 @@ ${scripts("affiches.js")}
     const vu = new IntersectionObserver((es) => es.forEach((e) => e.target.classList.toggle("ap-vu", e.isIntersecting)));
     boutons.forEach((b) => vu.observe(b));
   }
-  if (location.hash === "#apercu") charger().catch(() => {});
+  if (location.hash === "#apercu" || location.hash === "#avant-apres") charger().catch(() => {});
 })();
 </script>
 <script>

@@ -1,0 +1,63 @@
+name: Canari (le site répond ?)
+
+# Toutes les 30 minutes : le site est appelé comme le ferait Nuvio (manifest, une rangée, la recherche, une affiche)
+# et le bilan de la salle des machines (/etat.json) est lu (voir scripts/canari.mjs). Deux échecs de suite ouvrent une
+# issue « Panne : … » (une seule à la fois, les suivants s'y ajoutent en commentaire) ; elle se ferme toute seule
+# quand tout répond de nouveau. Un échec isolé laisse seulement ce passage en rouge.
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  actions: read   # lire le résultat du passage précédent (gh run list)
+
+concurrency:
+  group: canari
+  cancel-in-progress: false
+
+jobs:
+  canari:
+    # Pas sur les forks : ils ont leur propre adresse, et ce dépôt n'a pas à ouvrir d'issues chez eux.
+    if: github.repository == 'xnzx07/nuvio-assets'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Appeler le site
+        id: verif
+        run: node scripts/canari.mjs
+      - name: Ouvrir ou fermer l'issue de panne
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PANNES: ${{ steps.verif.outputs.pannes }}
+          LIEN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # L'issue de panne ouverte, s'il y en a une (titre « Panne : … », ouverte par ce workflow).
+          num=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --author "app/github-actions" --limit 100 --json number,title \
+                  --jq '[.[] | select(.title | startswith("Panne : "))][0].number // empty')
+          if [ -z "$PANNES" ]; then
+            if [ -n "$num" ]; then
+              gh issue close "$num" --repo "$GITHUB_REPOSITORY" --comment "Tout répond de nouveau ($(date -u '+%F %H:%M') UTC) : $LIEN"
+            fi
+            exit 0
+          fi
+          # Le passage d'avant (terminé) : s'il a échoué aussi, c'est le 2e échec de suite.
+          avant=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow canari.yml --status completed --limit 1 --json conclusion --jq '.[0].conclusion // ""')
+          if [ -n "$num" ]; then
+            gh issue comment "$num" --repo "$GITHUB_REPOSITORY" --body "Toujours en panne : $PANNES ($LIEN)"
+          elif [ "$avant" = "failure" ]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "Panne : $PANNES" \
+              --body "Deux passages de suite du canari ont échoué : **$PANNES**. Détail : $LIEN — état en direct : https://nuvio-assets.xnzxflix.workers.dev/etat. L'issue se fermera toute seule quand tout répondra de nouveau."
+          else
+            echo "Premier échec : pas encore d'issue (le prochain passage confirmera)."
+          fi
+          echo "::error::En panne : $PANNES"
+          exit 1

@@ -44,7 +44,7 @@ import { APPAREILS, installUrl } from "./liens.js";
 import { feuilles, scripts } from "./statique.js";
 import { esc } from "./outils-serveur.js";
 import { pannesHTML } from "./pannes.js";
-import { seanceHTML, verifCleHTML } from "./guide-verifs.js";
+import { seanceHTML, verifCleHTML, photoHTML } from "./guide-verifs.js";
 
 const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>`;
 const copyBox = (id, value) => `<div class="copy"><code id="${id}">${esc(value)}</code><button type="button" data-copy="${id}">Copier</button></div>`;
@@ -578,6 +578,7 @@ ${secretsHTML("guide")}
       </div>
       <p class="pu-etat" id="pu-etat" aria-live="polite"></p>
     </div>
+    ${photoHTML(origin)}
     ${pannesHTML()}
     <div class="rembobinage" id="rembobinage">
       <svg class="rb-bobine" viewBox="0 0 80 80" aria-hidden="true"><circle class="rb-film" cx="40" cy="40" r="12"/><g class="rb-tourne"><circle cx="40" cy="40" r="36"/><path d="M40 33V4M33.9 43.5L8.8 58M46.1 43.5L71.2 58"/><circle cx="40" cy="40" r="7"/></g></svg>

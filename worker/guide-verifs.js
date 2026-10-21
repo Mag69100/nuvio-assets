@@ -4,8 +4,11 @@
  *     que le guide guette (GET /seance/<code>, voir seance.js) ; preuve que l'addon est installé et répond ;
  *   - « Vérifier ma clé » (étape 5, trousseau) : la clé AllDebrid demandée directement à AllDebrid, depuis le
  *     navigateur, jamais par notre serveur ;
+ *   - le diagnostic par photo (étape 12) : une photo de l'écran, réduite sur l'appareil, lue par Gemini
+ *     (POST /diagnostic, voir diagnostic.js), qui ouvre la bonne panne.
  * Le HTML est inséré par guide.js ; le style et le script sont servis à part (statique.js), après guide-fin.js.
  */
+import { esc } from "./outils-serveur.js";
 
 /** Étape 6, sous le lien du Catalogue FR : le ticket avec le code. */
 export const seanceHTML = () => `<div class="seance" id="seance">
@@ -25,6 +28,26 @@ export const verifCleHTML = () => `<div class="verif-cle" id="verif-cle" hidden>
         <p class="vc-etat" id="vc-etat" role="status" aria-live="polite"></p>
         <p class="small vc-note">La vérification part directement de ce navigateur vers AllDebrid : notre serveur ne voit jamais ta clé.</p>
       </div>`;
+
+/** Étape 12, avant les pannes : la photo de l'écran. */
+export const photoHTML = (origin) => `<div class="photo-diag" id="photo-diag">
+      <svg class="pd-icone" viewBox="0 0 48 48" aria-hidden="true"><rect x="5" y="13" width="38" height="27" rx="5"/><path d="M17 13l3-5h8l3 5"/><circle cx="24" cy="26.5" r="8"/><circle cx="24" cy="26.5" r="3.2"/><circle cx="36.5" cy="19" r="1.6"/></svg>
+      <div class="pd-texte">
+        <h3 class="sub-h">L'œil du projectionniste</h3>
+        <p>Un message bizarre à l'écran ? Prends ta TV en photo avec ton téléphone : l'IA lit l'écran et t'ouvre la bonne panne ci-dessous.</p>
+        <p class="pd-actions"><button type="button" class="perso-btn" id="pd-btn">Prendre ou choisir une photo</button><input type="file" id="pd-fichier" accept="image/*" hidden></p>
+        <p class="pd-etat" id="pd-etat" role="status" aria-live="polite"></p>
+        <p class="small">La photo est réduite sur ton appareil, puis lue par Gemini (l'IA de Google), avec ta clé de la <a href="${esc(origin)}/configure#s-ia">salle 2</a> si tu en as une. Elle n'est jamais gardée.</p>
+      </div>
+      <div class="pd-resultat" id="pd-resultat" tabindex="-1" hidden>
+        <div class="pd-photo" id="pd-photo"></div>
+        <div>
+          <p class="pd-lu" id="pd-lu-l"><span>Lu à l'écran</span> <q id="pd-lu"></q></p>
+          <p class="pd-conseil" id="pd-conseil"></p>
+          <p class="pd-suite" id="pd-suite" hidden>La panne qui correspond est ouverte juste en dessous.</p>
+        </div>
+      </div>
+    </div>`;
 
 export const VERIFS_CSS = `/* Le mot de passe de la séance : un ticket crème, le code en grosses lettres, tamponné quand Nuvio l'a reçu. */
 .seance { position: relative; display: grid; padding: 16px 18px 16px 30px; border-radius: 12px; color: var(--ink); overflow: hidden;
@@ -61,7 +84,33 @@ export const VERIFS_CSS = `/* Le mot de passe de la séance : un ticket crème, 
 .vc-etat.moyen, .vc-etat.mauvais { color: #ffe1d8; border-left: 3px solid var(--red); padding: 4px 0 4px 10px; }
 .vc-etat a { color: var(--bulb); }
 .vc-note { max-width: 60ch; }
-@media (prefers-reduced-motion: reduce) { .se-etat.guette::before { animation: none; } .seance.ok .se-tampon { animation: none; } }
+
+/* L'œil du projectionniste : le diagnostic par photo. */
+.photo-diag { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px 16px; padding: 16px 18px; border-radius: 14px; border: 1px solid rgba(255,207,107,.35);
+  background: linear-gradient(180deg, rgba(255,207,107,.08), rgba(255,207,107,.02)); }
+.photo-diag p { margin: 0; }
+.pd-icone { width: 48px; height: 48px; fill: none; stroke: var(--bulb); stroke-width: 2.4; stroke-linejoin: round; }
+.pd-texte { display: grid; gap: 8px; }
+.pd-texte .sub-h { margin: 0; }
+.pd-etat { font-weight: 700; font-size: .95rem; color: var(--bulb); }
+.pd-etat:empty { display: none; }
+.pd-etat.erreur { color: #ffe1d8; border-left: 3px solid var(--red); padding: 4px 0 4px 10px; }
+.pd-etat.lit::before { content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 8px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; vertical-align: -1px; animation: pd-tourne .8s linear infinite; }
+@keyframes pd-tourne { to { transform: rotate(360deg); } }
+.pd-resultat { grid-column: 1 / -1; display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; align-items: start; padding: 14px; border-radius: 12px; background: var(--velvet); border: 1px solid var(--seat); scroll-margin-top: 90px; }
+.pd-resultat:focus { outline: none; }
+.pd-resultat:focus-visible { outline: 3px solid var(--bulb); }
+.pd-photo img { display: block; width: 96px; height: 72px; object-fit: cover; border-radius: 8px; border: 1px solid var(--seat); }
+.pd-resultat > div { display: grid; gap: 6px; }
+.pd-lu span { display: block; font: 700 .72rem var(--body); letter-spacing: .18em; text-transform: uppercase; color: var(--dim); }
+.pd-lu q { font: 600 .95rem var(--type); color: var(--cream); }
+.pd-conseil { font-weight: 700; }
+.pd-suite { font-size: .9rem; color: var(--bulb); }
+/* Le résultat rangé juste au-dessus de la panne choisie, qui s'allume. */
+.faq .pd-resultat { margin: 10px 0 0; }
+.faq details.pd-choisie { border-left: 3px solid var(--bulb); padding-left: 12px; background: rgba(255,207,107,.05); border-radius: 0 10px 10px 0; }
+@media (max-width: 520px) { .photo-diag { grid-template-columns: minmax(0, 1fr); } .pd-icone { width: 40px; height: 40px; } .pd-resultat { grid-template-columns: 72px minmax(0, 1fr); } .pd-photo img { width: 72px; height: 54px; } }
+@media (prefers-reduced-motion: reduce) { .se-etat.guette::before, .pd-etat.lit::before { animation: none; } .seance.ok .se-tampon { animation: none; } }
 `;
 
 export const VERIFS_JS = `// ---------- Le mot de passe de la séance (étape 6) ----------
@@ -173,6 +222,95 @@ export const VERIFS_JS = `// ---------- Le mot de passe de la séance (étape 6)
     } catch (e) {
       dire("AllDebrid ne répond pas : vérifie ta connexion, puis réessaie.", "mauvais");
     } finally { btn.disabled = false; }
+  });
+})();
+
+// ---------- L'œil du projectionniste (étape 12) : une photo de l'écran, lue par l'IA ----------
+(() => {
+  const box = document.getElementById("photo-diag");
+  if (!box) return;
+  const btn = document.getElementById("pd-btn"), fichier = document.getElementById("pd-fichier"), etat = document.getElementById("pd-etat");
+  const resultat = document.getElementById("pd-resultat"), apercu = document.getElementById("pd-photo");
+  const SALLE2 = ORIG + "/configure#s-ia";
+  const cleGemini = () => { try { return localStorage.getItem("cle-gemini") || ""; } catch (e) { return ""; } };
+  // Sans clé à soi : la clé du site sert-elle aux visiteurs ? Demandé une fois, quand l'étape approche.
+  let iaSite = null;
+  const demanderIa = () => {
+    if (iaSite !== null || cleGemini()) return;
+    iaSite = fetch(ORIG + "/diagnostic", { cache: "no-store" }).then((r) => r.json()).then((j) => !!j.ia, () => true);
+  };
+  new IntersectionObserver((es, o) => { if (es.some((e) => e.isIntersecting)) { demanderIa(); o.disconnect(); } }, { rootMargin: "400px 0px" }).observe(box);
+  const dire = (texte, ton, lien) => {
+    etat.className = "pd-etat " + (ton || ""); etat.textContent = texte;
+    if (lien) { const a = document.createElement("a"); a.href = lien[0]; a.textContent = lien[1]; etat.append(" ", a); }
+  };
+  const sansCle = () => dire("Pour lire une photo, il faut une clé Gemini, gratuite (2 minutes à créer) : ajoute-la dans la salle 2, section IA, puis reviens ici.", "erreur", [SALLE2, "Ajouter ma clé"]);
+  btn.addEventListener("click", async () => {
+    if (!cleGemini() && iaSite && !(await iaSite)) { sansCle(); return; }
+    fichier.value = ""; fichier.click();
+  });
+  // La photo réduite à 1024 px au plus, en JPEG : plus légère à envoyer, et bien assez pour lire un écran.
+  const charger = (f) => new Promise((ok, ko) => {
+    const img = new Image(), u = URL.createObjectURL(f);
+    img.onload = () => { URL.revokeObjectURL(u); ok(img); };
+    img.onerror = () => { URL.revokeObjectURL(u); ko(new Error("format")); };
+    img.src = u;
+  });
+  async function reduire(f) {
+    let src;
+    try { src = await createImageBitmap(f, { imageOrientation: "from-image" }); } catch (e) { src = await charger(f); }
+    const w = src.width || src.naturalWidth, h = src.height || src.naturalHeight;
+    if (!w || !h) throw new Error("format");
+    const k = Math.min(1, 1024 / Math.max(w, h)), c = document.createElement("canvas");
+    c.width = Math.round(w * k); c.height = Math.round(h * k);
+    c.getContext("2d").drawImage(src, 0, 0, c.width, c.height);
+    if (src.close) src.close();
+    const en = (q) => new Promise((ok) => c.toBlob(ok, "image/jpeg", q));
+    let b = await en(0.8);
+    if (b && b.size > 1400000) b = await en(0.6);
+    if (!b) throw new Error("format");
+    return b;
+  }
+  let apercuUrl = "";
+  fichier.addEventListener("change", async () => {
+    const f = fichier.files && fichier.files[0];
+    if (!f) return;
+    resultat.hidden = true; box.append(resultat);
+    document.querySelectorAll("#depannage details.pd-choisie").forEach((d) => d.classList.remove("pd-choisie"));
+    btn.disabled = true; box.setAttribute("aria-busy", "true");
+    dire("Lecture de l'écran…", "lit");
+    try {
+      let photo;
+      try { photo = await reduire(f); } catch (e) { dire("Cette photo ne s'ouvre pas ici : prends-en une autre avec l'appareil photo (pas une capture au format HEIC).", "erreur"); return; }
+      const cle = cleGemini();
+      let r, j = {};
+      try {
+        r = await fetch(ORIG + "/diagnostic", { method: "POST", headers: { "Content-Type": "image/jpeg", ...(cle ? { "X-Cle-Gemini": cle } : {}) }, body: photo, cache: "no-store" });
+        j = await r.json().catch(() => ({}));
+      } catch (e) { dire("Pas de connexion : vérifie ton Wi-Fi, puis réessaie.", "erreur"); return; }
+      if (r.status === 401 && j.cle === "absente") { sansCle(); return; }
+      if (!r.ok) { dire(j.error || "L'IA ne répond pas pour le moment : réessaie dans un instant.", "erreur", r.status === 502 && cle ? [SALLE2, "Vérifier ma clé"] : null); return; }
+      if (!j.lisible) { dire("L'écran est trop flou ou trop sombre sur cette photo : rapproche-toi, évite les reflets, et réessaie.", "erreur"); return; }
+      if (apercuUrl) URL.revokeObjectURL(apercuUrl);
+      const img = document.createElement("img");
+      img.alt = "Ta photo"; img.src = apercuUrl = URL.createObjectURL(photo);
+      apercu.replaceChildren(img);
+      document.getElementById("pd-lu").textContent = j.lu || "";
+      document.getElementById("pd-lu-l").hidden = !j.lu;
+      document.getElementById("pd-conseil").textContent = j.conseil || "";
+      const panne = j.faq && document.getElementById("panne-" + j.faq);
+      document.getElementById("pd-suite").hidden = !panne;
+      resultat.hidden = false;
+      if (panne) {
+        // Panne cachée par un voyant du pupitre : on éteint le voyant, toutes les pannes reviennent.
+        if (panne.hidden) { const v = document.querySelector('#pupitre .voyant[aria-pressed="true"]'); if (v) v.click(); }
+        panne.before(resultat); panne.open = true; panne.classList.add("pd-choisie");
+      }
+      dire(panne ? "C'est lu : voici la panne qui correspond." : "C'est lu. Aucune panne connue ne correspond : suis le conseil, ou le grand rembobinage plus bas.");
+      resultat.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      resultat.focus({ preventScroll: true });
+      if (typeof window.popcorn === "function") popcorn(resultat);
+    } finally { btn.disabled = false; box.removeAttribute("aria-busy"); }
   });
 })();
 `;

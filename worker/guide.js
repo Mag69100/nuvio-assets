@@ -583,6 +583,9 @@ ${feuilles("apercu.css", "nuvio.css", "reglages.css")}
 .r-dots { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
 .r-dots button { width: 10px; height: 10px; padding: 0; border-radius: 50%; border: 0; background: var(--seat); }
 .r-dots button[aria-pressed="true"] { background: var(--bulb); }
+.r-dots { align-items: center; }
+.r-dots button.r-pause { width: auto; height: auto; margin-left: 6px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--seat); background: transparent; color: var(--dim); font: 700 .72rem var(--body); cursor: pointer; }
+.r-dots button.r-pause:hover { color: var(--cream); border-color: rgba(255,207,107,.5); }
 @media (max-width: 600px) { .reclame { padding: 22px 20px 52px; } .reclame .r-etoile { width: 70px; height: 70px; font-size: .85rem; top: 10px; right: 10px; } .reclame h3 { padding-right: 64px; } }
 
 /* La vendeuse d'esquimaux passe dans l'allée de l'entracte. */
@@ -665,6 +668,7 @@ ${feuilles("scene.css")}
   .reel-menu a { padding: 12px; }
   .r-dots { gap: 0; }
   .r-dots button { box-sizing: border-box; width: 30px; height: 30px; padding: 10px; background-clip: content-box; }
+  .r-dots button.r-pause { min-height: 44px; padding: 0 14px; }
 }
 </style>
 </head>
@@ -1461,14 +1465,25 @@ if (location.hash.indexOf("#lien=") === 0) {
     });
     dots.querySelectorAll("button").forEach((b, j) => b.setAttribute("aria-pressed", String(j === i)));
   };
+  // Le défilement s'arrête au survol et au focus ; le bouton Pause l'arrête pour de bon. Sans animation
+  // (mouvement réduit), il est arrêté au départ : le bouton le relance.
+  let arrete = matchMedia("(prefers-reduced-motion: reduce)").matches, dessus = false;
+  const pause = document.createElement("button"); pause.type = "button"; pause.className = "r-pause";
+  const restart = () => {
+    clearInterval(timer);
+    pause.textContent = arrete ? "Lecture" : "Pause";
+    pause.setAttribute("aria-label", arrete ? "Relancer le défilement des réclames" : "Arrêter le défilement des réclames");
+    if (!arrete && !dessus) timer = setInterval(() => show(i + 1), 7000);
+  };
   items.forEach((_, j) => {
     const b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-label", "Réclame " + (j + 1));
     b.addEventListener("click", () => { show(j); restart(); }); dots.append(b);
   });
-  const restart = () => { clearInterval(timer); if (!matchMedia("(prefers-reduced-motion: reduce)").matches) timer = setInterval(() => show(i + 1), 7000); };
+  pause.addEventListener("click", () => { arrete = !arrete; restart(); });
+  dots.append(pause);
   [box, dots].forEach((el) => {
-    el.addEventListener("mouseenter", () => clearInterval(timer)); el.addEventListener("mouseleave", restart);
-    el.addEventListener("focusin", () => clearInterval(timer)); el.addEventListener("focusout", restart);
+    el.addEventListener("mouseenter", () => { dessus = true; restart(); }); el.addEventListener("mouseleave", () => { dessus = false; restart(); });
+    el.addEventListener("focusin", () => { dessus = true; restart(); }); el.addEventListener("focusout", () => { dessus = false; restart(); });
   });
   show(0); restart();
 })();

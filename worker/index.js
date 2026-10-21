@@ -1923,7 +1923,7 @@ const app = {
     // Nuvio « de base » de l'avant / après des aperçus : les rangées de Cinemeta, relayées (voir cinemeta.js).
     if (path.startsWith("/cinemeta/")) return routeCinemeta(path, HEADERS, ctx);
     // Le film du jour à deviner : la page, son image, ses indices et ses essais (voir jeu.js).
-    if (path === "/jeu" || path.startsWith("/jeu/")) return routeJeu(request, env, ctx, url, path, today, HEADERS);
+    if (path === "/jeu" || path.startsWith("/jeu/")) return routeJeu(request, env, ctx, url, path, today, HEADERS, decorSaison(url, today));
     // La salle des machines : l'état du site, testé par le worker lui-même (voir etat.js). L'addon est appelé par la
     // liaison SELF quand elle existe (son propre budget d'appels), sinon ici même.
     if (path === "/etat" || path === "/etat.json") {
@@ -1933,7 +1933,7 @@ const app = {
         }
         return app.fetch(new Request(url.origin + p), env, ctx);
       };
-      return routeEtat(request, env, ctx, url, path, { version: VERSION, assets: ASSETS, affiches: env.AFFICHES_URL || AFFICHES_URL, appel, today }, HEADERS);
+      return routeEtat(request, env, ctx, url, path, { version: VERSION, assets: ASSETS, affiches: env.AFFICHES_URL || AFFICHES_URL, appel, today, saison: decorSaison(url, today) }, HEADERS);
     }
 
     // Premier segment = config personnalisée, s'il n'est pas un mot réservé.

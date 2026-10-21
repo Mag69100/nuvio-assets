@@ -120,7 +120,7 @@ export const VERIFS_JS = `// ---------- Le mot de passe de la séance (étape 6)
   const etat = document.getElementById("seance-etat"), relance = document.getElementById("seance-relance"), codeEl = document.getElementById("seance-code");
   const lit = (s, k) => { try { return s.getItem(k) || ""; } catch (e) { return ""; } };
   const garde = (s, k, v) => { try { v ? s.setItem(k, v) : s.removeItem(k); } catch (e) {} };
-  const POLL_MS = 3000, MAX = 200;   // toutes les 3 s, 10 minutes au plus
+  const POLL_MS = 5000, MAX = 120;   // toutes les 5 s, 10 minutes au plus (chaque coup d'œil compte dans le quota du jour)
   let code = lit(sessionStorage, "seance-code"), essais = 0, visible = false, minuteur = 0, enCours = false, fini = false;
   const nouveau = () => {
     const n = new Uint16Array(1); crypto.getRandomValues(n);

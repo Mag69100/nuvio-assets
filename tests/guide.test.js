@@ -100,7 +100,7 @@ test("verifications_du_guide", () => {
   assert.ok(souci.indexOf('id="photo-diag"') < souci.indexOf("<details data-moment"));
   assert.ok(html.includes(`href="${O}/configure#s-ia"`));
   // Le script : guetté toutes les 3 s, 10 minutes au plus, et les fêtes seulement si la salle les a chargées.
-  assert.match(html, /const POLL_MS = 3000, MAX = 200;/);
+  assert.match(html, /const POLL_MS = 5000, MAX = 120;/);
   assert.match(html, /fetch\(ORIG \+ "\/seance\/" \+ code/);
   assert.match(html, /typeof window\.bravo === "function"/);
   // La clé AllDebrid part directement chez AllDebrid (en-tête Authorization), jamais vers le site.

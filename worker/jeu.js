@@ -179,10 +179,10 @@ export const bonFilm = (p, id) => typeof id === "string" && ((!!p.imdb && id ===
 const finJour = () => { const n = new Date(), p = new Date(n.toLocaleString("en-US", { timeZone: "Europe/Paris" })); return Math.max(60, 86400 - (p.getHours() * 3600 + p.getMinutes() * 60 + p.getSeconds())); };
 
 /** Les routes /jeu… (today : la date de Paris). */
-export async function routeJeu(request, env, ctx, url, path, today, headers) {
+export async function routeJeu(request, env, ctx, url, path, today, headers, saison = "") {
   const json = (d, statut = 200, cc = "no-store") => new Response(JSON.stringify(d), { status: statut, headers: { ...headers, "Cache-Control": cc } });
   if (path === "/jeu") {
-    return new Response(jeuPage({ origin: url.origin, date: today, n: numero(today) }), {
+    return new Response(jeuPage({ origin: url.origin, date: today, n: numero(today), saison }), {
       headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": `public, max-age=${Math.min(300, finJour())}` } });
   }
   const m = /^\/jeu\/(\d{4}-\d{2}-\d{2})\/(image\.jpg|indice\/(\d)|essai)$/.exec(path);
@@ -219,11 +219,11 @@ export async function routeJeu(request, env, ctx, url, path, today, headers) {
 // ---------------------------------------------------------------------------------------------------------------
 // La page
 // ---------------------------------------------------------------------------------------------------------------
-export function jeuPage({ origin, date, n }) {
+export function jeuPage({ origin, date, n, saison = "" }) {
   const LOGO = origin + "/logo.png";
   const jourLong = new Date(date + "T12:00:00Z").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
   return `<!doctype html>
-<html lang="fr">
+<html lang="fr" data-saison="${esc(saison || "")}">
 <head>
 <meta charset="utf-8">
 ${STAGE_HEAD}
@@ -572,7 +572,7 @@ const JEU_JS = String.raw`(() => {
   q.addEventListener("input", () => {
     choix = null; valider.disabled = true; clearTimeout(attente);
     const t = q.value.trim();
-    if (t.length < 2) { ferme(); return; }
+    if (t.length < 3) { ferme(); return; }   // 3 lettres : chaque recherche nouvelle coûte une vingtaine d'appels TMDB
     attente = setTimeout(() => cherche(t), 350);
   });
   q.addEventListener("keydown", (e) => {

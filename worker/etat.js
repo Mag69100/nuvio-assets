@@ -124,7 +124,7 @@ async function bilanGarde(env, ctx, url, outils) {
 /** /etat (la page) et /etat.json (le bilan). */
 export async function routeEtat(request, env, ctx, url, path, outils, headers) {
   if (path === "/etat") {
-    return new Response(etatPage({ origin: url.origin, version: outils.version }), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" } });
+    return new Response(etatPage({ origin: url.origin, version: outils.version, saison: outils.saison }), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" } });
   }
   const b = await bilanGarde(env, ctx, url, outils);
   const reste = Math.max(10, Math.min(60, ETAT_GARDE_S - Math.round((Date.now() - Date.parse(b.verifie)) / 1000)));
@@ -145,11 +145,11 @@ export const TEXTES = {
   base: { vert: "La base des liens fixes répond : ils gardent tes réglages.", orange: "La base des liens fixes est lente.", rouge: "La base des liens fixes ne répond pas : les liens fixes peuvent échouer, les liens habituels marchent toujours.", eteint: "Pas de base sur ce site : les liens fixes n'y sont pas proposés, c'est normal." },
 };
 
-export function etatPage({ origin, version }) {
+export function etatPage({ origin, version, saison = "" }) {
   const LOGO = origin + "/logo.png";
   const voyant = (id, nom) => `<li class="voyant" data-id="${id}" data-etat="attente"><i class="lampe" aria-hidden="true"></i><div><b>${esc(nom)}</b><span class="etat">En test…</span><p class="texte"></p></div><small class="ms"></small></li>`;
   return `<!doctype html>
-<html lang="fr">
+<html lang="fr" data-saison="${esc(saison || "")}">
 <head>
 <meta charset="utf-8">
 ${STAGE_HEAD}

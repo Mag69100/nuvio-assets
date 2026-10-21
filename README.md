@@ -104,6 +104,7 @@ le cache, tes choix et le secret de connexion sont gardés dans `./donnees`. Ima
 | `HOTE_SECRET` | conseillé sur Cloudflare | Longue suite de caractères au hasard qui signe la connexion (créé tout seul sur Docker) |
 | `GEMINI_API_KEY` | facultatif | Clé Gemini de ta copie (pages `/debug`) |
 | `GEMINI_PUBLIC` | facultatif | `on` : cette clé sert aussi aux liens sans clé |
+| `RELAIS_KEY` | facultatif | Si tu héberges aussi le service d'affiches avec une variable `RELAIS_KEY` : la même valeur, pour que l'addon y lise la VF des sources (`/vf.json`) |
 | `DEPOT` | Cloudflare | `ton-pseudo/nuvio-assets`, pour que « Mettre à jour » mène à ton fork |
 | `ADRESSE_PUBLIQUE` | Docker | Ton adresse https derrière un tunnel ou un proxy |
 

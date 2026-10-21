@@ -492,7 +492,10 @@ async function sourcesVf(env, imdbs) {
   if (!ids.length) return new Map();
   try {
     const url = `${env.AFFICHES_URL || AFFICHES_URL}/vf.json?v=${ids.map((i) => "movie/" + i).join(",")}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(4000), cf: { cacheTtl: 3600, cacheEverything: true } });
+    // RELAIS_KEY (secret facultatif, la même valeur que la variable du service d'affiches) : sans elle, le service
+    // ne lit pour nous une liste pas encore dans son cache que s'il n'a pas de clé lui-même (affiches/lib/relais.js).
+    const res = await fetch(url, { signal: AbortSignal.timeout(4000), cf: { cacheTtl: 3600, cacheEverything: true },
+      headers: env.RELAIS_KEY ? { "X-Relais-Cle": env.RELAIS_KEY } : {} });
     if (!res.ok) return new Map();
     const d = await res.json();
     return new Map(ids.map((i) => [i, d && d["movie/" + i]]).filter(([, x]) => x && typeof x.vf === "boolean"));

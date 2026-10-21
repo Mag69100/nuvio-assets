@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: assets
@@ -19,13 +20,17 @@ concurrency:
 
 jobs:
   build:
+    # Pas sur les forks : ils lisent les images de ce dépôt, et un commit de leur part bloquerait « Sync fork ».
+    if: github.repository == 'xnzx07/nuvio-assets'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - run: pip install pillow
+      # Version fixe : une autre version de Pillow change les octets de toutes les images, réécrites à chaque fois.
+      - run: pip install pillow==13.0.0
       - run: python scripts/make_assets.py
       - name: Enregistrer les images
         run: |
@@ -33,5 +38,25 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add genres seasons moods gifs logos titles
           git diff --cached --quiet || git commit -m "Met à jour les images des collections"
-          git pull --rebase
-          git push
+          # Un autre workflow a pu pousser entre-temps : trois essais.
+          for essai in 1 2 3; do
+            git pull --rebase && git push && exit 0
+            git rebase --abort 2>/dev/null || true
+            [ "$essai" = 3 ] || { echo "Envoi refusé (essai $essai sur 3), nouvel essai." >&2; sleep $((essai * 15)); }
+          done
+          exit 1
+      - name: Signaler l'échec
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITRE: "Échec de « ${{ github.workflow }} »"
+          LIEN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Une seule issue ouverte par workflow : les échecs suivants s'y ajoutent en commentaire.
+          num=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json number,title \
+                  --jq '.[] | select(.title == env.TITRE) | .number' | head -n 1)
+          if [ -n "$num" ]; then
+            gh issue comment "$num" --repo "$GITHUB_REPOSITORY" --body "Nouvel échec : $LIEN"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITRE" --body "Le workflow a échoué : $LIEN"
+          fi

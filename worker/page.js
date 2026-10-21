@@ -1138,8 +1138,23 @@ function rowInfo(id) {
   }
   return D.rows.find(r => r.id === id);
 }
+// Une liste reconstruite (rangées, collections) : le focus revient sur le même élément, retrouvé par son id
+// ou son data-cle (sinon il tomberait en haut de la page, au clavier comme au lecteur d'écran).
+function repereFocus(boite) {
+  const a = document.activeElement;
+  if (!a || a === document.body || !boite.contains(a)) return null;
+  return a.id ? { id: a.id } : a.dataset && a.dataset.cle ? { cle: a.dataset.cle } : null;
+}
+function rendFocus(boite, rep, repli) {
+  if (!rep || boite.contains(document.activeElement)) return;
+  const trouve = (r) => r.id ? document.getElementById(r.id) : boite.querySelector('[data-cle="' + CSS.escape(r.cle) + '"]');
+  const n = trouve(rep);
+  if (n) n.focus({ preventScroll: true });
+  if (document.activeElement === n || !repli) return;
+  const m = trouve(repli); if (m) m.focus({ preventScroll: true });
+}
 function renderRows(flashId) {
-  const ol = $("rows"); ol.textContent = "";
+  const ol = $("rows"), rep = repereFocus(ol); ol.textContent = "";
   let n = 0;
   order.forEach((id, idx) => {
     const r = rowInfo(id); if (!r) return;
@@ -1154,17 +1169,17 @@ function renderRows(flashId) {
       el("span", { class: "kind", text: r.kind }),
       state.o[id] ? el("em", { class: "orig", text: "(" + r.name + ")" }) : null,
       el("small", { text: r.hint + (r.now ? " · en ce moment : " + r.now : "") }));
-    const inp = el("input", { type: "text", value: state.o[id] || "", placeholder: r.name, maxlength: "40", enterkeyhint: "done", "aria-label": "Nouveau nom pour " + r.name });
+    const inp = el("input", { type: "text", value: state.o[id] || "", placeholder: r.name, maxlength: "40", enterkeyhint: "done", "aria-label": "Nouveau nom pour " + r.name, "data-cle": "nom:" + id });
     const saveName = () => { const v = inp.value.trim(); if (v && v !== r.name) state.o[id] = v; else delete state.o[id]; renderRows(id); update(); };
     inp.addEventListener("keydown", (e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") renderRows(); });
-    const box = el("div", { class: "body" }, lab, el("div", { class: "rename" }, inp, el("button", { type: "button", class: "mini ok", text: "OK", onclick: saveName })));
+    const box = el("div", { class: "body" }, lab, el("div", { class: "rename" }, inp, el("button", { type: "button", class: "mini ok", text: "OK", "data-cle": "ok:" + id, onclick: saveName })));
     const tools = el("div", { class: "tools" });
-    tools.append(el("button", { type: "button", class: "toggle", "aria-pressed": String(on), text: on ? "À l'affiche" : "Ajouter", onclick: () => { setRow(id, !on); renderRows(id); update(); } }));
-    if (r.custom !== undefined) tools.append(el("button", { type: "button", class: "icon", title: "Modifier", "aria-label": "Modifier " + shown, text: "⚙", onclick: () => openBuilder(r.custom) }));
-    else tools.append(el("button", { type: "button", class: "icon", title: "Renommer", "aria-label": "Renommer " + shown, text: "✎", onclick: () => { li.classList.add("editing"); inp.focus(); inp.select(); } }));
+    tools.append(el("button", { type: "button", class: "toggle", "aria-pressed": String(on), "data-cle": "affiche:" + id, text: on ? "À l'affiche" : "Ajouter", onclick: () => { setRow(id, !on); renderRows(id); update(); } }));
+    if (r.custom !== undefined) tools.append(el("button", { type: "button", class: "icon", title: "Modifier", "aria-label": "Modifier " + shown, "data-cle": "outil:" + id, text: "⚙", onclick: () => openBuilder(r.custom) }));
+    else tools.append(el("button", { type: "button", class: "icon", title: "Renommer", "aria-label": "Renommer " + shown, "data-cle": "outil:" + id, text: "✎", onclick: () => { li.classList.add("editing"); inp.focus(); inp.select(); } }));
     [["↑", -1, "Monter"], ["↓", 1, "Descendre"]].forEach(([t, d, a]) => {
       const j = idx + d;
-      const bt = el("button", { type: "button", class: "arrow", text: t, "aria-label": a + " " + shown });
+      const bt = el("button", { type: "button", class: "arrow", text: t, "aria-label": a + " " + shown, "data-cle": a.toLowerCase() + ":" + id });
       bt.disabled = j < 0 || j >= order.length;
       bt.addEventListener("click", () => {
         [order[idx], order[j]] = [order[j], order[idx]];
@@ -1178,6 +1193,11 @@ function renderRows(flashId) {
     ol.append(li);
   });
   justOn = null;
+  // Le nom renommé (champ refermé) rend le focus au bouton ✎ ; une flèche arrivée au bout, à l'autre flèche.
+  if (rep && rep.cle) {
+    const [type, ...reste] = rep.cle.split(":"), rid = reste.join(":");
+    rendFocus(ol, rep, { cle: (type === "monter" ? "descendre" : type === "descendre" ? "monter" : "outil") + ":" + rid });
+  } else rendFocus(ol, rep);
   $("add-row").disabled = state.x.length >= D.maxCustom;
   if (flashId) setTimeout(() => document.querySelectorAll(".frame.flash").forEach(f => f.classList.remove("flash")), 180);
 }
@@ -1925,7 +1945,10 @@ function toggle(key, id, on, all) {
   update();
 }
 function renderCollections() {
-  const box = $("collections"); box.textContent = "";
+  // Reconstruite à chaque collection cochée : les listes de tuiles ouvertes le restent, le focus reste en place.
+  const box = $("collections"), rep = repereFocus(box);
+  const ouvertes = new Set([...box.querySelectorAll("details[open]")].map((d) => d.dataset.coll));
+  box.textContent = "";
   byPos(D.collections).forEach(c => {
     const on = state.c.includes(c.id);
     const hidden = state.t[c.id] || [];
@@ -1937,13 +1960,15 @@ function renderCollections() {
     if (c.folders.length) {
       const list = el("ol", { class: "tiles" });
       drawTiles(c, list, head);
-      const det = el("details", null, el("summary", { text: "Choisir les tuiles et leur ordre" }), list);
+      const det = el("details", { "data-coll": c.id }, el("summary", { text: "Choisir les tuiles et leur ordre", "data-cle": "tuiles:" + c.id }), list);
+      det.open = ouvertes.has(c.id);
       if (c.id === "plateformes-streaming") det.append(el("p", { class: "sub", style: "margin:8px 0 0", text: "Les tuiles des plateformes suivent aussi tes abonnements." }));
       wrap.append(det);
     }
     box.append(wrap);
     if (c.id === "plateformes-streaming") box.append(el("p", { class: "coll-rangees" }, "↓ Ici, sur l'accueil : ", el("b", { text: "tes rangées du Catalogue FR" }), " ↓"));
   });
+  rendFocus(box, rep);
 }
 // Tuiles d'une collection dans l'ordre choisi (positions dans le fichier) ; les autres suivent, ordre habituel.
 function tileOrder(c) {

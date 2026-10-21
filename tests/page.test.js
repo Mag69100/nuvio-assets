@@ -166,6 +166,15 @@ test("regie_modale_inerte", () => {
   assert.match(html, /"data-cle": cleDe\(titre \+ ":" \+ String\(val\)\)/);
 });
 
+// Rangées et collections reconstruites : le focus reste sur le même élément, les listes de tuiles restent ouvertes.
+test("focus_garde_apres_reconstruction", () => {
+  const html = page();
+  assert.match(html, /const ol = \$\("rows"\), rep = repereFocus\(ol\);/);
+  assert.match(html, /const box = \$\("collections"\), rep = repereFocus\(box\);/);
+  assert.match(html, /det\.open = ouvertes\.has\(c\.id\);/);
+  assert.match(html, /rendFocus\(box, rep\);/);
+});
+
 // Lien fixe : à la fermeture de l'onglet, le dernier réglage part tout de suite (keepalive), hors de la file.
 test("lien_fixe_envoye_a_la_fermeture", () => {
   const html = page();

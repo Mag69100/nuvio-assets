@@ -700,8 +700,8 @@ function endpointAsDiscover(def) {
  */
 async function photoTendances(env, kind) {
   try {
-    // ?v=2 : la photo unique, prise par l'addon ; celles d'avant (une par serveur) restent sous l'ancienne adresse.
-    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json?v=2`, { cf: { cacheTtl: secondesAvantBascule(), cacheEverything: true } });
+    // ?v=3 : la photo unique, prise par l'addon ; v=2 a été lue une fois chez l'ancien service, gardée jusqu'à 4 h.
+    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json?v=3`, { cf: { cacheTtl: secondesAvantBascule(), cacheEverything: true } });
     const d = res.ok ? await res.json() : {};
     return new Map((Array.isArray(d.ids) ? d.ids : []).map((id, i) => [id, i]));
   } catch (e) { return new Map(); }

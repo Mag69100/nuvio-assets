@@ -47,8 +47,13 @@ test("sans IMDb : null sans appel", async () => {
 
 test("délai : null en 2,5 s au plus", async () => {
   const f = (u, opts) => new Promise((_, reject) => opts.signal.addEventListener("abort", () => reject(opts.signal.reason)));
+  // Le minuteur d'AbortSignal.timeout ne garde pas Node en vie (une vraie connexion, si) : sans celui-ci,
+  // Node 22 croit le test fini et annule toute la suite.
+  const garde = setTimeout(() => {}, 5000);
   const t0 = Date.now();
-  assert.equal(await qualityOf("movie", "tt9", null, f), null);
+  try {
+    assert.equal(await qualityOf("movie", "tt9", null, f), null);
+  } finally { clearTimeout(garde); }
   assert.ok(Date.now() - t0 <= 3000, `trop long : ${Date.now() - t0} ms`);
 });
 

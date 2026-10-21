@@ -77,6 +77,15 @@ test("lien_fixe_reglages_par_defaut", async () => {
   assert.equal(page.headers.get("Cache-Control"), "no-store");
 });
 
+// Les rangées d'un lien fixe gardent leur adresse quand ses réglages changent : 5 min dans Nuvio seulement
+// (« Actualiser les addons » doit suivre vite) ; celles d'un lien habituel, 15 min.
+test("lien_fixe_rangees_gardees_peu_de_temps_par_nuvio", async () => {
+  const { id } = await (await post("/lien-fixe", { c: "" })).json();
+  assert.equal((await at(`/${id}/catalog/movie/accueil-top10.json`)).headers.get("Cache-Control"), "public, max-age=300");
+  assert.equal((await at(`/catalog/movie/accueil-top10.json`)).headers.get("Cache-Control"), "public, max-age=900, stale-while-revalidate=900");
+  assert.equal((await at(`/${seg({ n: "X" })}/catalog/movie/accueil-top10.json`)).headers.get("Cache-Control"), "public, max-age=900, stale-while-revalidate=900");
+});
+
 test("lien_fixe_inconnu", async () => {
   const res = await at("/f0123456789abcdef/manifest.json");
   assert.match((await res.json()).error, /introuvable/);
@@ -93,6 +102,61 @@ test("lien_fixe_reglages_illisibles_refuses", async () => {
 test("lien_fixe_depuis_un_autre_site_refuse", async () => {
   const res = await at("/lien-fixe", { method: "POST", headers: { "Content-Type": "application/json", Origin: "https://ailleurs.exemple" }, body: JSON.stringify({ c: "" }) });
   assert.equal(res.status, 403);
+});
+
+// La base qui ne répond pas : jamais « introuvable » (on referait son lien et perdrait l'ancien), rien de gardé.
+test("lien_fixe_base_en_panne_pas_introuvable", async () => {
+  env.LIENS.prepare = () => ({ bind: () => ({ first: async () => { throw new Error("D1_ERROR: network connection lost"); } }) });
+  for (const path of ["/manifest.json", "/catalog/movie/accueil-top10.json", "/configure", ""]) {
+    const res = await at(`/f0123456789abcdef${path}`);
+    assert.equal(res.status, 503, path);
+    assert.equal(res.headers.get("Cache-Control"), "no-store", path);
+    assert.doesNotMatch(await res.text(), /introuvable/, path);
+  }
+});
+
+test("lien_fixe_table_absente_introuvable", async () => {
+  env.LIENS.prepare = () => ({ bind: () => ({ first: async () => { throw new Error("D1_ERROR: no such table: liens: SQLITE_ERROR"); } }) });
+  assert.match((await (await at("/f0123456789abcdef/manifest.json")).json()).error, /introuvable/);
+});
+
+test("lien_fixe_copie_de_secours_si_la_base_ne_repond_pas", async () => {
+  const { id } = await (await post("/lien-fixe", { c: seg({ n: "Secours" }) })).json();
+  assert.equal((await (await at(`/${id}/manifest.json`)).json()).name, "Secours");
+  // Une heure plus tard (copie plus fraîche), la base tombe : la copie gardée sert encore.
+  for (const [k, v] of store) if (k.includes("/lien-fixe/")) store.set(k, JSON.stringify({ ...JSON.parse(v), lu: Date.now() - 3600e3 }));
+  env.LIENS.prepare = () => ({ bind: () => ({ first: async () => { throw new Error("D1_ERROR: overloaded"); } }) });
+  const res = await at(`/${id}/manifest.json`);
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).name, "Secours");
+});
+
+test("lien_fixe_relu_dans_la_base_apres_5_minutes", async () => {
+  const { id } = await (await post("/lien-fixe", { c: seg({ n: "Base" }) })).json();
+  await at(`/${id}/manifest.json`);
+  // Copie de ce centre de Cloudflare vieille de plus de 5 min (modifiée ailleurs depuis) : la base fait foi.
+  for (const [k, v] of store) if (k.includes("/lien-fixe/")) store.set(k, JSON.stringify({ ...JSON.parse(v), c: "périmé", lu: Date.now() - 301e3 }));
+  assert.equal((await (await at(`/${id}/manifest.json`)).json()).name, "Base");
+});
+
+test("lien_fixe_sans_origin_refuse", async () => {
+  const res = await at("/lien-fixe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ c: "" }) });
+  assert.equal(res.status, 403);
+  assert.equal(env.LIENS.rows.size, 0);
+});
+
+test("lien_fixe_creations_limitees_par_adresse", async () => {
+  const vus = [];
+  let reste = 2;
+  env.LIMITE_LIENS = { limit: async ({ key }) => { vus.push(key); return { success: reste-- > 0 }; } };
+  const de = (ip, path = "/lien-fixe", body = { c: "" }) => at(path, { method: "POST", headers: { "Content-Type": "application/json", Origin: O, "cf-connecting-ip": ip }, body: JSON.stringify(body) });
+  assert.equal((await de("203.0.113.7")).status, 200);
+  const { id, modif } = await (await de("203.0.113.7")).json();
+  assert.equal((await de("203.0.113.7")).status, 429);
+  assert.deepEqual(vus, ["203.0.113.7", "203.0.113.7", "203.0.113.7"]);
+  // Les modifications (enregistrées à chaque réglage) ne comptent pas.
+  assert.equal((await de("203.0.113.7", `/lien-fixe/${id}`, { c: seg({ n: "Encore" }), modif })).status, 200);
+  assert.equal(vus.length, 3);
 });
 
 test("lien_fixe_indisponible_sans_base", async () => {

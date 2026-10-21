@@ -35,14 +35,19 @@ import { lienPage } from "./lien.js";
 import { copiePage } from "./copie.js";
 import { hallPage } from "./hall.js";
 import { statique } from "./statique.js";
-import { smartSearch, prepareWords, isExact, norm } from "./search.js";
+import { smartSearch, prepareWords, isExact, norm, capQuery } from "./search.js";
 import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
 import { isFixedId, readFixed, fixedRoute, fixedAvailable } from "./fixe.js";
+import { sha256 } from "./outils-serveur.js";
 import { secondesAvantBascule, jourTendances, routeTendances, prendrePhotos } from "./tendances.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
 const VERSION = "5.26.5";
+// Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
+// ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
+// vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
+const CACHE_V = 1;
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -56,7 +61,12 @@ const LOGO_V = 2;
 const NOISE_TV = ["10763", "10764", "10766", "10767"]; // actualité, téléréalité, soap, talk-show
 
 const CACHE_CATALOG_S = 3 * 3600;  // une page de catalogue reste 3 h dans le cache Cloudflare
-const CACHE_CLIENT_S = 300;        // et 5 min seulement dans le cache de Nuvio
+const CACHE_CLIENT_S = 300;        // et 5 min seulement dans le cache de Nuvio (manifest, liens fixes)
+// Rangées d'un lien habituel : 15 min dans Nuvio (qui les relit à chaque expiration). Leur adresse change avec les
+// réglages, rien à attendre pour voir un changement. Celles d'un lien fixe gardent leur adresse quand les réglages
+// changent : 5 min, pour que « Actualiser les addons » montre vite les nouvelles rangées.
+const CACHE_CLIENT_LONG_S = 900;
+const CACHE_DEGRADE_S = 300;       // page incomplète (fiches refusées par TMDB) : 5 min seulement
 const CACHE_IMDB_S = 30 * 86400;    // correspondance TMDB → IMDb : 30 jours
 
 // ---------- saisons ----------
@@ -215,7 +225,7 @@ function discoverDefs(today) {
   return defs;
 }
 
-function manifest(today, cfg, cfgSeg, url, alerts) {
+function manifest(today, cfg, url, alerts) {
   const paging = { name: "skip" };
   const discover = discoverDefs(today).filter((d) => cfg.d.includes(d.id)).map((d) => {
     const labels = d.options.map((o) => o.label);
@@ -267,8 +277,32 @@ async function tmdb(env, path, params = {}, lang = "fr-FR") {
  * Infos complémentaires d'un titre : identifiant IMDb et, pour les films, dates de sortie
  * (cinéma et numérique) par pays ; pour les séries, dernier et prochain épisode. Un seul appel
  * TMDB par titre, gardé 1 jour par Cloudflare (dates numériques et épisodes bougent).
+ *
+ * Le résumé (quelques champs) reste aussi 3 h dans la mémoire de cette instance du Worker : une page relue (autre
+ * lien, autre rangée, autre page) ne relit pas la grosse fiche TMDB (images, vidéos, dates de tous les pays), longue
+ * à décoder, et ne refait pas l'appel. Les réponses ratées ne sont pas gardées.
  */
+const INFOS = new Map();
+const INFOS_MAX = 3000, INFOS_MS = 3 * 3600e3;
+/** Pour les tests : oublie les résumés gardés en mémoire. */
+export const oublierInfos = () => INFOS.clear();
+
 async function extraInfo(env, kind, tmdbId) {
+  const k = `${kind}:${tmdbId}`, memo = INFOS.get(k);
+  if (memo && Date.now() - memo.at < INFOS_MS) return memo.info;
+  const info = await lireInfo(env, kind, tmdbId);
+  if (info.lu) {
+    INFOS.delete(k);
+    INFOS.set(k, { at: Date.now(), info });
+    if (INFOS.size > INFOS_MAX) INFOS.delete(INFOS.keys().next().value);   // le plus ancien
+  }
+  return info;
+}
+
+/** Ce qui sert d'un épisode TMDB (episodeNote, isFinale). */
+const slimEpisode = (e) => e && { air_date: e.air_date, season_number: e.season_number, episode_number: e.episode_number, episode_type: e.episode_type };
+
+async function lireInfo(env, kind, tmdbId) {
   const movie = kind !== "series";
   const url = new URL(`https://api.themoviedb.org/3/${movie ? "movie" : "tv"}/${tmdbId}`);
   // Même appel qu'avant, avec en plus les images : logo (en français si possible) et fond
@@ -279,18 +313,25 @@ async function extraInfo(env, kind, tmdbId) {
     // Plateformes (films) : en France = VF disponible, même sans date francophone (likelyVf).
     append_to_response: movie ? "release_dates,images,videos,watch/providers" : "external_ids,images,videos",
   });
-  // Sans réponse (limite d'appels de Cloudflare…) : le titre s'affiche quand même, sans ces infos.
+  // Sans réponse (limite d'appels de Cloudflare ou de TMDB…) : le titre s'affiche quand même, sans ces infos, et la
+  // page est marquée incomplète (rate). Un titre retiré de TMDB (404) n'y changera rien : pas compté.
+  let rate = false;
   const j = await fetch(url, { cf: { cacheTtl: 86400, cacheEverything: true } })
-    .then((res) => (res.ok ? res.json() : null), () => null);
-  if (!j) return { imdb: null };
+    .then((res) => { if (res.ok) return res.json(); rate = res.status !== 404; return null; })
+    .catch(() => { rate = true; return null; });
+  if (!j) return { imdb: null, rate };
   const logo = bestImage(j.images && j.images.logos, "fr");
   const backdrop = bestImage((j.images && j.images.backdrops || []).filter((b) => !b.iso_639_1), "fr");
+  // Dates de sortie : seulement pays, type et date (releaseDates), pas les certifications ni les notes.
+  const releases = movie ? ((j.release_dates && j.release_dates.results) || []).map((r) => ({ iso_3166_1: r.iso_3166_1,
+    release_dates: (r.release_dates || []).map((x) => ({ type: x.type, release_date: x.release_date })) })) : null;
   return {
+    lu: true,
     imdb: (movie ? j.imdb_id : j.external_ids && j.external_ids.imdb_id) || null,
-    releases: movie ? (j.release_dates && j.release_dates.results) || [] : null,
+    releases,
     plateformeFr: movie && vfSurPlateforme(j["watch/providers"], j.original_language),
     plateformeVo: movie && plateformeFrance(j["watch/providers"]),
-    episode: movie ? null : { next: j.next_episode_to_air, last: j.last_episode_to_air, counts: seasonCounts(j.seasons), status: j.status },
+    episode: movie ? null : { next: slimEpisode(j.next_episode_to_air), last: slimEpisode(j.last_episode_to_air), counts: seasonCounts(j.seasons), status: j.status },
     logo: logo ? `${IMG}w500${logo.file_path.replace(/\.svg$/, ".png")}` : undefined,
     backdrop: backdrop ? backdrop.file_path : null,
     trailers: trailersOf(j.videos && j.videos.results).slice(0, 2),
@@ -477,7 +518,7 @@ function digitalGuess(releases) {
  *   « Dispo depuis le 9 oct. »    sortie récente (moins de 60 jours)
  *   « Dispo vers le 3 déc. »      pas de date annoncée : estimation
  */
-function releaseNote(releases, region, today, plateforme = {}) {
+function releaseNote(releases, today, plateforme = {}) {
   const known = firstDigital(releases || []);
   // Déjà sur une plateforme en France : « Déjà dispo » (en VF), ou « Dispo en VO » (pas de VF), plutôt qu'une date
   // à venir ou une estimation qui ne veut plus rien dire.
@@ -530,6 +571,7 @@ async function toMetas(env, ctx, results, kind, opts, today) {
   if (!opts.search) prefetchProfiles(env, ctx, results, kind);
   // Infos déjà lues pour trier la page (Tendances) : pas un second appel par titre.
   const infos = await Promise.all(results.map((it) => (opts.infos && opts.infos.get(it.id)) || extraInfo(env, kind, it.id)));
+  if (opts.bilan) { opts.bilan.vus += infos.length; opts.bilan.rates += infos.filter((x) => x.rate).length; }
   const ids = infos.map((x) => x.imdb);
   // VF déjà trouvée par une fiche (Allociné + YouTube) : un seul appel pour toute la page, pas pendant
   // la recherche (son budget d'appels est compté au plus juste).
@@ -543,7 +585,7 @@ async function toMetas(env, ctx, results, kind, opts, today) {
     // séries : l'épisode de la semaine.
     const note = kind !== "movie" ? episodeNote(infos[i].episode, today)
       : opts.upcoming ? cinemaNote(infos[i].releases, opts.region, date, today)
-      : releaseNote(infos[i].releases, opts.region, today, lu ? { vf: lu.vf, vo: !lu.vf && lu.sources > 0 } : { vf: infos[i].plateformeFr, vo: infos[i].plateformeVo });
+      : releaseNote(infos[i].releases, today, lu ? { vf: lu.vf, vo: !lu.vf && lu.sources > 0 } : { vf: infos[i].plateformeFr, vo: infos[i].plateformeVo });
     // Pas encore regardable : la date affichée par Nuvio (carrousel, « date de sortie
     // complète ») devient la date de dispo plutôt que la sortie en salle.
     const dispo = kind === "movie" ? (firstDigital(infos[i].releases) || digitalGuess(infos[i].releases)) : "";
@@ -581,6 +623,9 @@ async function toMetas(env, ctx, results, kind, opts, today) {
   });
 }
 
+/** Une fiche sans les champs internes de toMetas (« _digital »…), telle qu'envoyée à Nuvio. */
+const sansInternes = ({ _digital, _guess, _vf, _dejaVf, ...m }) => m;
+
 /** Paramètres TMDB d'une recherche « discover », avec les règles de qualité communes
  *  et les réglages de la config (pays, genres masqués, note et année minimales, famille). */
 function discoverParams(def, kind, today, opts) {
@@ -615,17 +660,6 @@ function discoverParams(def, kind, today, opts) {
   if (def.untilToday) p[lte] = today;
   if (def.fromYear) p[gte] = maxDate(p[gte], `${def.fromYear}-01-01`);
   if (def.toYear) p[lte] = minDate(p[lte], `${def.toYear}-12-31`);
-  if (def.digital) {
-    // Sorties numériques (VOD, achat, location) dans le pays choisi, sur une fenêtre de dates.
-    delete p[gte]; delete p[lte];
-    p.with_release_type = "4";
-    p.region = opts.region;
-    p["release_date.gte"] = addDays(today, def.digital[0]);
-    p["release_date.lte"] = addDays(today, def.digital[1]);
-    // Seulement les films récents : sans ça, TMDB renvoie aussi les vieux films
-    // ressortis en numérique (rééditions, versions restaurées…).
-    p["primary_release_date.gte"] = addDays(today, -365);
-  }
   if (def.airedSince) p["air_date.gte"] = addDays(today, -def.airedSince);
   if (def.airDays !== undefined) { p["air_date.gte"] = addDays(today, -def.airDays); p["air_date.lte"] = addDays(today, def.airDays); }
   if (cfg.a) {
@@ -676,8 +710,10 @@ const tendancesDuJour = (def) => /^\/trending\/(movie|tv)\/day$/.test(def.endpoi
 /** Une page (1, 2, 3…) d'une définition de liste. */
 async function fetchPage(env, ctx, def, kind, page, today, opts) {
   if (def.mix) {
-    // Rangée mélangée : page N des films + page N des séries, en alternance.
-    const lists = await Promise.all(def.mix.map((sub) => fetchPage(env, ctx, sub, sub.type, page, today, opts)));
+    // Rangée mélangée : page N des films + page N des séries, en alternance. Les séries (et suivantes) par un appel de
+    // l'addon à lui-même s'il le peut (40 fiches à lire frôlaient les 50 appels permis), sinon ici.
+    const lists = await Promise.all(def.mix.map(async (sub, k) => (k > 0 && opts.moitie && await opts.moitie(k, page, opts.bilan))
+      || fetchPage(env, ctx, sub, sub.type, page, today, { ...opts, moitie: null })));
     const out = [];
     for (let i = 0; i < Math.max(...lists.map((l) => l.length)); i++) {
       lists.forEach((l) => { if (l[i]) out.push(l[i]); });
@@ -729,15 +765,38 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
     if (gardes.length < PAGE && page < (data.total_pages || 0)) {
       const suite = await tmdb(env, def.endpoint, { ...(def.params || {}), region: opts.region, page: page + 1 }, opts.lang);
       const vus = new Set(gardes.map(([it]) => it.id));
-      // (+1 : de quoi remplacer un titre retiré, sans dépasser les 50 appels de Cloudflare avec les sources.)
-      gardes = gardes.concat(await garder((suite.results || []).filter((it) => !vus.has(it.id)).slice(0, PAGE - gardes.length + 1)));
+      // (+1 : de quoi remplacer un titre retiré ; MAX_FILL au plus, pour rester loin des 50 appels de Cloudflare. Page
+      // encore courte : Nuvio demande la suivante, voir pageOf.)
+      gardes = gardes.concat(await garder((suite.results || []).filter((it) => !vus.has(it.id)).slice(0, Math.min(PAGE - gardes.length + 1, MAX_FILL))));
     }
     gardes = gardes.slice(0, PAGE);
     data = { ...data, results: gardes.map(([it]) => it) };
     opts = { ...opts, infos: new Map(gardes.map(([it, info]) => [it.id, info])), sources };
   }
   const metas = await toMetas(env, ctx, data.results, kind, opts, today);
-  return metas.map(({ _digital, _guess, _vf, _dejaVf, ...m }) => m);
+  return metas.map(sansInternes);
+}
+
+/**
+ * Une moitié (k) d'une rangée mélangée, préparée par un appel de l'addon à lui-même (liaison SELF de wrangler.toml) :
+ * cet appel a son propre budget de 50 appels sortants, et garde sa page en cache comme une autre. Réglages passés
+ * dans l'adresse (prefixe = « /<segment> », même pour un lien fixe : pas de base à relire). null sans la liaison
+ * (copies Docker, sans limite d'appels) ; la fonction rend null si l'appel échoue : la moitié est alors lue ici.
+ */
+function moitieParSelf(env, prefixe, type, id) {
+  if (!env.SELF) return null;
+  return async (k, page, bilan) => {
+    try {
+      const res = await env.SELF.fetch(`https://self${prefixe}/catalog/${type}/${encodeURIComponent(id)}/partie=${k}&page=${page}.json`);
+      const metas = res.ok ? (await res.json()).metas : null;
+      if (!Array.isArray(metas)) return null;
+      // Moitié incomplète (TMDB a refusé des fiches) : la rangée entière l'est aussi.
+      if (bilan && res.headers.get("X-Partiel")) { bilan.vus += metas.length; bilan.rates += metas.length; }
+      return metas;
+    } catch (e) {
+      return null;
+    }
+  };
 }
 
 /**
@@ -748,7 +807,11 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
  * demande la suite avec skip = titres déjà reçus et ignore les doublons : rien ne manque ni ne
  * s'affiche deux fois. Les infos lues pour trier (dates de sortie) resservent pour les fiches.
  */
-const MAX_CHECKED = 40;   // fiches TMDB lues au plus par page (limite d'appels de Cloudflare)
+// Fiches TMDB lues au plus par page (50 appels sortants par requête chez Cloudflare, cache, base des liens fixes et
+// « pour qui » compris) : de quoi garder une marge, au pire une quarantaine d'appels en tout.
+const MAX_CHECKED = 30;   // Tendances : titres examinés pour en garder 20 déjà regardables
+const MAX_FILL = 8;       // « Prochainement » : titres de la page TMDB suivante pour compléter la page
+const MAX_VF = 28;        // « Dispo depuis peu », « Bientôt dispo » : candidats examinés
 async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
   // Dans l'ordre de la photo du jour (celle des « N° » des affiches maison), sinon de TMDB.
   const [lists, photo] = await Promise.all([
@@ -776,7 +839,7 @@ async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
   }
   if (!picked.length) return [];
   const metas = await toMetas(env, ctx, picked, kind, opts, today);
-  return metas.map(({ _digital, _guess, _vf, _dejaVf, ...m }) => m);
+  return metas.map(sansInternes);
 }
 
 /** Film regardable chez soi : sorti en numérique (ou salle + 45 jours passés). Sans infos : gardé. */
@@ -809,7 +872,7 @@ async function fetchUpcomingPage(env, ctx, kind, page, today, opts) {
   }
   if (!found.length) return [];
   const metas = await toMetas(env, ctx, found.slice(0, PAGE), kind, { ...opts, upcoming: true }, today);
-  return metas.map(({ _digital, _guess, _vf, _dejaVf, ...m }) => m);
+  return metas.map(sansInternes);
 }
 
 /**
@@ -820,7 +883,7 @@ async function fetchUpcomingPage(env, ctx, kind, page, today, opts) {
 async function fetchVfPage(env, ctx, def, kind, page, today, opts) {
   const future = def.digital[0] > 0;
   // Filtres de la config (genres masqués, note mini, famille…) appliqués comme ailleurs.
-  const base = { ...discoverParams({ ...def, digital: null }, kind, today, opts), page };
+  const base = { ...discoverParams(def, kind, today, opts), page };
   base["primary_release_date.gte"] = maxDate(base["primary_release_date.gte"], addDays(today, -365));
   const reqs = [tmdb(env, "/discover/movie", { ...base, with_release_type: "4",
     "release_date.gte": addDays(today, def.digital[0]), "release_date.lte": addDays(today, def.digital[1]) }, opts.lang)];
@@ -839,7 +902,7 @@ async function fetchVfPage(env, ctx, def, kind, page, today, opts) {
   lists.flatMap((d) => d.results || []).sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
     .forEach((it) => { if (!seen.has(it.id)) { seen.add(it.id); merged.push(it); } });
   if (!merged.length) return [];
-  const metas = await toMetas(env, ctx, merged.slice(0, 36), kind, { ...opts, lireSources: true }, today);
+  const metas = await toMetas(env, ctx, merged.slice(0, MAX_VF), kind, { ...opts, lireSources: true }, today);
   const from = addDays(today, def.digital[0]), to = addDays(today, def.digital[1]);
   const when = (m) => m._digital || (future ? m._guess : "");
   return metas
@@ -848,14 +911,21 @@ async function fetchVfPage(env, ctx, def, kind, page, today, opts) {
     // « Bientôt dispo » : sans ceux déjà regardables en VF (sources VF, ou plateforme en France : date TMDB en retard).
     .filter((m) => !(future && m._dejaVf))
     .sort((a, b) => (future ? (when(a) < when(b) ? -1 : 1) : (when(a) > when(b) ? -1 : 1)))
-    .map(({ _digital, _guess, _vf, _dejaVf, ...m }) => m);
+    // Une page au plus (voir pageOf) : les dates les plus proches d'abord.
+    .slice(0, PAGE)
+    .map(sansInternes);
 }
+
+/** decodeURIComponent sans erreur : null pour un « % » mal formé (« search=%C3%28 » faisait planter l'addon). */
+const decode = (s) => { try { return decodeURIComponent(s); } catch (e) { return null; } };
 
 function parseExtra(segment) {
   const out = {};
   for (const part of (segment || "").split("&")) {
     const [k, ...v] = part.split("=");
-    if (k) out[decodeURIComponent(k)] = decodeURIComponent(v.join("="));
+    // Mal encodé : ignoré (une recherche illisible ne trouve rien, plutôt qu'une erreur 500).
+    const key = decode(k), value = decode(v.join("="));
+    if (key && value !== null) out[key] = value;
   }
   return out;
 }
@@ -885,6 +955,8 @@ function searchWords() {
  * requêtes que la recherche classique ne reconnaît pas : voir ai.js.
  */
 async function runSearch(env, type, query, page, opts, trace) {
+  // Une requête très longue est coupée (100 caractères) : pour TMDB, Gemini et la correction des fautes.
+  query = capQuery(query);
   const endpoint = `/search/${type === "series" ? "tv" : "movie"}`;
   let left = SEARCH_BUDGET;
   const none = Promise.resolve({});
@@ -953,9 +1025,26 @@ async function runSearch(env, type, query, page, opts, trace) {
     .filter((it) => !seen.has(it.id) && seen.add(it.id)).slice(0, AI_MAX);
 }
 
-async function catalog(env, ctx, type, id, extra, today, cfg) {
+/**
+ * Page demandée par Nuvio, qui envoie skip = titres déjà reçus. Les rangées triées après coup (« Dispo depuis peu »,
+ * « Bientôt dispo », rangées mélangées dont une moitié s'épuise) renvoient parfois moins d'une page : arrondi au-dessus,
+ * skip = 12 demande la page 2 (avant : la page 1 de nouveau, recalculée pour rien, et la rangée s'arrêtait là). Une
+ * page n'a donc jamais plus de titres que sa taille ; et si Nuvio écarte un doublon, skip = 39 donne bien la page 3.
+ */
+const pageOf = (skip, size) => Math.ceil(Math.max(0, skip) / size) + 1;
+
+async function catalog(env, ctx, type, id, extra, today, cfg, prefixe = "") {
+  // Fiches TMDB de la page (extraInfo) et celles restées sans réponse (limite d'appels de TMDB, panne).
+  const bilan = { vus: 0, rates: 0 };
+  const metas = await catalogPage(env, ctx, type, id, extra, today, cfg, bilan, prefixe);
+  // Plus d'une sur dix sans ses infos (IMDb, dates, logo, bande-annonce) : page incomplète, gardée 5 min seulement.
+  if (metas.length && bilan.rates > bilan.vus / 10) metas.degrade = true;
+  return metas;
+}
+
+async function catalogPage(env, ctx, type, id, extra, today, cfg, bilan, prefixe) {
   const skip = Number(extra.skip || 0);
-  const opts = { cfg, ctx, lang: langOf(cfg), region: cfg.g, filtered: hasGlobalFilters(cfg) };
+  const opts = { cfg, ctx, lang: langOf(cfg), region: cfg.g, filtered: hasGlobalFilters(cfg), bilan };
   const search = SEARCH.find((c) => c.id === id && c.type === type);
   if (search) {
     const query = (extra.search || "").trim();
@@ -963,7 +1052,7 @@ async function catalog(env, ctx, type, id, extra, today, cfg) {
     const page = Math.floor(skip / PAGE) + 1;
     const results = await runSearch(env, type, query, page, opts);
     opts.search = true;
-    const metas = results.length ? (await toMetas(env, ctx, results, type, opts, today)).map(({ _digital, _guess, _vf, _dejaVf, ...m }) => m) : [];
+    const metas = results.length ? (await toMetas(env, ctx, results, type, opts, today)).map(sansInternes) : [];
     // Recherche faite sans l'IA (Gemini trop lent ou en panne) : à ne pas garder en cache.
     if (opts.partial) metas.partial = true;
     return metas;
@@ -973,15 +1062,21 @@ async function catalog(env, ctx, type, id, extra, today, cfg) {
   const wanted = id === "accueil-en-ce-moment" ? "accueil-saison" : id;
   const home = homeDefs(today, cfg).find((d) => d.id === wanted && d.type === type);
   if (home) {
-    const page = Math.floor(skip / pageSizeOf(home)) + 1;
-    return fetchPage(env, ctx, home, type, page, today, opts);
+    // Une moitié d'une rangée mélangée, demandée par l'addon lui-même (voir moitieParSelf) : sa page N telle quelle.
+    if (extra.partie !== undefined) {
+      const sub = home.mix && /^[1-9]$/.test(extra.partie) ? home.mix[Number(extra.partie)] : null;
+      const p = Number(extra.page);
+      return sub && Number.isInteger(p) && p >= 1 && p <= 500 ? fetchPage(env, ctx, sub, sub.type, p, today, opts) : [];
+    }
+    const page = pageOf(skip, pageSizeOf(home));
+    return fetchPage(env, ctx, home, type, page, today, { ...opts, moitie: home.mix ? moitieParSelf(env, prefixe, type, home.id) : null });
   }
   const disc = discoverDefs(today).find((d) => d.id === id && d.type === type);
   if (disc) {
     // Sans filtre (Nuvio ouvre Découvrir sur « Par défaut ») : le 1er filtre (« Tout »…).
     const opt = extra.genre ? disc.options.find((o) => o.label === extra.genre) : disc.options[0];
     if (!opt) return [];
-    const page = Math.floor(skip / PAGE) + 1;
+    const page = pageOf(skip, PAGE);
     return fetchPage(env, ctx, opt.def, type, page, today, opts);
   }
   return [];
@@ -1000,8 +1095,11 @@ const STATUS_FR = {
 
 /** Identifiant TMDB d'un titre demandé en « tt… » ou « tmdb:… ». */
 async function tmdbIdOf(env, kind, id) {
-  if (/^tmdb:\d+/.test(id)) return id.slice(5).split(":")[0];
-  if (!/^tt\d+$/.test(id)) return null;
+  // Des chiffres seulement, jusqu'au « : » ou à la fin : « tmdb:1/../../tv/1396 » ouvrait une autre fiche
+  // (le reste de l'identifiant allait tel quel dans l'adresse TMDB).
+  const t = /^tmdb:(\d{1,10})(?::|$)/.exec(id);
+  if (t) return t[1];
+  if (!/^tt\d{1,10}$/.test(id)) return null;
   const found = await tmdb(env, `/find/${id}`, { external_source: "imdb_id" });
   const hits = (kind === "series" ? found.tv_results : found.movie_results) || [];
   // Fiches TMDB en double pour un même IMDb : on garde la plus connue.
@@ -1049,6 +1147,8 @@ const shortName = (name) => name.split(/ [:–-] /)[0].trim();
  * Allociné trouvée par l'IMDb, via Wikidata.
  */
 async function allocineVf(kind, imdb) {
+  // L'identifiant IMDb vient de TMDB (modifiable par tous) et va tel quel dans la requête Wikidata.
+  if (!/^tt\d{1,10}$/.test(imdb || "")) return undefined;
   const q = `SELECT ?a WHERE { ?f wdt:P345 "${imdb}"; wdt:${kind === "series" ? "P1267" : "P1265"} ?a }`;
   const wd = await fetch(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(q)}`, { headers: WIKI_HEADERS, cf: WIKI_CACHE })
     .then((r) => (r.ok ? r.json() : null), () => null);
@@ -1170,6 +1270,9 @@ function catalogTrailers(trailers, vf) {
 const person = (p) => ({ name: p.name, character: p.character || p.job || undefined, photo: p.profile_path ? `${IMG}w185${p.profile_path}` : undefined, tmdbId: p.id });
 
 async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
+  // Fiche « légère » (survol dans l'aperçu du site) : sans clé Gemini, l'IA ne fait que relire son cache
+  // (« pour qui », rappel déjà écrits), pour ne pas dépenser le quota à chaque affiche survolée.
+  if (opts.leger) env = { ...env, GEMINI_API_KEY: "" };
   const tmdbId = await tmdbIdOf(env, kind, id);
   if (!tmdbId) return null;
   const lang = langOf(cfg);
@@ -1190,7 +1293,7 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
   const recent = movie && imdb && releaseDates(releases, [2, 3, 4, 5, 6]).some((x) => x >= addDays(today, -365) && x <= today);
   const lu = recent ? (await sourcesVf(env, [imdb])).get(imdb) : null;
   const plateforme = lu ? { vf: lu.vf, vo: !lu.vf && lu.sources > 0 } : { vf: vfSurPlateforme(wp, d.original_language), vo: plateformeFrance(wp) };
-  const note = movie ? releaseNote(releases, cfg.g, today, plateforme) : episodeNote(episodeOf(d), today);
+  const note = movie ? releaseNote(releases, today, plateforme) : episodeNote(episodeOf(d), today);
   const dispo = movie ? firstDigital(releases) || digitalGuess(releases) : "";
   const shownDate = dispo && dispo > today ? dispo : date;
   const credits = d.credits || {};
@@ -1259,10 +1362,8 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
   // Lignes écrites par l'IA, lancées dès que possible, pendant que le reste de la fiche se construit :
   // « pour qui » et saison commandée n'ont besoin que de la fiche TMDB ; le rappel part dès que la
   // saga ou les épisodes sont connus. L'attente maximale compte à partir d'ici.
-  // Sans clé Gemini, « pour qui » et le rappel sont seulement relus dans le cache (écrits pour un autre).
-  // Fiche « légère » (survol dans l'aperçu du site) : sans les lignes écrites par Gemini, pour ne pas
-  // dépenser le quota à chaque affiche survolée.
-  const ai = !!env.GEMINI_API_KEY && !opts.leger;
+  // Sans clé Gemini (ou fiche légère), « pour qui » et le rappel sont seulement relus dans le cache.
+  const ai = !!env.GEMINI_API_KEY;
   const aiWait = new Promise((res) => setTimeout(() => res("attente"), FICHE_AI_WAIT_MS));
   const ask = (job) => (job ? Promise.race([job, aiWait]) : null);
   const profileJob = ask(aiProfile(env, ctx, `${movie ? "movie" : "tv"}-${d.id}`, profilePrompt(d, movie, keywords, cert)));
@@ -1621,7 +1722,7 @@ const HEADERS = {
  */
 async function trailer(env, kind, id) {
   let tmdbId = id.startsWith("tmdb:") ? id.slice(5) : null;
-  if (!tmdbId && /^tt\d+$/.test(id)) {
+  if (!tmdbId && /^tt\d{1,10}$/.test(id)) {
     const found = await tmdb(env, `/find/${id}`, { external_source: "imdb_id" });
     const hit = (kind === "series" ? found.tv_results : found.movie_results) || [];
     tmdbId = hit[0] ? String(hit[0].id) : null;
@@ -1713,10 +1814,8 @@ async function collections(cfg) {
     .filter((c) => c.folders.length);
 }
 
-async function sha(text) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return [...new Uint8Array(buf)].slice(0, 12).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
+/** Empreinte courte (24 caractères) : clés de cache, en-tête x-prefetch. */
+const sha = async (text) => (await sha256(text)).slice(0, 24);
 
 function html(body) {
   return new Response(body, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" } });
@@ -1744,7 +1843,15 @@ const SAFE_HOST = /^([a-z0-9-]+(\.[a-z0-9-]+)*|\[[0-9a-f:.]+\])(:\d{1,5})?$/i;
 export default {
   async fetch(request, env, ctx) {
     if (!SAFE_HOST.test(new URL(request.url).host)) return withSecurity(new Response("Adresse invalide", { status: 400 }));
-    return withSecurity(await app.fetch(request, env, ctx));
+    try {
+      return withSecurity(await app.fetch(request, env, ctx));
+    } catch (e) {
+      // Erreur imprévue : une réponse propre (pas la page 1101 de Cloudflare), jamais gardée, sans le détail.
+      // Dans le journal, le message sans ce qui suit un « ? » (une adresse peut contenir une clé).
+      console.warn("erreur :", String((e && e.message) || e).replace(/\?\S*/g, "?…").slice(0, 300));
+      return withSecurity(new Response(JSON.stringify({ error: "Erreur inattendue : réessaie dans un instant." }),
+        { status: 500, headers: { ...HEADERS, "Cache-Control": "no-store" } }));
+    }
   },
   // Tâche planifiée de 4 h UTC (wrangler.toml) : la photo du jour des tendances.
   async scheduled(event, env, ctx) {
@@ -1770,7 +1877,16 @@ const app = {
     // Lien fixe : ses réglages sont dans la base ; la suite ne voit pas la différence.
     if (isFixedId(cfgSeg)) {
       fixedId = cfgSeg;
-      cfgSeg = await readFixed(env, fixedId);
+      try {
+        cfgSeg = await readFixed(env, fixedId);
+      } catch (e) {
+        // Base injoignable (et pas de copie de secours ici) : « réessaie », jamais « introuvable », et rien de gardé.
+        console.warn("lien fixe :", String((e && e.message) || e).slice(0, 300));
+        const error = "Base des liens fixes injoignable pour le moment : réessaie dans quelques minutes, ton lien n'a rien perdu.";
+        const page = path === "" || path === "/configure";
+        return new Response(page ? error : JSON.stringify({ error }), { status: 503, headers: {
+          ...(page ? { "Content-Type": "text/plain; charset=utf-8" } : HEADERS), "Cache-Control": "no-store", "Retry-After": "60" } });
+      }
       if (cfgSeg === null) {
         if (path === "" || path === "/configure") return Response.redirect(url.origin + "/configure", 302);
         return json({ error: "Lien fixe introuvable : refais ton lien sur la page de personnalisation." }, 60);
@@ -1813,7 +1929,7 @@ const app = {
     if (path === "/tv") return Response.redirect(NUVIO_TV_APK, 302);   // adresse courte pour Downloader : télécharge l'APK
     // Styles et scripts communs aux pages du site, gardés en cache par le navigateur (voir statique.js).
     if (path.startsWith("/statique/")) return statique(path.slice(10), url.searchParams.get("v")) || new Response("introuvable", { status: 404 });
-    if (path === "/manifest.json") return json(manifest(today, cfg, cfgSeg, url, await hasAlerts(env, url, cfg)), CACHE_CLIENT_S);
+    if (path === "/manifest.json") return json(manifest(today, cfg, url, await hasAlerts(env, url, cfg)), CACHE_CLIENT_S);
     if (path === "/collections.json") return json(await collections(cfg), CACHE_CLIENT_S);
     // La photo du jour des tendances, lue par le service d'affiches (worker/tendances.js).
     const tend = !cfgSeg && /^\/tendances\/([a-z]+)\.json$/.exec(path);
@@ -1835,7 +1951,9 @@ const app = {
     const dbg = path.match(/^\/debug\/search\/(movie|series)\/(.+)$/);
     if (dbg) {
       const trace = {};
-      const out = await runSearch(env, dbg[1], decodeURIComponent(dbg[2]), 1, {
+      const q = decode(dbg[2]);
+      if (q === null) return json({ error: "requête mal encodée" }, 0);
+      const out = await runSearch(env, dbg[1], q, 1, {
         ctx, lang: langOf(cfg), region: cfg.g, aiModel: url.searchParams.get("model") || undefined, aiFresh: url.searchParams.has("fresh"),
         aiThinking: url.searchParams.get("thinking") || undefined,
       }, trace);
@@ -1884,7 +2002,7 @@ const app = {
     if (path === "/prefetch/profiles" && request.method === "POST") {
       const body = await request.json().catch(() => ({}));
       const key = typeof body.key === "string" ? body.key : "";
-      if (!key || request.headers.get("x-prefetch") !== await sha(key)) return json({ error: "interdit" }, 0);
+      if (!key || !same(request.headers.get("x-prefetch") || "", await sha(key))) return json({ error: "interdit" }, 0);
       // Le texte de chaque titre vient de TMDB, jamais de la requête (lu seulement s'il manque au cache).
       const items = (Array.isArray(body.items) ? body.items : [])
         .filter((it) => it && Number.isInteger(it.id) && it.id > 0 && it.key === `${String(it.key).startsWith("tv-") ? "tv" : "movie"}-${it.id}`)
@@ -1909,7 +2027,7 @@ const app = {
       return json(await dossierSource(env, src, langOf(cfg), page), 6 * 3600);
     }
     const tm = path.match(/^\/trailer\/(movie|series)\/([^/]+)\.json$/);
-    if (tm) return json(await trailer(env, tm[1], decodeURIComponent(tm[2])), 7 * 86400);
+    if (tm) return json(decode(tm[2]) === null ? { key: null } : await trailer(env, tm[1], decode(tm[2])), 7 * 86400);
 
     const mm = path.match(/^\/meta\/(movie|series)\/([^/]+)\.json$/);
     // Fiche « Version X disponible » de la rangée « Mise à jour » (lien de l'hébergeur d'une copie).
@@ -1917,15 +2035,16 @@ const app = {
       const info = (await hasAlerts(env, url, cfg)) ? await updateInfo(VERSION) : null;
       return new Response(JSON.stringify({ meta: info ? updateCard(info, env, url.origin) : null }), { headers: { ...HEADERS, "Cache-Control": "no-store" } });
     }
+    if (mm && decode(mm[2]) === null) return json({ meta: null }, 600);
     if (mm) {
-      const fullKey = `https://cache.local/${VERSION}/${today}/meta/${mm[1]}/${mm[2]}?l=${langOf(cfg)}&g=${cfg.g}&ai=${env.GEMINI_API_KEY ? 1 : 0}`;
+      const fullKey = `https://cache.local/c${CACHE_V}/${today}/meta/${mm[1]}/${mm[2]}?l=${langOf(cfg)}&g=${cfg.g}&ai=${env.GEMINI_API_KEY ? 1 : 0}`;
       // ?leger=1 : l'aperçu du site au survol. La fiche complète si elle est déjà prête, sinon une fiche sans IA.
       const leger = url.searchParams.get("leger") === "1";
       const metaKey = new Request(leger ? `${fullKey}&leger=1` : fullKey);
       const hitMeta = (leger && await caches.default.match(new Request(fullKey))) || await caches.default.match(metaKey);
       if (hitMeta) return new Response(hitMeta.body, { headers: { ...HEADERS, "Cache-Control": `public, max-age=${CACHE_META_CLIENT_S}` } });
       let found = null;
-      try { found = await meta(env, mm[1], decodeURIComponent(mm[2]), cfg, today, ctx, { leger }); } catch (e) { return json({ meta: null, error: String(e) }, 60); }
+      try { found = await meta(env, mm[1], decode(mm[2]), cfg, today, ctx, { leger }); } catch (e) { return json({ meta: null, error: String(e) }, 60); }
       if (!found) return json({ meta: null }, 600);
       // Rappel encore en préparation : fiche pas gardée, pour l'avoir à la prochaine ouverture.
       const { _partial, ...metaOut } = found;
@@ -1937,7 +2056,8 @@ const app = {
     const m = path.match(/^\/catalog\/(movie|series)\/([^/]+?)(?:\/(.+))?\.json$/);
     if (!m) return json({ error: "introuvable" }, 60);
     const [, type, rawId, extraSeg] = m;
-    const id = decodeURIComponent(rawId);
+    const id = decode(rawId);
+    if (id === null) return json({ metas: [] }, 600);
     // Rangée « Mise à jour » : jamais en cache (« Plus tard » doit la vider tout de suite).
     if (type === "movie" && id === "mise-a-jour") {
       const info = (await hasAlerts(env, url, cfg)) ? await pendingUpdate(env, VERSION) : null;
@@ -1950,19 +2070,32 @@ const app = {
     const extra = parseExtra(extraSeg);
     const aiTag = extra.search ? `&ai=${env.GEMINI_API_KEY ? 1 : 0}` : "";
     // La clé change aussi avec la photo des tendances (4 h UTC) : les rangées suivent les « N° » du jour.
-    const cacheKey = new Request(`https://cache.local/${VERSION}/${today}${path}?k=${await sha(contentKey(cfg))}${aiTag}&t=${jourTendances()}`);
+    const cacheKey = new Request(`https://cache.local/c${CACHE_V}/${today}${path}?k=${await sha(contentKey(cfg))}${aiTag}&t=${jourTendances()}`);
     const hit = await caches.default.match(cacheKey);
-    if (hit) return new Response(hit.body, { headers: { ...HEADERS, "Cache-Control": `public, max-age=${CACHE_CLIENT_S}` } });
+    const clientCc = fixedId ? `public, max-age=${CACHE_CLIENT_S}` : `public, max-age=${CACHE_CLIENT_LONG_S}, stale-while-revalidate=${CACHE_CLIENT_LONG_S}`;
+    // Page gardée incomplète (X-Partiel) : Nuvio ne la garde qu'une minute.
+    if (hit) {
+      const partiel = hit.headers.get("X-Partiel") ? { "X-Partiel": "1" } : {};
+      return new Response(hit.body, { headers: { ...HEADERS, ...partiel, "Cache-Control": partiel["X-Partiel"] ? "public, max-age=60" : clientCc } });
+    }
 
     let metas = [];
     try {
-      metas = await catalog(env, ctx, type, id, extra, today, cfg);
+      metas = await catalog(env, ctx, type, id, extra, today, cfg, cfgSeg ? `/${cfgSeg}` : "");
     } catch (e) {
       return json({ metas: [], error: String(e) }, 60);
     }
-    // Copie gardée côté Cloudflare quelques heures ; Nuvio, lui, ne garde la réponse
-    // que 5 minutes (son cache disque respecte max-age), pour voir vite les changements.
-    if (metas.length && !metas.partial) ctx.waitUntil(caches.default.put(cacheKey, json({ metas }, CACHE_CATALOG_S)));
-    return json({ metas }, metas.partial ? 0 : CACHE_CLIENT_S);
+    // Copie gardée côté Cloudflare quelques heures ; Nuvio, lui, ne garde la réponse que 5 ou 15 minutes
+    // (son cache disque respecte max-age, voir CACHE_CLIENT_LONG_S), pour voir vite les changements.
+    // Page incomplète (TMDB a refusé des fiches) : gardée 5 minutes, pas 3 heures, pour vite retrouver la page entière.
+    if (metas.length && !metas.partial) {
+      const garde = json({ metas }, metas.degrade ? CACHE_DEGRADE_S : CACHE_CATALOG_S);
+      if (metas.degrade) garde.headers.set("X-Partiel", "1");
+      ctx.waitUntil(caches.default.put(cacheKey, garde));
+    }
+    const out = json({ metas }, metas.partial ? 0 : 60);
+    if (!metas.partial && !metas.degrade) out.headers.set("Cache-Control", clientCc);
+    if (metas.degrade) out.headers.set("X-Partiel", "1");   // lu aussi par moitieParSelf
+    return out;
   },
 };

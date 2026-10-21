@@ -40,3 +40,11 @@ enabled = true
 # Gemini. Les messages du code (console.warn…) restent.
 [observability.logs]
 invocation_logs = false
+
+# Liens fixes (voir worker/fixe.js) : 5 créations par minute au plus depuis une même adresse IP. Facultatif :
+# sans cette liaison, pas de limite. namespace_id est un nombre choisi librement, propre à chaque compte
+# Cloudflare (rien à créer dans le tableau de bord) ; period vaut 10 ou 60 secondes.
+[[ratelimits]]
+name = "LIMITE_LIENS"
+namespace_id = "1001"
+simple = { limit = 5, period = 60 }

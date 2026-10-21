@@ -6,6 +6,8 @@
  * (pour installer les deux dans Nuvio sans conflit) et l'espace hébergeur (/hote/…).
  */
 
+import { hex, sha256 as sha } from "./outils-serveur.js";
+
 export const SOURCE_HOST = "nuvio-assets.xnzxflix.workers.dev";
 const ADDON_ID = "com.xnzx07.catalogue-fr";
 
@@ -73,8 +75,6 @@ export async function updateInfo(current) {
 // ---------- l'hébergeur : connexion, jeton d'alerte, « Plus tard » ----------
 // Hébergeur = qui connaît le secret ADMIN_PASSWORD. Sans lui, pas d'espace hébergeur.
 const TEXT = new TextEncoder();
-const toHex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
-const sha = async (s) => toHex(await crypto.subtle.digest("SHA-256", TEXT.encode(s)));
 
 // Mot de passe trop court, ou laissé tel que dans l'exemple (docker-compose.yml, page /copie) : refusé,
 // l'espace hébergeur reste fermé tant qu'il n'est pas changé.
@@ -94,7 +94,7 @@ const hasPassword = (env) => passwordState(env) === "ok";
 async function sign(env, what) {
   const secret = env.HOTE_SECRET || env.TMDB_API_KEY || "";
   const key = await crypto.subtle.importKey("raw", TEXT.encode(`${secret}|${env.ADMIN_PASSWORD}`), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  return toHex(await crypto.subtle.sign("HMAC", key, TEXT.encode(what)));
+  return hex(await crypto.subtle.sign("HMAC", key, TEXT.encode(what)));
 }
 /** Comparaison en temps constant (deux textes de même longueur). */
 export const same = (a, b) => {
@@ -113,17 +113,26 @@ export const hostCookie = async (env, at = Date.now()) => (hasPassword(env) ? `$
 /** Jeton du lien d'installation « avec alertes » de l'hébergeur ; "" sans mot de passe. */
 export const alertToken = async (env) => (hasPassword(env) ? (await sign(env, "alerte")).slice(0, 24) : "");
 
-// Essais de mot de passe ratés : au-delà de 10 en un quart d'heure depuis une adresse, on attend. En plus,
-// au-delà de 100 ratés en un quart d'heure toutes adresses confondues, plus personne n'essaie : sur Docker,
-// l'adresse vient d'un en-tête que le visiteur peut inventer, la limite par adresse ne suffit pas.
+// Essais de mot de passe ratés : au-delà de 10 en un quart d'heure depuis une adresse, cette adresse attend. En plus,
+// au-delà de 1 000 ratés en un quart d'heure toutes adresses confondues, plus personne n'essaie (sur Docker, l'adresse
+// vient d'un en-tête que le visiteur peut inventer) — sauf depuis une adresse où l'hébergeur s'est déjà connecté :
+// quelqu'un qui enchaîne les essais ne peut pas l'enfermer dehors (il devrait deviner son adresse).
 // (Par instance du Worker : de quoi décourager quelqu'un qui essaie des mots de passe à la chaîne.)
 const FAILS = new Map();
-const MAX_FAILS = 10, MAX_FAILS_ALL = 100, FAIL_WINDOW = 15 * 60e3;
+const MAX_FAILS = 10, MAX_FAILS_ALL = 1000, FAIL_WINDOW = 15 * 60e3;
+const KNOWN = new Map();   // adresse → dernière connexion réussie (30 jours, 50 adresses au plus)
 const ALL = "*";
 const ipOf = (request) => request.headers.get("cf-connecting-ip") || (request.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "?";
 const fresh = (f, now) => f && now - f.since <= FAIL_WINDOW;
 function blocked(ip, now) {
-  return [[ip, MAX_FAILS], [ALL, MAX_FAILS_ALL]].some(([k, max]) => { const f = FAILS.get(k); return fresh(f, now) && f.n >= max; });
+  const known = now - (KNOWN.get(ip) || 0) <= SESSION_MS;
+  return [[ip, MAX_FAILS], ...(known ? [] : [[ALL, MAX_FAILS_ALL]])].some(([k, max]) => { const f = FAILS.get(k); return fresh(f, now) && f.n >= max; });
+}
+function succeeded(ip, now) {
+  FAILS.delete(ip);
+  KNOWN.delete(ip);
+  KNOWN.set(ip, now);
+  if (KNOWN.size > 50) KNOWN.delete(KNOWN.keys().next().value);
 }
 function failed(ip, now) {
   // Les vieilles entrées partent, pour que la liste ne grossisse pas sans fin.
@@ -135,7 +144,7 @@ function failed(ip, now) {
   }
 }
 /** Pour les tests : oublie les essais ratés. */
-export const resetFails = () => FAILS.clear();
+export const resetFails = () => { FAILS.clear(); KNOWN.clear(); };
 // Une demande POST venue d'une page d'un autre site (Origin différente) est refusée.
 const sameOrigin = (request, url) => { const o = request.headers.get("origin"); return !o || o === url.origin; };
 
@@ -146,16 +155,41 @@ const cookieValue = (request, name) => {
   }
   return "";
 };
-// Petit état de l'hébergeur (palier repoussé, date de la dernière déconnexion) : KV ETAT s'il est relié,
-// sinon le cache (gardé tant qu'il n'est pas vidé ; au pire, la proposition revient).
+// Petit état de l'hébergeur (palier repoussé, date de la dernière déconnexion) : KV ETAT s'il est relié, sinon la
+// base D1 des liens fixes (LIENS, table « etat »), sinon le cache. Le cache est propre à chaque centre de Cloudflare
+// et peut être vidé : une déconnexion n'y fermait les sessions qu'en partie, « Plus tard » revenait. Il garde une
+// copie, relue si la base ne répond pas.
+const stateKey = (name) => new Request(`https://cache.local/hote/${name}`);
+const stateTables = new WeakMap();   // base → table créée (une fois par instance du Worker)
+function ensureStateTable(env) {
+  const db = env.LIENS;
+  if (!stateTables.has(db)) {
+    stateTables.set(db, db.prepare("CREATE TABLE IF NOT EXISTS etat (nom TEXT PRIMARY KEY, valeur TEXT NOT NULL)").run()
+      .catch((e) => { stateTables.delete(db); throw e; }));
+  }
+  return stateTables.get(db);
+}
+
 async function readState(env, name) {
   if (env.ETAT) return (await env.ETAT.get(name)) || "";
-  const hit = await caches.default.match(new Request(`https://cache.local/hote/${name}`));
+  if (env.LIENS) {
+    try {
+      const r = await env.LIENS.prepare("SELECT valeur FROM etat WHERE nom = ?").bind(name).first();
+      return r ? String(r.valeur) : "";
+    } catch (e) {
+      if (/no such table/i.test(String((e && e.message) || e))) return "";   // rien encore écrit
+    }
+  }
+  const hit = await caches.default.match(stateKey(name));
   return hit ? hit.text() : "";
 }
 async function writeState(env, name, value) {
   if (env.ETAT) return env.ETAT.put(name, value);
-  await caches.default.put(new Request(`https://cache.local/hote/${name}`), new Response(value, { headers: { "Cache-Control": "public, max-age=31536000" } }));
+  await caches.default.put(stateKey(name), new Response(value, { headers: { "Cache-Control": "public, max-age=31536000" } }));
+  if (env.LIENS) {
+    await ensureStateTable(env);
+    await env.LIENS.prepare("INSERT INTO etat (nom, valeur) VALUES (?, ?) ON CONFLICT(nom) DO UPDATE SET valeur = excluded.valeur").bind(name, value).run();
+  }
 }
 
 /** La requête vient-elle de l'hébergeur (cookie de connexion valide, pas trop vieux, d'après la dernière déconnexion) ? */
@@ -203,17 +237,22 @@ export async function hostRoute(request, env, url, path, current) {
     if (blocked(ip, now)) return reply({ error: "Trop d'essais : réessaie dans un quart d'heure." }, 429);
     if (!hasPassword(env)) return reply({ error: `Mot de passe d'hébergeur absent ou trop simple (${MIN_PASSWORD} caractères au moins, pas celui de l'exemple).` }, 403);
     const body = await request.json().catch(() => ({}));
+    // Empreintes de même longueur comparées en temps constant : rien à apprendre du temps de réponse.
     const ok = typeof body.motDePasse === "string" && same(await sha(body.motDePasse), await sha(env.ADMIN_PASSWORD));
     if (!ok) {
       failed(ip, now);
       return reply({ error: "Mot de passe incorrect." }, 403);
     }
-    FAILS.delete(ip);
+    succeeded(ip, now);
     return reply({ ok: true }, 200, { "Set-Cookie": `hote=${await hostCookie(env, now)}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=${SESSION_MS / 1000}` });
   }
   if (path === "/hote/deconnexion" && request.method === "POST") {
     // Seul l'hébergeur connecté ferme les sessions (sinon n'importe qui le déconnecterait).
-    if (await isHost(request, env)) await writeState(env, "deconnexion", String(Date.now()));
+    // Base injoignable : on le dit, plutôt que de laisser croire les autres sessions fermées.
+    if (await isHost(request, env)) {
+      try { await writeState(env, "deconnexion", String(Date.now())); }
+      catch (e) { return reply({ error: "Déconnexion pas enregistrée pour le moment : réessaie dans un instant." }, 503); }
+    }
     return reply({ ok: true }, 200, { "Set-Cookie": `hote=; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=0` });
   }
   if (path === "/hote/etat") {
@@ -236,10 +275,14 @@ export async function hostRoute(request, env, url, path, current) {
     if (!(await isHost(request, env))) return reply({ error: "Réservé à l'hébergeur." }, 403);
     // Le palier affiché, envoyé par la page (sans redemander à GitHub, qui peut être injoignable).
     const body = await request.json().catch(() => ({}));
-    if (typeof body.palier === "string" && /^\d+\.\d+$/.test(body.palier)) await dismiss(env, body.palier);
-    else {
-      const info = await updateInfo(current);
-      if (info) await dismiss(env, palier(info.version));
+    try {
+      if (typeof body.palier === "string" && /^\d+\.\d+$/.test(body.palier)) await dismiss(env, body.palier);
+      else {
+        const info = await updateInfo(current);
+        if (info) await dismiss(env, palier(info.version));
+      }
+    } catch (e) {
+      return reply({ error: "Pas enregistré pour le moment : réessaie dans un instant." }, 503);
     }
     return reply({ ok: true });
   }

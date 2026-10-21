@@ -7,6 +7,7 @@
 import { createHash } from "node:crypto";
 import { DEFAUT_REGLAGES, PALETTE } from "./lien-affiches.js";
 import { etatSortie } from "./statut.js";
+import { jourParis } from "./jour.js";
 
 // À changer quand le dessin change : l'ETag change avec, et Nuvio recharge les affiches.
 export const DESIGN = "3";
@@ -50,7 +51,8 @@ function libelleDate({ quoi, date, vers }, today) {
 }
 
 const virgule = (s) => s.replace(".", ",");
-const aujourdhui = () => new Date().toISOString().slice(0, 10);
+// Le jour à Paris : « DEMAIN » devient « AUJOURD'HUI » à minuit à Paris, pas à minuit UTC.
+const aujourdhui = () => jourParis();
 
 /** La note et sa source (« imdb », ou « tmdb » choisie ou en repli), ou null. */
 function note(facts, imdbRating, source) {

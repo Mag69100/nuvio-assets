@@ -16,6 +16,7 @@ import { lireReglages, lireReglagesPaysage, ecrireReglages } from "../lib/lien-a
 import { notesPlus } from "../lib/notes-plus.js";
 import { draw, imageUrls } from "../lib/dessin.js";
 import { sansTexte } from "../lib/texte.js";
+import { jourParis, secondesAvantMinuitParis } from "../lib/jour.js";
 
 // CDN : 3 jours, puis redessinée en arrière-plan (limite de calcul gratuite : 4 h par mois).
 const OK_CACHE = { "Cache-Control": "public, max-age=604800", "Vercel-CDN-Cache-Control": "max-age=259200, stale-while-revalidate=604800" };
@@ -24,12 +25,14 @@ const COURT = { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Contr
 /**
  * Durées de cache d'une réponse. Une affiche classée ou presque (place sur la photo des tendances), ou avec un
  * statut (une date, « Nouveau »…), expire au changement de photo des tendances, dans l'appli comme au CDN :
- * son N° et sa date restent ceux du jour. Torrentio en retard : cache court, pour avoir le badge ensuite.
+ * son N° et sa date restent ceux du jour. Un statut expire aussi à minuit à Paris (« DEMAIN » devient
+ * « AUJOURD'HUI »). Torrentio en retard : cache court, pour avoir le badge ensuite.
  */
 function cacheDe({ enRetard, place, statut }) {
   const base = enRetard ? COURT : OK_CACHE;
   if (!place && !statut) return base;
-  const s = secondesAvantBascule(), age = (h) => Number(/max-age=(\d+)/.exec(base[h])[1]);
+  const s = statut ? Math.min(secondesAvantBascule(), secondesAvantMinuitParis()) : secondesAvantBascule();
+  const age = (h) => Number(/max-age=(\d+)/.exec(base[h])[1]);
   return { "Cache-Control": `public, max-age=${Math.min(age("Cache-Control"), s)}`, "Vercel-CDN-Cache-Control": `max-age=${Math.min(age("Vercel-CDN-Cache-Control"), s)}` };
 }
 const ABSENT = { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" };
@@ -119,15 +122,17 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       }
       // Les images ne dépendent que du titre : on les demande tout de suite (sauf pour une revérification
       // par ETag, qui finit presque toujours en 304 sans rien dessiner).
-      const brouillon = posterContent(facts, {}, shape, reglages);
+      // Le jour à Paris, le même pour tout le calcul (statut, sources utiles).
+      const aujourdhui = jourParis();
+      const brouillon = posterContent(facts, {}, shape, reglages, aujourdhui);
       // Les sources (lues avec la qualité) disent si le titre est en VF : lues aussi sans le badge, pour un titre récent.
-      const lireSources = qualite || (env.QUALITE !== "off" && sourcesUtiles(facts, new Date().toISOString().slice(0, 10)));
+      const lireSources = qualite || (env.QUALITE !== "off" && sourcesUtiles(facts, aujourdhui));
       if (!brouillon) return absent();
       const images = fetchImages(fetchImpl);
       const peutDessiner = brouillon.full || brouillon.statut || brouillon.gris || brouillon.bandeau || brouillon.coin || tendance || qualite
         || reglages.infos.culte || !!brouillon.styles.retouche || !!brouillon.styles.cadre;
       // Pas encore sorti avec la note cachée : les autres notes ne seraient pas dessinées non plus.
-      const notesUtiles = autresNotes && !(reglages.sortie.cacherNote && !etatSortie(facts, new Date().toISOString().slice(0, 10)).sorti);
+      const notesUtiles = autresNotes && !(reglages.sortie.cacherNote && !etatSortie(facts, aujourdhui).sorti);
       if (peutDessiner && !request.headers.get("If-None-Match")) imageUrls(brouillon).forEach((u) => images(u).catch(() => {}));
       const [imdbRating, place, { enRetard: qualiteEnRetard, quality }, notes] = await Promise.all([
         noteImdb && facts.imdbId ? ratingOf(facts.imdbId, fetchImpl) : undefined,
@@ -137,7 +142,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       ]);
       // Notes des autres sites demandées mais pas lues (quota, panne) : cache court, pour les avoir ensuite.
       const enRetard = qualiteEnRetard || notes === null;
-      const content = posterContent(facts, { imdbRating, rank: place, quality, notes }, shape, reglages);
+      const content = posterContent(facts, { imdbRating, rank: place, quality, notes }, shape, reglages, aujourdhui);
       // Rien à poser ni à griser : l'appli va chercher l'image directement chez TMDB, sans la redessiner ici.
       const retouchee = !!(content.styles.retouche || content.styles.cadre);
       if (!content.full && !content.rank && !content.quality && !content.statut && !content.gris && !content.bandeau && !content.coin && !content.culte && !retouchee) {

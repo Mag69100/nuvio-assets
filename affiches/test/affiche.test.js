@@ -5,6 +5,7 @@ import { makeHandler } from "../api/affiche.js";
 import { makeQualite } from "../api/qualite.js";
 import { makeTendances } from "../api/tendances.js";
 import { secondesAvantBascule } from "../lib/tendances.js";
+import { secondesAvantMinuitParis } from "../lib/jour.js";
 import { posterContent, contentKey } from "../lib/contenu.js";
 import { resetMemo as r1 } from "../lib/tmdb.js";
 import { resetMemo as r2 } from "../lib/notes.js";
@@ -314,10 +315,11 @@ const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 1
 const avecSorties = (...dates) => json({ ...film, release_dates: { results: [{ iso_3166_1: "FR", release_dates: dates.map(([type, d]) => ({ type, release_date: d })) }] } });
 
 test("statut_cache_court", async () => {
-  // Avec un statut (« Nouveau », une date…) : jusqu'au changement quotidien, dans l'appli comme au CDN.
+  // Avec un statut (« Nouveau », une date…) : jusqu'au changement quotidien (photo des tendances, ou minuit à
+  // Paris s'il vient avant), dans l'appli comme au CDN.
   const res = await makeHandler({ fetchImpl: internet({ detail: avecSorties([4, jour(-5)]) }), env })(req("type=movie&shape=poster&id=tt15239678"));
   assert.equal(res.status, 200);
-  const s = secondesAvantBascule();
+  const s = Math.min(secondesAvantBascule(), secondesAvantMinuitParis());
   assert.ok(Math.abs(age(res, "Cache-Control") - s) <= 2, res.headers.get("Cache-Control"));
   assert.ok(Math.abs(age(res, "Vercel-CDN-Cache-Control") - s) <= 2);
 });

@@ -2258,7 +2258,7 @@ $("share-btn").addEventListener("click", async (e) => {
   const btn = e.currentTarget, label = btn.textContent;
   const data = { title: state.n + ", ma programmation Nuvio", text: "Ouvre ce lien pour avoir les mêmes rangées que moi dans Nuvio.", url: shareUrl };
   if (navigator.share) { try { await navigator.share(data); effet("popcorn", btn); } catch (err) {} return; }
-  try { await navigator.clipboard.writeText(shareUrl); btn.textContent = "Lien copié ✓"; effet("popcorn", btn); } catch (err) { btn.textContent = "Copie impossible"; effet("toast","Copie impossible : sélectionne le lien et copie-le à la main.", true); }
+  try { await navigator.clipboard.writeText(shareUrl); btn.textContent = "Lien copié ✓"; effet("popcorn", btn); } catch (err) { btn.textContent = "Copie impossible"; effet("toast", "Copie impossible : sélectionne le lien et copie-le à la main.", true); }
   setTimeout(() => { btn.textContent = label; }, 1800);
 });
 // Le billet en image (1080 × 1350), à garder ou à envoyer.
@@ -2318,21 +2318,53 @@ function drawTicket(c, qr) {
   c.textAlign = "center"; c.fillStyle = "#b9a59c"; c.font = 'italic 400 30px "Instrument Serif"';
   c.fillText("Une séance préparée sur " + D.origin.replace(/^https?:[/][/]/, ""), W / 2, H - 40);
 }
+async function imprimeBillet() {
+  await Promise.all(['400 90px "Bebas Neue"', '700 28px "Courier Prime"', '700 30px "Figtree"', '800 22px "Figtree"', '600 30px "Figtree"', 'italic 400 38px "Instrument Serif"'].map((f) => document.fonts.load(f)));
+  let qr = null;
+  try { const qrcode = await loadQr(); qr = qrcode(0, "M"); qr.addData(shareUrl); qr.make(); } catch (err) { qr = null; }
+  const cv = document.createElement("canvas"); cv.width = 1080; cv.height = 1350;
+  drawTicket(cv.getContext("2d"), qr);
+  return new Promise((ok, ko) => cv.toBlob((b) => b ? ok(b) : ko(new Error("image vide")), "image/png"));
+}
+// L'image est préparée à l'avance (billet à l'écran, doigt sur le bouton) : au clic, le partage part tout de
+// suite. Sur iPhone, un partage lancé après une attente n'est plus lié au geste, et le navigateur le refuse.
+let billetImg = null; // { cle, p, blob } : l'image des réglages en cours
+const billetCle = () => shareUrl + "|" + $("t-serial").textContent + "|" + $("t-seance").textContent;
+function prepareBillet() {
+  const cle = billetCle();
+  if (billetImg && billetImg.cle === cle) return billetImg.p;
+  const b = { cle, blob: null };
+  b.p = imprimeBillet().then((blob) => { b.blob = blob; return blob; });
+  b.p.catch(() => { if (billetImg === b) billetImg = null; });
+  billetImg = b;
+  return b.p;
+}
+const auDoigt = () => matchMedia("(pointer: coarse)").matches;
+["pointerdown", "focus"].forEach((t) => $("img-btn").addEventListener(t, () => { if (auDoigt()) prepareBillet().catch(() => {}); }));
+if (auDoigt() && "IntersectionObserver" in window) new IntersectionObserver(([e]) => { if (e.isIntersecting) prepareBillet().catch(() => {}); }, { threshold: .5 }).observe($("img-btn"));
+function telechargeBillet(blob) {
+  const a = el("a", { href: URL.createObjectURL(blob), download: "billet-nuvio.png" }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
 $("img-btn").addEventListener("click", async (e) => {
-  const btn = e.currentTarget, label = btn.textContent;
+  const btn = e.currentTarget, label = btn.dataset.label || (btn.dataset.label = btn.textContent);
+  const pret = billetImg && billetImg.cle === billetCle() ? billetImg.blob : null;
   btn.textContent = "Impression du billet…"; btn.disabled = true;
+  let fin = "Billet imprimé ✓";
   try {
-    await Promise.all(['400 90px "Bebas Neue"', '700 28px "Courier Prime"', '700 30px "Figtree"', '800 22px "Figtree"', '600 30px "Figtree"', 'italic 400 38px "Instrument Serif"'].map((f) => document.fonts.load(f)));
-    let qr = null;
-    try { const qrcode = await loadQr(); qr = qrcode(0, "M"); qr.addData(shareUrl); qr.make(); } catch (err) { qr = null; }
-    const cv = document.createElement("canvas"); cv.width = 1080; cv.height = 1350;
-    drawTicket(cv.getContext("2d"), qr);
-    const blob = await new Promise((r) => cv.toBlob(r, "image/png"));
+    const blob = pret || await prepareBillet();
     const file = new File([blob], "billet-nuvio.png", { type: "image/png" });
-    if (matchMedia("(pointer: coarse)").matches && navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: state.n });
-    else { const a = el("a", { href: URL.createObjectURL(blob), download: "billet-nuvio.png" }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
-    btn.textContent = "Billet imprimé ✓"; effet("popcorn", btn); bruit("punch");
-  } catch (err) { btn.textContent = "Impression impossible"; effet("toast","Impression du billet impossible : réessaie, ou fais une capture d'écran.", true); }
+    let partage = false;
+    if (auDoigt() && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: state.n }); partage = true; }
+      catch (err) {
+        // Feuille de partage refermée : rien à faire. Partage refusé (geste perdu, appli) : on télécharge.
+        if (err && err.name === "AbortError") { partage = true; fin = label; }
+      }
+    }
+    if (!partage) telechargeBillet(blob);
+    if (fin !== label) { effet("popcorn", btn); bruit("punch"); }
+  } catch (err) { fin = "Impression impossible"; effet("toast", "Impression du billet impossible : réessaie, ou fais une capture d'écran.", true); }
+  btn.textContent = fin;
   btn.disabled = false;
   setTimeout(() => { btn.textContent = label; }, 2000);
 });

@@ -25,7 +25,8 @@ test("partage_sans_cle", () => {
   assert.doesNotMatch(html, /url: configureUrl/);
   assert.doesNotMatch(html, /writeText\(configureUrl\)/);
   // Image du billet : son QR code est fait avec l'adresse sans clé, et seulement elle.
-  const image = html.slice(html.indexOf('$("img-btn")'), html.indexOf("const tk = "));
+  const image = html.slice(html.indexOf("async function imprimeBillet"), html.indexOf("const tk = "));
+  assert.ok(image.length > 500);
   assert.match(image, /addData\(shareUrl\)/);
   assert.equal((image.match(/addData\(/g) || []).length, 1);
   // QR pour ses appareils : la clé voyage, et le texte le dit.
@@ -173,6 +174,14 @@ test("focus_garde_apres_reconstruction", () => {
   assert.match(html, /const box = \$\("collections"\), rep = repereFocus\(box\);/);
   assert.match(html, /det\.open = ouvertes\.has\(c\.id\);/);
   assert.match(html, /rendFocus\(box, rep\);/);
+});
+
+// Billet en image : feuille de partage refermée = rien ; partage refusé = téléchargement ; image préparée avant le clic.
+test("billet_image_partage_ou_telechargement", () => {
+  const html = page();
+  assert.match(html, /if \(err && err\.name === "AbortError"\) \{ partage = true; fin = label; \}/);
+  assert.match(html, /if \(!partage\) telechargeBillet\(blob\);/);
+  assert.match(html, /const blob = pret \|\| await prepareBillet\(\);/);
 });
 
 // Lien fixe : à la fermeture de l'onglet, le dernier réglage part tout de suite (keepalive), hors de la file.

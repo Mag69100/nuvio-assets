@@ -275,7 +275,7 @@ async function extraInfo(env, kind, tmdbId) {
   url.search = new URLSearchParams({
     api_key: env.TMDB_API_KEY, language: "fr-FR", include_image_language: "fr,en,null", include_video_language: "fr,en",
     // Vidéos : la bande-annonce de l'accueil (Nuvio la prend dans la rangée, sans ouvrir la fiche).
-    // Plateformes (films) : en France, Belgique… = VF disponible, même sans date francophone (likelyVf).
+    // Plateformes (films) : en France = VF disponible, même sans date francophone (likelyVf).
     append_to_response: movie ? "release_dates,images,videos,watch/providers" : "external_ids,images,videos",
   });
   // Sans réponse (limite d'appels de Cloudflare…) : le titre s'affiche quand même, sans ces infos.
@@ -287,7 +287,7 @@ async function extraInfo(env, kind, tmdbId) {
   return {
     imdb: (movie ? j.imdb_id : j.external_ids && j.external_ids.imdb_id) || null,
     releases: movie ? (j.release_dates && j.release_dates.results) || [] : null,
-    plateformeFr: movie && plateformeFrancophone(j["watch/providers"]),
+    plateformeFr: movie && plateformeFrance(j["watch/providers"]),
     episode: movie ? null : { next: j.next_episode_to_air, last: j.last_episode_to_air, counts: seasonCounts(j.seasons), status: j.status },
     logo: logo ? `${IMG}w500${logo.file_path.replace(/\.svg$/, ".png")}` : undefined,
     backdrop: backdrop ? backdrop.file_path : null,
@@ -406,15 +406,18 @@ const firstDigital = (releases) => releaseDates(releases, [4])[0] || "";
 
 const FRANCOPHONES = ["FR", "BE", "CH", "LU", "CA"];
 
-/** Sur une plateforme (abonnement, gratuit, pub, location, achat) d'un pays francophone (watch/providers TMDB). */
-function plateformeFrancophone(wp) {
-  const r = (wp && wp.results) || {};
-  return FRANCOPHONES.some((p) => ["flatrate", "free", "ads", "rent", "buy"].some((k) => ((r[p] || {})[k] || []).length > 0));
+/**
+ * Sur une plateforme (abonnement, gratuit, pub, location, achat) en France (watch/providers TMDB). La France seule :
+ * en Suisse ou au Canada, la plateforme peut n'avoir que l'allemand ou l'anglais.
+ */
+function plateformeFrance(wp) {
+  const fr = (wp && wp.results && wp.results.FR) || {};
+  return ["flatrate", "free", "ads", "rent", "buy"].some((k) => (fr[k] || []).length > 0);
 }
 
 /**
  * Indice de VF : le film a une sortie (salle ou numérique) dans un pays francophone, ou il
- * est français, ou il est sur une plateforme d'un pays francophone (films Netflix sortis partout
+ * est français, ou il est sur une plateforme en France (films Netflix sortis partout
  * le même jour, sans date francophone chez TMDB). Les petits films sortis directement en VOD
  * aux États-Unis n'ont souvent aucune piste française.
  */
@@ -671,7 +674,7 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
       const infos = await Promise.all(liste.map((it) => extraInfo(env, "movie", it.id)));
       return liste.map((it, i) => [it, infos[i]]).filter(([it, info]) => {
         const r = info.releases, dispo = r ? firstDigital(r) : "";
-        // Sur une plateforme francophone : regardable aujourd'hui, même sans date numérique connue.
+        // Sur une plateforme en France : regardable aujourd'hui, même sans date numérique connue.
         if (info.plateformeFr) return false;
         return !(dispo && dispo <= today && likelyVf(r, it.original_language, today));
       });

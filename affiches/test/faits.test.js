@@ -113,14 +113,16 @@ test("age_conseille_france", async () => {
   assert.equal((await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fauxFetch([["/tv/94605", json({ ...serie, content_ratings: { results: [{ iso_3166_1: "FR", rating: "TP" }] } })]]))).age, null);
 });
 
-// Sur une plateforme (abonnement, gratuit, pub, location, achat) d'un pays francophone : VF disponible.
-test("plateforme_francophone", async () => {
+// Sur une plateforme (abonnement, gratuit, pub, location, achat) en France : VF disponible. Pas ailleurs : en Suisse
+// (Bad Apples, avec l'Allemagne et l'Autriche) ou au Canada, la plateforme peut n'avoir que l'allemand ou l'anglais.
+test("plateforme_en_france", async () => {
   const sur = (results) => titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, fauxFetch([["/movie/693134", json({ ...movie, "watch/providers": { results } })]]));
-  assert.equal((await sur({ FR: { flatrate: [{ provider_name: "Netflix" }] } })).plateformeFrancophone, true);
-  assert.equal((await sur({ CA: { rent: [{ provider_name: "Apple TV" }] } })).plateformeFrancophone, true);
-  assert.equal((await sur({ US: { flatrate: [{ provider_name: "Disney Plus" }] }, DE: { flatrate: [{ provider_name: "Disney Plus" }] } })).plateformeFrancophone, false);
-  assert.equal((await sur({ FR: { link: "https://…" } })).plateformeFrancophone, false);
-  assert.equal((await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, fauxFetch([["/movie/693134", json(movie)]]))).plateformeFrancophone, false);
+  assert.equal((await sur({ FR: { flatrate: [{ provider_name: "Netflix" }] } })).plateformeFrance, true);
+  assert.equal((await sur({ FR: { rent: [{ provider_name: "Apple TV" }] } })).plateformeFrance, true);
+  assert.equal((await sur({ CH: { flatrate: [{ provider_name: "Sky" }] }, CA: { rent: [{ provider_name: "Apple TV" }] } })).plateformeFrance, false);
+  assert.equal((await sur({ US: { flatrate: [{ provider_name: "Disney Plus" }] }, DE: { flatrate: [{ provider_name: "Disney Plus" }] } })).plateformeFrance, false);
+  assert.equal((await sur({ FR: { link: "https://…" } })).plateformeFrance, false);
+  assert.equal((await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, fauxFetch([["/movie/693134", json(movie)]]))).plateformeFrance, false);
 });
 
 // Régie v2 : durée, saisons, logo dans chaque langue (français, anglais, langue d'origine), plateforme en France.

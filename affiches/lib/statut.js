@@ -4,7 +4,7 @@
  * Mêmes règles que les rangées de l'addon (worker/index.js : firstDigital, digitalGuess, likelyVf) :
  * - chez soi = première sortie numérique, vidéo ou télé, où que ce soit (les sources suivent), sinon salle + 45 jours ;
  * - VF probable = film français, ou déjà sorti en France, Belgique, Suisse, Luxembourg ou au Canada, ou sur une
- *   plateforme d'un de ces pays (facts.plateformeFrancophone : films Netflix sans date francophone chez TMDB) ;
+ *   plateforme en France (facts.plateformeFrance : films Netflix sans date francophone chez TMDB) ;
  * - sorti = chez soi ET VF probable. Pas sorti : noir et blanc et note cachée sur l'affiche (réglage « Pas sorti »).
  */
 const NOUVEAU_JOURS = 30, SALLE_JOURS = 45;
@@ -30,16 +30,19 @@ function sortieFilm(facts, today) {
     if (sorti) return { sorti, statut: null };
     return facts.releaseDate ? { sorti, statut: "bientot", quand: { quoi: "sortie", date: facts.releaseDate, vers: false } } : { sorti, statut: "bientot" };
   }
-  // Sorti il y a plus d'un an, où que ce soit : un vieux film (même ressorti ou annoncé à nouveau).
-  if (toutes[0] < ajoute(today, -365)) return { sorti: true, statut: null };
+  // Sorti il y a plus d'un an, où que ce soit : un vieux film (même ressorti ou annoncé à nouveau). Les
+  // avant-premières de festival (type 1) ne comptent pas : un film y passe souvent un an avant sa sortie
+  // (Bad Apples), sauf s'il n'a jamais eu que ça, il y a plus de deux ans.
+  const commerciales = releaseDates(facts.releases, [2, 3, 4, 5, 6]);
+  if (commerciales[0] ? commerciales[0] < ajoute(today, -365) : toutes[0] < ajoute(today, -730)) return { sorti: true, statut: null };
   const salleMonde = releaseDates(facts.releases, [2, 3])[0] || "";
   const chezSoiConnu = releaseDates(facts.releases, [4, 5, 6])[0] || "";
   const chezSoi = chezSoiConnu || (salleMonde ? ajoute(salleMonde, SALLE_JOURS) : "");
   const vf = facts.originalLanguage === "fr" ? chezSoi : releaseDates(facts.releases, [2, 3, 4, 5, 6], FRANCOPHONES)[0] || "";
-  // Disponible en VF le jour où les deux sont réunis. Sur une plateforme francophone : disponible aujourd'hui au
+  // Disponible en VF le jour où les deux sont réunis. Sur une plateforme en France : disponible aujourd'hui au
   // plus tard (depuis sa sortie chez soi si on la connaît).
   const reunis = chezSoi && vf ? (chezSoi > vf ? chezSoi : vf) : "";
-  const dispo = facts.plateformeFrancophone && !(reunis && reunis <= today) ? (chezSoi && chezSoi <= today ? chezSoi : today) : reunis;
+  const dispo = facts.plateformeFrance && !(reunis && reunis <= today) ? (chezSoi && chezSoi <= today ? chezSoi : today) : reunis;
   if (dispo && dispo <= today) return { sorti: true, statut: dispo >= ajoute(today, -NOUVEAU_JOURS) ? "nouveau" : null };
   // Pas encore chez soi en VF : « En salle » s'il est au cinéma en France, sinon « Bientôt », avec la date
   // à venir la plus utile (comme les rangées) : dispo chez soi, sortie au cinéma en France, ou sortie ailleurs.
@@ -47,8 +50,12 @@ function sortieFilm(facts, today) {
   const dispoAVenir = dispo > today ? { quoi: "dispo", date: dispo, vers: !chezSoiConnu } : null;
   if (sallesFrance[0] && sallesFrance[0] <= today) return { sorti: false, statut: "salle", ...(dispoAVenir ? { quand: dispoAVenir } : {}) };
   const cinema = sallesFrance.find((d) => d > today);
-  const ailleurs = releaseDates(facts.releases, [2, 3, 4]).find((d) => d > today);
-  const quand = cinema ? { quoi: "cinema", date: cinema, vers: false } : dispoAVenir || (ailleurs ? { quoi: "sortie", date: ailleurs, vers: false } : null);
+  // Déjà sorti quelque part (Bad Apples : au cinéma en Allemagne) : son arrivée chez soi, annoncée ou estimée,
+  // comme la rangée « Bientôt dispo » ; jamais la sortie d'un autre pays (« SORTIE LE » se lirait comme en France).
+  const dejaSorti = commerciales.some((d) => d <= today);
+  const chezSoiAVenir = dejaSorti && chezSoi > today ? { quoi: "dispo", date: chezSoi, vers: !chezSoiConnu } : null;
+  const ailleurs = dejaSorti ? "" : releaseDates(facts.releases, [2, 3, 4]).find((d) => d > today);
+  const quand = cinema ? { quoi: "cinema", date: cinema, vers: false } : dispoAVenir || chezSoiAVenir || (ailleurs ? { quoi: "sortie", date: ailleurs, vers: false } : null);
   return { sorti: false, statut: "bientot", ...(quand ? { quand } : {}) };
 }
 

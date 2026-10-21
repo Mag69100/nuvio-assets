@@ -65,13 +65,13 @@ function plateformeDe(d) {
 }
 
 /**
- * Le film est-il sur une plateforme (abonnement, gratuit, pub, location, achat) en France, Belgique, Suisse,
- * au Luxembourg ou au Canada ? Il y est alors en VF, même sans date de sortie francophone chez TMDB
- * (films Netflix sortis partout le même jour). Sert au statut (lib/statut.js).
+ * Le film est-il sur une plateforme (abonnement, gratuit, pub, location, achat) en France ? Il y est alors en VF,
+ * même sans date de sortie francophone chez TMDB (films Netflix sortis partout le même jour). La France seule :
+ * en Suisse ou au Canada, la plateforme peut n'avoir que l'allemand ou l'anglais. Sert au statut (lib/statut.js).
  */
-function plateformeFrancophone(d) {
-  const r = (d["watch/providers"] || {}).results || {};
-  return ["FR", "BE", "CH", "LU", "CA"].some((p) => ["flatrate", "free", "ads", "rent", "buy"].some((k) => ((r[p] || {})[k] || []).length > 0));
+function plateformeFrance(d) {
+  const fr = ((d["watch/providers"] || {}).results || {}).FR || {};
+  return ["flatrate", "free", "ads", "rent", "buy"].some((k) => (fr[k] || []).length > 0);
 }
 
 const first = (list, langs) => {
@@ -132,7 +132,7 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
     releases: type === "series" ? [] : (d.release_dates && d.release_dates.results) || [],
     releaseDate: type === "series" ? "" : d.release_date || "",
     originalLanguage: d.original_language || "",
-    plateformeFrancophone: type !== "series" && plateformeFrancophone(d),
+    plateformeFrance: type !== "series" && plateformeFrance(d),
     age: ageDe(type, d),
     firstAir: type === "series" ? d.first_air_date || "" : "",
     seasons: type === "series" ? (d.seasons || []).map((s) => ({ season_number: s.season_number, air_date: s.air_date || "" })) : [],

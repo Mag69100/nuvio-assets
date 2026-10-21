@@ -33,16 +33,24 @@ test("VF : sorti au Québec → VF probable", () => {
   assert.equal(etatSortie(film([pays("US", [4, jours(-60)]), pays("CA", [3, jours(-100)])]), AUJ).sorti, true);
 });
 
+// « Bad Apples » : avant-première en festival il y a plus d'un an (type 1), vraie sortie le mois dernier, pas en
+// France : pas un vieux film, donc pas sorti. Une avant-première seule, très ancienne (jamais sorti) : vieux film.
+test("film : avant-première ancienne, sortie récente hors de France → pas sorti", () => {
+  const f = film([pays("CA", [1, jours(-410)]), pays("DE", [3, jours(-40)]), pays("US", [1, jours(-360)], [2, jours(-33)])], jours(-40));
+  assert.equal(etatSortie(f, AUJ).sorti, false);
+  assert.equal(etatSortie(film([pays("CA", [1, jours(-900)])], jours(-900)), AUJ).sorti, true);
+});
+
 // « On va s'arrêter là » (Netflix) : sorti partout en streaming, sur Netflix France, mais aucune date
-// francophone chez TMDB. Sur une plateforme d'un pays francophone = VF disponible.
+// francophone chez TMDB. Sur une plateforme en France = VF disponible.
 test("VF : sur une plateforme en France sans date francophone → sorti", () => {
-  const f = { ...film([pays("AR", [1, jours(-12)], [4, jours(-4)]), pays("US", [4, jours(-4)])], jours(-12), "es"), plateformeFrancophone: true };
+  const f = { ...film([pays("AR", [1, jours(-12)], [4, jours(-4)]), pays("US", [4, jours(-4)])], jours(-12), "es"), plateformeFrance: true };
   assert.deepEqual(etatSortie(f, AUJ), { sorti: true, statut: "nouveau" });
-  assert.equal(etatSortie({ ...f, plateformeFrancophone: false }, AUJ).sorti, false);
+  assert.equal(etatSortie({ ...f, plateformeFrance: false }, AUJ).sorti, false);
   // Sans aucune date de sortie chez soi connue : disponible quand même (elle y est).
-  assert.equal(etatSortie({ ...film([pays("AR", [1, jours(-12)])], jours(-12), "es"), plateformeFrancophone: true }, AUJ).sorti, true);
+  assert.equal(etatSortie({ ...film([pays("AR", [1, jours(-12)])], jours(-12), "es"), plateformeFrance: true }, AUJ).sorti, true);
   // Plus tard en France qu'ailleurs : « Nouveau » compté depuis la date française.
-  const tard = { ...film([pays("US", [4, jours(-40)]), pays("FR", [4, jours(-10)])]), plateformeFrancophone: true };
+  const tard = { ...film([pays("US", [4, jours(-40)]), pays("FR", [4, jours(-10)])]), plateformeFrance: true };
   assert.deepEqual(etatSortie(tard, AUJ), { sorti: true, statut: "nouveau" });
 });
 
@@ -151,6 +159,14 @@ test("date : sortie ailleurs seulement → sortie le, sinon rien", () => {
   assert.deepEqual(etatSortie(film([pays("US", [3, jours(40)])]), AUJ).quand, { quoi: "sortie", date: jours(40), vers: false });
   assert.equal(etatSortie(film([pays("US", [4, jours(-20)])]), AUJ).quand, undefined);
   assert.equal(etatSortie(film([], ""), AUJ).quand, undefined);
+});
+
+// Bad Apples : déjà au cinéma en Allemagne, prochaine sortie en Australie dans un mois. Pas « SORTIE LE » (la date
+// d'un autre pays), mais l'arrivée chez soi estimée (salle + 45 jours), comme la rangée « Bientôt dispo ».
+test("date : déjà sorti en salle ailleurs → dispo vers, pas la sortie d'un autre pays", () => {
+  assert.deepEqual(etatSortie(film([pays("DE", [3, jours(-41)]), pays("AU", [3, jours(29)])]), AUJ).quand, { quoi: "dispo", date: jours(4), vers: true });
+  // Arrivée chez soi annoncée : sa date.
+  assert.deepEqual(etatSortie(film([pays("DE", [3, jours(-41)], [4, jours(9)]), pays("AU", [3, jours(29)])]), AUJ).quand, { quoi: "dispo", date: jours(9), vers: false });
 });
 
 test("date : série pas encore lancée → sortie le", () => {

@@ -569,7 +569,7 @@ test("prochainement_sans_les_films_deja_dispo", async () => {
 });
 
 // Sur une plateforme en France (Netflix…) sans aucune date francophone chez TMDB : VF disponible, donc retiré aussi.
-test("prochainement_sans_les_films_sur_une_plateforme_francophone", async () => {
+test("prochainement_sans_les_films_sur_une_plateforme_en_france", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   const dates = (...l) => ({ results: l.map(([pays, type, d]) => ({ iso_3166_1: pays, release_dates: [{ type, release_date: d + "T00:00:00.000Z" }] })) });
   globalThis.fetch = async (url) => {
@@ -578,14 +578,16 @@ test("prochainement_sans_les_films_sur_une_plateforme_francophone", async () => 
     if (u.includes("/movie/upcoming")) return new Response(JSON.stringify({ results: [
       { id: 1, title: "Sur Netflix", original_language: "es", release_date: jour(7) },
       { id: 2, title: "Sur Netflix US", original_language: "es", release_date: jour(7) },
+      { id: 3, title: "En Suisse", original_language: "en", release_date: jour(7) },
     ], page: 1, total_pages: 1 }));
     const netflix = (pays) => ({ results: { [pays]: { flatrate: [{ provider_name: "Netflix" }] } } });
     if (/\/movie\/1\?/.test(u)) return new Response(JSON.stringify({ release_dates: dates(["US", 4, jour(-4)]), "watch/providers": netflix("FR") }));
     if (/\/movie\/2\?/.test(u)) return new Response(JSON.stringify({ release_dates: dates(["US", 4, jour(-4)]), "watch/providers": netflix("US") }));
+    if (/\/movie\/3\?/.test(u)) return new Response(JSON.stringify({ release_dates: dates(["DE", 3, jour(-40)]), "watch/providers": netflix("CH") }));
     return new Response("{}");
   };
   const { metas } = await (await get("/catalog/movie/films-cinema/genre=Prochainement.json")).json();
-  assert.deepEqual(metas.map((m) => m.name), ["Sur Netflix US"]);
+  assert.deepEqual(metas.map((m) => m.name), ["Sur Netflix US", "En Suisse"]);
   assert.ok(calls.some((u) => /\/movie\/1\?/.test(u) && /append_to_response=[^&]*watch/.test(decodeURIComponent(u))), "plateformes pas demandées");
 });
 

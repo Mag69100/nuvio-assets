@@ -46,7 +46,7 @@ export function prochainChangement(today) {
   return d;
 }
 
-/** Secondes jusqu'au prochain changement de fête (minuit à Paris) : la durée de cache d'une affiche pas habillée. */
+/** Secondes jusqu'au prochain changement de fête (minuit à Paris) : la durée de cache des films avec le réglage. */
 export const secondesAvantChangementSaison = (now = Date.now()) => secondesAvantJourParis(prochainChangement(jourParis(now)), now);
 
 let memo = null;   // { promesse, until }

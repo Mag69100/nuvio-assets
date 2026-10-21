@@ -599,9 +599,9 @@ test("rang_dans_la_saga_lu_chez_tmdb", async () => {
   assert.equal(panne.headers.get("Cache-Control"), "public, max-age=3600");
 });
 
-// Habillage de la saison : pendant une fête, un film de la rangée « Spécial … » (liste de l'addon) est habillé,
-// gardé jusqu'à minuit ; un autre film ne l'est pas, gardé jusqu'au prochain changement de fête. Une série, le
-// réglage éteint, ou hors fête : la liste n'est pas lue.
+// Habillage de la saison : pendant une fête, un film de la rangée « Spécial … » (liste de l'addon) est habillé, un
+// autre pas ; tous deux gardés jusqu'au prochain changement de fête. Une série, le réglage éteint, ou hors fête : la
+// liste n'est pas lue.
 test("habillage_de_saison", async () => {
   mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-30T12:00:00Z") });   // 13 h à Paris, Halloween
   try {
@@ -610,10 +610,10 @@ test("habillage_de_saison", async () => {
     const res = await makeHandler({ fetchImpl: dedans, env })(req("type=movie&shape=poster&id=tt15239678&s=1.3k1"));
     assert.equal(res.status, 200);
     assert.equal(dedans.calls.filter((u) => u.endsWith("/saison.json")).length, 1);
-    assert.equal(age(res, "Cache-Control"), 11 * 3600);                       // jusqu'à minuit à Paris
+    assert.equal(age(res, "Cache-Control"), 3 * 86400 + 11 * 3600);         // jusqu'au 3 novembre, minuit à Paris
     r8();
     const dehors = await makeHandler({ fetchImpl: internet({ saison: liste([1]) }), env })(req("type=movie&shape=poster&id=tt15239678&s=1.3k1"));
-    assert.equal(age(dehors, "Cache-Control"), 3 * 86400 + 11 * 3600);       // jusqu'au 3 novembre, minuit à Paris
+    assert.equal(age(dehors, "Cache-Control"), 3 * 86400 + 11 * 3600);
     assert.notEqual(res.headers.get("ETag"), dehors.headers.get("ETag"));
     const defaut = await makeHandler({ fetchImpl: internet({ saison: liste([693134]) }), env })(req("type=movie&shape=poster&id=tt15239678"));
     assert.equal(defaut.headers.get("ETag"), (await makeHandler({ fetchImpl: internet(), env })(req("type=movie&shape=poster&id=tt15239678"))).headers.get("ETag"));

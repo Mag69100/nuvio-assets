@@ -54,8 +54,8 @@ Caches :
 - **La qualité** passe par le relais `/qualite/…` du service, gardé un jour par le CDN : une seule lecture
   de Torrentio sert à toutes les instances.
 - **Options au choix** : « TERMINÉE » garde le cache normal ; la barre d'avancement expire au lendemain du prochain
-  épisode ; avec l'habillage de la saison, un film habillé expire à minuit à Paris, un autre au prochain changement de
-  fête.
+  épisode ; avec l'habillage de la saison, les films expirent au prochain changement de fête (pas chaque jour : un
+  film sorti de la rangée en cours de fête garde son habillage une semaine au plus).
 
 Estimation pour environ 300 personnes actives par jour :
 - **Requêtes :** 600 000 à 900 000 par mois.

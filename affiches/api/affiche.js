@@ -206,9 +206,10 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const enRetard = qualiteEnRetard || imdbManque || photoIllisible || imageIncertaine || (sagaVoulue && !filmsSaga) || (saisonVoulue && !rangee);
       const saison = saisonVoulue ? habillageDe(rangee, facts.tmdbId, aujourdhui) : null;
       const content = posterContent(facts, { imdbRating, rank: place, quality, notes, saga, saison }, shape, reglages, aujourdhui);
-      // Réglage Saison, sur un film : habillé, jusqu'à minuit (la rangée change, la fête finit à minuit) ; pas habillé,
-      // jusqu'au prochain changement de fête (pour être habillé dès qu'elle commence), redirection comprise.
-      const finSaison = reglages.saison.on && type === "movie" ? (content.saison ? secondesAvantMinuitParis() : secondesAvantChangementSaison()) : undefined;
+      // Réglage Saison, sur un film : jusqu'au prochain changement de fête (minuit à Paris), habillé ou pas, redirection
+      // comprise : habillé dès qu'elle commence, plus du tout quand elle finit. Pas chaque jour (limite de calcul) : un
+      // film sorti de la rangée en cours de fête garde son habillage une semaine au plus.
+      const finSaison = reglages.saison.on && type === "movie" ? secondesAvantChangementSaison() : undefined;
       // Rien à poser ni à griser : l'appli va chercher l'image directement chez TMDB, sans la redessiner ici.
       const retouchee = !!(content.styles.retouche || content.styles.cadre);
       if (!content.full && !content.rank && !content.quality && !content.statut && !content.gris && !content.bandeau && !content.coin && !content.culte && !retouchee

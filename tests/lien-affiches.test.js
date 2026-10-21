@@ -234,3 +234,20 @@ test("fondu_precis", () => {
   assert.equal(ecrit("s=1.F01ho1im"), "F0");             // sans fondu : rien
   assert.equal(ecrireReglages(DEFAUT_REGLAGES), "");
 });
+
+// Importer un lien d'affiches (collé dans la régie) : on retrouve ses réglages, paysage à part compris.
+test("importer_un_lien", async () => {
+  const { reglagesDuLien } = await import("../worker/lien-affiches.js");
+  const r = reglagesDuLien(lienAffiches(MEMOIRES.cine, MEMOIRES.essentiel));
+  assert.equal(ecrireReglages(r.r), ecrireReglages(MEMOIRES.cine));
+  assert.equal(ecrireReglages(r.rp), ecrireReglages(MEMOIRES.essentiel));
+  // Sans réglages à part : rp vide ; lien par défaut : réglages par défaut.
+  assert.equal(reglagesDuLien(lienAffiches(MEMOIRES.cine)).rp, null);
+  assert.equal(ecrireReglages(reglagesDuLien(DEFAUT_LIEN).r), "");
+  // Espaces autour, lien d'une affiche précise, ancien lien (o, r) : acceptés.
+  assert.equal(ecrireReglages(reglagesDuLien("  " + DEFAUT_LIEN + "&s=1.T0  ").r), "T0");
+  assert.equal(ecrireReglages(reglagesDuLien("https://affiches-catalogue-fr.vercel.app/movie/poster/tt1375666.jpg?imdb=tt1375666&s=1.Q0").r), "Q0");
+  assert.equal(ecrireReglages(reglagesDuLien("https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?imdb={imdb_id?}&o=tga").r), "T0G0A0");
+  // Autre chose qu'un lien d'affiches : refusé.
+  for (const x of ["", "bonjour", "https://exemple.com/?s=1.T0", "https://posters.example/{type}/{id}?s=1.T0"]) assert.equal(reglagesDuLien(x), null, x);
+});

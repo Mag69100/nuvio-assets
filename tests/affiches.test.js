@@ -166,3 +166,11 @@ test("regie_plus_de_reglages_sans_decalage", () => {
   assert.ok(html.includes("if (regieVoie) { fermePlus(); return; }"));
   assert.ok(html.includes("regieFocusPlus"));
 });
+
+// « Importer un lien » : un petit panneau sous la barre de la régie, un champ, et les réglages du lien collé.
+test("regie_importer_un_lien", () => {
+  const html = salle2();
+  for (const id of ["regie-importer", "regie-import", "regie-import-lien", "regie-import-ok", "regie-import-msg"]) assert.match(html, new RegExp(`id="${id}"`), id);
+  assert.ok(html.includes("LA.reglagesDuLien("));
+  assert.match(html, /id="regie-import-msg"[^>]*aria-live="polite"/);
+});

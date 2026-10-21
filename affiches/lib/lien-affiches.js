@@ -236,13 +236,24 @@ export function creerLienAffiches() {
     return "https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?imdb={imdb_id?}" + (s ? "&s=1." + s : "") + (sp !== s ? "&sp=1." + sp : "");
   }
 
+  /**
+   * Réglages d'un lien d'affiches collé dans la régie (« importer ») : { r, rp } (rp : réglages à part du paysage,
+   * ou null), ou null si ce n'est pas un lien d'affiches (…/{type}/{shape}/{id}.jpg ou l'adresse d'une affiche).
+   */
+  function reglagesDuLien(texte) {
+    const t = String(texte || "").trim();
+    if (!/\/(\{type\}|movie|series)\/(\{shape\}|poster|landscape)\/[^/?]+\.jpg(\?|$)/.test(t)) return null;
+    const params = new URLSearchParams(t.includes("?") ? t.slice(t.indexOf("?") + 1) : "");
+    return { r: lireReglages(params), rp: params.has("sp") ? lireReglagesPaysage(params) : null };
+  }
+
   /** Le nom de la mémoire qui correspond à ces réglages, ou null (réglage perso). */
   function memoireDe(r) {
     const s = ecrireReglages(r);
     return Object.keys(MEMOIRES).find((nom) => ecrireReglages(MEMOIRES[nom]) === s) || null;
   }
 
-  return { DEFAUT_REGLAGES, TAILLES, MONTEES, RETOUCHES, SATURATIONS, PALETTE, MEMOIRES, ecrireReglages, lireReglages, lireReglagesPaysage, lienAffiches, memoireDe };
+  return { DEFAUT_REGLAGES, TAILLES, MONTEES, RETOUCHES, SATURATIONS, PALETTE, MEMOIRES, ecrireReglages, lireReglages, lireReglagesPaysage, lienAffiches, memoireDe, reglagesDuLien };
 }
 
-export const { DEFAUT_REGLAGES, TAILLES, MONTEES, RETOUCHES, SATURATIONS, PALETTE, MEMOIRES, ecrireReglages, lireReglages, lireReglagesPaysage, lienAffiches, memoireDe } = creerLienAffiches();
+export const { DEFAUT_REGLAGES, TAILLES, MONTEES, RETOUCHES, SATURATIONS, PALETTE, MEMOIRES, ecrireReglages, lireReglages, lireReglagesPaysage, lienAffiches, memoireDe, reglagesDuLien } = creerLienAffiches();

@@ -453,6 +453,16 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .regie-boite { width: min(1240px, 100%); height: calc(100dvh - 32px); max-height: 940px; display: grid; grid-template-rows: auto minmax(0, 1fr); border-radius: 16px; overflow: hidden; background: #0d0a0c; border: 1px solid var(--seat); box-shadow: 0 30px 80px rgba(0,0,0,.6); color: var(--cream); }
 .regie-barre { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 16px; background: #140e11; border-bottom: 1px solid var(--seat); }
 .regie-barre h2 { margin: 0; font: 400 1.6rem/1 var(--display); letter-spacing: .05em; }
+/* Importer un lien : un petit panneau sous la barre, à droite (par-dessus la scène : rien ne bouge). */
+.regie-barre { position: relative; }
+.regie-import { position: absolute; top: calc(100% + 6px); right: 16px; z-index: 5; width: min(520px, calc(100% - 32px)); display: grid; gap: 8px; padding: 12px 14px;
+  border-radius: 12px; background: #241c22; border: 1px solid #5a4a53; box-shadow: 0 12px 40px rgba(0,0,0,.6); color: var(--cream); font: 500 .8rem system-ui, sans-serif; }
+.regie-import[hidden] { display: none; }
+.regie-import-ligne { display: flex; gap: 8px; }
+.regie-import input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid #5a4a53; background: #140e11; color: var(--cream); font: 500 .78rem ui-monospace, monospace; }
+.regie-import input:focus-visible { outline: 2px solid var(--bulb); outline-offset: 1px; }
+.regie-import-msg { margin: 0; min-height: 1em; color: #c2b4a6; }
+.regie-import-msg.erreur { color: #ff8a8a; }
 .regie-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .regie-x { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--seat); background: transparent; color: var(--cream); font-size: 1.05rem; cursor: pointer; }
 .regie-corps { display: grid; grid-template-columns: minmax(0, 1fr) 400px; min-height: 0; }
@@ -944,9 +954,18 @@ ${copy ? HOTE_HTML : ""}
       <div class="regie-barre">
         <h2 id="regie-titre">Tes affiches</h2>
         <div class="regie-actions">
+          <button type="button" class="mini" id="regie-importer" aria-expanded="false" aria-controls="regie-import">Importer un lien</button>
           <button type="button" class="mini" id="regie-annuler" disabled>↶ Annuler</button>
           <button type="button" class="btn solid" id="regie-copier">Copier mon lien d'affiches</button>
           <button type="button" class="regie-x" id="regie-fermer" aria-label="Fermer la régie">✕</button>
+        </div>
+        <div class="regie-import" id="regie-import" role="region" aria-label="Importer un lien d'affiches" hidden>
+          <label for="regie-import-lien">Colle un lien d'affiches (le tien, ou celui de quelqu'un) pour reprendre ses réglages :</label>
+          <div class="regie-import-ligne">
+            <input type="text" id="regie-import-lien" spellcheck="false" autocomplete="off" placeholder="https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?…">
+            <button type="button" class="btn solid" id="regie-import-ok">Importer</button>
+          </div>
+          <p class="regie-import-msg" id="regie-import-msg" aria-live="polite"></p>
         </div>
       </div>
       <div class="regie-corps">
@@ -1641,6 +1660,7 @@ $("regie").addEventListener("click", (e) => { if (e.target === $("regie")) regie
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape" || $("regie").hidden) return;
   e.stopPropagation();
+  if (!$("regie-import").hidden) { importOuvre(false); return; }
   if (regieVoie) { fermePlus(); return; }
   regieFerme();
 });
@@ -1656,6 +1676,24 @@ $("regie-annuler").addEventListener("click", () => {
   regieAttente = setTimeout(regieApercus, 400);
 });
 $("regie-copier").addEventListener("click", (e) => copy(e.currentTarget, $("u-affiches"), "Copier mon lien d'affiches"));
+// Importer un lien d'affiches : ses réglages (et ceux du paysage à part) remplacent ceux de la régie ; Annuler revient en arrière.
+function importOuvre(ouvert) {
+  $("regie-import").hidden = !ouvert;
+  $("regie-importer").setAttribute("aria-expanded", String(ouvert));
+  $("regie-import-msg").textContent = ""; $("regie-import-msg").classList.remove("erreur");
+  if (ouvert) { $("regie-import-lien").value = ""; $("regie-import-lien").focus(); } else $("regie-importer").focus();
+}
+$("regie-importer").addEventListener("click", () => importOuvre($("regie-import").hidden));
+function importe() {
+  const lu = LA.reglagesDuLien($("regie-import-lien").value), msg = $("regie-import-msg");
+  if (!lu) { msg.textContent = "Ce n'est pas un lien d'affiches : il doit finir par …/{type}/{shape}/{id}.jpg?…"; msg.classList.add("erreur"); return; }
+  regieChange(() => { regieR = lu.r; regieRP = lu.rp; });
+  msg.classList.remove("erreur");
+  msg.textContent = "Réglages importés" + (lu.rp ? " (paysage à part compris)." : ".");
+  setTimeout(() => { if (!$("regie-import").hidden) importOuvre(false); }, 900);
+}
+$("regie-import-ok").addEventListener("click", importe);
+$("regie-import-lien").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); importe(); } });
 document.querySelectorAll("#regie-memoires [data-memoire]").forEach((b) => b.addEventListener("click", () => {
   const m = LA.MEMOIRES[b.dataset.memoire];
   regieChange((r) => { const copie = JSON.parse(JSON.stringify(m)); Object.keys(copie).forEach((k) => { r[k] = copie[k]; }); });

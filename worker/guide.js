@@ -1169,7 +1169,9 @@ function appliquerPerso(base) {
   $id("u-coll").textContent = (base || ORIG) + "/collections.json";
   $id("u-coll-contenu").hidden = true; // le contenu affiché serait celui de l'ancien lien
   document.querySelectorAll("[data-perso]").forEach((p) => { p.hidden = !base; });
-  document.querySelectorAll("a[data-programmation]").forEach((a) => { a.href = (base || ORIG) + "/configure"; });
+  // Les liens « Salle 2 » sans la clé Gemini (liens.js) : seul le lien d'addon à installer la garde. L'adresse
+  // gardée dans l'onglet (sessionStorage « programmation ») la garde aussi : c'est d'elle que vient ce lien d'addon.
+  document.querySelectorAll("a[data-programmation]").forEach((a) => { a.href = sansCle((base || ORIG) + "/configure"); });
   setInstall("u-cat");
 }
 try { appliquerPerso(basePerso(sessionStorage.getItem("programmation") || "", ORIG)); } catch (e) { appliquerPerso(""); }

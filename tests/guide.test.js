@@ -72,6 +72,12 @@ test("bandes_annonces_sans_cookie", () => {
   assert.doesNotMatch(NUVIO_JS, /www\.youtube\.com\/embed/);
 });
 
+// Les liens « Salle 2 » du guide n'emportent pas la clé Gemini ; le lien d'addon à installer, si.
+test("guide_liens_salle_2_sans_cle", () => {
+  assert.ok(html.includes('a.href = sansCle((base || ORIG) + "/configure")'));
+  assert.ok(html.includes('$id("u-cat").textContent = (base || ORIG) + "/manifest.json"'));
+});
+
 test("copie_variables_cloudflare", () => {
   const c = copiePage({ origin: O });
   for (const t of ["HOTE_SECRET", "DEPOT", "127.0.0.1:8787:8787"]) assert.ok(c.includes(t), t);

@@ -4,6 +4,7 @@ import { configurePage } from "../worker/page.js";
 import { hallPage } from "../worker/hall.js";
 import { STAGE_JS } from "../worker/stage.js";
 import * as LA from "../worker/lien-affiches.js";
+import { sansCle, LIENS_JS } from "../worker/liens.js";
 import { defaults, decodeConfig, PROVIDERS, REGIONS, GENRES, LANGUAGES, SORTS, SEASON_KEYS, MAX_CUSTOM, COLLECTIONS } from "../worker/config.js";
 
 const rows = [{ id: "a", home: true, name: "A", type: "movie" }];
@@ -45,8 +46,8 @@ test("cle_hors_de_la_barre_d_adresse", () => {
 
 // Les liens « Salle 2 » du site (scene.js) reprennent la programmation de l'onglet, mais sans la clé Gemini.
 test("liens_salle_2_sans_cle", () => {
-  const src = /const sansCle = \(href\) => \{[\s\S]*?\n  \};/.exec(STAGE_JS)[0];
-  const sansCle = new Function(src + "\nreturn sansCle;")();
+  // La même fonction dans scene.js et dans le guide (liens.js), injectée telle quelle.
+  assert.ok(STAGE_JS.includes(String(sansCle)) && LIENS_JS.includes(String(sansCle)));
   const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
   const seg = /^https:\/\/x\/([^/]+)\/configure$/.exec(sansCle("https://x/" + b64({ n: "Ma télé", k: KEY, m: 7 }) + "/configure"))[1];
   assert.deepEqual(JSON.parse(Buffer.from(seg, "base64url").toString()), { n: "Ma télé", m: 7 });

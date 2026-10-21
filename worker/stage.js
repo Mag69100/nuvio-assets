@@ -12,6 +12,8 @@
  * Rien ne bouge si l'appareil demande moins d'animations. Par défaut, la salle est éteinte et le son coupé.
  */
 
+import { sansCle } from "./liens.js";
+
 // À mettre dans <head> : rideau une fois par visite, iris d'arrivée, salle éteinte.
 export const STAGE_HEAD = `<script>try{var d=document.documentElement,s=sessionStorage;if(s.getItem("rideau"))d.classList.add("vu");s.setItem("rideau","1");if(s.getItem("iris")){d.classList.add("iris-in");s.removeItem("iris")}var n=localStorage.getItem("noir");if(n==="1"||(n===null&&location.pathname==="/"))d.classList.add("noir");var t=localStorage.getItem("theme");if(t&&t!=="classique")d.dataset.theme=t}catch(e){}var h=new Date().getHours();document.documentElement.dataset.heure=h>=23||h<6?"minuit":h<11?"matin":h<18?"jour":"soir"</script>`;
 
@@ -902,19 +904,8 @@ export const STAGE_JS = String.raw`
     son.addEventListener("click", () => { sfx.set(!sfx.on); son.setAttribute("aria-pressed", String(sfx.on)); sfx.click(); });
   }
   // Les liens vers la programmation (salle 2) la retrouvent telle qu'on l'avait laissée, sans la clé Gemini :
-  // l'adresse gardée la porte (le guide en tire le lien d'addon), la salle 2 la reprend sur l'appareil.
-  const sansCle = (href) => {
-    const u = new URL(href), m = /^[/]([A-Za-z0-9_-]+)[/]configure$/.exec(u.pathname);
-    if (!m) return u.href;
-    try {
-      const o = JSON.parse(atob(m[1].replace(/-/g, "+").replace(/_/g, "/")));
-      if (!o || typeof o !== "object" || !("k" in o)) return u.href;
-      delete o.k;
-      // (octets UTF-8 lus et réécrits tels quels : les noms accentués ne bougent pas)
-      const s = JSON.stringify(o), seg = s === "{}" ? "" : btoa(s).replace(/[+]/g, "-").replace(/[/]/g, "_").replace(/=+$/, "");
-      return u.origin + (seg ? "/" + seg : "") + "/configure";
-    } catch (e) { return u.href; }
-  };
+  // l'adresse gardée la porte (le guide en tire le lien d'addon), la salle 2 la reprend sur l'appareil (liens.js).
+  ${sansCle}
   try {
     const s1 = sessionStorage.getItem("programmation");
     // (une ancienne adresse « / » mène désormais au guide : on l'ignore)

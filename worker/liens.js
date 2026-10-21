@@ -127,6 +127,22 @@ export function basePerso(configureUrl, origin) {
   } catch (e) { return ""; }
 }
 
+// Lien vers la programmation (salle 2) sans la clé Gemini : les liens « Salle 2 » du site (guide, hall, scene.js)
+// se voient, se copient, restent dans l'historique. Seul le lien d'addon à installer la garde ; la salle 2, elle,
+// reprend la clé rangée sur l'appareil.
+export function sansCle(href) {
+  const u = new URL(href), m = /^[/]([A-Za-z0-9_-]+)[/]configure$/.exec(u.pathname);
+  if (!m) return u.href;
+  try {
+    const o = JSON.parse(atob(m[1].replace(/-/g, "+").replace(/_/g, "/")));
+    if (!o || typeof o !== "object" || !("k" in o)) return u.href;
+    delete o.k;
+    // (octets UTF-8 lus et réécrits tels quels : les noms accentués ne bougent pas)
+    const s = JSON.stringify(o), seg = s === "{}" ? "" : btoa(s).replace(/[+]/g, "-").replace(/[/]/g, "_").replace(/=+$/, "");
+    return u.origin + (seg ? "/" + seg : "") + "/configure";
+  } catch (e) { return u.href; }
+}
+
 // Ce qu'on envoie sur le téléphone par QR code (après le #, jamais transmis au serveur) : la clé AllDebrid et l'appareil.
 export function paquetCles({ ad, appareil }) {
   const o = {};
@@ -148,5 +164,6 @@ ${torrentioUrl}
 ${installUrl}
 ${sansInstall}
 ${basePerso}
+${sansCle}
 ${paquetCles}
 ${lirePaquet}`;

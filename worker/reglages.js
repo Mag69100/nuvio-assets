@@ -290,7 +290,7 @@ const PAGES = (posterUrl) => [
     ]),
     SEC("Mémoire tampon et réseau", "Quelle quantité de contenu garder en mémoire et comment récupérer les flux.", "wifi", [], { keep: true }),
     SEC("Streaming P2P", "Autoriser les flux pair-à-pair (torrent)", "p2p", [
-      T("Activer le P2P", "", true, { n: "Nécessaire pour certaines sources Torrentio." }),
+      T("Activer le P2P", "", false, { n: "Laisse-le désactivé : avec AllDebrid, Torrentio et les autres addons donnent des liens directs, le P2P ne sert à rien. Sans débrideur, tu partagerais les fichiers depuis ta propre adresse IP, visible de tous." }),
       T("Masquer les statistiques torrent", "Masquer la mémoire tampon, les seeders, les pairs et la vitesse de téléchargement", true),
       V("Torrent profile", "Recommended balance of startup speed and connection stability", "Balanced"),
       V("Torrent cache size", "Downloaded torrent data kept on this device for faster replays", "2 GB"),

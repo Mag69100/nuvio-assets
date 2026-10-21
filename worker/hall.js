@@ -4,7 +4,7 @@
  * Au mur, les films dont tout le monde parle aujourd'hui, tirés du Catalogue FR (Tendances du jour).
  */
 import { STAGE_HEAD, stageTop, secretsHTML, BEAM_HTML, CREDITS_HTML } from "./stage.js";
-import { ICONE_APERCU, apercuDonnees } from "./apercu.js";
+import { ICONE_APERCU, ICONE_AVANT_APRES, apercuDonnees } from "./apercu.js";
 import { feuilles, scripts, adresseStatique } from "./statique.js";
 import { esc } from "./outils-serveur.js";
 
@@ -90,6 +90,8 @@ a { color: var(--bulb); }
 .texte small { max-width: 34ch; justify-self: center; color: var(--dim); font-size: .98rem; line-height: 1.5; }
 .texte em { justify-self: center; margin-top: 8px; font: normal 800 .95rem var(--body); padding: 10px 18px; border-radius: 99px; background: var(--bulb); color: var(--ink); }
 .porte + .porte .texte em { background: transparent; color: var(--bulb); box-shadow: inset 0 0 0 1.5px var(--bulb); }
+.apercu-boutons { justify-self: center; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; max-width: 640px; text-align: center; }
+.apercu-boutons p { flex-basis: 100%; margin: 0; color: var(--dim); font-size: .95rem; }
 .apercu-lien { justify-self: center; display: inline-flex; align-items: center; gap: 10px; font: 800 1rem var(--body); text-decoration: none; color: var(--cream); padding: 12px 20px; border-radius: 99px; border: 1px solid var(--seat); background: rgba(0,0,0,.25); }
 .apercu-lien:hover { border-color: var(--bulb); color: var(--bulb); }
 .apercu-lien svg { width: 20px; height: 20px; }
@@ -135,7 +137,11 @@ ${secretsHTML("hall")}
   </nav>
 ${copy ? "" : `  <p class="propre-salle">Tu veux ta propre salle, avec tes clés et ton quota ? <a href="${origin}/copie">Monte-la</a></p>
 `}
-  <button type="button" class="apercu-lien" data-resultat>${ICONE_APERCU}Voir l'accueil que tu auras à la fin</button>
+  <div class="apercu-boutons">
+    <button type="button" class="apercu-lien" data-resultat>${ICONE_APERCU}Voir l'accueil que tu auras à la fin</button>
+    <button type="button" class="apercu-lien" data-resultat data-avant-apres>${ICONE_AVANT_APRES}Avant / après le guide</button>
+    <p>Nuvio tout juste installé est en anglais, avec un seul catalogue. Fais glisser le trait pour voir ce que le guide en fait.</p>
+  </div>
 
   <section class="mur" aria-labelledby="a-laffiche">
     <h2 id="a-laffiche">Actuellement à l'affiche</h2>
@@ -176,7 +182,7 @@ ${scripts("affiches.js")}
     const vu = new IntersectionObserver((es) => es.forEach((e) => e.target.classList.toggle("ap-vu", e.isIntersecting)));
     boutons.forEach((b) => vu.observe(b));
   }
-  if (location.hash === "#apercu") charger().catch(() => {});
+  if (location.hash === "#apercu" || location.hash === "#avant-apres") charger().catch(() => {});
 })();
 </script>
 <script>

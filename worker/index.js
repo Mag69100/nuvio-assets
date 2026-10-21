@@ -21,6 +21,7 @@
  * colle dans la salle 2. Facultatif : GEMINI_API_KEY, clé de l'instance pour /debug et, avec la
  * variable GEMINI_PUBLIC=on, pour tous les liens sans clé.
  *   /meta/<type>/<id>.json      fiche détaillée (résumé, casting, saisons, épisodes) en français
+ *   /cinemeta/<type>/<id>.json  rangées de Nuvio tel qu'installé (Cinemeta), pour l'avant / après des aperçus
  */
 import DEFS from "../catalogs.json";
 import {
@@ -34,6 +35,7 @@ import { lireReglages, ecrireReglages } from "./lien-affiches.js";
 import { lienPage } from "./lien.js";
 import { copiePage } from "./copie.js";
 import { hallPage } from "./hall.js";
+import { routeCinemeta } from "./cinemeta.js";
 import { statique } from "./statique.js";
 import { smartSearch, prepareWords, isExact, norm, capQuery } from "./search.js";
 import { imdbRating } from "./ratings.js";
@@ -1891,6 +1893,8 @@ const app = {
     let path = url.pathname.replace(/\/+$/, "");
     const today = parisToday();
     const rows = allRows(today, null);
+    // Nuvio « de base » de l'avant / après des aperçus : les rangées de Cinemeta, relayées (voir cinemeta.js).
+    if (path.startsWith("/cinemeta/")) return routeCinemeta(path, HEADERS, ctx);
 
     // Premier segment = config personnalisée, s'il n'est pas un mot réservé.
     let cfgSeg = "", fixedId = "";

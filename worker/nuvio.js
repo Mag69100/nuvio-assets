@@ -419,6 +419,21 @@ export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cram
 .np-about img { height: 4.167cqw; width: auto; }
 .np-about b { font: 700 2.5cqw/4.167cqw Inter, sans-serif; letter-spacing: .2cqw; }
 .np-about small { font: 500 1.042cqw/1.458cqw Inter, sans-serif; letter-spacing: .052cqw; color: #B3B3B3; }
+/* ---------- Nuvio tel qu'installé (l'avant de l'avant / après) : réglages d'origine de Nuvio TV ----------
+   Thème Blanc (AppTheme.WHITE : liseré blanc, cartes #222222), cartes de 126 × 189 dp (les mêmes une fois réduites
+   par la Vue moderne) à coins de 12 dp, sans Card Depth Effect, et la barre latérale classique : un rail de 72 dp
+   toujours visible (LegacySidebarScaffold), l'accueil décalé de 54 dp (sidebarContentOffset). Pas de bande-annonce
+   dans le haut (désactivée d'office). */
+.nvo.defaut .nvo-hero, .nvo.defaut .nvo-rangees { left: 5.625cqw; }
+.nvo.defaut .nvo-bd { left: 28.208cqw; }
+.nvo.defaut .nvo-carte { border-radius: 1.25cqw; background-color: #222222; }
+.nvo.defaut .nvo-carte::before { display: none; }
+.nvo.defaut .nvo-carte::after { border-radius: 1.354cqw; border-color: #FFFFFF; }
+.nvo-rail { position: absolute; z-index: 5; left: 0; top: 0; bottom: 0; width: 7.5cqw; background: #0D0D0D; pointer-events: none; }
+.nvo-rail nav { position: absolute; left: 2.5cqw; top: 50%; display: flex; flex-direction: column; gap: 1.042cqw; transform: translateY(calc(-50% + 2.917cqw)); }
+.nvo-rail i { position: relative; display: block; width: 5cqw; height: 5.417cqw; }
+.nvo-rail svg { position: absolute; left: 1.354cqw; top: 50%; width: 2.292cqw; height: 2.292cqw; transform: translateY(-50%); fill: #808080; }
+.nvo-rail i.ici svg { fill: #F5F5F5; }
 @media (prefers-reduced-motion: reduce) { .nvo-menu, .nvo-liste { animation: none; } .nvo-carte.attente > .reflet { animation: none; } }
 `;
 
@@ -579,7 +594,9 @@ ${REGLAGES_AFFICHES}
 
   // ---------- Le haut de l'accueil ----------
   // montre(m) : un film ou une série ; montre({ dossier }) : une tuile de collection (son fond et son logo).
-  const hero = (ecran) => {
+  // local : Nuvio tel qu'installé (avant / après) : les infos de la rangée elle-même (Cinemeta), sans la fiche du
+  // Catalogue FR, et sans bande-annonce (désactivée d'office dans Nuvio TV).
+  const hero = (o = {}) => {
     const el = mkd("div", "nvo-hero"), bd = mkd("div", "nvo-bd"), info = mkd("div", "nvo-info");
     el.append(bd, info);
     let courant = null, baT = 0, jeton = 0;
@@ -613,6 +630,7 @@ ${REGLAGES_AFFICHES}
       if (x.dossier) { fond(imgW(x.dossier.heroBackdropUrl || x.dossier.coverImageUrl, "w1280")); info.classList.remove("attente"); ecrireInfos(null, x.dossier); return; }
       const m = x;
       fond(imgW(m.background || m.poster, "w1280"));
+      if (o.local) { info.classList.remove("attente"); ecrireInfos(m); return; }
       // « Préférer les métadonnées de l'addon externe » : Nuvio complète le haut avec la fiche de l'addon
       // (durée, statut, langue), et cache le texte le temps de la recevoir.
       info.classList.add("attente");
@@ -628,7 +646,7 @@ ${REGLAGES_AFFICHES}
     // En sourdine dans l'aperçu : un navigateur bloque le son d'une vidéo qui démarre toute seule.
     const bandeAnnonce = (m) => {
       stopVideo();
-      if (!m || m.dossier || calme() || tactile) return;
+      if (!m || m.dossier || calme() || tactile || o.local) return;
       baT = setTimeout(() => baCle(m).then((key) => {
         if (!key || courant !== m || !el.isConnected || !aInteragi) return;
         const v = mkd("div", "nvo-video"), fr = youtube(key, true); v.append(fr); bd.append(v);
@@ -641,6 +659,13 @@ ${REGLAGES_AFFICHES}
   // ---------- Cartes et tuiles ----------
   const peint = (c) => {
     const m = c._m; if (!m) return;
+    // Nuvio tel qu'installé : l'affiche de l'addon (Cinemeta), en portrait, sans affiches maison.
+    if (c._defaut || c.closest(".nvo.defaut")) {
+      const im = new Image();
+      im.onload = () => { if (c._m !== m) return; c.style.backgroundImage = cssUrl(m.poster); c.classList.remove("attente"); c.classList.add("img"); };
+      im.onerror = () => c.classList.remove("attente");
+      im.src = m.poster; return;
+    }
     const paysage = c.closest(".nvo") ? c.closest(".nvo").classList.contains("paysage") : reglages.format === "l";
     const simple = paysage ? imgW(m.background || m.poster, "w780") : m.poster;
     const pp = ppSrc(m, paysage ? "landscape" : "poster");
@@ -653,8 +678,9 @@ ${REGLAGES_AFFICHES}
     };
     montre(pp || simple, pp ? simple : null);
   };
-  const carte = (m) => {
-    const c = mkd("button", "nvo-carte attente"); c.type = "button"; c.tabIndex = -1; c.append(mkd("i", "reflet"));
+  // defaut : une carte du Nuvio tel qu'installé (avant / après), peinte avant même d'être dans son écran.
+  const carte = (m, defaut) => {
+    const c = mkd("button", "nvo-carte attente"); c.type = "button"; c.tabIndex = -1; c.append(mkd("i", "reflet")); c._defaut = !!defaut;
     if (!m) { c.setAttribute("aria-label", "Chargement"); return c; }
     remplit(c, m); return c;
   };
@@ -780,7 +806,8 @@ ${REGLAGES_AFFICHES}
       if (n) { racine.querySelectorAll('.nvo-carte[tabindex="0"], .nvo-tuile[tabindex="0"]').forEach((k) => { k.tabIndex = -1; }); n.tabIndex = 0; n.focus({ preventScroll: true }); }
     });
     // Au lancement, Nuvio sélectionne la première carte de la première rangée.
-    const premier = () => { const c = racine.querySelector(".nvo-rangees .nvo-carte, .nvo-rangees .nvo-tuile"); if (c && (c._m || c._f) && !sel) { c.tabIndex = 0; choisit(c); } };
+    // passif (l'avant de l'avant / après) : rien n'y prend le focus du clavier, la souris seule y choisit.
+    const premier = () => { const c = racine.querySelector(".nvo-rangees .nvo-carte, .nvo-rangees .nvo-tuile"); if (c && (c._m || c._f) && !sel) { if (!(opts && opts.passif)) c.tabIndex = 0; choisit(c); } };
     return { premier, choisit, get sel() { return sel; }, reset() { sel = null; } };
   };
 
@@ -1538,11 +1565,24 @@ ${REGLAGES_AFFICHES}
     requestAnimationFrame(fleches);
   };
 
+  // ---------- La barre latérale classique (réglage d'origine : barre latérale moderne désactivée) ----------
+  // Fermée, elle reste un rail d'icônes : Accueil (choisie, couleur du thème), Rechercher, Bibliothèque, Paramètres
+  // (Découvrir est dans la recherche, réglage d'origine). Icônes de 22 dp, boutons de 48 × 52 dp espacés de 10 dp.
+  const railClassique = () => {
+    const r = mkd("div", "nvo-rail"), nav = mkd("nav");
+    r.setAttribute("aria-hidden", "true");
+    ["accueil", "recherche", "biblio", "reglages"].forEach((id, i) => { const b = mkd("i", i ? null : "ici"); b.innerHTML = ICONES[id]; nav.append(b); });
+    r.append(nav); return r;
+  };
+
   // ---------- L'écran complet : accueil, recherche, bibliothèque, fiche, barre latérale ----------
   // ecran(hote) crée .nvo dans hote. L'appelant remplit l'accueil avec rangee() puis appelle pret().
+  // opts.defaut : Nuvio tel qu'installé (l'avant de l'avant / après) : réglages d'origine, barre latérale classique,
+  // un accueil à regarder seulement (la souris choisit les cartes ; ni fiche, ni menu, ni focus du clavier).
   const ecran = (hote, opts = {}) => {
-    const el = mkd("div", "nvo"), h = hero(), rangees = mkd("div", "nvo-rangees"), bord = mkd("div", "nvo-bord");
-    el.append(h.el, rangees, bord); hote.append(el);
+    const defaut = !!opts.defaut;
+    const el = mkd("div", defaut ? "nvo defaut" : "nvo"), h = hero({ local: defaut }), rangees = mkd("div", "nvo-rangees"), bord = mkd("div", "nvo-bord");
+    el.append(h.el, rangees, defaut ? railClassique() : bord); hote.append(el);
     let vue = "accueil", vueEl = null, menuVu = false;
     const ouvrir = (m) => ouvreFiche(el, m);
     const aller = (v, tuileOuverte) => {
@@ -1556,10 +1596,10 @@ ${REGLAGES_AFFICHES}
       if (window.sfx) sfx.click();
     };
     const ouvreMenu = () => menu(el, vue, aller);
-    const p = pilote(el, h, { menu: ouvreMenu });
+    const p = pilote(el, h, defaut ? { passif: true } : { menu: ouvreMenu });
     bord.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse" && !el.querySelector(".nvo-fiche")) ouvreMenu(); });
     el.addEventListener("click", (e) => {
-      const c = e.target.closest(".nvo-rangees .nvo-carte, .nvo-rangees .nvo-tuile"); if (!c || vientDeGlisser()) return;
+      const c = e.target.closest(".nvo-rangees .nvo-carte, .nvo-rangees .nvo-tuile"); if (!c || vientDeGlisser() || defaut) return;
       if (c._m) ouvrir(c._m);
       else if (c._f && c._collId) aller("dossier", c);
     });
@@ -1585,7 +1625,7 @@ ${REGLAGES_AFFICHES}
       ouvert() { return !!el.querySelector(".nvo-fiche, .nvo-menu") || vue !== "accueil"; },
       vider() { rangees.textContent = ""; p.reset(); },
       // Au premier remplissage, le menu est déjà ouvert : sinon on peut ne jamais le découvrir.
-      pret() { p.premier(); if (!menuVu) { menuVu = true; if (vue === "accueil" && !el.querySelector(".nvo-fiche")) menu(el, vue, aller, undefined, true); } },
+      pret() { p.premier(); if (!menuVu && !defaut) { menuVu = true; if (vue === "accueil" && !el.querySelector(".nvo-fiche")) menu(el, vue, aller, undefined, true); } },
       paysage(on) { el.classList.toggle("paysage", !!on); el.querySelectorAll(".nvo-carte").forEach(peint); },
       pp() { el.classList.toggle("pp", reglages.pp); el.querySelectorAll(".nvo-carte").forEach(peint); },
     };

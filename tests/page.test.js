@@ -118,3 +118,21 @@ test("salle_2_mene_a_la_page_copie_seulement_sur_la_source", () => {
   assert.ok(page(false).includes('href="https://x/copie"'));
   assert.ok(!page(true).includes('/copie"'));
 });
+
+// « Revenir à la programmation d'origine » garde la clé Gemini et le jeton d'alerte, et se rattrape (« Annuler »).
+test("remise_d_origine_garde_la_cle_et_s_annule", () => {
+  const html = page();
+  assert.match(html, /Object\.assign\(state, clone\(D\.defaults\), \{ k: state\.k, al: state\.al \}\);/);
+  assert.match(html, /id="annule-btn">Annuler<\/button>/);
+  assert.match(html, /Object\.assign\(state, avant\); renderAll\(\);/);
+  assert.match(html, /setTimeout\(annuleFin, 10000\)/);
+});
+
+// Lien fixe : à la fermeture de l'onglet, le dernier réglage part tout de suite (keepalive), hors de la file.
+test("lien_fixe_envoye_a_la_fermeture", () => {
+  const html = page();
+  const fin = html.slice(html.indexOf('addEventListener("pagehide"')).slice(0, 1200);
+  assert.match(fin, /fetch\(D\.origin \+ "\/lien-fixe\/" \+ fixe\.id, [^\n]*keepalive: true/);
+  assert.doesNotMatch(fin, /enregistre\(/);
+  assert.match(html, /if \(n <= directN\) return;/);
+});

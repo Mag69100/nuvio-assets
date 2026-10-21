@@ -246,6 +246,11 @@ input[type=text] {
 .group h3 { margin: 0; font: 700 .72rem var(--body); letter-spacing: .22em; text-transform: uppercase; color: var(--dim); }
 .warn { margin: 0; color: var(--bulb); font-weight: 700; font-size: .9rem; }
 .reset { justify-self: start; background: none; border: 0; padding: 0; color: var(--dim); text-decoration: underline; text-underline-offset: 4px; cursor: pointer; font-size: .92rem; }
+/* Programmation remise d'origine : « Annuler » pendant 10 secondes, en haut de l'écran (comme les messages). */
+.annule { position: fixed; left: 50%; top: calc(18px + env(safe-area-inset-top)); z-index: 86; transform: translateX(-50%); display: flex; align-items: center; gap: 14px;
+  width: max-content; max-width: calc(100vw - 32px); padding: 8px 8px 8px 18px; border-radius: 12px; background: var(--cream); color: var(--ink); font: 800 .95rem var(--body); box-shadow: 0 12px 30px rgba(0,0,0,.5); }
+.annule[hidden] { display: none; }
+.annule button { flex: none; min-height: 44px; padding: 8px 18px; border: 0; border-radius: 99px; background: var(--ink); color: var(--cream); font: 800 .9rem var(--body); cursor: pointer; }
 
 /* ---------- L'écran : aperçu de l'accueil ---------- */
 .steps-howto { margin: 0; padding: 0; list-style: none; counter-reset: st; display: grid; gap: 12px; }
@@ -893,6 +898,7 @@ ${copy ? HOTE_HTML : ""}
       </section>
 
       <button type="button" class="reset" id="reset">Revenir à la programmation d'origine</button>
+      <div class="annule" id="annule" role="status" hidden><span id="annule-txt"></span><button type="button" id="annule-btn">Annuler</button></div>
     </main>
 
     <aside>
@@ -1999,7 +2005,30 @@ $("ai-key-eye").addEventListener("click", (e) => {
 });
 // « OK » du clavier : on referme le clavier au lieu de rester dans le champ.
 $("name").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } });
-$("reset").addEventListener("click", () => { Object.assign(state, clone(D.defaults)); $("builder").hidden = true; renderAll(); });
+// « Revenir à la programmation d'origine » : tout revient par défaut sauf la clé Gemini et le jeton d'alerte.
+// « Annuler » pendant 10 secondes remet tout comme avant (rangées sur mesure, noms, ordre) ; un lien fixe
+// reçoit alors de nouveau l'ancien réglage.
+let annuleT = 0;
+function annuleFin() {
+  clearTimeout(annuleT); annuleT = 0;
+  if (document.activeElement === $("annule-btn")) $("reset").focus();
+  $("annule").hidden = true;
+}
+$("reset").addEventListener("click", () => {
+  const avant = clone(state), ordreAvant = [...order];
+  Object.assign(state, clone(D.defaults), { k: state.k, al: state.al });
+  $("builder").hidden = true; renderAll();
+  $("annule-txt").textContent = "Programmation d'origine remise.";
+  $("annule").hidden = false;
+  $("annule-btn").onclick = () => {
+    annuleFin();
+    Object.assign(state, avant); renderAll();
+    order = ordreAvant; renderRows();
+    $("reset").focus();
+    effet("toast", "Tes réglages sont revenus.");
+  };
+  clearTimeout(annuleT); annuleT = setTimeout(annuleFin, 10000);
+});
 
 // ---------- lien fixe (voir fixe.js) : les réglages gardés par le site, le lien ne change plus ----------
 // La clé pour modifier reste dans ce navigateur (une par lien) ; le « lien pour modifier » l'emporte ailleurs.
@@ -2007,7 +2036,7 @@ function fixesLus() { try { return JSON.parse(localStorage.getItem("liens-fixes"
 function fixeGarde(id, modif) { try { const f = fixesLus(); f[id] = modif; localStorage.setItem("liens-fixes", JSON.stringify(f)); } catch (e) {} }
 function lienModif() { return D.origin + "/" + fixe.id + "/configure#modif=" + fixe.modif; }
 function fixeErreur(msg) { $("fixe-err").textContent = msg || ""; }
-let saveT = 0, envoi = Promise.resolve(), etatFixe = "";
+let saveT = 0, envoi = Promise.resolve(), etatFixe = "", envoiN = 0, partiN = 0, directN = 0;
 // Réglage pas encore confirmé par le serveur, gardé dans l'onglet : rafraîchie juste après un changement,
 // la page est redemandée avant que l'envoi (pagehide) n'arrive, et montrerait l'ancien réglage.
 const attenteCle = () => "fixe-attente:" + fixe.id;
@@ -2024,8 +2053,11 @@ function planifie(seg) {
 function enregistre(seg) {
   clearTimeout(saveT); saveT = 0;
   dernierEnvoye = seg; etatFixe = "envoi"; dessineFixe(seg);
-  const id = fixe.id, modif = fixe.modif;
+  const id = fixe.id, modif = fixe.modif, n = ++envoiN;
   envoi = envoi.then(async () => {
+    // Un réglage plus récent est déjà parti directement (page quittée) : celui-ci ne doit pas l'écraser.
+    if (n <= directN) return;
+    partiN = n;
     try {
       const r = await fetch(D.origin + "/lien-fixe/" + id, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ c: seg, modif }), keepalive: true });
       const j = await r.json().catch(() => ({}));
@@ -2038,8 +2070,20 @@ function enregistre(seg) {
     dessineFixe(seg);
   });
 }
-// Page quittée juste après un réglage : on l'envoie tout de suite.
-addEventListener("pagehide", () => { if (saveT) { const c = compact(state); enregistre(Object.keys(c).length ? enc(c) : ""); } });
+// Page quittée juste après un réglage : le dernier part tout de suite, sans attendre la file des envois
+// (la page fermée, ce qui attend dans la file ne partirait jamais). keepalive : l'envoi survit à l'onglet.
+addEventListener("pagehide", () => {
+  if (!fixe || !fixe.modif) return;
+  const c = compact(state), seg = Object.keys(c).length ? enc(c) : "";
+  // Rien en attente, rien dans la file, dernier réglage déjà parti (ou en route, keepalive) : rien à faire.
+  if (!saveT && envoiN === partiN && seg === dernierEnvoye) return;
+  clearTimeout(saveT); saveT = 0;
+  dernierEnvoye = seg; directN = envoiN;
+  try {
+    fetch(D.origin + "/lien-fixe/" + fixe.id, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ c: seg, modif: fixe.modif }), keepalive: true })
+      .then((r) => { if (r.ok && dernierEnvoye === seg) { etatFixe = "ok"; dessineFixe(seg); } }, () => {});
+  } catch (e) {}
+});
 function dessineFixe(seg) {
   const box = $("fixe");
   box.hidden = !D.fixedOk && !fixe;

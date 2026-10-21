@@ -9,7 +9,7 @@
  * Petits plaisirs : pop-corn quand on copie, lettres de l'enseigne qu'on décroche,
  * ampoule fatiguée, pluie de pop-corn secrète.
  *
- * Rien ne bouge si l'appareil demande moins d'animations. Par défaut, la salle est éteinte et le son activé.
+ * Rien ne bouge si l'appareil demande moins d'animations. Par défaut, la salle est éteinte et le son coupé.
  */
 
 // À mettre dans <head> : rideau une fois par visite, iris d'arrivée, salle éteinte.
@@ -736,6 +736,8 @@ export const STAGE_CSS = `
 @media (prefers-reduced-motion: reduce) {
   .curtain, .torch, .beam canvas, .iris, .saison i, .secret { display: none; }
   .marquee, .marquee::after, .marquee h1, .beam, .ampoules i, .tete, .tete *, .cabine *, .saison, .draperie { animation: none !important; }
+  /* Fenêtres et billets apparaissent et partent sans glisser ni clignoter (ils sont retirés par minuterie). */
+  .billet-jour, .billet-jour.part, .fiche-billet, .retro, .retro.fin, #trophees.gagne { animation: none !important; }
   .ampoules .vives { display: none; }
   .ampoules .base i.grillee { background: #4e3420; box-shadow: inset 0 0 2px #000; }
   .generique { height: auto; -webkit-mask: none; mask: none; }
@@ -826,11 +828,11 @@ export const STAGE_JS = String.raw`
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
   };
 
-  // ---------- Son de la salle (activé par défaut ; le navigateur attend un premier clic) ----------
+  // ---------- Son de la salle (coupé par défaut : on l'allume avec le bouton « Son », le choix est gardé) ----------
   // Uniquement des notes douces, sans bruit ni boucle : un « tic » de bois, un carillon de caisse,
   // des « plop » de pop-corn, une petite fanfare. Tout passe par un volume général bas et un compresseur.
   const sfx = window.sfx = (() => {
-    let ctx = null, out = null, on = store.get("son") !== "0";
+    let ctx = null, out = null, on = store.get("son") === "1";
     const ac = () => {
       if (!ctx) {
         const A = window.AudioContext || window.webkitAudioContext; if (!A) return null;
@@ -899,11 +901,24 @@ export const STAGE_JS = String.raw`
     son.setAttribute("aria-pressed", String(sfx.on));
     son.addEventListener("click", () => { sfx.set(!sfx.on); son.setAttribute("aria-pressed", String(sfx.on)); sfx.click(); });
   }
-  // Les liens vers la programmation (salle 2) la retrouvent telle qu'on l'avait laissée.
+  // Les liens vers la programmation (salle 2) la retrouvent telle qu'on l'avait laissée, sans la clé Gemini :
+  // l'adresse gardée la porte (le guide en tire le lien d'addon), la salle 2 la reprend sur l'appareil.
+  const sansCle = (href) => {
+    const u = new URL(href), m = /^[/]([A-Za-z0-9_-]+)[/]configure$/.exec(u.pathname);
+    if (!m) return u.href;
+    try {
+      const o = JSON.parse(atob(m[1].replace(/-/g, "+").replace(/_/g, "/")));
+      if (!o || typeof o !== "object" || !("k" in o)) return u.href;
+      delete o.k;
+      // (octets UTF-8 lus et réécrits tels quels : les noms accentués ne bougent pas)
+      const s = JSON.stringify(o), seg = s === "{}" ? "" : btoa(s).replace(/[+]/g, "-").replace(/[/]/g, "_").replace(/=+$/, "");
+      return u.origin + (seg ? "/" + seg : "") + "/configure";
+    } catch (e) { return u.href; }
+  };
   try {
     const s1 = sessionStorage.getItem("programmation");
     // (une ancienne adresse « / » mène désormais au guide : on l'ignore)
-    if (s1 && new URL(s1).origin === location.origin && new URL(s1).pathname !== "/") document.querySelectorAll("a[data-programmation]").forEach((a) => { a.href = s1; });
+    if (s1 && new URL(s1).origin === location.origin && new URL(s1).pathname !== "/") { const lien = sansCle(s1); document.querySelectorAll("a[data-programmation]").forEach((a) => { a.href = lien; }); }
   } catch (e) {}
 
   // ---------- Rideau : retiré une fois relevé ----------
@@ -1007,6 +1022,9 @@ export const STAGE_JS = String.raw`
   if (root.dataset.saison === "halloween") LISTE.push(["colonie", "Réveiller la colonie de chauves-souris", "Elles volent au-dessus de toi."]);
   let trouves = [];
   try { trouves = JSON.parse(store.get("secrets") || "[]"); } catch (e) {}
+  // Une valeur abîmée (autre version, extension) ne doit pas casser toute la salle.
+  if (!Array.isArray(trouves)) trouves = [];
+  trouves = trouves.filter((x) => typeof x === "string");
   const tBtn = document.getElementById("trophees"), tPanel = document.getElementById("trophees-panel");
   // Les salles (thèmes) se débloquent avec les secrets.
   // Chaque salle change le décor ET apporte une rangée à ajouter dans Nuvio (rangée sur mesure).
@@ -1036,6 +1054,8 @@ export const STAGE_JS = String.raw`
   };
   let album = [];
   try { album = JSON.parse(store.get("billets") || "[]"); } catch (e) {}
+  if (!Array.isArray(album)) album = [];
+  album = album.filter((b) => b && typeof b === "object" && b.id);
   let onglet = "secrets";
   const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const nTrouves = () => LISTE.filter(([id]) => trouves.includes(id)).length;

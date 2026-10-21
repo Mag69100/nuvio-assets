@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { configurePage } from "../worker/page.js";
 import { hallPage } from "../worker/hall.js";
+import { STAGE_JS } from "../worker/stage.js";
+import * as LA from "../worker/lien-affiches.js";
 import { defaults, decodeConfig, PROVIDERS, REGIONS, GENRES, LANGUAGES, SORTS, SEASON_KEYS, MAX_CUSTOM, COLLECTIONS } from "../worker/config.js";
 
 const rows = [{ id: "a", home: true, name: "A", type: "movie" }];
@@ -12,13 +14,74 @@ const page = (copy = false) => configurePage({ copy,
   regions: REGIONS, genres: GENRES, languages: LANGUAGES, sorts: SORTS, seasons: SEASON_KEYS, maxCustom: MAX_CUSTOM, season: null,
 });
 
-// Le billet se partage (bouton « Offrir », QR code, image) : jamais avec la clé Gemini de l'utilisateur.
+// Le billet se partage (bouton « Offrir », image du billet) : jamais avec la clé Gemini de l'utilisateur.
+// Le QR « Continuer sur le téléphone », lui, sert à ses propres appareils : il emporte la clé (avec un avertissement).
 test("partage_sans_cle", () => {
   const html = page();
   assert.match(html, /const shared = compact\(\{ \.\.\.state, k: "", al: "" \}\);\s*shareUrl = D\.origin \+ .*enc\(shared\)/);
-  assert.doesNotMatch(html, /addData\(configureUrl\)/);
+  // Offrir : partage et copie avec l'adresse sans clé.
+  assert.match(html, /url: shareUrl \}/);
+  assert.match(html, /writeText\(shareUrl\)/);
   assert.doesNotMatch(html, /url: configureUrl/);
   assert.doesNotMatch(html, /writeText\(configureUrl\)/);
+  // Image du billet : son QR code est fait avec l'adresse sans clé, et seulement elle.
+  const image = html.slice(html.indexOf("async function imprimeBillet"), html.indexOf("const tk = "));
+  assert.ok(image.length > 500);
+  assert.match(image, /addData\(shareUrl\)/);
+  assert.equal((image.match(/addData\(/g) || []).length, 1);
+  // QR pour ses appareils : la clé voyage, et le texte le dit.
+  assert.match(html, /addData\(fixe && fixe\.modif \? lienModif\(\) : configureUrl\)/);
+  assert.match(html, /ta clé Gemini comprise[^<]*ne le montre à personne d'autre/);
+});
+
+// La clé Gemini n'est plus dans la barre d'adresse : rangée sur l'appareil, reprise au rechargement.
+test("cle_hors_de_la_barre_d_adresse", () => {
+  const html = page();
+  assert.match(html, /const sansCle = compact\(\{ \.\.\.state, k: "" \}\);/);
+  assert.match(html, /history\.replaceState\(null, "", affichee\)/);
+  assert.doesNotMatch(html, /replaceState\(null, "", configureUrl\)/);
+  assert.match(html, /if \(!fixe\) \{ if \(state\.k\) cleGarde\(state\.k\); else state\.k = cleLue\(\); \}/);
+});
+
+// Les liens « Salle 2 » du site (scene.js) reprennent la programmation de l'onglet, mais sans la clé Gemini.
+test("liens_salle_2_sans_cle", () => {
+  const src = /const sansCle = \(href\) => \{[\s\S]*?\n  \};/.exec(STAGE_JS)[0];
+  const sansCle = new Function(src + "\nreturn sansCle;")();
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const seg = /^https:\/\/x\/([^/]+)\/configure$/.exec(sansCle("https://x/" + b64({ n: "Ma télé", k: KEY, m: 7 }) + "/configure"))[1];
+  assert.deepEqual(JSON.parse(Buffer.from(seg, "base64url").toString()), { n: "Ma télé", m: 7 });
+  assert.equal(sansCle("https://x/" + b64({ k: KEY }) + "/configure"), "https://x/configure");
+  const sans = "https://x/" + b64({ m: 7 }) + "/configure";
+  assert.equal(sansCle(sans), sans);
+  assert.equal(sansCle("https://x/fAbc123/configure"), "https://x/fAbc123/configure");
+  assert.equal(sansCle("https://x/configure"), "https://x/configure");
+});
+
+// L'adresse fabriquée par la page (compact + enc, dans le navigateur) se relit à l'identique par le serveur
+// (decodeConfig) : tous les réglages, rangées sur mesure, noms et clé compris.
+test("adresse_de_la_page_relue_par_le_serveur", () => {
+  const rows3 = [{ id: "a", home: true, name: "A", type: "movie" }, { id: "b", home: true, name: "B", type: "series" }, { id: "c", home: false, name: "C", type: "movie" }];
+  const disc = [{ id: "d1", name: "D1", type: "movie" }, { id: "d2", name: "D2", type: "series" }];
+  const html = configurePage({ origin: "https://x", cfg: decodeConfig("", rows3, disc), rows: rows3, discover: disc,
+    providers: PROVIDERS, collections: COLLECTIONS.map((c) => ({ ...c, pos: 0, folders: [] })), defaults: defaults(rows3, disc),
+    regions: REGIONS, genres: GENRES, languages: LANGUAGES, sorts: SORTS, seasons: SEASON_KEYS, maxCustom: MAX_CUSTOM, season: null });
+  const D = JSON.parse(/const D = (.*);\nconst hashDepart/.exec(html)[1]);
+  const src = /function rowRef[\s\S]*?\nfunction enc\(obj\) \{[\s\S]*?\n\}\n/.exec(html)[0];
+  const { compact, enc } = new Function("D", "const same = (a, b) => JSON.stringify(a) === JSON.stringify(b); const baseIds = D.rows.map(r => r.id);\n"
+    + src + "\nreturn { compact, enc };")(D);
+  const lire = (st) => { const c = compact(st); const { custom, ...cfg } = decodeConfig(Object.keys(c).length ? enc(c) : "", rows3, disc); return cfg; };
+  // Réglages d'origine : adresse vide, relue telle quelle.
+  assert.deepEqual(lire(structuredClone(D.cfg)), D.cfg);
+  const st = structuredClone(D.cfg);
+  Object.assign(st, {
+    n: "Ma salle à moi ✨", r: ["perso-0", "c", "a"], p: [PROVIDERS[0].id, PROVIDERS[2].id], d: ["d2"], c: [COLLECTIONS[1].id],
+    o: { a: "Mes films", "perso-0": "Peur" }, x: [{ n: "Frissons", t: 1, g: [2, 5], w: [0], l: LANGUAGES[1][0], y: [2000, 2020], v: 7, s: 2 }],
+    g: REGIONS[1].id, e: [GENRES[3][0]], m: 7, a: 1990, f: true, h: [SEASON_KEYS[0][0]], t: { [COLLECTIONS[0].id]: [1, 3] },
+    to: { [COLLECTIONS[0].id]: [3, 0, 1] }, u: true, k: KEY, al: "a".repeat(24),
+  });
+  assert.deepEqual(lire(st), st);
+  // Billet offert (sans clé ni jeton) : relu sans eux, le reste identique.
+  assert.deepEqual(lire({ ...st, k: "", al: "" }), { ...st, k: "", al: "" });
 });
 
 // L'indication sous le champ accepte les mêmes clés que le serveur (nouveau format « AQ.… » compris).
@@ -83,4 +146,76 @@ test("navigation_ignore_les_sections_masquees", () => {
 test("salle_2_mene_a_la_page_copie_seulement_sur_la_source", () => {
   assert.ok(page(false).includes('href="https://x/copie"'));
   assert.ok(!page(true).includes('/copie"'));
+});
+
+// « Revenir à la programmation d'origine » garde la clé Gemini et le jeton d'alerte, et se rattrape (« Annuler »).
+test("remise_d_origine_garde_la_cle_et_s_annule", () => {
+  const html = page();
+  assert.match(html, /Object\.assign\(state, clone\(D\.defaults\), \{ k: state\.k, al: state\.al \}\);/);
+  assert.match(html, /id="annule-btn">Annuler<\/button>/);
+  assert.match(html, /Object\.assign\(state, avant\); renderAll\(\);/);
+  assert.match(html, /setTimeout\(annuleFin, 10000\)/);
+});
+
+// Régie : un élément éteint puis rallumé retrouve ses réglages (gardés entiers dans le navigateur), sauf si
+// la forme courte du lien a changé ailleurs entre-temps.
+test("regie_garde_les_reglages_d_un_element_eteint", () => {
+  const html = page();
+  const src = /const REGIE_COMPLET = [^\n]*\n/.exec(html)[0] + /const fusionne = [\s\S]*?\n\};\n/.exec(html)[0] + /function regieLue\(\) \{[\s\S]*?\n\}\n/.exec(html)[0];
+  const lit = (s) => LA.lireReglages(new URLSearchParams(s ? "s=1." + s : ""));
+  const essai = (court, complet) => {
+    const store = { "affiches-v2-complet": JSON.stringify(complet) };
+    const localStorage = { getItem: (k) => store[k] ?? null };
+    const NV = { reglages: { affiches: lit(court), affichesPaysage: null } };
+    return new Function("LA", "NV", "localStorage", src + "\nreturn regieLue();")(LA, NV, localStorage);
+  };
+  const r = JSON.parse(JSON.stringify(LA.DEFAUT_REGLAGES));
+  r.qualite.style = "pastille"; r.qualite.montrer = "tout"; r.qualite.on = false;
+  // La forme courte (lien) a oublié « pastille » et « tout » : la régie les retrouve.
+  assert.equal(lit(LA.ecrireReglages(r)).qualite.style, "texte");
+  const lu = essai(LA.ecrireReglages(r), { r, rp: null });
+  assert.equal(lu.r.qualite.style, "pastille");
+  assert.equal(lu.r.qualite.montrer, "tout");
+  assert.equal(lu.rp, null);
+  // La forme courte a changé ailleurs (titre éteint) : elle passe devant les réglages gardés.
+  const ailleurs = JSON.parse(JSON.stringify(r)); ailleurs.titre.on = false;
+  assert.equal(essai(LA.ecrireReglages(ailleurs), { r, rp: null }).r.titre.on, false);
+  assert.equal(essai(LA.ecrireReglages(ailleurs), { r, rp: null }).r.qualite.style, "texte");
+  // Rien de gardé, ou une valeur abîmée : la forme courte.
+  assert.equal(essai(LA.ecrireReglages(r), "abîmé").r.qualite.style, "texte");
+});
+
+// Régie : fenêtre modale, le reste de la page est inerte tant qu'elle est ouverte.
+test("regie_modale_inerte", () => {
+  const html = page();
+  assert.match(html, /regieFond\.forEach\(\(n\) => \{ n\.inert = true; \}\);/);
+  assert.match(html, /regieFond\.forEach\(\(n\) => \{ n\.inert = false; \}\);/);
+  // Repères des boutons préfixés par l'élément (plus de « Style:texte » en double).
+  assert.match(html, /"data-cle": cleDe\(titre \+ ":" \+ String\(val\)\)/);
+});
+
+// Rangées et collections reconstruites : le focus reste sur le même élément, les listes de tuiles restent ouvertes.
+test("focus_garde_apres_reconstruction", () => {
+  const html = page();
+  assert.match(html, /const ol = \$\("rows"\), rep = repereFocus\(ol\);/);
+  assert.match(html, /const box = \$\("collections"\), rep = repereFocus\(box\);/);
+  assert.match(html, /det\.open = ouvertes\.has\(c\.id\);/);
+  assert.match(html, /rendFocus\(box, rep\);/);
+});
+
+// Billet en image : feuille de partage refermée = rien ; partage refusé = téléchargement ; image préparée avant le clic.
+test("billet_image_partage_ou_telechargement", () => {
+  const html = page();
+  assert.match(html, /if \(err && err\.name === "AbortError"\) \{ partage = true; fin = label; \}/);
+  assert.match(html, /if \(!partage\) telechargeBillet\(blob\);/);
+  assert.match(html, /const blob = pret \|\| await prepareBillet\(\);/);
+});
+
+// Lien fixe : à la fermeture de l'onglet, le dernier réglage part tout de suite (keepalive), hors de la file.
+test("lien_fixe_envoye_a_la_fermeture", () => {
+  const html = page();
+  const fin = html.slice(html.indexOf('addEventListener("pagehide"')).slice(0, 1200);
+  assert.match(fin, /fetch\(D\.origin \+ "\/lien-fixe\/" \+ fixe\.id, [^\n]*keepalive: true/);
+  assert.doesNotMatch(fin, /enregistre\(/);
+  assert.match(html, /if \(n <= directN\) return;/);
 });

@@ -246,6 +246,11 @@ input[type=text] {
 .group h3 { margin: 0; font: 700 .72rem var(--body); letter-spacing: .22em; text-transform: uppercase; color: var(--dim); }
 .warn { margin: 0; color: var(--bulb); font-weight: 700; font-size: .9rem; }
 .reset { justify-self: start; background: none; border: 0; padding: 0; color: var(--dim); text-decoration: underline; text-underline-offset: 4px; cursor: pointer; font-size: .92rem; }
+/* Programmation remise d'origine : « Annuler » pendant 10 secondes, en haut de l'écran (comme les messages). */
+.annule { position: fixed; left: 50%; top: calc(18px + env(safe-area-inset-top)); z-index: 86; transform: translateX(-50%); display: flex; align-items: center; gap: 14px;
+  width: max-content; max-width: calc(100vw - 32px); padding: 8px 8px 8px 18px; border-radius: 12px; background: var(--cream); color: var(--ink); font: 800 .95rem var(--body); box-shadow: 0 12px 30px rgba(0,0,0,.5); }
+.annule[hidden] { display: none; }
+.annule button { flex: none; min-height: 44px; padding: 8px 18px; border: 0; border-radius: 99px; background: var(--ink); color: var(--cream); font: 800 .9rem var(--body); cursor: pointer; }
 
 /* ---------- L'écran : aperçu de l'accueil ---------- */
 .steps-howto { margin: 0; padding: 0; list-style: none; counter-reset: st; display: grid; gap: 12px; }
@@ -758,6 +763,24 @@ ${feuilles("scene.css", "nuvio.css")}
   .coll details summary { padding-block: 11px; }
   .nvo-rech input, .rename input, .field input:is([type=text], [type=password]).plain, select, input[type=number] { font-size: 16px; }
   .act { scroll-margin-top: 76px; }
+  /* La régie au doigt : puces et boutons de 40 px de haut, interrupteurs plus grands (zone de 44 px), nuancier
+     sur 10 colonnes (19 pastilles de 14 px sur un téléphone, c'était trop petit), textes d'au moins 0,75rem. */
+  .regie-console .puces { gap: 6px; }
+  .regie-console .puces button { min-height: 40px; padding: 8px 13px; font-size: .8rem; }
+  .regie-console .choix { grid-template-columns: 84px 1fr; }
+  .regie-console .choix > span { font-size: .75rem; letter-spacing: .04em; }
+  .regie-console .regie-note { font-size: .8rem; }
+  .regie-console .interrupteur { width: 52px; height: 30px; }
+  .regie-console .interrupteur::before { content: ""; position: absolute; inset: -7px -4px; }
+  .regie-console .interrupteur::after { top: 4px; left: 4px; width: 22px; height: 22px; }
+  .regie-console .interrupteur[aria-checked="true"]::after { transform: translateX(22px); }
+  .regie-voies .carte-plus { min-height: 40px; padding: 8px 13px; font-size: .78rem; }
+  .regie-plus .plus-fermer { width: 44px; height: 44px; }
+  .regie-onglets button { min-height: 44px; font-size: .8rem; }
+  .regie-memoires button { font-size: .75rem; }
+  .regie-console .curseur input[type=range] { height: 40px; }
+  .regie-console .curseur output { font-size: .8rem; }
+  .regie-console .nuancier { grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 7px; }
 }
 /* Ouverte par-dessus le guide (dans un cadre) : seulement les réglages et le billet. La barre du guide
    porte le titre et « Terminé » ; rien ne mène ailleurs (salles, guide, mode d'emploi déjà dans le guide). */
@@ -855,7 +878,7 @@ ${feuilles("scene.css", "nuvio.css")}
           </div>
           <small id="ai-key-hint" aria-live="polite"></small>
         </div>
-        <p class="sub">Ta clé est rangée dans ton lien d'installation : ne partage pas ce lien. Sans clé, tu profites quand même des réponses déjà écrites pour les autres.</p>
+        <p class="sub">Ta clé est rangée dans ton lien d'installation : ne partage pas ce lien. Elle est aussi gardée sur cet appareil, pour la retrouver en revenant ici ; « Offrir ce billet » ne l'emporte jamais. Sans clé, tu profites quand même des réponses déjà écrites pour les autres.</p>
 ${copy ? "" : `        <p class="sub">Le lien partagé sature ? <a href="${origin}/copie">Monte ta propre copie</a> : la même chose, avec tes clés et ton quota.</p>
 `}      </section>
 
@@ -893,6 +916,7 @@ ${copy ? HOTE_HTML : ""}
       </section>
 
       <button type="button" class="reset" id="reset">Revenir à la programmation d'origine</button>
+      <div class="annule" id="annule" role="status" hidden><span id="annule-txt"></span><button type="button" id="annule-btn">Annuler</button></div>
     </main>
 
     <aside>
@@ -944,7 +968,7 @@ ${copy ? HOTE_HTML : ""}
             <button type="button" class="btn line" id="share-btn">Offrir ce billet</button>
             <button type="button" class="btn line full" id="img-btn">Télécharger le billet en image</button>
           </div>
-          <div class="qr" id="qr" hidden><div id="qr-code" class="qr-wait">Impression du QR code…</div><p>Scanne-le avec ton téléphone : cette page s'ouvre avec les mêmes réglages, il ne reste qu'à copier les liens. Avec un lien fixe, le téléphone pourra aussi le modifier : ne montre ce QR code à personne d'autre.</p></div>
+          <div class="qr" id="qr" hidden><div id="qr-code" class="qr-wait">Impression du QR code…</div><p>Scanne-le avec ton téléphone : cette page s'ouvre avec les mêmes réglages, ta clé Gemini comprise, il ne reste qu'à copier les liens. Avec un lien fixe, le téléphone pourra aussi le modifier. Ce QR code est pour toi seul : ne le montre à personne d'autre (pour partager ta programmation, c'est « Offrir ce billet »).</p></div>
         </div>
         <div class="stub"><span>Admis · 1 salle</span></div>
         <div class="stamp" aria-hidden="true">Copié</div>
@@ -1018,8 +1042,14 @@ window.hashDepart = hashDepart;
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const state = clone(D.cfg);
 const $ = (id) => document.getElementById(id);
+// Les effets de la salle (scene.js : pop-corn, sons, messages) sont un plus : s'ils manquent (script pas
+// chargé, bloqué), l'action qui vient de réussir ne doit pas passer pour un échec.
+const effet = (nom, ...args) => { try { if (typeof window[nom] === "function") window[nom](...args); } catch (e) {} };
+const bruit = (nom) => { try { if (window.sfx && typeof window.sfx[nom] === "function") window.sfx[nom](); } catch (e) {} };
 // Écran tactile : on n'y donne jamais le focus à un champ de nous-mêmes (ça ouvrirait le clavier).
 const tactile = matchMedia("(hover: none), (pointer: coarse)").matches;
+// « Moins d'animations » demandé par l'appareil : les défilements sautent directement au bon endroit.
+const glisse = () => matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 const same =(a, b) => JSON.stringify(a) === JSON.stringify(b);
 const baseIds = D.rows.map(r => r.id);
 let order = [];
@@ -1110,8 +1140,23 @@ function rowInfo(id) {
   }
   return D.rows.find(r => r.id === id);
 }
+// Une liste reconstruite (rangées, collections) : le focus revient sur le même élément, retrouvé par son id
+// ou son data-cle (sinon il tomberait en haut de la page, au clavier comme au lecteur d'écran).
+function repereFocus(boite) {
+  const a = document.activeElement;
+  if (!a || a === document.body || !boite.contains(a)) return null;
+  return a.id ? { id: a.id } : a.dataset && a.dataset.cle ? { cle: a.dataset.cle } : null;
+}
+function rendFocus(boite, rep, repli) {
+  if (!rep || boite.contains(document.activeElement)) return;
+  const trouve = (r) => r.id ? document.getElementById(r.id) : boite.querySelector('[data-cle="' + CSS.escape(r.cle) + '"]');
+  const n = trouve(rep);
+  if (n) n.focus({ preventScroll: true });
+  if (document.activeElement === n || !repli) return;
+  const m = trouve(repli); if (m) m.focus({ preventScroll: true });
+}
 function renderRows(flashId) {
-  const ol = $("rows"); ol.textContent = "";
+  const ol = $("rows"), rep = repereFocus(ol); ol.textContent = "";
   let n = 0;
   order.forEach((id, idx) => {
     const r = rowInfo(id); if (!r) return;
@@ -1126,17 +1171,17 @@ function renderRows(flashId) {
       el("span", { class: "kind", text: r.kind }),
       state.o[id] ? el("em", { class: "orig", text: "(" + r.name + ")" }) : null,
       el("small", { text: r.hint + (r.now ? " · en ce moment : " + r.now : "") }));
-    const inp = el("input", { type: "text", value: state.o[id] || "", placeholder: r.name, maxlength: "40", enterkeyhint: "done", "aria-label": "Nouveau nom pour " + r.name });
+    const inp = el("input", { type: "text", value: state.o[id] || "", placeholder: r.name, maxlength: "40", enterkeyhint: "done", "aria-label": "Nouveau nom pour " + r.name, "data-cle": "nom:" + id });
     const saveName = () => { const v = inp.value.trim(); if (v && v !== r.name) state.o[id] = v; else delete state.o[id]; renderRows(id); update(); };
     inp.addEventListener("keydown", (e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") renderRows(); });
-    const box = el("div", { class: "body" }, lab, el("div", { class: "rename" }, inp, el("button", { type: "button", class: "mini ok", text: "OK", onclick: saveName })));
+    const box = el("div", { class: "body" }, lab, el("div", { class: "rename" }, inp, el("button", { type: "button", class: "mini ok", text: "OK", "data-cle": "ok:" + id, onclick: saveName })));
     const tools = el("div", { class: "tools" });
-    tools.append(el("button", { type: "button", class: "toggle", "aria-pressed": String(on), text: on ? "À l'affiche" : "Ajouter", onclick: () => { setRow(id, !on); renderRows(id); update(); } }));
-    if (r.custom !== undefined) tools.append(el("button", { type: "button", class: "icon", title: "Modifier", "aria-label": "Modifier " + shown, text: "⚙", onclick: () => openBuilder(r.custom) }));
-    else tools.append(el("button", { type: "button", class: "icon", title: "Renommer", "aria-label": "Renommer " + shown, text: "✎", onclick: () => { li.classList.add("editing"); inp.focus(); inp.select(); } }));
+    tools.append(el("button", { type: "button", class: "toggle", "aria-pressed": String(on), "data-cle": "affiche:" + id, text: on ? "À l'affiche" : "Ajouter", onclick: () => { setRow(id, !on); renderRows(id); update(); } }));
+    if (r.custom !== undefined) tools.append(el("button", { type: "button", class: "icon", title: "Modifier", "aria-label": "Modifier " + shown, "data-cle": "outil:" + id, text: "⚙", onclick: () => openBuilder(r.custom) }));
+    else tools.append(el("button", { type: "button", class: "icon", title: "Renommer", "aria-label": "Renommer " + shown, "data-cle": "outil:" + id, text: "✎", onclick: () => { li.classList.add("editing"); inp.focus(); inp.select(); } }));
     [["↑", -1, "Monter"], ["↓", 1, "Descendre"]].forEach(([t, d, a]) => {
       const j = idx + d;
-      const bt = el("button", { type: "button", class: "arrow", text: t, "aria-label": a + " " + shown });
+      const bt = el("button", { type: "button", class: "arrow", text: t, "aria-label": a + " " + shown, "data-cle": a.toLowerCase() + ":" + id });
       bt.disabled = j < 0 || j >= order.length;
       bt.addEventListener("click", () => {
         [order[idx], order[j]] = [order[j], order[idx]];
@@ -1150,6 +1195,11 @@ function renderRows(flashId) {
     ol.append(li);
   });
   justOn = null;
+  // Le nom renommé (champ refermé) rend le focus au bouton ✎ ; une flèche arrivée au bout, à l'autre flèche.
+  if (rep && rep.cle) {
+    const [type, ...reste] = rep.cle.split(":"), rid = reste.join(":");
+    rendFocus(ol, rep, { cle: (type === "monter" ? "descendre" : type === "descendre" ? "monter" : "outil") + ":" + rid });
+  } else rendFocus(ol, rep);
   $("add-row").disabled = state.x.length >= D.maxCustom;
   if (flashId) setTimeout(() => document.querySelectorAll(".frame.flash").forEach(f => f.classList.remove("flash")), 180);
 }
@@ -1183,7 +1233,7 @@ function openBuilder(i) {
   $("b-lang").value = draft.l; $("b-from").value = draft.y[0] || ""; $("b-to").value = draft.y[1] || ""; $("b-vote").value = draft.v; paintRange($("b-vote"));
   delBtn.hidden = i < 0;
   $("builder").hidden = false; drawBuilder();
-  $("builder").scrollIntoView({ behavior: "smooth", block: tactile ? "start" : "center" }); if (!tactile) $("b-name").focus({ preventScroll: true });
+  $("builder").scrollIntoView({ behavior: glisse(), block: tactile ? "start" : "center" }); if (!tactile) $("b-name").focus({ preventScroll: true });
 }
 function toggleIdx(list, i, on) { const k = list.indexOf(i); if (on && k < 0) list.push(i); if (!on && k >= 0) list.splice(k, 1); list.sort((a, b) => a - b); }
 function drawBuilder() {
@@ -1221,14 +1271,23 @@ $("b-cancel").after(delBtn);
 // Il lit exactement ce que Nuvio recevra : le manifest.json et le collections.json de ce lien, dans leur ordre
 // (« Suivre l'ordre des addons »), avec Plateformes épinglée tout en haut.
 const byPos = (list) => [...list].sort((a, b) => (a.pos ?? 99) - (b.pos ?? 99));
+// Réponses gardées le temps de la visite : 50 au plus (les plus anciennes partent), et un échec (réseau,
+// erreur du serveur) n'est pas gardé, pour que l'écran réessaie au changement suivant.
 const jsonCache = new Map();
 function fetchJSON(url) {
-  if (!jsonCache.has(url)) jsonCache.set(url, fetch(url).then(r => r.ok ? r.json() : null).catch(() => null));
-  return jsonCache.get(url);
+  let p = jsonCache.get(url);
+  if (p) { jsonCache.delete(url); jsonCache.set(url, p); return p; }
+  p = fetch(url).then(r => r.ok ? r.json() : null).catch(() => null)
+    .then((d) => { if (d === null && jsonCache.get(url) === p) jsonCache.delete(url); return d; });
+  jsonCache.set(url, p);
+  while (jsonCache.size > 50) jsonCache.delete(jsonCache.keys().next().value);
+  return p;
 }
-let currentBase = D.origin, screenTimer = 0, screenToken = 0, lastZap = 0;
-let configureUrl = D.origin + "/configure"; // adresse de cette page avec les réglages en cours
-let shareUrl = configureUrl;                  // la même, sans la clé Gemini : pour le billet partagé
+let currentBase = D.origin, screenBase = null, screenTimer = 0, screenToken = 0, lastZap = 0;
+let configureUrl = D.origin + "/configure"; // adresse de cette page avec les réglages en cours, clé Gemini comprise :
+                                              // pour ses propres appareils seulement (QR « Continuer sur le téléphone »)
+let pageUrl = configureUrl;                   // la même sans la clé : celle qu'on voit dans la barre d'adresse
+let shareUrl = configureUrl;                  // sans la clé ni le jeton d'alerte : pour le billet partagé
 // L'écran grésille à chaque changement (pas plus de deux fois par seconde).
 function zap(sc) {
   const now = Date.now(); if (now - lastZap < 450) return; lastZap = now;
@@ -1328,6 +1387,37 @@ const pct = (v) => Math.round(Number(v) * 100) + " %";
 const SEPS = { point: "·", barre: "|", puce: "•" };
 let regieR = null, regieRP = null, regieHisto = [], regieAttente = 0, regieTitres = [], regieChoisi = 0, regieForme = "poster", regieVoie = null, regieOnglet = "haut", regieDeclencheur = null;
 
+// Les réglages entiers de la régie, gardés aussi dans ce navigateur (JSON) : la forme courte, celle du lien
+// (gardée par nuvio.js), oublie les réglages d'un élément éteint ; rallumé, il les retrouve ici. Relus seulement
+// s'ils donnent encore la même forme courte (sinon une autre page l'a changée : elle passe devant).
+const REGIE_COMPLET = "affiches-v2-complet";
+const fusionne = (base, o) => {
+  const r = JSON.parse(JSON.stringify(base));
+  if (o && typeof o === "object") for (const k of Object.keys(r)) {
+    if (!(k in o)) continue;
+    if (r[k] && typeof r[k] === "object" && !Array.isArray(r[k])) r[k] = fusionne(r[k], o[k]);
+    else if (typeof o[k] === typeof r[k]) r[k] = o[k];
+  }
+  return r;
+};
+function regieLue() {
+  const r = NV.reglages.affiches, rp = NV.reglages.affichesPaysage;
+  try {
+    const j = JSON.parse(localStorage.getItem(REGIE_COMPLET) || "null");
+    if (j && j.r) {
+      const jr = fusionne(r, j.r), jrp = j.rp && rp ? fusionne(rp, j.rp) : null;
+      const pareil = LA.ecrireReglages(jr) === LA.ecrireReglages(r) && (rp ? !!jrp && LA.ecrireReglages(jrp) === LA.ecrireReglages(rp) : !j.rp);
+      if (pareil) return { r: jr, rp: rp ? jrp : null };
+    }
+  } catch (e) {}
+  return { r, rp };
+}
+function regieGarde() {
+  NV.reglages.affiches = regieR;
+  NV.reglages.affichesPaysage = regieRP;
+  try { localStorage.setItem(REGIE_COMPLET, JSON.stringify({ r: regieR, rp: regieRP })); } catch (e) {}
+}
+
 /** Les réglages qu'on modifie : ceux du paysage quand il est réglé à part et montré, sinon ceux du portrait. */
 const cible = () => (regieRP && regieForme === "landscape" ? regieRP : regieR);
 
@@ -1360,16 +1450,20 @@ function qrOuvre(ouvert) {
 }
 
 // ---- Les contrôles ----
+// data-cle : de quoi retrouver un bouton après une reconstruction (focus). Préfixée par l'élément en cours de
+// dessin (« statut/Style:texte » et « qualite/Style:texte » ne se confondent plus).
+let prefixeCle = "";
+const cleDe = (s) => (prefixeCle ? prefixeCle + "/" : "") + s;
 function choix(titre, options, actuel, choisir) {
   const d = el("div", { class: "choix" }, el("span", { text: titre }));
   const puces = el("div", { class: "puces" });
-  options.forEach(([val, txt]) => puces.append(el("button", { type: "button", text: txt, "data-cle": titre + ":" + String(val), "aria-pressed": String(val === actuel), onclick: () => choisir(val) })));
+  options.forEach(([val, txt]) => puces.append(el("button", { type: "button", text: txt, "data-cle": cleDe(titre + ":" + String(val)), "aria-pressed": String(val === actuel), onclick: () => choisir(val) })));
   d.append(puces);
   return d;
 }
 function curseur(titre, val, regler, min = 60, max = 140, pas = 5) {
   const out = el("output", { text: Math.round(val * 100) + " %" });
-  const input = el("input", { type: "range", min: String(min), max: String(max), step: String(pas), value: String(Math.round(val * 100)), "aria-label": titre, "data-cle": "curseur:" + titre });
+  const input = el("input", { type: "range", min: String(min), max: String(max), step: String(pas), value: String(Math.round(val * 100)), "aria-label": titre, "data-cle": cleDe("curseur:" + titre) });
   // Partie remplie de la piste (dessinée en CSS jusqu'au bouton).
   const remplir = () => input.style.setProperty("--rempli", ((Number(input.value) - min) / (max - min)) * 100 + "%");
   remplir();
@@ -1379,8 +1473,8 @@ function curseur(titre, val, regler, min = 60, max = 140, pas = 5) {
 /** Nuancier : une pastille par couleur, plus « Par défaut » (la couleur d'origine de l'élément). */
 function nuancier(titre, actuel, choisir) {
   const grille = el("div", { class: "nuancier", role: "group", "aria-label": titre });
-  grille.append(el("button", { type: "button", class: "defaut", "aria-pressed": String(!actuel), "aria-label": "Par défaut", title: "Par défaut", "data-cle": titre + ":defaut", onclick: () => choisir("") }));
-  COULEURS.forEach((c, i) => grille.append(el("button", { type: "button", style: "background:" + LA.PALETTE[c], "aria-pressed": String(actuel === c), "aria-label": NOMS_COULEURS[i], title: NOMS_COULEURS[i], "data-cle": titre + ":" + c, onclick: () => choisir(c) })));
+  grille.append(el("button", { type: "button", class: "defaut", "aria-pressed": String(!actuel), "aria-label": "Par défaut", title: "Par défaut", "data-cle": cleDe(titre + ":defaut"), onclick: () => choisir("") }));
+  COULEURS.forEach((c, i) => grille.append(el("button", { type: "button", style: "background:" + LA.PALETTE[c], "aria-pressed": String(actuel === c), "aria-label": NOMS_COULEURS[i], title: NOMS_COULEURS[i], "data-cle": cleDe(titre + ":" + c), onclick: () => choisir(c) })));
   return grille;
 }
 const aide = (text) => el("p", { class: "regie-note", text });
@@ -1450,7 +1544,7 @@ function carteDe(v) {
       principal: () => {
         const autres = ["rt", "mc", "lb"].filter((k) => r.note[k]).length;
         const sites = el("div", { class: "choix" }, el("span", { text: "Autres" }), el("div", { class: "puces" },
-          ...[["rt", "Rotten T."], ["mc", "Metacritic"], ["lb", "Letterboxd"]].map(([k, nom]) => el("button", { type: "button", text: nom, "data-cle": "autres:" + k, "aria-pressed": String(r.note[k]),
+          ...[["rt", "Rotten T."], ["mc", "Metacritic"], ["lb", "Letterboxd"]].map(([k, nom]) => el("button", { type: "button", text: nom, "data-cle": cleDe("autres:" + k), "aria-pressed": String(r.note[k]),
             onclick: () => { if (r.note[k] || autres < 2) regle((r) => { r.note[k] = !r.note[k]; }); } }))));
         return [choix("Principale", [["imdb", "IMDb"], ["tmdb", "TMDB"]], r.note.source, (x) => regle((r) => { r.note.source = x; })), sites];
       },
@@ -1521,8 +1615,9 @@ function ongletPaysage() {
 function regieCartes() {
   const r = cible(), boite = $("regie-voies");
   boite.textContent = "";
-  if (regieOnglet === "paysage") { boite.append(...ongletPaysage()); return; }
+  if (regieOnglet === "paysage") { prefixeCle = "paysage"; boite.append(...ongletPaysage()); prefixeCle = ""; return; }
   ONGLETS[regieOnglet].forEach((v) => {
+    prefixeCle = v;
     const c = carteDe(v), allume = c.on ? c.on() : null, vide = sansEffet(r, v), ouverte = v === regieVoie;
     const carte = el("section", { class: "carte" + (allume === false || vide ? " eteinte" : "") + (ouverte ? " ouverte" : ""), "data-voie": v, "aria-label": c.nom });
     const tete = el("div", { class: "carte-tete" }, el("span", { class: "carte-icone" }, icone(c.couleur ? "couleur" : v)), el("b", { text: c.nom }));
@@ -1538,6 +1633,7 @@ function regieCartes() {
     }
     boite.append(carte);
   });
+  prefixeCle = "";
 }
 
 /** Le panneau « Plus de réglages » de la carte ouverte (regieVoie), par-dessus le bas de la console. */
@@ -1547,9 +1643,11 @@ function regiePanneau() {
   panneau.textContent = "";
   panneau.hidden = !(c && c.plus);
   if (panneau.hidden) return false;
+  prefixeCle = v;
   panneau.append(
     el("div", { class: "plus-tete" }, el("b", { text: c.nom }), el("button", { type: "button", class: "plus-fermer", text: "✕", "aria-label": "Fermer ces réglages", "data-cle": "fermer-plus", onclick: fermePlus })),
     el("div", { class: "carte-corps", id: "corps-" + v }, ...c.plus()));
+  prefixeCle = "";
   // Ouvert à l'instant : le focus entre dans le panneau (son premier réglage).
   if (!regieFocusPlus) return false;
   regieFocusPlus = false;
@@ -1594,15 +1692,15 @@ function regieDessine(garderCorps) {
 // « Annuler » revient d'un changement : un changement sans effet ne compte pas, et un même curseur glissé
 // (cle) compte pour un seul changement.
 let regieCleDerniere = "", regieDernier = 0;
+// Un changement compte s'il change le lien (forme courte) ; « Annuler » remet les réglages entiers d'avant.
 const regieEtat = () => JSON.stringify([LA.ecrireReglages(regieR), regieRP ? LA.ecrireReglages(regieRP) : null]);
 function regieChange(modif, cle) {
-  const avant = regieEtat();
+  const avant = regieEtat(), entiers = JSON.stringify([regieR, regieRP]);
   modif(cible());
   const suite = cle && cle === regieCleDerniere && Date.now() - regieDernier < 800;
-  if (regieEtat() !== avant && !suite) { regieHisto.push(avant); if (regieHisto.length > 60) regieHisto.shift(); }
+  if (regieEtat() !== avant && !suite) { regieHisto.push(entiers); if (regieHisto.length > 60) regieHisto.shift(); }
   regieCleDerniere = cle || ""; regieDernier = Date.now();
-  NV.reglages.affiches = regieR;
-  NV.reglages.affichesPaysage = regieRP;
+  regieGarde();
   regieDessine(!!cle);
   clearTimeout(regieAttente);
   regieAttente = setTimeout(regieApercus, 400);
@@ -1672,23 +1770,29 @@ async function regieCharge() {
 
 function regieOuvre(declencheur) {
   regieDeclencheur = declencheur || null;
-  regieR = NV.reglages.affiches;
-  regieRP = NV.reglages.affichesPaysage;
+  ({ r: regieR, rp: regieRP } = regieLue());
   regieHisto = [];
   regieVoie = null;
   $("regie").hidden = false;
   document.body.classList.add("regie-ouverte");
+  // Fenêtre modale : le reste de la page devient inerte (ni clic, ni Tab, ni lecteur d'écran) tant qu'elle est
+  // ouverte ; les messages de la salle (toast) restent lisibles.
+  regieFond = [...document.body.children].filter((n) => n !== $("regie") && !n.classList.contains("toast") && n.tagName !== "SCRIPT" && !n.inert);
+  regieFond.forEach((n) => { n.inert = true; });
   regieDessine();
   regieCharge().then(regieApercus);
   $("regie-fermer").focus();
 }
+let regieFond = [];
 function regieFerme() {
   clearTimeout(regieAttente);
   $("regie").hidden = true;
   document.body.classList.remove("regie-ouverte");
+  regieFond.forEach((n) => { n.inert = false; });
+  regieFond = [];
   if (!NV.reglages.pp) { NV.reglages.pp = true; drawPP(); }
   E.pp();
-  if (regieDeclencheur) regieDeclencheur.focus();
+  if (regieDeclencheur && regieDeclencheur.isConnected) regieDeclencheur.focus();
 }
 $("regie-ouvrir").addEventListener("click", (e) => regieOuvre(e.currentTarget));
 $("pp-ouvrir").addEventListener("click", (e) => regieOuvre(e.currentTarget));
@@ -1705,11 +1809,8 @@ document.addEventListener("keydown", (e) => {
 });
 $("regie-annuler").addEventListener("click", () => {
   if (!regieHisto.length) return;
-  const [s, sp] = JSON.parse(regieHisto.pop());
-  regieR = LA.lireReglages(new URLSearchParams("s=1." + s));
-  regieRP = sp === null ? null : LA.lireReglages(new URLSearchParams("s=1." + sp));
-  NV.reglages.affiches = regieR;
-  NV.reglages.affichesPaysage = regieRP;
+  [regieR, regieRP] = JSON.parse(regieHisto.pop());
+  regieGarde();
   regieDessine();
   clearTimeout(regieAttente);
   regieAttente = setTimeout(regieApercus, 400);
@@ -1796,13 +1897,24 @@ function update() {
   dessineFixe(seg);
   const manifest = base + "/manifest.json";
   // L'aperçu lit toujours les réglages en cours (le lien fixe, lui, garde la même adresse : le
-  // navigateur ressortirait ses anciennes rangées de son cache).
-  currentBase = D.origin + (seg ? "/" + seg : "");
+  // navigateur ressortirait ses anciennes rangées de son cache). Sans le nom, la clé Gemini ni le jeton
+  // d'alerte : ils ne changent pas les rangées (le nom de l'addon n'est pas à l'écran, la recherche de
+  // l'aperçu passe par l'adresse de base), et l'écran ne recharge pas tout à chaque lettre tapée.
+  const vu = compact({ ...state, n: D.defaults.n, k: "", al: "" });
+  currentBase = D.origin + (Object.keys(vu).length ? "/" + enc(vu) : "");
   // L'adresse de la page suit les réglages : on peut revenir, recharger ou partager sans rien perdre.
   configureUrl = base + "/configure";
+  // La clé Gemini reste hors de la barre d'adresse (historique, capture d'écran, lien recopié) : rechargée,
+  // la page la reprend sur cet appareil (cleGarde). Dans le guide (cadre, adresse invisible), la page garde
+  // la clé : le guide relit cette adresse pour le lien d'addon à installer.
+  const sansCle = compact({ ...state, k: "" });
+  pageUrl = garde ? configureUrl : D.origin + (Object.keys(sansCle).length ? "/" + enc(sansCle) : "") + "/configure";
   const shared = compact({ ...state, k: "", al: "" });
   shareUrl = D.origin + (Object.keys(shared).length ? "/" + enc(shared) : "") + "/configure";
-  try { if (location.protocol.startsWith("http") && location.href !== configureUrl) history.replaceState(null, "", configureUrl); } catch (e) {}
+  const affichee = document.documentElement.classList.contains("dans-guide") ? configureUrl : pageUrl;
+  try { if (location.protocol.startsWith("http") && location.href !== affichee) history.replaceState(null, "", affichee); } catch (e) {}
+  // Gardée dans l'onglet pour le guide (lien d'addon, avec la clé) ; les liens « Salle 2 » du site la
+  // reprennent sans la clé (scene.js).
   try { sessionStorage.setItem("programmation", configureUrl); } catch (e) {}
   if (!$("qr").hidden) drawQr();
   $("u-manifest").textContent = manifest;
@@ -1825,7 +1937,7 @@ function update() {
   $("t-extra").textContent = extras.join(" · ");
   $("dock-count").textContent = state.r.length + " rangées, " + state.p.length + " plateformes";
   $("prov-warn").hidden = state.p.length > 0 || !state.r.includes("accueil-nouveautes-plateformes");
-  renderScreen();
+  if (currentBase !== screenBase) { screenBase = currentBase; renderScreen(); }
 }
 
 // ---------- tout le reste ----------
@@ -1835,7 +1947,10 @@ function toggle(key, id, on, all) {
   update();
 }
 function renderCollections() {
-  const box = $("collections"); box.textContent = "";
+  // Reconstruite à chaque collection cochée : les listes de tuiles ouvertes le restent, le focus reste en place.
+  const box = $("collections"), rep = repereFocus(box);
+  const ouvertes = new Set([...box.querySelectorAll("details[open]")].map((d) => d.dataset.coll));
+  box.textContent = "";
   byPos(D.collections).forEach(c => {
     const on = state.c.includes(c.id);
     const hidden = state.t[c.id] || [];
@@ -1847,13 +1962,15 @@ function renderCollections() {
     if (c.folders.length) {
       const list = el("ol", { class: "tiles" });
       drawTiles(c, list, head);
-      const det = el("details", null, el("summary", { text: "Choisir les tuiles et leur ordre" }), list);
+      const det = el("details", { "data-coll": c.id }, el("summary", { text: "Choisir les tuiles et leur ordre", "data-cle": "tuiles:" + c.id }), list);
+      det.open = ouvertes.has(c.id);
       if (c.id === "plateformes-streaming") det.append(el("p", { class: "sub", style: "margin:8px 0 0", text: "Les tuiles des plateformes suivent aussi tes abonnements." }));
       wrap.append(det);
     }
     box.append(wrap);
     if (c.id === "plateformes-streaming") box.append(el("p", { class: "coll-rangees" }, "↓ Ici, sur l'accueil : ", el("b", { text: "tes rangées du Catalogue FR" }), " ↓"));
   });
+  rendFocus(box, rep);
 }
 // Tuiles d'une collection dans l'ordre choisi (positions dans le fichier) ; les autres suivent, ordre habituel.
 function tileOrder(c) {
@@ -1922,7 +2039,7 @@ $("g-unreleased").addEventListener("change", () => { state.u = !$("g-unreleased"
 
 function copy(btn, node, label) {
   const ok = () => {
-    btn.textContent = "Copié ✓"; setTimeout(() => btn.textContent = label, 1500); popcorn(btn); sfx.punch(); bravo();
+    btn.textContent = "Copié ✓"; setTimeout(() => btn.textContent = label, 1500); effet("popcorn", btn); bruit("punch"); effet("bravo");
     const t = $("ticket"); t.classList.remove("torn"); void t.offsetWidth; t.classList.add("torn"); setTimeout(() => t.classList.remove("torn"), 1700);
   };
   const fallback = () => { const r = document.createRange(); r.selectNodeContents(node); const s = getSelection(); s.removeAllRanges(); s.addRange(r); btn.textContent = "Sélectionné"; setTimeout(() => btn.textContent = label, 1500); };
@@ -1941,17 +2058,17 @@ $("copy-collections-contenu").addEventListener("click", (e) => {
       ? navigator.clipboard.write([new ClipboardItem({ "text/plain": texte.then((t) => new Blob([t], { type: "text/plain" })) })])
       : texte.then((t) => navigator.clipboard.writeText(t));
   } catch (err) { ecrit = Promise.reject(err); }
-  ecrit.then(() => { zone.hidden = true; btn.textContent = "Contenu copié ✓"; setTimeout(() => btn.textContent = "Copier le contenu (PC/TEL)", 1500); popcorn(btn); }, () => texte.then((t) => {
+  ecrit.then(() => { zone.hidden = true; btn.textContent = "Contenu copié ✓"; setTimeout(() => btn.textContent = "Copier le contenu (PC/TEL)", 1500); effet("popcorn", btn); }, () => texte.then((t) => {
     // Copie bloquée : le contenu s'affiche dans le billet, sélectionné, prêt à copier à la main.
     zone.value = t; zone.hidden = false; zone.focus(); zone.select();
-    toast("Copie bloquée par le navigateur : le contenu est affiché et sélectionné, copie-le (appui long → Copier, ou Ctrl+C).", true);
+    effet("toast", "Copie bloquée par le navigateur : le contenu est affiché et sélectionné, copie-le (appui long → Copier, ou Ctrl+C).", true);
   }, () => {
     window.open(url, "_blank", "noopener");
-    toast("Contenu introuvable : le lien s'ouvre dans un onglet, sélectionne tout et copie.", true);
+    effet("toast", "Contenu introuvable : le lien s'ouvre dans un onglet, sélectionne tout et copie.", true);
   }));
 });
 $("dock-copy").addEventListener("click", e => copy(e.currentTarget, $("u-manifest"), "Copier mon lien"));
-$("dock-billet").addEventListener("click", () => $("ticket").scrollIntoView({ behavior: "smooth", block: "start" }));
+$("dock-billet").addEventListener("click", () => $("ticket").scrollIntoView({ behavior: glisse(), block: "start" }));
 // Le billet est à l'écran : la barre du bas ferait doublon (et cacherait ses boutons).
 if ("IntersectionObserver" in window) new IntersectionObserver(([e]) => document.querySelector(".dock").classList.toggle("cache", e.isIntersecting), { threshold: .15 }).observe($("ticket"));
 $("name").addEventListener("input", update);
@@ -1962,7 +2079,11 @@ function aiKeyHint() {
   $("ai-key-hint").textContent = !k ? "" : cleOk ? "Clé reconnue ✓" : "Ça ne ressemble pas à une clé Gemini : recopie-la depuis Google AI Studio (elle commence par AIza).";
   $("ai-key-hint").classList.toggle("alerte", !!k && !cleOk);
 }
-$("ai-key").addEventListener("input", () => { state.k = $("ai-key").value.trim(); aiKeyHint(); update(); });
+$("ai-key").addEventListener("input", () => { state.k = $("ai-key").value.trim(); cleGarde(state.k); aiKeyHint(); update(); });
+// La clé Gemini est gardée sur cet appareil : l'adresse de la page ne la porte plus (voir update).
+const CLE_GEMINI = "cle-gemini";
+function cleGarde(k) { try { if (k) localStorage.setItem(CLE_GEMINI, k); else localStorage.removeItem(CLE_GEMINI); } catch (e) {} }
+function cleLue() { try { return localStorage.getItem(CLE_GEMINI) || ""; } catch (e) { return ""; } }
 $("ai-key").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } });
 $("ai-key-eye").addEventListener("click", (e) => {
   const show = $("ai-key").classList.toggle("masque") === false;
@@ -1971,7 +2092,30 @@ $("ai-key-eye").addEventListener("click", (e) => {
 });
 // « OK » du clavier : on referme le clavier au lieu de rester dans le champ.
 $("name").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } });
-$("reset").addEventListener("click", () => { Object.assign(state, clone(D.defaults)); $("builder").hidden = true; renderAll(); });
+// « Revenir à la programmation d'origine » : tout revient par défaut sauf la clé Gemini et le jeton d'alerte.
+// « Annuler » pendant 10 secondes remet tout comme avant (rangées sur mesure, noms, ordre) ; un lien fixe
+// reçoit alors de nouveau l'ancien réglage.
+let annuleT = 0;
+function annuleFin() {
+  clearTimeout(annuleT); annuleT = 0;
+  if (document.activeElement === $("annule-btn")) $("reset").focus();
+  $("annule").hidden = true;
+}
+$("reset").addEventListener("click", () => {
+  const avant = clone(state), ordreAvant = [...order];
+  Object.assign(state, clone(D.defaults), { k: state.k, al: state.al });
+  $("builder").hidden = true; renderAll();
+  $("annule-txt").textContent = "Programmation d'origine remise.";
+  $("annule").hidden = false;
+  $("annule-btn").onclick = () => {
+    annuleFin();
+    Object.assign(state, avant); renderAll();
+    order = ordreAvant; renderRows();
+    $("reset").focus();
+    effet("toast", "Tes réglages sont revenus.");
+  };
+  clearTimeout(annuleT); annuleT = setTimeout(annuleFin, 10000);
+});
 
 // ---------- lien fixe (voir fixe.js) : les réglages gardés par le site, le lien ne change plus ----------
 // La clé pour modifier reste dans ce navigateur (une par lien) ; le « lien pour modifier » l'emporte ailleurs.
@@ -1979,7 +2123,7 @@ function fixesLus() { try { return JSON.parse(localStorage.getItem("liens-fixes"
 function fixeGarde(id, modif) { try { const f = fixesLus(); f[id] = modif; localStorage.setItem("liens-fixes", JSON.stringify(f)); } catch (e) {} }
 function lienModif() { return D.origin + "/" + fixe.id + "/configure#modif=" + fixe.modif; }
 function fixeErreur(msg) { $("fixe-err").textContent = msg || ""; }
-let saveT = 0, envoi = Promise.resolve(), etatFixe = "";
+let saveT = 0, envoi = Promise.resolve(), etatFixe = "", envoiN = 0, partiN = 0, directN = 0;
 // Réglage pas encore confirmé par le serveur, gardé dans l'onglet : rafraîchie juste après un changement,
 // la page est redemandée avant que l'envoi (pagehide) n'arrive, et montrerait l'ancien réglage.
 const attenteCle = () => "fixe-attente:" + fixe.id;
@@ -1996,8 +2140,11 @@ function planifie(seg) {
 function enregistre(seg) {
   clearTimeout(saveT); saveT = 0;
   dernierEnvoye = seg; etatFixe = "envoi"; dessineFixe(seg);
-  const id = fixe.id, modif = fixe.modif;
+  const id = fixe.id, modif = fixe.modif, n = ++envoiN;
   envoi = envoi.then(async () => {
+    // Un réglage plus récent est déjà parti directement (page quittée) : celui-ci ne doit pas l'écraser.
+    if (n <= directN) return;
+    partiN = n;
     try {
       const r = await fetch(D.origin + "/lien-fixe/" + id, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ c: seg, modif }), keepalive: true });
       const j = await r.json().catch(() => ({}));
@@ -2010,8 +2157,20 @@ function enregistre(seg) {
     dessineFixe(seg);
   });
 }
-// Page quittée juste après un réglage : on l'envoie tout de suite.
-addEventListener("pagehide", () => { if (saveT) { const c = compact(state); enregistre(Object.keys(c).length ? enc(c) : ""); } });
+// Page quittée juste après un réglage : le dernier part tout de suite, sans attendre la file des envois
+// (la page fermée, ce qui attend dans la file ne partirait jamais). keepalive : l'envoi survit à l'onglet.
+addEventListener("pagehide", () => {
+  if (!fixe || !fixe.modif) return;
+  const c = compact(state), seg = Object.keys(c).length ? enc(c) : "";
+  // Rien en attente, rien dans la file, dernier réglage déjà parti (ou en route, keepalive) : rien à faire.
+  if (!saveT && envoiN === partiN && seg === dernierEnvoye) return;
+  clearTimeout(saveT); saveT = 0;
+  dernierEnvoye = seg; directN = envoiN;
+  try {
+    fetch(D.origin + "/lien-fixe/" + fixe.id, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ c: seg, modif: fixe.modif }), keepalive: true })
+      .then((r) => { if (r.ok && dernierEnvoye === seg) { etatFixe = "ok"; dessineFixe(seg); } }, () => {});
+  } catch (e) {}
+});
 function dessineFixe(seg) {
   const box = $("fixe");
   box.hidden = !D.fixedOk && !fixe;
@@ -2049,8 +2208,8 @@ $("fixe-creer").addEventListener("click", async (e) => {
     if (!r.ok || !j.id) throw new Error(j.error || "Création impossible : réessaie dans un instant.");
     fixeGarde(j.id, j.modif);
     fixe = { id: j.id, modif: j.modif }; segDepart = dernierEnvoye = seg; etatFixe = "ok";
-    update(); popcorn(btn); sfx.punch();
-    toast("Ton lien fixe est prêt : installe-le une fois, ensuite « Actualiser les addons » dans Nuvio suffit.");
+    update(); effet("popcorn", btn); bruit("punch");
+    effet("toast", "Ton lien fixe est prêt : installe-le une fois, ensuite « Actualiser les addons » dans Nuvio suffit.");
   } catch (err) {
     fixeErreur(err && err.message && !/fetch|network/i.test(err.message) ? err.message : "Création impossible : vérifie ta connexion.");
   }
@@ -2058,8 +2217,8 @@ $("fixe-creer").addEventListener("click", async (e) => {
 });
 $("fixe-modif").addEventListener("click", async (e) => {
   const btn = e.currentTarget, label = btn.textContent;
-  try { await navigator.clipboard.writeText(lienModif()); btn.textContent = "Copié ✓"; toast("Lien de modification copié : ouvre-le dans le navigateur de l'autre appareil. Dans Nuvio, c'est toujours le lien du billet."); }
-  catch (err) { toast("Copie impossible : ouvre cette page sur l'autre appareil avec le QR code « Continuer sur le téléphone ».", true); }
+  try { await navigator.clipboard.writeText(lienModif()); btn.textContent = "Copié ✓"; effet("toast", "Lien de modification copié : ouvre-le dans le navigateur de l'autre appareil. Dans Nuvio, c'est toujours le lien du billet."); }
+  catch (err) { effet("toast", "Copie impossible : ouvre cette page sur l'autre appareil avec le QR code « Continuer sur le téléphone ».", true); }
   setTimeout(() => { btn.textContent = label; }, 2200);
 });
 
@@ -2083,7 +2242,8 @@ function loadQr() {
 function drawQr() {
   const box = $("qr-code");
   loadQr().then((qrcode) => {
-    const q = qrcode(0, "M"); q.addData(fixe && fixe.modif ? lienModif() : shareUrl); q.make();
+    // Pour ses propres appareils : la clé Gemini voyage avec (le billet offert et l'image, eux, ne l'ont jamais).
+    const q = qrcode(0, "M"); q.addData(fixe && fixe.modif ? lienModif() : configureUrl); q.make();
     const n = q.getModuleCount(), w = n + 4; let d = "";
     for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += "M" + c + " " + r + "h1v1h-1z";
     box.className = "";
@@ -2094,13 +2254,13 @@ $("qr-btn").addEventListener("click", () => {
   const open = $("qr").hidden;
   $("qr").hidden = !open; $("qr-btn").setAttribute("aria-expanded", String(open));
   if (open) drawQr();
-  sfx.click();
+  bruit("click");
 });
 $("share-btn").addEventListener("click", async (e) => {
   const btn = e.currentTarget, label = btn.textContent;
   const data = { title: state.n + ", ma programmation Nuvio", text: "Ouvre ce lien pour avoir les mêmes rangées que moi dans Nuvio.", url: shareUrl };
-  if (navigator.share) { try { await navigator.share(data); popcorn(btn); } catch (err) {} return; }
-  try { await navigator.clipboard.writeText(shareUrl); btn.textContent = "Lien copié ✓"; popcorn(btn); } catch (err) { btn.textContent = "Copie impossible"; toast("Copie impossible : sélectionne le lien et copie-le à la main.", true); }
+  if (navigator.share) { try { await navigator.share(data); effet("popcorn", btn); } catch (err) {} return; }
+  try { await navigator.clipboard.writeText(shareUrl); btn.textContent = "Lien copié ✓"; effet("popcorn", btn); } catch (err) { btn.textContent = "Copie impossible"; effet("toast", "Copie impossible : sélectionne le lien et copie-le à la main.", true); }
   setTimeout(() => { btn.textContent = label; }, 1800);
 });
 // Le billet en image (1080 × 1350), à garder ou à envoyer.
@@ -2160,21 +2320,53 @@ function drawTicket(c, qr) {
   c.textAlign = "center"; c.fillStyle = "#b9a59c"; c.font = 'italic 400 30px "Instrument Serif"';
   c.fillText("Une séance préparée sur " + D.origin.replace(/^https?:[/][/]/, ""), W / 2, H - 40);
 }
+async function imprimeBillet() {
+  await Promise.all(['400 90px "Bebas Neue"', '700 28px "Courier Prime"', '700 30px "Figtree"', '800 22px "Figtree"', '600 30px "Figtree"', 'italic 400 38px "Instrument Serif"'].map((f) => document.fonts.load(f)));
+  let qr = null;
+  try { const qrcode = await loadQr(); qr = qrcode(0, "M"); qr.addData(shareUrl); qr.make(); } catch (err) { qr = null; }
+  const cv = document.createElement("canvas"); cv.width = 1080; cv.height = 1350;
+  drawTicket(cv.getContext("2d"), qr);
+  return new Promise((ok, ko) => cv.toBlob((b) => b ? ok(b) : ko(new Error("image vide")), "image/png"));
+}
+// L'image est préparée à l'avance (billet à l'écran, doigt sur le bouton) : au clic, le partage part tout de
+// suite. Sur iPhone, un partage lancé après une attente n'est plus lié au geste, et le navigateur le refuse.
+let billetImg = null; // { cle, p, blob } : l'image des réglages en cours
+const billetCle = () => shareUrl + "|" + $("t-serial").textContent + "|" + $("t-seance").textContent;
+function prepareBillet() {
+  const cle = billetCle();
+  if (billetImg && billetImg.cle === cle) return billetImg.p;
+  const b = { cle, blob: null };
+  b.p = imprimeBillet().then((blob) => { b.blob = blob; return blob; });
+  b.p.catch(() => { if (billetImg === b) billetImg = null; });
+  billetImg = b;
+  return b.p;
+}
+const auDoigt = () => matchMedia("(pointer: coarse)").matches;
+["pointerdown", "focus"].forEach((t) => $("img-btn").addEventListener(t, () => { if (auDoigt()) prepareBillet().catch(() => {}); }));
+if (auDoigt() && "IntersectionObserver" in window) new IntersectionObserver(([e]) => { if (e.isIntersecting) prepareBillet().catch(() => {}); }, { threshold: .5 }).observe($("img-btn"));
+function telechargeBillet(blob) {
+  const a = el("a", { href: URL.createObjectURL(blob), download: "billet-nuvio.png" }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
 $("img-btn").addEventListener("click", async (e) => {
-  const btn = e.currentTarget, label = btn.textContent;
+  const btn = e.currentTarget, label = btn.dataset.label || (btn.dataset.label = btn.textContent);
+  const pret = billetImg && billetImg.cle === billetCle() ? billetImg.blob : null;
   btn.textContent = "Impression du billet…"; btn.disabled = true;
+  let fin = "Billet imprimé ✓";
   try {
-    await Promise.all(['400 90px "Bebas Neue"', '700 28px "Courier Prime"', '700 30px "Figtree"', '800 22px "Figtree"', '600 30px "Figtree"', 'italic 400 38px "Instrument Serif"'].map((f) => document.fonts.load(f)));
-    let qr = null;
-    try { const qrcode = await loadQr(); qr = qrcode(0, "M"); qr.addData(shareUrl); qr.make(); } catch (err) { qr = null; }
-    const cv = document.createElement("canvas"); cv.width = 1080; cv.height = 1350;
-    drawTicket(cv.getContext("2d"), qr);
-    const blob = await new Promise((r) => cv.toBlob(r, "image/png"));
+    const blob = pret || await prepareBillet();
     const file = new File([blob], "billet-nuvio.png", { type: "image/png" });
-    if (matchMedia("(pointer: coarse)").matches && navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: state.n });
-    else { const a = el("a", { href: URL.createObjectURL(blob), download: "billet-nuvio.png" }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
-    btn.textContent = "Billet imprimé ✓"; popcorn(btn); if (window.sfx) sfx.punch();
-  } catch (err) { btn.textContent = "Impression impossible"; toast("Impression du billet impossible : réessaie, ou fais une capture d'écran.", true); }
+    let partage = false;
+    if (auDoigt() && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: state.n }); partage = true; }
+      catch (err) {
+        // Feuille de partage refermée : rien à faire. Partage refusé (geste perdu, appli) : on télécharge.
+        if (err && err.name === "AbortError") { partage = true; fin = label; }
+      }
+    }
+    if (!partage) telechargeBillet(blob);
+    if (fin !== label) { effet("popcorn", btn); bruit("punch"); }
+  } catch (err) { fin = "Impression impossible"; effet("toast", "Impression du billet impossible : réessaie, ou fais une capture d'écran.", true); }
+  btn.textContent = fin;
   btn.disabled = false;
   setTimeout(() => { btn.textContent = label; }, 2000);
 });
@@ -2190,6 +2382,11 @@ if (matchMedia("(hover: hover) and (pointer: fine)").matches && !matchMedia("(pr
   tk.addEventListener("pointerleave", () => { tk.classList.remove("tilting"); tk.style.setProperty("--rx", "0deg"); tk.style.setProperty("--ry", "0deg"); });
 }
 
+// Clé Gemini : une adresse qui l'apporte encore (ancien lien, lien d'addon avec « configure ») la range sur
+// cet appareil ; une adresse sans clé (page rechargée, lien « Salle 2 ») la reprend. Pas sur un lien fixe :
+// ses réglages sont gardés par le site, y glisser la clé les changerait sans qu'on l'ait demandé.
+if (!fixe) { if (state.k) cleGarde(state.k); else state.k = cleLue(); }
+else if (fixe.modif && state.k) cleGarde(state.k);
 renderAll();
 // Lien fixe : un réglage de cet onglet n'était pas encore arrivé quand la page a été redemandée. On le
 // renvoie, puis on recharge une fois pour l'afficher (une seule : si le serveur le lit autrement, on s'arrête).
@@ -2229,13 +2426,13 @@ const sections = navLinks.map((a) => document.querySelector(a.getAttribute("href
 let navLock = 0;
 function lightNav(a) {
   navLinks.forEach((x) => x.classList.toggle("on", x === a));
-  if (a) navBar.scrollTo({ left: a.offsetLeft - navBar.clientWidth / 2 + a.offsetWidth / 2, behavior: "smooth" });
+  if (a) navBar.scrollTo({ left: a.offsetLeft - navBar.clientWidth / 2 + a.offsetWidth / 2, behavior: glisse() });
 }
 function navOffset() { return navBar.getBoundingClientRect().height + 24; }
 navLinks.forEach((a, i) => a.addEventListener("click", (e) => {
   e.preventDefault();
   const y = sections[i].getBoundingClientRect().top + scrollY - navOffset();
-  scrollTo({ top: Math.max(0, y), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  scrollTo({ top: Math.max(0, y), behavior: glisse() });
   lightNav(a); navLock = Date.now() + 1200;
   sections[i].setAttribute("tabindex", "-1"); sections[i].focus({ preventScroll: true });
 }));

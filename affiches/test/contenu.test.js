@@ -409,6 +409,13 @@ test("rang_dans_la_saga", () => {
   assert.equal("saga" in contenu(facts, { ...plein, saga: null }, "poster", reglages("3j1")), false);
 });
 
+// Habillage de la saison (3k1) : seulement avec le réglage.
+test("habillage_de_saison", () => {
+  assert.equal(contenu(facts, { ...plein, saison: "noel" }, "poster", reglages("3k1")).saison, "noel");
+  assert.equal("saison" in contenu(facts, { ...plein, saison: "noel" }), false);
+  assert.equal("saison" in contenu(facts, plein, "poster", reglages("3k1")), false);
+});
+
 // Fin et avancement d'une série (3h1, 3i1) : jamais deux libellés ; la sortie, puis le nouvel épisode, passent avant.
 test("serie_fin_et_avancement", () => {
   const serie = { ...facts, type: "series", releases: [], releaseDate: "", firstAir: "2020-01-01", status: "Ended", lastEpisode: "2025-05-01",

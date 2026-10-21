@@ -1369,7 +1369,7 @@ const ONGLETS = {
   haut: ["statut", "tendance", "qualite", "langue", "culte", "saga", "bandeau", "badges"],
   titre: ["titre", "texte", "ligne", "ligne2"],
   infos: ["note", "genre", "annee", "duree", "age", "plateforme"],
-  image: ["image", "retouche", "fondu", "ambiance", "cadre", "sortie"],
+  image: ["image", "retouche", "fondu", "ambiance", "cadre", "saison", "sortie"],
   couleurs: ["c-accent", "c-texte", "c-badges", "c-fondu", "c-cadre"],
   paysage: [],
 };
@@ -1382,7 +1382,7 @@ const ICONES = {
   note: "M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z", genre: "M4 5h16v14H4z M4 9h16 M9 9v10", annee: "M4 6h16v14H4z M4 10h16 M8 3v5 M16 3v5",
   duree: "M12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16z M12 8v4l3 2", age: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z M10 12h4", plateforme: "M4 5h16v12H4z M10 9l4 2-4 2z M8 21h8",
   image: "M4 5h16v14H4z M4 15l5-5 4 4 3-3 4 4 M15 9h.01", retouche: "M5 6h14 M5 12h14 M5 18h14 M9 4v4 M15 10v4 M11 16v4", fondu: "M4 4h16v16H4z M4 12h16 M4 16h16 M4 19h16",
-  ambiance: "M12 4a8 8 0 1 0 0 16z M12 4a8 8 0 0 1 0 16", cadre: "M4 4h16v16H4z M8 8h8v8H8z", sortie: "M4 12c3-5 13-5 16 0-3 5-13 5-16 0z M12 10a2 2 0 1 0 0 4 M4 4l16 16",
+  ambiance: "M12 4a8 8 0 1 0 0 16z M12 4a8 8 0 0 1 0 16", cadre: "M4 4h16v16H4z M8 8h8v8H8z", saison: "M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z M19 3v4 M17 5h4", sortie: "M4 12c3-5 13-5 16 0-3 5-13 5-16 0z M12 10a2 2 0 1 0 0 4 M4 4l16 16",
   couleur: "M12 3c4 5 7 8 7 11a7 7 0 0 1-14 0c0-3 3-6 7-11z",
 };
 // Les 36 couleurs du nuancier (même ordre que LA.PALETTE), pour les lecteurs d'écran.
@@ -1595,6 +1595,8 @@ function carteDe(v) {
       plus: () => r.image.cadre === "couleur"
         ? [nuancier("Couleur du cadre", r.image.cadreC, (x) => regle((r) => { r.image.cadreC = x || "e"; }))]
         : [aide("Choisis « Couleur » pour prendre une teinte du nuancier.")] },
+    saison: { nom: "Habillage de la saison", ...onOff("saison"),
+      principal: () => [aide("Halloween, Noël, Saint-Valentin, Pâques, été : un cadre et des ornements sur les films de la rangée « Spécial … », le temps de la fête. Nuvio ne dit pas de quelle rangée vient une affiche : un de ces films est habillé partout où il apparaît.")] },
     sortie: { nom: "Pas encore sorti", on: () => r.sortie.nb, bascule: () => regle((r) => { r.sortie.nb = !r.sortie.nb; }),
       principal: () => [choix("Note", [[true, "Cachée"], [false, "Montrée"]], r.sortie.cacherNote, (x) => regle((r) => { r.sortie.cacherNote = x; }))],
       plus: () => [aide("Noir et blanc tant que le titre n'est pas disponible chez soi en VF, comme dans les rangées.")] },

@@ -76,7 +76,7 @@ test("regie_presente", () => {
   const debut = html.indexOf("const ONGLETS = ");
   assert.ok(debut > 0, "ONGLETS absent");
   const onglets = html.slice(debut, html.indexOf("};", debut));
-  for (const v of ["statut", "tendance", "qualite", "culte", "bandeau", "badges", "titre", "texte", "ligne", "ligne2", "note", "genre", "annee", "duree", "age", "plateforme", "image", "retouche", "fondu", "ambiance", "cadre", "sortie", "c-accent", "c-texte", "c-badges", "c-fondu", "c-cadre"]) {
+  for (const v of ["statut", "tendance", "qualite", "langue", "culte", "saga", "bandeau", "badges", "titre", "texte", "ligne", "ligne2", "note", "genre", "annee", "duree", "age", "plateforme", "image", "retouche", "fondu", "ambiance", "cadre", "saison", "sortie", "c-accent", "c-texte", "c-badges", "c-fondu", "c-cadre"]) {
     assert.match(onglets, new RegExp(`"${v}"`), v);
   }
   // Interrupteurs accessibles ; plus de lampes ni de tiroir du bas.

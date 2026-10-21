@@ -8,6 +8,7 @@
 import sharp from "sharp";
 import satori from "satori";
 import { FONTS } from "./polices.js";
+import { calqueSaison } from "./habillage.js";
 
 export const SIZES = { poster: [400, 600], landscape: [800, 450] };
 const IMG = "https://image.tmdb.org/t/p/";
@@ -357,12 +358,8 @@ function bandeauEnCoin(content, m, [w], accent) {
 /** Place que le bandeau prend dans son coin : les badges de ce côté descendent d'autant. */
 const descenteBandeau = (content, [w]) => Math.round(Math.min(w, 600) * 0.5 * 0.3 * 1.55);
 
-/** Calque des textes et badges, en SVG transparent de la taille de l'affiche. */
-async function calqueTexte(content, taille, m, accent, images) {
-  const [w, hgt] = taille, st = content.styles, enfants = [];
-  if (content.line) enfants.push(ligneDuBas(content, m, accent, images, taille));
-  if (content.line && st.barre === "fine" && content.full) enfants.push(barreFine(content, m, taille, accent));
-  if (content.line2) enfants.push(ligne2(content, m, taille));
+/** Coins des deux blocs de badges : { pStatut, pQualite }, chacun { cote: "left" | "right", vertical: "top" | "bottom" }. */
+function placesDesBlocs(st) {
   // Coins des blocs : « auto » = statut à gauche et qualité à droite (ou l'inverse) en haut ; sinon le coin choisi.
   const [coteStatut, coteQualite] = st.inverse ? ["right", "left"] : ["left", "right"];
   const coins = st.coins || {};
@@ -374,6 +371,30 @@ async function calqueTexte(content, taille, m, accent, images) {
     if (coins.statut && coins.statut !== "auto" && (!coins.qualite || coins.qualite === "auto" || coins.qualite === coins.statut)) pQualite = enFace(pQualite);
     else pStatut = enFace(pStatut);
   }
+  return { pStatut, pQualite };
+}
+
+/**
+ * Coins du haut sans rien dessus (ni bloc de badges, ni bandeau), le droit d'abord : pour l'emblème de l'habillage de
+ * saison. Un bloc placé en bas mais remonté faute de place (m.basOk) occupe bien son coin du haut.
+ */
+function coinsHautLibres(content, m) {
+  const { pStatut, pQualite } = placesDesBlocs(content.styles);
+  const enHaut = (p) => p.vertical === "top" || !m.basOk;
+  const pris = new Set();
+  if ((content.statut || content.rank || content.culte || content.saga || content.avance) && enHaut(pStatut)) pris.add(pStatut.cote);
+  if ((content.quality || content.coin || content.langue) && enHaut(pQualite)) pris.add(pQualite.cote);
+  if (content.bandeau) pris.add(content.bandeau.coin === "g" ? "left" : "right");
+  return [["hd", "right"], ["hg", "left"]].filter(([, cote]) => !pris.has(cote)).map(([c]) => c);
+}
+
+/** Calque des textes et badges, en SVG transparent de la taille de l'affiche. */
+async function calqueTexte(content, taille, m, accent, images) {
+  const [w, hgt] = taille, st = content.styles, enfants = [];
+  if (content.line) enfants.push(ligneDuBas(content, m, accent, images, taille));
+  if (content.line && st.barre === "fine" && content.full) enfants.push(barreFine(content, m, taille, accent));
+  if (content.line2) enfants.push(ligne2(content, m, taille));
+  const { pStatut, pQualite } = placesDesBlocs(st);
   const coinBandeau = content.bandeau ? (content.bandeau.coin === "g" ? "left" : "right") : null;
   const descente = (p) => (p.vertical === "top" && p.cote === coinBandeau ? descenteBandeau(content, taille) : 0);
   const statut = blocStatut(content, m, accent, pStatut, descente(pStatut));
@@ -656,6 +677,9 @@ export async function draw(content, fetchImpl = fetch) {
   const degrades = calqueDegrades(content, taille, fondu && fondu.couleur === "affiche" && hsl ? teinteSombre(hsl) : null);
   if (degrades) calques.push({ input: degrades, left: 0, top: 0 });
   if (content.line && content.full && st.barre === "verre") calques.push(...(await calquesBarreVerre(flouDe, content, taille, m)));
+  // Habillage de la saison (film de la rangée « Spécial … ») : sur l'image, sous le logo et les textes.
+  const habillage = content.saison ? calqueSaison(content.saison, taille, coinsHautLibres(content, m)) : null;
+  if (habillage) calques.push({ input: habillage, left: 0, top: 0 });
   if (logo && logo.sous) calques.push(logo.sous);
   if (logo) calques.push({ input: logo.input, left: logo.left, top: logo.top });
   if (texte) calques.push({ input: texte, left: 0, top: 0 });

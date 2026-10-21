@@ -601,6 +601,29 @@ test("badge_saga", async () => {
   await draw({ ...seul, line: null, saga: { n: 12, t: 12 }, styles: { ...STYLES, badges: { style: "plein", forme: "carre", opacite: "l", couleur: "or" } } }, f);
 });
 
+// Habillage de la saison : un cadre orange (Halloween) dans la marge, l'emblème dans un coin du haut libre (le droit
+// d'abord), jamais sous un badge ; rien sans fête.
+test("habillage_de_saison", async () => {
+  const orange = (r, g, b) => r > 200 && g > 100 && g < 190 && b < 80;
+  const sans = await draw({ ...seul, line: null }, f);
+  const avec = await draw({ ...seul, line: null, saison: "halloween" }, f);
+  assert.ok(await compte(avec, [0, 250, 12, 100], orange) > 80, "pas de cadre à gauche");
+  assert.ok(await compte(avec, [388, 250, 12, 100], orange) > 80, "pas de cadre à droite");
+  assert.ok(await compte(avec, [320, 0, 80, 80], orange) > 300, "pas d'emblème en haut à droite");
+  assert.ok(await compte(sans, [0, 0, 400, 600], orange) === 0);
+  // Qualité à droite : l'emblème passe à gauche ; statut à gauche aussi : pas d'emblème.
+  const qualite = await draw({ ...seul, line: null, quality: { extra: null }, saison: "halloween" }, f);
+  assert.ok(await compte(qualite, [0, 0, 80, 80], orange) > 300, "pas d'emblème en haut à gauche");
+  const plein = await draw({ ...seul, line: null, statut: "NOUVEAU", quality: { extra: null }, saison: "halloween" }, f);
+  assert.ok(await compte(plein, [20, 20, 360, 60], orange) < 40, "emblème sous un badge");
+  // Paysage, et les autres fêtes.
+  const paysage = await draw({ ...seul, shape: "landscape", image: "/large.jpg", line: null, saison: "halloween" }, f);
+  assert.ok(await compte(paysage, [700, 0, 100, 90], orange) > 300, "pas d'emblème en paysage");
+  for (const fete of ["noel", "saint-valentin", "paques", "ete"]) {
+    assert.ok(await difference(sans, await draw({ ...seul, line: null, saison: fete }, f), [0, 0, 400, 600]) > 500, fete);
+  }
+});
+
 // Barre d'avancement d'une série : à la couleur d'accent, sous le statut (ou seule), du côté du bloc.
 test("barre_avancement", async () => {
   const jaune = (r, g, b) => r > 200 && g > 150 && b < 90;

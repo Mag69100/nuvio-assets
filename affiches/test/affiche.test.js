@@ -1,4 +1,4 @@
-import { test, beforeEach } from "node:test";
+import { test, beforeEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
 import { makeHandler } from "../api/affiche.js";
@@ -14,10 +14,11 @@ import { resetMemo as r4 } from "../lib/qualite.js";
 import { resetMemo as r5 } from "../lib/texte.js";
 import { resetMemo as r6 } from "../lib/notes-plus.js";
 import { resetMemo as r7 } from "../lib/saga.js";
+import { resetMemo as r8 } from "../lib/saison.js";
 import { readFileSync } from "node:fs";
 import satori from "satori";
 
-beforeEach(() => { r1(); r2(); r3(); r4(); r5(); r6(); r7(); });
+beforeEach(() => { r1(); r2(); r3(); r4(); r5(); r6(); r7(); r8(); });
 
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status });
 const film = {
@@ -32,7 +33,7 @@ const PNG = await sharp({ create: { width: 300, height: 100, channels: 4, backgr
  * Faux internet : TMDB, images, notes, et le relais /qualite/ du service (https://affiches.test), qui lit
  * Torrentio. `torrentio` remplace la réponse de Torrentio.
  */
-function internet({ detail = json(film), torrentio, collection } = {}) {
+function internet({ detail = json(film), torrentio, collection, saison } = {}) {
   const calls = [];
   const lireTorrentio = async (u, opts) => { calls.push(String(u)); return torrentio ? torrentio(u, opts) : json({ streams: [{ name: "4k DV" }] }); };
   const f = async (url, opts = {}) => {
@@ -46,6 +47,7 @@ function internet({ detail = json(film), torrentio, collection } = {}) {
     if (u.includes("/find/")) return json({ movie_results: [{ id: 693134 }], tv_results: [] });
     if (u.includes("/trending/")) return json({ results: [] });
     if (u.includes("/collection/")) return collection ? collection.clone() : new Response("?", { status: 404 });
+    if (u.endsWith("/saison.json")) return saison ? saison.clone() : new Response("?", { status: 404 });
     if (u.includes("api.themoviedb.org") && (u.includes("/movie/") || u.includes("/tv/"))) return detail.clone();
     if (u.includes("image.tmdb.org")) return new Response(u.endsWith(".png") ? PNG : u.includes("/texte") ? TEXTE : JPG);
     if (u.includes("imdb-ratings.bin")) return new Response(new Uint8Array(4));   // fichier des notes IMDb, vide
@@ -595,6 +597,42 @@ test("rang_dans_la_saga_lu_chez_tmdb", async () => {
   const panne = await makeHandler({ fetchImpl: internet({ detail: deSaga, collection: json({}, 500) }), env })(req("type=movie&shape=poster&id=tt15239678&s=1.3j1"));
   assert.equal(panne.status, 200);
   assert.equal(panne.headers.get("Cache-Control"), "public, max-age=3600");
+});
+
+// Habillage de la saison : pendant une fête, un film de la rangée « Spécial … » (liste de l'addon) est habillé,
+// gardé jusqu'à minuit ; un autre film ne l'est pas, gardé jusqu'au prochain changement de fête. Une série, le
+// réglage éteint, ou hors fête : la liste n'est pas lue.
+test("habillage_de_saison", async () => {
+  mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-30T12:00:00Z") });   // 13 h à Paris, Halloween
+  try {
+    const liste = (ids) => json({ saison: "halloween", ids });
+    const dedans = internet({ saison: liste([693134]) });
+    const res = await makeHandler({ fetchImpl: dedans, env })(req("type=movie&shape=poster&id=tt15239678&s=1.3k1"));
+    assert.equal(res.status, 200);
+    assert.equal(dedans.calls.filter((u) => u.endsWith("/saison.json")).length, 1);
+    assert.equal(age(res, "Cache-Control"), 11 * 3600);                       // jusqu'à minuit à Paris
+    r8();
+    const dehors = await makeHandler({ fetchImpl: internet({ saison: liste([1]) }), env })(req("type=movie&shape=poster&id=tt15239678&s=1.3k1"));
+    assert.equal(age(dehors, "Cache-Control"), 3 * 86400 + 11 * 3600);       // jusqu'au 3 novembre, minuit à Paris
+    assert.notEqual(res.headers.get("ETag"), dehors.headers.get("ETag"));
+    const defaut = await makeHandler({ fetchImpl: internet({ saison: liste([693134]) }), env })(req("type=movie&shape=poster&id=tt15239678"));
+    assert.equal(defaut.headers.get("ETag"), (await makeHandler({ fetchImpl: internet(), env })(req("type=movie&shape=poster&id=tt15239678"))).headers.get("ETag"));
+    for (const q of ["type=movie&shape=poster&id=tt15239678", "type=series&shape=poster&id=tmdb:94605&s=1.3k1"]) {
+      const g = internet({ saison: liste([693134, 94605]) });
+      await makeHandler({ fetchImpl: g, env })(req(q));
+      assert.ok(!g.calls.some((u) => u.endsWith("/saison.json")), q);
+    }
+    // Addon injoignable : pas d'habillage, redemandée bientôt.
+    r8();
+    const panne = await makeHandler({ fetchImpl: internet(), env })(req("type=movie&shape=poster&id=tt15239678&s=1.3k1"));
+    assert.equal(panne.headers.get("Cache-Control"), "public, max-age=3600");
+  } finally { mock.timers.reset(); }
+  mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-09-15T12:00:00Z") });
+  try {
+    const g = internet({ saison: json({ saison: null, ids: [] }) });
+    await makeHandler({ fetchImpl: g, env })(req("type=movie&shape=poster&id=tt15239678&s=1.3k1"));
+    assert.ok(!g.calls.some((u) => u.endsWith("/saison.json")));
+  } finally { mock.timers.reset(); }
 });
 
 // Badge Langue : les sources sont lues pour lui, même sans le badge de qualité ni titre récent ; pas avec QUALITE=off.

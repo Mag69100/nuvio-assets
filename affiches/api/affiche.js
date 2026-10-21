@@ -18,6 +18,7 @@ import { etatSortie, sourcesUtiles, LIBELLES_FIN } from "../lib/statut.js";
 import { lireReglages, lireReglagesPaysage, ecrireReglages } from "../lib/lien-affiches.js";
 import { notesPlus } from "../lib/notes-plus.js";
 import { filmsDeLaSaga, rangSaga } from "../lib/saga.js";
+import { lireSaison, habillageDe, saisonDu, secondesAvantChangementSaison } from "../lib/saison.js";
 import { draw, imageUrls } from "../lib/dessin.js";
 import { choisirSansTexte } from "../lib/texte.js";
 import { jourParis, secondesAvantMinuitParis, secondesAvantJourParis } from "../lib/jour.js";
@@ -180,32 +181,39 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       if (!brouillon) return absent();
       const images = fetchImages(fetchImpl);
       const peutDessiner = brouillon.full || brouillon.statut || brouillon.gris || brouillon.bandeau || brouillon.coin || tendance || qualite || langue
-        || reglages.infos.culte || reglages.infos.saga || !!brouillon.styles.retouche || !!brouillon.styles.cadre;
+        || reglages.infos.culte || reglages.infos.saga || !!brouillon.styles.retouche || !!brouillon.styles.cadre || (reglages.saison.on && type === "movie");
       // Pas encore sorti avec la note cachée : les autres notes ne seraient pas dessinées non plus.
       const notesUtiles = autresNotes && !(reglages.sortie.cacherNote && !etatSortie(facts, aujourdhui).sorti);
       if (peutDessiner && !request.headers.get("If-None-Match")) imageUrls(brouillon).forEach((u) => images(u).catch(() => {}));
       // Rang dans la saga (réglage Saga) : les films de sa collection TMDB, un appel par saga gardé une semaine.
       const sagaVoulue = reglages.infos.saga && type === "movie" && !!facts.collection;
-      const [{ note: imdbRating, manque: imdbManque }, { rang: place, illisible: photoIllisible }, { enRetard: qualiteEnRetard, quality }, notes, filmsSaga] = await Promise.all([
+      // Habillage de la saison (réglage Saison) : pendant une fête, les films de la rangée « Spécial … » de l'addon.
+      const saisonVoulue = reglages.saison.on && type === "movie" && !!saisonDu(aujourdhui);
+      const [{ note: imdbRating, manque: imdbManque }, { rang: place, illisible: photoIllisible }, { enRetard: qualiteEnRetard, quality }, notes, filmsSaga, rangee] = await Promise.all([
         noteImdb && facts.imdbId ? lireNoteImdb(facts.imdbId, fetchImpl, ATTENTE_NOTES_MS) : { note: undefined, manque: false },
         tendance ? lireRang(env, type, facts.tmdbId, fetchImpl, relais) : { rang: null, illisible: false },
         lireSources ? qualiteATemps(type, facts, fetchImpl, relais, env.RELAIS_KEY) : { enRetard: false, quality: null },
         notesUtiles && facts.imdbId ? notesPlus(facts.imdbId, fetchImpl, relais, env.RELAIS_KEY) : undefined,
         sagaVoulue ? filmsDeLaSaga(env, facts.collection, fetchImpl) : null,
+        saisonVoulue ? lireSaison(env, fetchImpl) : null,
       ]);
       const saga = sagaVoulue ? rangSaga(filmsSaga, facts.tmdbId, aujourdhui) : null;
       // Une donnée qui manque pour une panne passagère (fichier IMDb pas lu : note TMDB en attendant ; photo des
       // tendances illisible : pas de N° ; image sans texte pas vérifiée) : cache court, pour l'avoir ensuite.
       // Notes des autres sites demandées mais pas lues (quota, panne) : cache normal sans elles (le relais garde
       // l'échec une heure ; un cache court ferait redessiner sans fin pendant toute la panne).
-      // Saga demandée mais pas lue (TMDB en panne) : cache court aussi.
-      const enRetard = qualiteEnRetard || imdbManque || photoIllisible || imageIncertaine || (sagaVoulue && !filmsSaga);
-      const content = posterContent(facts, { imdbRating, rank: place, quality, notes, saga }, shape, reglages, aujourdhui);
+      // Saga ou rangée de saison demandées mais pas lues (TMDB ou l'addon en panne) : cache court aussi.
+      const enRetard = qualiteEnRetard || imdbManque || photoIllisible || imageIncertaine || (sagaVoulue && !filmsSaga) || (saisonVoulue && !rangee);
+      const saison = saisonVoulue ? habillageDe(rangee, facts.tmdbId, aujourdhui) : null;
+      const content = posterContent(facts, { imdbRating, rank: place, quality, notes, saga, saison }, shape, reglages, aujourdhui);
+      // Réglage Saison, sur un film : habillé, jusqu'à minuit (la rangée change, la fête finit à minuit) ; pas habillé,
+      // jusqu'au prochain changement de fête (pour être habillé dès qu'elle commence), redirection comprise.
+      const finSaison = reglages.saison.on && type === "movie" ? (content.saison ? secondesAvantMinuitParis() : secondesAvantChangementSaison()) : undefined;
       // Rien à poser ni à griser : l'appli va chercher l'image directement chez TMDB, sans la redessiner ici.
       const retouchee = !!(content.styles.retouche || content.styles.cadre);
       if (!content.full && !content.rank && !content.quality && !content.statut && !content.gris && !content.bandeau && !content.coin && !content.culte && !retouchee
-        && !content.langue && !content.avance && !content.saga) {
-        return new Response(null, { status: 302, headers: { ...CORS, ...cacheDe({ enRetard, place }), Location: imageUrls(content)[0] } });
+        && !content.langue && !content.avance && !content.saga && !content.saison) {
+        return new Response(null, { status: 302, headers: { ...CORS, ...cacheDe({ enRetard, place, jusqua: finSaison }), Location: imageUrls(content)[0] } });
       }
       const etag = `"${contentKey(content)}"`;
       // Classée, presque classée ou avec un statut : jusqu'au changement de photo des tendances (voir cacheDe).
@@ -216,7 +224,8 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const suitLeCalendrier = (content.statut && !fixe(content.statut)) || (content.bandeau && reglages.bandeau.porte === "statut" && !fixe(content.bandeau.texte))
         || (type === "series" && reglages.statut.on && reglages.statut.episode);
       // Barre d'avancement d'une série : jusqu'au lendemain de son prochain épisode (date connue de TMDB).
-      const jusqua = content.avance && facts.nextEpisode ? secondesAvantJourParis(lendemain(facts.nextEpisode)) : undefined;
+      const avance = content.avance && facts.nextEpisode ? secondesAvantJourParis(lendemain(facts.nextEpisode)) : undefined;
+      const jusqua = avance && finSaison ? Math.min(avance, finSaison) : avance || finSaison;
       const cache = cacheDe({ enRetard, place, statut: suitLeCalendrier, jusqua });
       const headers = { ...CORS, ...cache, ETag: etag };
       if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });

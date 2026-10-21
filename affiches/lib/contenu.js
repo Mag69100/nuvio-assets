@@ -103,7 +103,7 @@ function qualiteDe(quality, montrer) {
 
 
 /** Contenu d'une affiche, ou null si le titre n'a aucune image pour cette forme. */
-export function posterContent(facts, { imdbRating, rank, quality, notes, saga }, shape, r = DEFAUT_REGLAGES, today = aujourdhui()) {
+export function posterContent(facts, { imdbRating, rank, quality, notes, saga, saison }, shape, r = DEFAUT_REGLAGES, today = aujourdhui()) {
   const paysage = shape === "landscape";
   // Image : sans texte + notre logo (défaut) ; en portrait, l'affiche officielle (avec son texte, sans logo) ou
   // l'image du film recadrée (fond sans texte, avec logo).
@@ -243,6 +243,8 @@ export function posterContent(facts, { imdbRating, rank, quality, notes, saga },
   if (r.infos.culte && noteCulte >= 8 && facts.vote && facts.vote.count >= 3000) content.culte = true;
   // Rang dans la saga (réglage Saga, lib/saga.js) : { n, t }, « SAGA · 3/5 ».
   if (r.infos.saga && saga) content.saga = { n: saga.n, t: saga.t };
+  // Habillage de la saison (réglage Saison, lib/saison.js) : la fête, pour un film de la rangée « Spécial … ».
+  if (r.saison.on && saison) content.saison = saison;
   // Clés ajoutées seulement quand elles servent (même raison : l'ETag des autres affiches ne bouge pas).
   // Langue des sources (réglage Langue), sous la qualité ; rien sans sources lues.
   if (r.langue.on && quality && LIBELLES_LANGUE[quality.langue]) content.langue = LIBELLES_LANGUE[quality.langue];

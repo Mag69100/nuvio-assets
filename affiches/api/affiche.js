@@ -18,6 +18,7 @@ import { notesPlus } from "../lib/notes-plus.js";
 import { draw, imageUrls } from "../lib/dessin.js";
 import { sansTexte } from "../lib/texte.js";
 import { jourParis, secondesAvantMinuitParis } from "../lib/jour.js";
+import { disjoncteurDe } from "../lib/disjoncteur.js";
 
 // CDN : 7 jours, comme l'appli, puis redessinée en arrière-plan (limite de calcul gratuite : 4 h par mois). Une
 // affiche sans statut ni N° ne change qu'avec sa note (fichier IMDb de la semaine) ou son badge 4K : quelques jours
@@ -45,6 +46,8 @@ function cacheDe({ enRetard, place, statut }) {
 const ABSENT = { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" };
 // Redirection vers la forme normale d'un lien : elle ne change qu'avec une mise en ligne, qui vide le cache de toute façon.
 const CANONIQUE = { "Cache-Control": "public, max-age=604800", "Vercel-CDN-Cache-Control": "max-age=604800" };
+// Trop de dessins en ce moment (lib/disjoncteur.js) : l'affiche d'origine, redemandée dans 10 minutes.
+const SURCHARGE = { "Cache-Control": "public, max-age=600", "Vercel-CDN-Cache-Control": "max-age=600" };
 // Dessin impossible (logo cassé, SVG illisible) : l'affiche d'origine, redemandée dans une heure.
 const SECOURS = { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" };
 const CORS = { "Access-Control-Allow-Origin": "*" };
@@ -104,6 +107,8 @@ function optionsNormales(q, id) {
 }
 
 export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
+  const disjoncteur = disjoncteurDe(env);
+  let dernierAvis = 0;
   return async function GET(request) {
     const q = new URL(request.url).searchParams;
     const type = q.get("type"), shape = q.get("shape"), id = q.get("id") || "";
@@ -130,6 +135,15 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       if (tendance) trendingRank(env, type, 0, fetchImpl, relais).catch(() => {});
       let facts = await titleFacts(env, { type, id, imdb }, fetchImpl, { plateforme: reglages.plateforme.on, vo: reglages.titre.on && reglages.titre.langue === "vo", credits: reglages.titre.on && reglages.infos.ligne2 === "realisateur" });
       if (!facts) return absent();
+      // Trop de dessins sur cette instance (robot, liens au hasard) : l'affiche d'origine, sans rien analyser ni
+      // dessiner, redemandée dans 10 minutes. Mieux vaut des affiches nues un moment qu'un service coupé 30 jours.
+      if (disjoncteur.plein()) {
+        const origine = imageOrigine(facts, shape);
+        if (origine) {
+          if (Date.now() - dernierAvis > 60000) { dernierAvis = Date.now(); console.warn("disjoncteur : trop de dessins, affiches d'origine pour l'instant"); }
+          return versOrigine(origine, SURCHARGE);
+        }
+      }
       // L'image « sans texte » porte notre logo : on vérifie qu'elle n'a vraiment pas de texte (TMDB y range
       // parfois des affiches étrangères). Aucune de propre : l'affiche normale, sans logo ni ligne du bas.
       // L'image du film recadrée (réglage « Image ») vient des fonds, vérifiés de la même façon.
@@ -175,6 +189,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const headers = { ...CORS, ...cache, ETag: etag };
       if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });
       let jpg;
+      disjoncteur.compte();
       try {
         jpg = await draw(content, images);
       } catch (e) {

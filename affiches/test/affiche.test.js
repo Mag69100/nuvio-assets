@@ -118,6 +118,27 @@ test("refusés sans appel TMDB", async () => {
   }
 });
 
+// Trop de dessins sur l'instance (liens au hasard) : l'affiche d'origine de TMDB, gardée 10 minutes, sans analyser
+// ni dessiner d'image ; le compte ne porte que sur les dessins (304 et redirections ne comptent pas).
+test("disjoncteur : affiche d'origine au-delà de la limite", async () => {
+  const GET = makeHandler({ fetchImpl: internet(), env: { ...env, RENDUS_MINUTE: "2" } });
+  for (let i = 0; i < 2; i++) assert.equal((await GET(req("type=movie&shape=poster&id=tt15239678"))).status, 200, `dessin ${i}`);
+  const f = internet();
+  const autre = makeHandler({ fetchImpl: f, env: { ...env, RENDUS_MINUTE: "2" } });
+  assert.equal((await autre(req("type=movie&shape=poster&id=tt15239678"))).status, 200, "chaque service a son compteur");
+  const res = await GET(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get("Location"), "https://image.tmdb.org/t/p/w500/fr.jpg");
+  assert.equal(res.headers.get("Cache-Control"), "public, max-age=600");
+  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=600");
+  const g = internet();
+  const sansDessin = makeHandler({ fetchImpl: g, env: { ...env, RENDUS_MINUTE: "1" } });
+  await sansDessin(req("type=movie&shape=poster&id=tt15239678"));
+  g.calls.length = 0;
+  assert.equal((await sansDessin(req("type=movie&shape=landscape&id=tt15239678"))).headers.get("Location"), "https://image.tmdb.org/t/p/w780/bd.jpg");
+  assert.ok(!g.calls.some((u) => u.includes("image.tmdb.org")), g.calls.join("\n"));
+});
+
 test("inconnu de TMDB : 404", async () => {
   const res = await makeHandler({ fetchImpl: internet({ detail: json({}, 404) }), env })(req("type=movie&shape=poster&id=tmdb:5"));
   assert.equal(res.status, 404);

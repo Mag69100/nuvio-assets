@@ -48,7 +48,11 @@ Estimation pour environ 300 personnes actives par jour :
 
 On est près des limites gratuites : il faut regarder Usage → Active CPU dans les 48 h.
 - **Requêtes trop hautes :** allonger le `max-age` de Nuvio dans `api/affiche.js`.
-- **Calcul trop haut :** allonger encore `Vercel-CDN-Cache-Control`.
+- **Calcul trop haut :** allonger encore `Vercel-CDN-Cache-Control`, ou baisser `RENDUS_HEURE`.
+
+Garde-fou : au-delà de 60 dessins par minute ou de 600 par heure sur une instance (`lib/disjoncteur.js`), le
+service ne dessine plus et renvoie l'affiche d'origine de TMDB, gardée 10 minutes. C'est compté par instance :
+une limite de débit dans le pare-feu de Vercel (Firewall → Rules) le complète.
 
 ## Variables (projet Vercel)
 
@@ -56,6 +60,7 @@ On est près des limites gratuites : il faut regarder Usage → Active CPU dans 
 |---|---|
 | `TMDB_API_KEY` | Clé TMDB du service (secrète) |
 | `QUALITE` | `off` coupe le badge qualité (si Torrentio ne répond plus depuis Vercel) |
+| `RENDUS_MINUTE`, `RENDUS_HEURE` | Dessins au plus par instance, par minute (60) et par heure (600) |
 
 ## Tests
 

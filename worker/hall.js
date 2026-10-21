@@ -6,8 +6,8 @@
 import { STAGE_HEAD, stageTop, secretsHTML, BEAM_HTML, CREDITS_HTML } from "./stage.js";
 import { ICONE_APERCU, apercuDonnees } from "./apercu.js";
 import { feuilles, scripts } from "./statique.js";
+import { esc } from "./outils-serveur.js";
 
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 export function hallPage({ origin, season, copy = false }) {
   const LOGO = origin + "/logo.png";

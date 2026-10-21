@@ -6,7 +6,7 @@
  * Les valeurs sont celles du guide (pas celles de la vidéo quand elles diffèrent : Enrichissement TMDB notamment).
  */
 
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+import { esc } from "./outils-serveur.js";
 
 // Icônes au trait (24 × 24), dessinées en currentColor.
 const ICONS = {

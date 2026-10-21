@@ -42,8 +42,8 @@ import { reglagesHTML, POSTER_URL } from "./reglages.js";
 export { POSTER_URL };
 import { APPAREILS, installUrl } from "./liens.js";
 import { feuilles, scripts } from "./statique.js";
+import { esc } from "./outils-serveur.js";
 
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>`;
 const copyBox = (id, value) => `<div class="copy"><code id="${id}">${esc(value)}</code><button type="button" data-copy="${id}">Copier</button></div>`;
 // Lien d'addon : Copier, plus « Installer dans Nuvio » (nuvio://), suivi par la page quand le lien change.

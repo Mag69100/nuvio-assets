@@ -1048,6 +1048,8 @@ const effet = (nom, ...args) => { try { if (typeof window[nom] === "function") w
 const bruit = (nom) => { try { if (window.sfx && typeof window.sfx[nom] === "function") window.sfx[nom](); } catch (e) {} };
 // Écran tactile : on n'y donne jamais le focus à un champ de nous-mêmes (ça ouvrirait le clavier).
 const tactile = matchMedia("(hover: none), (pointer: coarse)").matches;
+// « Moins d'animations » demandé par l'appareil : les défilements sautent directement au bon endroit.
+const glisse = () => matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 const same =(a, b) => JSON.stringify(a) === JSON.stringify(b);
 const baseIds = D.rows.map(r => r.id);
 let order = [];
@@ -1231,7 +1233,7 @@ function openBuilder(i) {
   $("b-lang").value = draft.l; $("b-from").value = draft.y[0] || ""; $("b-to").value = draft.y[1] || ""; $("b-vote").value = draft.v; paintRange($("b-vote"));
   delBtn.hidden = i < 0;
   $("builder").hidden = false; drawBuilder();
-  $("builder").scrollIntoView({ behavior: "smooth", block: tactile ? "start" : "center" }); if (!tactile) $("b-name").focus({ preventScroll: true });
+  $("builder").scrollIntoView({ behavior: glisse(), block: tactile ? "start" : "center" }); if (!tactile) $("b-name").focus({ preventScroll: true });
 }
 function toggleIdx(list, i, on) { const k = list.indexOf(i); if (on && k < 0) list.push(i); if (!on && k >= 0) list.splice(k, 1); list.sort((a, b) => a - b); }
 function drawBuilder() {
@@ -2066,7 +2068,7 @@ $("copy-collections-contenu").addEventListener("click", (e) => {
   }));
 });
 $("dock-copy").addEventListener("click", e => copy(e.currentTarget, $("u-manifest"), "Copier mon lien"));
-$("dock-billet").addEventListener("click", () => $("ticket").scrollIntoView({ behavior: "smooth", block: "start" }));
+$("dock-billet").addEventListener("click", () => $("ticket").scrollIntoView({ behavior: glisse(), block: "start" }));
 // Le billet est à l'écran : la barre du bas ferait doublon (et cacherait ses boutons).
 if ("IntersectionObserver" in window) new IntersectionObserver(([e]) => document.querySelector(".dock").classList.toggle("cache", e.isIntersecting), { threshold: .15 }).observe($("ticket"));
 $("name").addEventListener("input", update);
@@ -2424,13 +2426,13 @@ const sections = navLinks.map((a) => document.querySelector(a.getAttribute("href
 let navLock = 0;
 function lightNav(a) {
   navLinks.forEach((x) => x.classList.toggle("on", x === a));
-  if (a) navBar.scrollTo({ left: a.offsetLeft - navBar.clientWidth / 2 + a.offsetWidth / 2, behavior: "smooth" });
+  if (a) navBar.scrollTo({ left: a.offsetLeft - navBar.clientWidth / 2 + a.offsetWidth / 2, behavior: glisse() });
 }
 function navOffset() { return navBar.getBoundingClientRect().height + 24; }
 navLinks.forEach((a, i) => a.addEventListener("click", (e) => {
   e.preventDefault();
   const y = sections[i].getBoundingClientRect().top + scrollY - navOffset();
-  scrollTo({ top: Math.max(0, y), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  scrollTo({ top: Math.max(0, y), behavior: glisse() });
   lightNav(a); navLock = Date.now() + 1200;
   sections[i].setAttribute("tabindex", "-1"); sections[i].focus({ preventScroll: true });
 }));

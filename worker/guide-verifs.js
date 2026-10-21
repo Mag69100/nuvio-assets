@@ -2,6 +2,8 @@
  * Les vérifications du guide (salle 1), chacune dans son étape :
  *   - le mot de passe de la séance (étape 6, carte du Catalogue FR) : un code à taper dans la recherche de Nuvio,
  *     que le guide guette (GET /seance/<code>, voir seance.js) ; preuve que l'addon est installé et répond ;
+ *   - « Vérifier ma clé » (étape 5, trousseau) : la clé AllDebrid demandée directement à AllDebrid, depuis le
+ *     navigateur, jamais par notre serveur ;
  * Le HTML est inséré par guide.js ; le style et le script sont servis à part (statique.js), après guide-fin.js.
  */
 
@@ -16,6 +18,13 @@ export const seanceHTML = () => `<div class="seance" id="seance">
           </div>
           <span class="se-tampon" aria-hidden="true">Salle connectée</span>
         </div>`;
+
+/** Étape 5, dans le trousseau : vérifier la clé AllDebrid auprès d'AllDebrid. */
+export const verifCleHTML = () => `<div class="verif-cle" id="verif-cle" hidden>
+        <button type="button" class="ca-changer" id="vc-btn">Vérifier ma clé</button>
+        <p class="vc-etat" id="vc-etat" role="status" aria-live="polite"></p>
+        <p class="small vc-note">La vérification part directement de ce navigateur vers AllDebrid : notre serveur ne voit jamais ta clé.</p>
+      </div>`;
 
 export const VERIFS_CSS = `/* Le mot de passe de la séance : un ticket crème, le code en grosses lettres, tamponné quand Nuvio l'a reçu. */
 .seance { position: relative; display: grid; padding: 16px 18px 16px 30px; border-radius: 12px; color: var(--ink); overflow: hidden;
@@ -42,6 +51,16 @@ export const VERIFS_CSS = `/* Le mot de passe de la séance : un ticket crème, 
 .seance.ok .se-etat { color: #1f6b44; }
 /* Téléphone : le tampon passe sous le bouton, à droite, au lieu de le recouvrir. */
 @media (max-width: 520px) { .se-tampon { position: static; justify-self: end; margin: 8px 4px 2px 0; } }
+
+/* Vérifier ma clé AllDebrid. */
+.verif-cle { display: grid; gap: 6px; justify-items: start; }
+.verif-cle p { margin: 0; }
+.vc-etat { font-weight: 800; font-size: .95rem; }
+.vc-etat:empty { display: none; }
+.vc-etat.bon { color: var(--green); }
+.vc-etat.moyen, .vc-etat.mauvais { color: #ffe1d8; border-left: 3px solid var(--red); padding: 4px 0 4px 10px; }
+.vc-etat a { color: var(--bulb); }
+.vc-note { max-width: 60ch; }
 @media (prefers-reduced-motion: reduce) { .se-etat.guette::before { animation: none; } .seance.ok .se-tampon { animation: none; } }
 `;
 
@@ -102,5 +121,58 @@ export const VERIFS_JS = `// ---------- Le mot de passe de la séance (étape 6)
   new IntersectionObserver((es) => { visible = es.some((e) => e.isIntersecting); if (visible) tour(); }).observe(etape);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) tour(); });
   if (lit(localStorage, "seance-ok")) reussi(false); else guetter();
+})();
+
+// ---------- Vérifier ma clé AllDebrid (étape 5) : directement auprès d'AllDebrid, depuis ce navigateur ----------
+(() => {
+  const input = document.getElementById("ad-key"), zone = document.getElementById("verif-cle");
+  if (!input || !zone) return;
+  const btn = document.getElementById("vc-btn"), etat = document.getElementById("vc-etat");
+  const OFFRES = "https://alldebrid.com/offer/";
+  const dire = (texte, ton, lien) => {
+    etat.className = "vc-etat " + (ton || ""); etat.textContent = texte;
+    if (lien) { const a = document.createElement("a"); a.href = lien[0]; a.target = "_blank"; a.rel = "noopener"; a.textContent = lien[1]; etat.append(" ", a); }
+  };
+  const maj = () => { zone.hidden = !cleAllDebrid(input.value); etat.textContent = ""; etat.className = "vc-etat"; };
+  input.addEventListener("input", maj);
+  const oublier = document.getElementById("oublier-cle");
+  if (oublier) oublier.addEventListener("click", () => setTimeout(maj));
+  maj();
+  // premiumUntil : secondes depuis 1970 (millisecondes au cas où).
+  const date = (t) => {
+    const d = new Date(t > 1e12 ? t : t * 1000), memeAnnee = d.getFullYear() === new Date().getFullYear();
+    return d.toLocaleDateString("fr-FR", memeAnnee ? { day: "numeric", month: "long" } : { day: "numeric", month: "long", year: "numeric" });
+  };
+  const ERREURS = {
+    AUTH_BAD_APIKEY: "Clé refusée : AllDebrid ne la connaît pas. Recopie-la depuis la page des clés API.",
+    AUTH_MISSING_APIKEY: "Clé refusée : AllDebrid ne la connaît pas. Recopie-la depuis la page des clés API.",
+    AUTH_BLOCKED: "Clé bloquée par AllDebrid depuis cet endroit (nouvel appareil, VPN ou autre pays) : valide la demande reçue par e-mail, puis réessaie.",
+    AUTH_USER_BANNED: "Clé refusée : ce compte AllDebrid est suspendu.",
+  };
+  btn.addEventListener("click", async () => {
+    const cle = cleAllDebrid(input.value);
+    if (!cle) return;
+    btn.disabled = true; dire("Vérification auprès d'AllDebrid…");
+    try {
+      const r = await fetch("https://api.alldebrid.com/v4/user?agent=catalogue-fr", {
+        headers: { Authorization: "Bearer " + cle }, credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store",
+      });
+      const j = await r.json();
+      const u = j && j.status === "success" && j.data && j.data.user;
+      if (!u) { const c = (j && j.error && j.error.code) || ""; dire(ERREURS[c] || "AllDebrid refuse cette clé" + (c ? " (" + c + ")" : "") + " : recopie-la depuis la page des clés API.", "mauvais"); return; }
+      if (u.isPremium && u.isTrial) { dire("Essai gratuit : les sources ne marcheront pas avec les addons. Il faut un abonnement premium payant.", "moyen", [OFFRES, "Voir les offres"]); return; }
+      if (u.isPremium) {
+        const fin = Number(u.premiumUntil) || 0, jours = fin ? Math.ceil(((fin > 1e12 ? fin : fin * 1000) - Date.now()) / 86400e3) : 0;
+        if (!fin) dire("Premium actif ✓", "bon");
+        else if (jours <= 7) dire("Premium actif jusqu'au " + date(fin) + " : bientôt fini, pense à le renouveler.", "moyen", [OFFRES, "Renouveler"]);
+        else dire("Premium actif jusqu'au " + date(fin) + " ✓", "bon");
+        if (typeof window.popcorn === "function" && jours > 7) popcorn(btn);
+        return;
+      }
+      dire("Compte gratuit : les sources ne marcheront pas. Passe en premium pour regarder.", "mauvais", [OFFRES, "Voir les offres"]);
+    } catch (e) {
+      dire("AllDebrid ne répond pas : vérifie ta connexion, puis réessaie.", "mauvais");
+    } finally { btn.disabled = false; }
+  });
 })();
 `;

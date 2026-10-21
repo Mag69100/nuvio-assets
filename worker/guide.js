@@ -44,7 +44,7 @@ import { APPAREILS, installUrl } from "./liens.js";
 import { feuilles, scripts } from "./statique.js";
 import { esc } from "./outils-serveur.js";
 import { pannesHTML } from "./pannes.js";
-import { seanceHTML } from "./guide-verifs.js";
+import { seanceHTML, verifCleHTML } from "./guide-verifs.js";
 
 const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>`;
 const copyBox = (id, value) => `<div class="copy"><code id="${id}">${esc(value)}</code><button type="button" data-copy="${id}">Copier</button></div>`;
@@ -418,6 +418,7 @@ ${secretsHTML("guide")}
       <p>Colle ta clé ici, une seule fois : le guide l'insère dans les liens des étapes suivantes. Elle reste gardée dans ce navigateur, sur cet appareil : elle n'est jamais envoyée à notre serveur.</p>
       <label class="keyfield" for="ad-key"><span>Ta clé AllDebrid</span><input id="ad-key" type="text" placeholder="la clé nommée « Nuvio »" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
       <p class="etat-cles" id="etat-cles" role="status"></p>
+      ${verifCleHTML()}
       <div class="trousseau-actions">
         <button type="button" class="vers-tel" id="cles-tel">Envoyer ma clé sur mon téléphone (QR code)</button>
         <button type="button" class="ca-changer" id="oublier-cle" hidden>Oublier ma clé</button>

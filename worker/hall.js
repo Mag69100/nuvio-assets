@@ -119,6 +119,8 @@ a { color: var(--bulb); }
 .cadre.vide { animation: attente 1.4s ease-in-out infinite; }
 @keyframes attente { 50% { opacity: .55; } }
 footer { text-align: center; }
+.machines-lien { margin: 18px 0 0; color: var(--dim); font-size: .95rem; }
+.machines-lien a { font-weight: 800; text-underline-offset: 3px; }
 .propre-salle { justify-self: center; margin-top: -8px; text-align: center; color: var(--dim); font-size: .95rem; }
 .propre-salle a { color: inherit; font-weight: 800; text-underline-offset: 3px; }
 .propre-salle a:hover { color: var(--cream, #f5ead8); }
@@ -166,7 +168,9 @@ ${copy ? "" : `  <p class="propre-salle">Tu veux ta propre salle, avec tes clés
     <p>Les films dont tout le monde parle aujourd'hui, avec les affiches qu'ils auront sur ton accueil.</p>
     <div class="affiches" id="affiches">${'<div class="cadre vide"></div>'.repeat(6)}</div>
   </section>
-  <footer>${CREDITS_HTML}</footer>
+  <footer>${CREDITS_HTML}
+    <p class="machines-lien"><a href="${origin}/etat">Salle des machines</a> : est-ce que tout tourne en ce moment ?</p>
+  </footer>
 </main>
 ${scripts("scene.js")}
 <script>${apercuDonnees(origin)}</script>

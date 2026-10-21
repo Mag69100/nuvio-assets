@@ -592,6 +592,15 @@ test("badge_langue", async () => {
   await draw({ ...seul, line: null, langue: "VO", styles: { ...STYLES, qualite: "pastille" } }, f);
 });
 
+// Badge Saga : en haut à gauche, sous le statut et le N°.
+test("badge_saga", async () => {
+  const sans = await draw({ ...seul, line: null, statut: "NOUVEAU" }, f);
+  const avec = await draw({ ...seul, line: null, statut: "NOUVEAU", saga: { n: 3, t: 5 } }, f);
+  assert.ok(await difference(sans, avec, [0, 40, 200, 50]) > 60, "pas de badge sous le statut");
+  assert.ok(await difference(sans, avec, [200, 0, 200, 600]) === 0, "badge ailleurs qu'à gauche");
+  await draw({ ...seul, line: null, saga: { n: 12, t: 12 }, styles: { ...STYLES, badges: { style: "plein", forme: "carre", opacite: "l", couleur: "or" } } }, f);
+});
+
 // Barre d'avancement d'une série : à la couleur d'accent, sous le statut (ou seule), du côté du bloc.
 test("barre_avancement", async () => {
   const jaune = (r, g, b) => r > 200 && g > 150 && b < 90;

@@ -13,10 +13,11 @@ import { resetMemo as r3 } from "../lib/tendances.js";
 import { resetMemo as r4 } from "../lib/qualite.js";
 import { resetMemo as r5 } from "../lib/texte.js";
 import { resetMemo as r6 } from "../lib/notes-plus.js";
+import { resetMemo as r7 } from "../lib/saga.js";
 import { readFileSync } from "node:fs";
 import satori from "satori";
 
-beforeEach(() => { r1(); r2(); r3(); r4(); r5(); r6(); });
+beforeEach(() => { r1(); r2(); r3(); r4(); r5(); r6(); r7(); });
 
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status });
 const film = {
@@ -31,7 +32,7 @@ const PNG = await sharp({ create: { width: 300, height: 100, channels: 4, backgr
  * Faux internet : TMDB, images, notes, et le relais /qualite/ du service (https://affiches.test), qui lit
  * Torrentio. `torrentio` remplace la réponse de Torrentio.
  */
-function internet({ detail = json(film), torrentio } = {}) {
+function internet({ detail = json(film), torrentio, collection } = {}) {
   const calls = [];
   const lireTorrentio = async (u, opts) => { calls.push(String(u)); return torrentio ? torrentio(u, opts) : json({ streams: [{ name: "4k DV" }] }); };
   const f = async (url, opts = {}) => {
@@ -44,6 +45,7 @@ function internet({ detail = json(film), torrentio } = {}) {
     if (photo) return makeTendances({ fetchImpl: f, env: { TMDB_API_KEY: "k" } })(new Request(`https://affiches.test/api/tendances?type=${photo[1]}`));
     if (u.includes("/find/")) return json({ movie_results: [{ id: 693134 }], tv_results: [] });
     if (u.includes("/trending/")) return json({ results: [] });
+    if (u.includes("/collection/")) return collection ? collection.clone() : new Response("?", { status: 404 });
     if (u.includes("api.themoviedb.org") && (u.includes("/movie/") || u.includes("/tv/"))) return detail.clone();
     if (u.includes("image.tmdb.org")) return new Response(u.endsWith(".png") ? PNG : u.includes("/texte") ? TEXTE : JPG);
     if (u.includes("imdb-ratings.bin")) return new Response(new Uint8Array(4));   // fichier des notes IMDb, vide
@@ -570,6 +572,29 @@ test("serie_fin_et_avancement_caches", async () => {
   // Sans le réglage : cache normal.
   const sans = await makeHandler({ fetchImpl: internet({ detail: json(enCours) }), env })(req("type=series&shape=poster&id=tmdb:94605"));
   assert.equal(sans.headers.get("Cache-Control"), "public, max-age=604800");
+});
+
+// Rang dans la saga : un appel /collection/ seulement avec le réglage, pour un film d'une saga ; TMDB en panne : cache court.
+test("rang_dans_la_saga_lu_chez_tmdb", async () => {
+  const deSaga = json({ ...film, belongs_to_collection: { id: 726871, name: "Dune" } });
+  const parts = json({ parts: [{ id: 438631, release_date: "2021-09-15" }, { id: 693134, release_date: "2024-02-27" }, { id: 1170608, release_date: "2026-12-16" }] });
+  const f = internet({ detail: deSaga, collection: parts });
+  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.3j1"));
+  assert.equal(res.status, 200);
+  assert.equal(f.calls.filter((u) => u.includes("/collection/726871")).length, 1);
+  const sans = internet({ detail: deSaga, collection: parts });
+  const res2 = await makeHandler({ fetchImpl: sans, env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.ok(!sans.calls.some((u) => u.includes("/collection/")));
+  assert.notEqual(res.headers.get("ETag"), res2.headers.get("ETag"));
+  // Film hors saga : aucun appel.
+  const seul = internet({ collection: parts });
+  await makeHandler({ fetchImpl: seul, env })(req("type=movie&shape=poster&id=tt15239678&s=1.3j1"));
+  assert.ok(!seul.calls.some((u) => u.includes("/collection/")));
+  // Collection illisible : l'affiche part sans badge, redemandée bientôt.
+  r7();
+  const panne = await makeHandler({ fetchImpl: internet({ detail: deSaga, collection: json({}, 500) }), env })(req("type=movie&shape=poster&id=tt15239678&s=1.3j1"));
+  assert.equal(panne.status, 200);
+  assert.equal(panne.headers.get("Cache-Control"), "public, max-age=3600");
 });
 
 // Badge Langue : les sources sont lues pour lui, même sans le badge de qualité ni titre récent ; pas avec QUALITE=off.

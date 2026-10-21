@@ -402,6 +402,13 @@ test("langue_des_sources", () => {
   assert.equal(contenu(facts, q("vf"), "poster", reglages("Q03g1")).langue, "VF");
 });
 
+// Rang dans la saga (3j1) : seulement avec le réglage, et seulement s'il est connu.
+test("rang_dans_la_saga", () => {
+  assert.deepEqual(contenu(facts, { ...plein, saga: { n: 3, t: 5 } }, "poster", reglages("3j1")).saga, { n: 3, t: 5 });
+  assert.equal("saga" in contenu(facts, { ...plein, saga: { n: 3, t: 5 } }), false);
+  assert.equal("saga" in contenu(facts, { ...plein, saga: null }, "poster", reglages("3j1")), false);
+});
+
 // Fin et avancement d'une série (3h1, 3i1) : jamais deux libellés ; la sortie, puis le nouvel épisode, passent avant.
 test("serie_fin_et_avancement", () => {
   const serie = { ...facts, type: "series", releases: [], releaseDate: "", firstAir: "2020-01-01", status: "Ended", lastEpisode: "2025-05-01",

@@ -284,6 +284,7 @@ function blocStatut(content, m, accent, place, descente) {
     }
   }
   if (content.culte) pile.push(badgeCulte(t, accent, b));
+  if (content.saga) pile.push(badgeInfo(`SAGA · ${content.saga.n}/${content.saga.t}`, t, b, m.ombre));
   if (!pile.length) return null;
   return h("div", { position: "absolute", ...positionBloc(m, place, descente), display: "flex", flexDirection: "column", alignItems: cote === "left" ? "flex-start" : "flex-end", gap: t * 0.25 }, pile);
 }
@@ -415,7 +416,7 @@ const teinteVive = (hsl) => hex({ hue: hsl.hue, s: Math.max(0.55, Math.min(1, hs
 function calqueDegrades(content, [w, hgt], teinte) {
   const st = content.styles, fondu = content.full && st.fondu;
   const voile = VOILE[st.voile ?? "m"], haut = voile > 0 && !!(content.statut || content.rank || content.quality || content.bandeau || content.coin || content.culte
-    || content.langue || content.avance);
+    || content.langue || content.avance || content.saga);
   if (!fondu && !haut && !st.vignette && !st.cadre) return null;
   const hb = Math.round(hgt * ((fondu && fondu.taille) || HAUTEUR_FONDU[(fondu && fondu.hauteur) || "normal"])), hh = Math.round(hgt * 0.22);
   // Couleur du fondu : celle du nuancier si elle est choisie, sinon les couleurs de l'affiche ou le noir.

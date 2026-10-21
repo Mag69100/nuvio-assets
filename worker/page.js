@@ -1366,7 +1366,7 @@ drawPP();
 // interrupteur, choix principaux visibles) avec ses réglages fins dans « Plus de réglages » (un seul ouvert).
 const NOMS_MEMOIRES = { maison: "Maison", essentiel: "Essentiel", noteSeule: "Note seule", cine: "Ciné", postersPlus: "Posters+", plateforme: "Plateforme", nue: "Nue" };
 const ONGLETS = {
-  haut: ["statut", "tendance", "qualite", "langue", "culte", "bandeau", "badges"],
+  haut: ["statut", "tendance", "qualite", "langue", "culte", "saga", "bandeau", "badges"],
   titre: ["titre", "texte", "ligne", "ligne2"],
   infos: ["note", "genre", "annee", "duree", "age", "plateforme"],
   image: ["image", "retouche", "fondu", "ambiance", "cadre", "sortie"],
@@ -1376,7 +1376,7 @@ const ONGLETS = {
 // Icônes dessinées (traits de 24×24), une par élément.
 const ICONES = {
   statut: "M3 7l9-4 9 4v10l-9 4-9-4z M12 3v18", tendance: "M4 17L10 11l4 4 6-8 M14 7h6v6", qualite: "M3 6h18v12H3z M7 10v4 M7 12h3 M10 10v4 M14 10l3 4 M17 10l-3 4",
-  langue: "M4 5h16v10H10l-5 4v-4H4z M8 9h8 M8 12h5",
+  langue: "M4 5h16v10H10l-5 4v-4H4z M8 9h8 M8 12h5", saga: "M3 8h12v12H3z M6 5h12v12 M9 2h12v12",
   culte: "M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z", bandeau: "M14 3h7v7 M4 20L20 4", badges: "M4 6h7v5H4z M13 6h7v5h-7z M4 13h7v5H4z",
   titre: "M5 5h14 M12 5v14 M8 19h8", texte: "M4 19l5-14 5 14 M6 14h6 M15 19c0-3 5-3 5 0v-5c0-2-4-2-5 0", ligne: "M4 8h16 M4 12h16 M4 16h10", ligne2: "M4 9h16 M7 14h10 M9 18h6",
   note: "M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z", genre: "M4 5h16v14H4z M4 9h16 M9 9v10", annee: "M4 6h16v14H4z M4 10h16 M8 3v5 M16 3v5",
@@ -1516,6 +1516,8 @@ function carteDe(v) {
       principal: () => [aide("VF, MULTI (VF et VO), VOSTFR ou VO, d'après les sources du titre : sous la qualité.")] },
     culte: { nom: "Incontournable", on: () => r.infos.culte, bascule: () => regle((r) => { r.infos.culte = !r.infos.culte; }),
       principal: () => [aide("Un badge pour les films et séries très bien notés et très vus.")] },
+    saga: { nom: "Rang dans la saga", on: () => r.infos.saga, bascule: () => regle((r) => { r.infos.saga = !r.infos.saga; }),
+      principal: () => [aide("« SAGA · 3/5 » pour un film d'une saga : sa place parmi les films déjà sortis, par date.")] },
     bandeau: { nom: "Bandeau en coin", ...onOff("bandeau"),
       principal: () => [choix("Porte", [["statut", "Le statut"], ["tendance", "Le N°"]], r.bandeau.porte, (x) => regle((r) => { r.bandeau.porte = x; })),
         choix("Coin", [["g", "Gauche"], ["d", "Droite"]], r.bandeau.coin, (x) => regle((r) => { r.bandeau.coin = x; }))] },

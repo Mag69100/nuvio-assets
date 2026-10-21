@@ -100,6 +100,14 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
   }, fetchImpl);
   if (!d) return null;
   const images = d.images || {};
+  // Ni logo français ni anglais (« On va s'arrêter là » : seulement en espagnol) : les logos de toutes les langues,
+  // pour ne pas laisser l'affiche sans titre (un appel de plus, pour ces titres seulement ; en échec, pas de logo).
+  let tousLogos = images.logos || [];
+  if (!first(tousLogos, ["fr", "en"])) {
+    const autres = await tmdbGet(env, `/${type === "series" ? "tv" : "movie"}/${tmdbId}/images`, {}, fetchImpl).catch(() => null);
+    tousLogos = (autres && autres.logos) || [];
+  }
+  const premierLogo = tousLogos.find((x) => x.iso_639_1) || tousLogos[0];
   const date = (type === "series" ? d.first_air_date : d.release_date) || "";
   return {
     tmdbId,
@@ -115,7 +123,8 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
     textlessBackdrops: sansLangue(images.backdrops, 16 / 9),
     textlessBackdrop: sansLangue(images.backdrops, 16 / 9)[0] || null,
     logo: first(images.logos, ["fr", "en"]),
-    logos: { fr: first(images.logos, ["fr"]), en: first(images.logos, ["en"]), vo: d.original_language ? first(images.logos, [d.original_language]) : null },
+    logos: { fr: first(images.logos, ["fr"]), en: first(images.logos, ["en"]), vo: d.original_language ? first(images.logos, [d.original_language]) : null,
+      autre: (d.original_language && first(tousLogos, [d.original_language])) || (premierLogo ? premierLogo.file_path : null) },
     runtime: type === "series" ? null : d.runtime || null,
     seasonsCount: type === "series" ? (d.seasons || []).filter((x) => x.season_number >= 1).length || null : null,
     provider: plateformeDe(d),

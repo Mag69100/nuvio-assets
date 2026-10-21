@@ -250,10 +250,13 @@ test("v2_image_et_langue_du_logo", () => {
   assert.deepEqual([fond.image, fond.logo, fond.full], ["/bdnu.jpg", "/fr.png", true]);
   assert.equal(contenu(v2, plein, "poster", reglages("ue")).logo, "/en.png");
   assert.equal(contenu(v2, plein, "poster", reglages("uv")).logo, "/ja.png");
-  // Repli : pas de logo dans la langue d'origine → français ; seulement un logo d'origine, par défaut → pas de logo.
+  // Repli : pas de logo dans la langue d'origine → français ; ni français ni anglais → le logo d'une autre langue
+  // (mieux qu'une affiche sans rien) ; aucun logo → l'affiche normale.
   assert.equal(contenu({ ...v2, logos: { fr: "/fr.png", en: null, vo: null } }, plein, "poster", reglages("uv")).logo, "/fr.png");
-  const voSeul = contenu({ ...v2, logo: null, logos: { fr: null, en: null, vo: "/ja.png" } }, plein);
-  assert.equal(voSeul.full, false);
+  const autre = contenu({ ...v2, logo: null, logos: { fr: null, en: null, vo: null, autre: "/es.png" } }, plein);
+  assert.deepEqual([autre.full, autre.logo], [true, "/es.png"]);
+  assert.equal(contenu({ ...v2, logo: null, logos: { fr: null, en: null, vo: null, autre: "/es.png" } }, plein, "poster", reglages("ue")).logo, "/es.png");
+  assert.equal(contenu({ ...v2, logo: null, logos: { fr: null, en: null, vo: null, autre: null } }, plein).full, false);
 });
 
 test("v2_qualite_tout", () => {

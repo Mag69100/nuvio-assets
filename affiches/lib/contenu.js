@@ -81,7 +81,8 @@ function dureeDe(facts) {
 function logoDe(facts, langue) {
   const l = facts.logos;
   if (!l) return facts.logo || null;
-  const ordre = { fr: ["fr", "en"], en: ["en", "fr"], vo: ["vo", "fr", "en"] }[langue] || ["fr", "en"];
+  // En dernier, le logo d'une autre langue (ni français ni anglais) : mieux qu'une affiche sans titre ni infos.
+  const ordre = { fr: ["fr", "en", "autre"], en: ["en", "fr", "autre"], vo: ["vo", "fr", "en", "autre"] }[langue] || ["fr", "en", "autre"];
   for (const k of ordre) if (l[k]) return l[k];
   return null;
 }

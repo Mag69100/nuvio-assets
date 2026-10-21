@@ -113,6 +113,29 @@ test("age_conseille_france", async () => {
   assert.equal((await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fauxFetch([["/tv/94605", json({ ...serie, content_ratings: { results: [{ iso_3166_1: "FR", rating: "TP" }] } })]]))).age, null);
 });
 
+// « On va s'arrêter là », « Friends Sex and Games » : un logo seulement en espagnol. Ni français ni anglais : on
+// demande les logos de toutes les langues (un appel de plus, pour ces titres seulement) ; celui de la langue
+// d'origine d'abord, sinon le premier venu (logos.autre).
+test("logo_dans_une_autre_langue", async () => {
+  const sansFrEn = { ...movie, original_language: "es", images: { ...movie.images, logos: [] } };
+  const f = fauxFetch([["/movie/693134/images", json({ logos: [{ iso_639_1: "de", file_path: "/de.png" }, { iso_639_1: "es", file_path: "/es.png" }] })], ["/movie/693134", json(sansFrEn)]]);
+  const facts = await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, f);
+  assert.equal(facts.logos.autre, "/es.png");
+  const g = fauxFetch([["/movie/693134/images", json({ logos: [{ iso_639_1: "de", file_path: "/de.png" }] })], ["/movie/693134", json(sansFrEn)]]);
+  assert.equal((await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, g)).logos.autre, "/de.png");
+  // « The Musical » : un logo sans langue seulement (dans la première réponse, sans appel de plus).
+  const sansLangue = { ...sansFrEn, images: { ...movie.images, logos: [{ iso_639_1: null, file_path: "/nul.png" }] } };
+  const m = fauxFetch([["/movie/693134/images", json({ logos: [{ iso_639_1: null, file_path: "/nul.png" }] })], ["/movie/693134", json(sansLangue)]]);
+  assert.equal((await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, m)).logos.autre, "/nul.png");
+  // Un logo français : pas d'appel de plus.
+  const h = fauxFetch([["/movie/693134", json(movie)]]);
+  await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, h);
+  assert.equal(h.calls.length, 1);
+  // L'appel de plus échoue : pas de logo, l'affiche se fait quand même.
+  const k = fauxFetch([["/movie/693134/images", json({}, 500)], ["/movie/693134", json(sansFrEn)]]);
+  assert.equal((await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, k)).logos.autre, null);
+});
+
 // Sur une plateforme (abonnement, gratuit, pub, location, achat) en France : VF disponible. Pas ailleurs : en Suisse
 // (Bad Apples, avec l'Allemagne et l'Autriche) ou au Canada, la plateforme peut n'avoir que l'allemand ou l'anglais.
 test("plateforme_en_france", async () => {
@@ -134,7 +157,7 @@ test("faits_v2", async () => {
   const facts = await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, f, { plateforme: true, vo: true });
   assert.equal(facts.runtime, 166);
   assert.equal(facts.seasonsCount, null);
-  assert.deepEqual(facts.logos, { fr: "/fr.svg", en: "/en.png", vo: "/ja.png" });
+  assert.deepEqual(facts.logos, { fr: "/fr.svg", en: "/en.png", vo: "/ja.png", autre: "/ja.png" });
   assert.equal(facts.logo, "/fr.svg");
   assert.deepEqual(facts.provider, { name: "Netflix", logo: "/n.jpg" });
   const q = new URL(f.calls[0]).searchParams;

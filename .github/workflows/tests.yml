@@ -1,0 +1,61 @@
+name: Tests
+
+# À chaque push et pull request : la suite de l'addon et du site (racine), celle du service d'affiches
+# (affiches/) et celle des scripts Python. Cloudflare (Workers Builds) et Vercel déploient main de leur
+# côté, sans attendre ce workflow : voir le README (« Déploiement et tâches automatiques »).
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  addon:
+    name: Addon et site
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - run: node --import ./tests/support/register.mjs --test "tests/*.test.js"
+
+  affiches:
+    name: Service des affiches
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: affiches
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"   # comme "engines" dans affiches/package.json (Vercel)
+      - run: npm ci
+      - run: npm test
+
+  scripts:
+    name: Scripts Python
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install pillow==13.0.0
+      - run: python -m unittest discover -s tests/python -v

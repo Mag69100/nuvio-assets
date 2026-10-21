@@ -1889,7 +1889,7 @@ function update() {
   state.n = $("name").value.trim() || D.defaults.n;
   const c = compact(state);
   const seg = Object.keys(c).length ? enc(c) : "";
-  if (segDepart === null) segDepart = dernierEnvoye = seg;
+  if (segDepart === null) { segDepart = dernierEnvoye = seg; etatDepart = clone(state); }
   // Lien fixe : la même adresse tant qu'on peut l'enregistrer (ou qu'on n'a rien changé).
   const garde = fixe && (fixe.modif || seg === segDepart);
   const base = garde ? D.origin + "/" + fixe.id : D.origin + (seg ? "/" + seg : "");
@@ -2132,6 +2132,8 @@ let demarre = false; // pendant le premier affichage, le réglage gardé attend 
 function attenteGarde(seg) { if (!demarre) return; try { seg === null ? sessionStorage.removeItem(attenteCle()) : sessionStorage.setItem(attenteCle(), seg); } catch (e) {} }
 function planifie(seg) {
   clearTimeout(saveT); saveT = 0;
+  // Clé Gemini et jeton d'alerte pas encore relus : rien n'est enregistré ni gardé (ils manqueraient).
+  if (!secretsLus) { if (seg !== dernierEnvoye) etatFixe = "attente"; lireSecrets(); return; }
   attenteGarde(seg);
   if (seg === dernierEnvoye) return;
   etatFixe = "attente";
@@ -2139,6 +2141,7 @@ function planifie(seg) {
 }
 function enregistre(seg) {
   clearTimeout(saveT); saveT = 0;
+  if (!secretsLus) return;
   dernierEnvoye = seg; etatFixe = "envoi"; dessineFixe(seg);
   const id = fixe.id, modif = fixe.modif, n = ++envoiN;
   envoi = envoi.then(async () => {
@@ -2160,7 +2163,7 @@ function enregistre(seg) {
 // Page quittée juste après un réglage : le dernier part tout de suite, sans attendre la file des envois
 // (la page fermée, ce qui attend dans la file ne partirait jamais). keepalive : l'envoi survit à l'onglet.
 addEventListener("pagehide", () => {
-  if (!fixe || !fixe.modif) return;
+  if (!fixe || !fixe.modif || !secretsLus) return;
   const c = compact(state), seg = Object.keys(c).length ? enc(c) : "";
   // Rien en attente, rien dans la file, dernier réglage déjà parti (ou en route, keepalive) : rien à faire.
   if (!saveT && envoiN === partiN && seg === dernierEnvoye) return;
@@ -2192,11 +2195,52 @@ function dessineFixe(seg) {
   autre.hidden = !(fixe && fixe.modif);
 }
 let fixe = D.fixed ? { id: D.fixed, modif: "" } : null;
-let segDepart = null, dernierEnvoye = null;
+let segDepart = null, dernierEnvoye = null, etatDepart = null;
 if (fixe) {
   const m = /modif=([0-9A-Za-z]{22})/.exec(hashDepart);
   if (m) fixeGarde(fixe.id, m[1]);
   fixe.modif = fixesLus()[fixe.id] || "";
+}
+// La page d'un lien fixe n'a ni sa clé Gemini ni son jeton d'alerte (quiconque a le lien la voit) : avec la clé
+// de modification, on les redemande au site. Jusque-là, rien n'est enregistré : un réglage envoyé sans eux les
+// effacerait du lien. Clé refusée : ce navigateur ne peut plus modifier le lien. Pas de réponse : on réessaie
+// au prochain réglage, et le message le dit.
+let secretsLus = !(fixe && fixe.modif), secretsEnCours = null;
+function lireSecrets() {
+  if (secretsLus || secretsEnCours) return secretsEnCours;
+  const id = fixe.id, modif = fixe.modif;
+  secretsEnCours = (async () => {
+    try {
+      const r = await fetch(D.origin + "/lien-fixe/" + id + "/lire", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modif }) });
+      const j = await r.json().catch(() => ({}));
+      if (r.status === 403 || r.status === 404) {
+        fixe.modif = ""; secretsLus = true; etatFixe = ""; demarre = true;
+        fixeErreur("Ce navigateur n'a plus la clé pour modifier ce lien fixe.");
+        update(); return;
+      }
+      if (!r.ok) throw new Error(j.error || "");
+      // Ce que le site a enregistré : les réglages du début de la page, avec la clé et le jeton.
+      const depart = compact({ ...(etatDepart || state), k: j.k || "", al: j.al || "" });
+      segDepart = dernierEnvoye = Object.keys(depart).length ? enc(depart) : "";
+      // Tapés pendant la lecture : on garde ceux de l'utilisateur.
+      if (!state.k) state.k = j.k || "";
+      if (!state.al) state.al = j.al || "";
+      if (state.k) cleGarde(state.k);
+      $("ai-key").value = state.k; aiKeyHint();
+      if (typeof hoteRender === "function" && hote) hoteRender();
+      secretsLus = true; etatFixe = ""; fixeErreur("");
+      state.n = $("name").value.trim() || D.defaults.n;
+      const c = compact(state);
+      // Rien changé pendant la lecture : on reprend le réglage resté en route (page rechargée trop tôt).
+      // Sinon, ce qui vient d'être réglé l'emporte et part maintenant.
+      if ((Object.keys(c).length ? enc(c) : "") === segDepart) { repriseAttente(); dessineFixe(segDepart); }
+      else { demarre = true; update(); }
+    } catch (err) {
+      fixeErreur("Ton lien fixe ne répond pas pour le moment : tes changements seront enregistrés dès qu'il répondra (vérifie ta connexion).");
+      dessineFixe(segDepart);
+    } finally { secretsEnCours = null; }
+  })();
+  return secretsEnCours;
 }
 $("fixe-creer").addEventListener("click", async (e) => {
   const btn = e.currentTarget, label = btn.textContent;
@@ -2386,11 +2430,11 @@ if (matchMedia("(hover: hover) and (pointer: fine)").matches && !matchMedia("(pr
 // cet appareil ; une adresse sans clé (page rechargée, lien « Salle 2 ») la reprend. Pas sur un lien fixe :
 // ses réglages sont gardés par le site, y glisser la clé les changerait sans qu'on l'ait demandé.
 if (!fixe) { if (state.k) cleGarde(state.k); else state.k = cleLue(); }
-else if (fixe.modif && state.k) cleGarde(state.k);
 renderAll();
 // Lien fixe : un réglage de cet onglet n'était pas encore arrivé quand la page a été redemandée. On le
 // renvoie, puis on recharge une fois pour l'afficher (une seule : si le serveur le lit autrement, on s'arrête).
-if (fixe && fixe.modif) {
+// Seulement une fois la clé Gemini relue (lireSecrets) : segDepart la contient alors, comme le réglage gardé.
+function repriseAttente() {
   const attente = attenteLue();
   let deja = null; try { deja = sessionStorage.getItem("fixe-recharge"); } catch (e) {}
   demarre = true;
@@ -2402,7 +2446,8 @@ if (fixe && fixe.modif) {
     envoi.then(() => { if (etatFixe === "ok") location.reload(); });
   }
 }
-demarre = true;
+if (fixe && fixe.modif) lireSecrets();
+else demarre = true;
 
 // L'écran et le billet suivent le défilement. S'ils sont trop hauts ensemble pour la fenêtre,
 // seul l'écran suit (toujours en entier) et le billet attend en bas de la colonne.

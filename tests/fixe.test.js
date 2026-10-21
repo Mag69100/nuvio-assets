@@ -164,3 +164,36 @@ test("lien_fixe_indisponible_sans_base", async () => {
   assert.equal((await post("/lien-fixe", { c: "" })).status, 501);
   assert.match((await (await at("/configure")).text()), /"fixedOk":false/);
 });
+
+// La page d'un lien fixe se montre à quiconque a le lien : jamais sa clé Gemini ni son jeton d'alerte. Seule la
+// page qui a la clé de modification les relit (POST /lien-fixe/<id>/lire).
+test("lien_fixe_page_sans_cle_gemini", async () => {
+  const k = "AIzaSyCleSecreteDeTest0123456789abcdefg", al = "0123456789abcdef01234567";
+  const { id, modif } = await (await post("/lien-fixe", { c: seg({ n: "Salon", k, al }) })).json();
+  const html = await (await at(`/${id}/configure`)).text();
+  assert.match(html, /"n":"Salon"/);
+  assert.ok(!html.includes(k) && !html.includes("AIzaSy") && !html.includes(al));
+  // Un lien habituel porte déjà la clé dans son adresse : sa page la reprend, comme avant.
+  assert.ok((await (await at(`/${seg({ n: "Salon", k })}/configure`)).text()).includes(k));
+
+  const lire = await post(`/lien-fixe/${id}/lire`, { modif });
+  assert.equal(lire.status, 200);
+  assert.equal(lire.headers.get("Cache-Control"), "no-store");
+  assert.deepEqual(await lire.json(), { k, al });
+  // Sans la bonne clé de modification, sans Origin, ou pour un lien inconnu : rien.
+  const refus = await post(`/lien-fixe/${id}/lire`, { modif: "x".repeat(22) });
+  assert.equal(refus.status, 403);
+  assert.ok(!(await refus.text()).includes("AIzaSy"));
+  assert.equal((await post(`/lien-fixe/${id}/lire`, {})).status, 404);
+  assert.equal((await post(`/lien-fixe/f0123456789abcdef/lire`, { modif })).status, 404);
+  const sansOrigin = await at(`/lien-fixe/${id}/lire`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modif }) });
+  assert.equal(sansOrigin.status, 403);
+  assert.equal((await at(`/lien-fixe/${id}/lire`)).status, 405);
+});
+
+test("lien_fixe_lecture_base_en_panne", async () => {
+  const { id, modif } = await (await post("/lien-fixe", { c: seg({ n: "X" }) })).json();
+  env.LIENS.prepare = () => ({ bind: () => ({ first: async () => { throw new Error("D1_ERROR: overloaded"); } }) });
+  assert.equal((await post(`/lien-fixe/${id}/lire`, { modif })).status, 503);
+});
+

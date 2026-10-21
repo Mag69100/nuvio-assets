@@ -219,3 +219,19 @@ test("lien_fixe_envoye_a_la_fermeture", () => {
   assert.doesNotMatch(fin, /enregistre\(/);
   assert.match(html, /if \(n <= directN\) return;/);
 });
+
+// Lien fixe : sa page n'a pas la clé Gemini (voir fixe.js) ; avec la clé de modification, elle la relit avant tout
+// enregistrement (un réglage envoyé sans elle l'effacerait du lien), et sans elle, rien ne s'enregistre jamais.
+test("lien_fixe_rien_d_enregistre_avant_la_cle_relue", () => {
+  const html = page();
+  assert.match(html, /let secretsLus = !\(fixe && fixe\.modif\)/);
+  assert.match(html, /function planifie\(seg\) \{\s*clearTimeout\(saveT\); saveT = 0;\s*\/\/[^\n]*\n\s*if \(!secretsLus\) \{[^\n]*return; \}\s*attenteGarde\(seg\);/);
+  assert.match(html, /function enregistre\(seg\) \{\s*clearTimeout\(saveT\); saveT = 0;\s*if \(!secretsLus\) return;/);
+  assert.match(html, /addEventListener\("pagehide", \(\) => \{\s*if \(!fixe \|\| !fixe\.modif \|\| !secretsLus\) return;/);
+  assert.match(html, /fetch\(D\.origin \+ "\/lien-fixe\/" \+ id \+ "\/lire"/);
+  // Le réglage resté en route n'est repris qu'une fois la clé relue.
+  assert.match(html, /if \(fixe && fixe\.modif\) lireSecrets\(\);\nelse demarre = true;/);
+  // La clé gardée sur cet appareil n'entre jamais dans un lien fixe (ni le sien, ni celui d'un autre).
+  assert.equal((html.match(/state\.k = cleLue\(\)/g) || []).length, 1);
+  assert.match(html, /if \(!fixe\) \{ if \(state\.k\) cleGarde\(state\.k\); else state\.k = cleLue\(\); \}/);
+});

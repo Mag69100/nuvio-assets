@@ -1900,7 +1900,10 @@ const app = {
       return new Response(JSON.stringify({ error: "introuvable" }), { status: 404, headers: { ...HEADERS, "Cache-Control": "no-store" } });
     }
 
-    if (path === "/lien-fixe" || path.startsWith("/lien-fixe/")) return fixedRoute(request, env, path, (seg) => !!decodeConfig(seg, rows, DEFS.discover));
+    if (path === "/lien-fixe" || path.startsWith("/lien-fixe/")) {
+      return fixedRoute(request, env, path, (seg) => !!decodeConfig(seg, rows, DEFS.discover),
+        (seg) => { const c = decodeConfig(seg, rows, DEFS.discover); return c && { k: c.k, al: c.al }; });
+    }
 
     // La racine ouvre la salle 1 (le guide) ; la programmation (salle 2) est sur /configure,
     // et aussi sur /<config>/ pour les anciens liens personnalisés.
@@ -1913,7 +1916,9 @@ const app = {
         folders: displayOrder(c, ((files.find((f) => f.id === c.id) || {}).folders || []).map((f, i) => ({ id: f.id, title: f.title, cover: f.coverImageUrl || "", i }))),
       }));
       const page = html(configurePage({
-        origin: url.origin, cfg, rows, discover: DEFS.discover, providers: PROVIDERS, collections: cols,
+        // Lien fixe : ni la clé Gemini ni le jeton d'alerte dans la page, que voit quiconque a le lien. La page
+        // qui a la clé de modification les redemande (POST /lien-fixe/<id>/lire, voir fixe.js).
+        origin: url.origin, cfg: fixedId ? { ...cfg, k: "", al: "" } : cfg, rows, discover: DEFS.discover, providers: PROVIDERS, collections: cols,
         defaults: defaults(rows, DEFS.discover), regions: REGIONS, genres: GENRES, languages: LANGUAGES,
         sorts: SORTS, seasons: SEASON_KEYS, maxCustom: MAX_CUSTOM, season: decorSaison(url, today), copy: isCopy(url),
         fixed: fixedId, fixedOk: fixedAvailable(env),

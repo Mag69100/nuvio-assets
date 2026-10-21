@@ -90,9 +90,10 @@ export async function readFixed(env, id) {
 /**
  * POST /lien-fixe            { c }          → { id, modif }  (nouveau lien)
  * POST /lien-fixe/<id>       { c, modif }   → { ok: true }   (mêmes lien, nouveaux réglages)
- * `valid(seg)` dit si les réglages sont lisibles (decodeConfig).
+ * POST /lien-fixe/<id>/lire  { modif }      → { k, al }      (clé Gemini et jeton d'alerte, voir plus bas)
+ * `valid(seg)` dit si les réglages sont lisibles (decodeConfig) ; `secrets(seg)` en tire { k, al }.
  */
-export async function fixedRoute(request, env, path, valid) {
+export async function fixedRoute(request, env, path, valid, secrets) {
   const reply = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
   if (request.method !== "POST") return reply({ error: "Méthode non prise en charge." }, 405);
   if (!fixedAvailable(env)) return reply({ error: "Les liens fixes ne sont pas disponibles sur ce site." }, 501);
@@ -108,6 +109,8 @@ export async function fixedRoute(request, env, path, valid) {
   }
   let body;
   try { body = await request.json(); } catch (e) { return reply({ error: "Demande illisible." }, 400); }
+  const lire = /^\/lien-fixe\/([^/]+)\/lire$/.exec(path);
+  if (lire) return lireSecrets(env, lire[1], body && body.modif, secrets, reply);
   const seg = typeof body.c === "string" ? body.c : "";
   if (seg.length > MAX_SEG || !valid(seg)) return reply({ error: "Réglages illisibles : recharge la page et réessaie." }, 400);
 
@@ -133,5 +136,26 @@ export async function fixedRoute(request, env, path, valid) {
   } catch (e) {
     console.warn("lien fixe :", String(e));
     return reply({ error: "Enregistrement impossible pour le moment : réessaie dans quelques minutes." }, 503);
+  }
+}
+
+/**
+ * La clé Gemini et le jeton d'alerte d'un lien fixe ne sont jamais écrits dans sa page (/f…/configure) : qui a
+ * seulement le lien (installé chez un proche, montré sur une capture) ne doit pas pouvoir les lire. La page qui
+ * a la clé de modification les redemande ici, avant d'enregistrer quoi que ce soit (sans eux, l'enregistrement
+ * les effacerait). Lu dans la base, pas dans le cache : les derniers enregistrés.
+ */
+async function lireSecrets(env, id, modif, secrets, reply) {
+  if (!isFixedId(id) || !MODIF.test(String(modif || ""))) return reply({ error: "Lien fixe inconnu." }, 404);
+  try {
+    const r = await env.LIENS.prepare("SELECT c, e FROM liens WHERE h = ?").bind(await sha("lien:" + id)).first();
+    if (!r) return reply({ error: "Lien fixe inconnu." }, 404);
+    if (!same(r.e, await sha("modif:" + modif))) return reply({ error: "Ce navigateur n'a pas la clé pour modifier ce lien." }, 403);
+    const s = secrets(await open(id, r.c)) || {};
+    return reply({ k: s.k || "", al: s.al || "" });
+  } catch (e) {
+    if (noTable(e)) return reply({ error: "Lien fixe inconnu." }, 404);
+    console.warn("lien fixe :", String(e));
+    return reply({ error: "Lecture impossible pour le moment : réessaie dans quelques minutes." }, 503);
   }
 }

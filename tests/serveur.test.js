@@ -100,6 +100,32 @@ test("recherche_tres_longue_coupee", async () => {
   assert.ok(tmdb.length && tmdb.every((q) => q.length <= 100), tmdb.join("\n"));
 });
 
+// TMDB refuse des fiches (429) : la page part quand même, mais n'est gardée que 5 minutes (pas 3 heures).
+test("page_incomplete_gardee_peu_de_temps", async () => {
+  const gardes = new Map();
+  globalThis.caches.default.put = async (req, res) => { gardes.set(req.url, res.headers.get("Cache-Control") + (res.headers.get("X-Partiel") ? " partiel" : "")); store.set(req.url, await res.text()); };
+  const refuse = new Set();
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/discover/")) return new Response(JSON.stringify({ results: Array.from({ length: 20 }, (_, i) => ({ id: 100 + i, name: `S${i}`, first_air_date: "2020-01-01" })), page: 1, total_pages: 5 }));
+    const m = /\/tv\/(\d+)\?/.exec(u);
+    if (m && refuse.has(Number(m[1]))) return new Response("{}", { status: 429 });
+    if (m) return new Response(JSON.stringify({ id: Number(m[1]), external_ids: { imdb_id: `tt${m[1]}` } }));
+    return new Response(JSON.stringify({ results: [] }));
+  };
+  const page = (path) => get(path).then(async (r) => ({ cc: r.headers.get("Cache-Control"), n: (await r.json()).metas.length }));
+  // 1 fiche refusée sur 20 : page normale.
+  refuse.add(100);
+  assert.deepEqual(await page("/catalog/series/accueil-series-a-devorer.json"), { cc: "public, max-age=300", n: 20 });
+  assert.match([...gardes.values()][0], /max-age=10800$/);
+  // 5 sur 20 : page incomplète, 5 min dans le cache Cloudflare, 1 min dans Nuvio, même relue depuis le cache.
+  gardes.clear();
+  [101, 102, 103, 104].forEach((id) => refuse.add(id));
+  assert.deepEqual(await page("/catalog/series/accueil-series-a-devorer/skip=20.json"), { cc: "public, max-age=60", n: 20 });
+  assert.match([...gardes.values()][0], /max-age=300 partiel$/);
+});
+
 test("erreur_imprevue_reponse_propre", async () => {
   // Cache en panne : l'erreur remonte jusqu'en haut ; la réponse reste du JSON, jamais gardée, sans le détail.
   globalThis.caches = { default: { match: async () => { throw new Error("cache cassé https://x/?api_key=secret"); }, put: async () => {} } };

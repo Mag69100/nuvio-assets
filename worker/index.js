@@ -62,6 +62,7 @@ const NOISE_TV = ["10763", "10764", "10766", "10767"]; // actualité, téléréa
 
 const CACHE_CATALOG_S = 3 * 3600;  // une page de catalogue reste 3 h dans le cache Cloudflare
 const CACHE_CLIENT_S = 300;        // et 5 min seulement dans le cache de Nuvio
+const CACHE_DEGRADE_S = 300;       // page incomplète (fiches refusées par TMDB) : 5 min seulement
 const CACHE_IMDB_S = 30 * 86400;    // correspondance TMDB → IMDb : 30 jours
 
 // ---------- saisons ----------
@@ -284,10 +285,13 @@ async function extraInfo(env, kind, tmdbId) {
     // Plateformes (films) : en France = VF disponible, même sans date francophone (likelyVf).
     append_to_response: movie ? "release_dates,images,videos,watch/providers" : "external_ids,images,videos",
   });
-  // Sans réponse (limite d'appels de Cloudflare…) : le titre s'affiche quand même, sans ces infos.
+  // Sans réponse (limite d'appels de Cloudflare ou de TMDB…) : le titre s'affiche quand même, sans ces infos, et la
+  // page est marquée incomplète (rate). Un titre retiré de TMDB (404) n'y changera rien : pas compté.
+  let rate = false;
   const j = await fetch(url, { cf: { cacheTtl: 86400, cacheEverything: true } })
-    .then((res) => (res.ok ? res.json() : null), () => null);
-  if (!j) return { imdb: null };
+    .then((res) => { if (res.ok) return res.json(); rate = res.status !== 404; return null; })
+    .catch(() => { rate = true; return null; });
+  if (!j) return { imdb: null, rate };
   const logo = bestImage(j.images && j.images.logos, "fr");
   const backdrop = bestImage((j.images && j.images.backdrops || []).filter((b) => !b.iso_639_1), "fr");
   return {
@@ -535,6 +539,7 @@ async function toMetas(env, ctx, results, kind, opts, today) {
   if (!opts.search) prefetchProfiles(env, ctx, results, kind);
   // Infos déjà lues pour trier la page (Tendances) : pas un second appel par titre.
   const infos = await Promise.all(results.map((it) => (opts.infos && opts.infos.get(it.id)) || extraInfo(env, kind, it.id)));
+  if (opts.bilan) { opts.bilan.vus += infos.length; opts.bilan.rates += infos.filter((x) => x.rate).length; }
   const ids = infos.map((x) => x.imdb);
   // VF déjà trouvée par une fiche (Allociné + YouTube) : un seul appel pour toute la page, pas pendant
   // la recherche (son budget d'appels est compté au plus juste).
@@ -958,8 +963,17 @@ async function runSearch(env, type, query, page, opts, trace) {
 }
 
 async function catalog(env, ctx, type, id, extra, today, cfg) {
+  // Fiches TMDB de la page (extraInfo) et celles restées sans réponse (limite d'appels de TMDB, panne).
+  const bilan = { vus: 0, rates: 0 };
+  const metas = await catalogPage(env, ctx, type, id, extra, today, cfg, bilan);
+  // Plus d'une sur dix sans ses infos (IMDb, dates, logo, bande-annonce) : page incomplète, gardée 5 min seulement.
+  if (metas.length && bilan.rates > bilan.vus / 10) metas.degrade = true;
+  return metas;
+}
+
+async function catalogPage(env, ctx, type, id, extra, today, cfg, bilan) {
   const skip = Number(extra.skip || 0);
-  const opts = { cfg, ctx, lang: langOf(cfg), region: cfg.g, filtered: hasGlobalFilters(cfg) };
+  const opts = { cfg, ctx, lang: langOf(cfg), region: cfg.g, filtered: hasGlobalFilters(cfg), bilan };
   const search = SEARCH.find((c) => c.id === id && c.type === type);
   if (search) {
     const query = (extra.search || "").trim();
@@ -1981,7 +1995,8 @@ const app = {
     // La clé change aussi avec la photo des tendances (4 h UTC) : les rangées suivent les « N° » du jour.
     const cacheKey = new Request(`https://cache.local/c${CACHE_V}/${today}${path}?k=${await sha(contentKey(cfg))}${aiTag}&t=${jourTendances()}`);
     const hit = await caches.default.match(cacheKey);
-    if (hit) return new Response(hit.body, { headers: { ...HEADERS, "Cache-Control": `public, max-age=${CACHE_CLIENT_S}` } });
+    // Page gardée incomplète (X-Partiel) : Nuvio ne la garde qu'une minute.
+    if (hit) return new Response(hit.body, { headers: { ...HEADERS, "Cache-Control": `public, max-age=${hit.headers.get("X-Partiel") ? 60 : CACHE_CLIENT_S}` } });
 
     let metas = [];
     try {
@@ -1991,7 +2006,12 @@ const app = {
     }
     // Copie gardée côté Cloudflare quelques heures ; Nuvio, lui, ne garde la réponse
     // que 5 minutes (son cache disque respecte max-age), pour voir vite les changements.
-    if (metas.length && !metas.partial) ctx.waitUntil(caches.default.put(cacheKey, json({ metas }, CACHE_CATALOG_S)));
-    return json({ metas }, metas.partial ? 0 : CACHE_CLIENT_S);
+    // Page incomplète (TMDB a refusé des fiches) : gardée 5 minutes, pas 3 heures, pour vite retrouver la page entière.
+    if (metas.length && !metas.partial) {
+      const garde = json({ metas }, metas.degrade ? CACHE_DEGRADE_S : CACHE_CATALOG_S);
+      if (metas.degrade) garde.headers.set("X-Partiel", "1");
+      ctx.waitUntil(caches.default.put(cacheKey, garde));
+    }
+    return json({ metas }, metas.partial ? 0 : metas.degrade ? 60 : CACHE_CLIENT_S);
   },
 };

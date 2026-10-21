@@ -282,6 +282,8 @@ export const GALERIE_JS = `// ---------- La galerie des styles d'affiches (worke
     btn.textContent = label; btn.disabled = false; moi();
   });
   $("regie-galerie-btn").addEventListener("click", () => ouvre(!ouverte));
+  // Copie sans base D1 (ni liens fixes ni galerie) : pas de bouton.
+  if (!D.fixedOk) $("regie-galerie-btn").hidden = true;
   $("galerie-prec").addEventListener("click", () => { if (page > 1) { page--; charge(); } });
   $("galerie-suiv").addEventListener("click", () => { page++; charge(); });
   // Onglets Populaires / Nouveaux : clic, flèches gauche et droite (rôle tablist).

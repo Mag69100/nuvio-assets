@@ -5,6 +5,7 @@ import { makeHandler } from "../api/affiche.js";
 import { makeQualite } from "../api/qualite.js";
 import { makeTendances } from "../api/tendances.js";
 import { secondesAvantBascule } from "../lib/tendances.js";
+import { secondesAvantMinuitParis } from "../lib/jour.js";
 import { posterContent, contentKey } from "../lib/contenu.js";
 import { resetMemo as r1 } from "../lib/tmdb.js";
 import { resetMemo as r2 } from "../lib/notes.js";
@@ -45,7 +46,7 @@ function internet({ detail = json(film), torrentio } = {}) {
     if (u.includes("/trending/")) return json({ results: [] });
     if (u.includes("api.themoviedb.org") && (u.includes("/movie/") || u.includes("/tv/"))) return detail.clone();
     if (u.includes("image.tmdb.org")) return new Response(u.endsWith(".png") ? PNG : u.includes("/texte") ? TEXTE : JPG);
-    if (u.includes("imdb-ratings.bin")) return new Response("", { status: 404 });
+    if (u.includes("imdb-ratings.bin")) return new Response(new Uint8Array(4));   // fichier des notes IMDb, vide
     return new Response("?", { status: 404 });
   };
   f.calls = calls;
@@ -90,8 +91,9 @@ test("affiche OK", async () => {
   assert.equal(res.headers.get("Content-Type"), "image/jpeg");
   assert.match(res.headers.get("ETag"), /^"[0-9a-f]{40}"$/);
   assert.equal(res.headers.get("Cache-Control"), "public, max-age=604800");
-  // 3 jours au CDN : chaque affiche vue est redessinée au plus tous les 3 jours (limite de calcul gratuite).
-  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=259200, stale-while-revalidate=604800");
+  // 7 jours au CDN : chaque affiche vue est redessinée au plus une fois par semaine (limite de calcul gratuite) ;
+  // service en panne : l'ancienne resservie un jour de plus.
+  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=604800, stale-while-revalidate=604800, stale-if-error=86400");
   assert.equal((await sharp(Buffer.from(await res.arrayBuffer())).metadata()).width, 400);
 });
 
@@ -114,6 +116,27 @@ test("refusés sans appel TMDB", async () => {
     assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=3600");
     assert.equal(f.calls.length, 0, q);
   }
+});
+
+// Trop de dessins sur l'instance (liens au hasard) : l'affiche d'origine de TMDB, gardée 10 minutes, sans analyser
+// ni dessiner d'image ; le compte ne porte que sur les dessins (304 et redirections ne comptent pas).
+test("disjoncteur : affiche d'origine au-delà de la limite", async () => {
+  const GET = makeHandler({ fetchImpl: internet(), env: { ...env, RENDUS_MINUTE: "2" } });
+  for (let i = 0; i < 2; i++) assert.equal((await GET(req("type=movie&shape=poster&id=tt15239678"))).status, 200, `dessin ${i}`);
+  const f = internet();
+  const autre = makeHandler({ fetchImpl: f, env: { ...env, RENDUS_MINUTE: "2" } });
+  assert.equal((await autre(req("type=movie&shape=poster&id=tt15239678"))).status, 200, "chaque service a son compteur");
+  const res = await GET(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get("Location"), "https://image.tmdb.org/t/p/w500/fr.jpg");
+  assert.equal(res.headers.get("Cache-Control"), "public, max-age=600");
+  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=600");
+  const g = internet();
+  const sansDessin = makeHandler({ fetchImpl: g, env: { ...env, RENDUS_MINUTE: "1" } });
+  await sansDessin(req("type=movie&shape=poster&id=tt15239678"));
+  g.calls.length = 0;
+  assert.equal((await sansDessin(req("type=movie&shape=landscape&id=tt15239678"))).headers.get("Location"), "https://image.tmdb.org/t/p/w780/bd.jpg");
+  assert.ok(!g.calls.some((u) => u.includes("image.tmdb.org")), g.calls.join("\n"));
 });
 
 test("inconnu de TMDB : 404", async () => {
@@ -149,15 +172,59 @@ test("Torrentio lent : pas plus d'1 s d'attente, cache court", async () => {
   assert.equal(res.status, 200);
   assert.ok(Date.now() - t0 < 1500, `trop long : ${Date.now() - t0} ms`);
   assert.equal(res.headers.get("Cache-Control"), "public, max-age=3600");
-  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=600");
+  // Redessinée 10 min plus tard ; l'ancienne servie pendant qu'on la redessine.
+  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=600, stale-while-revalidate=3600");
 });
 
-test("Torrentio en échec : cache court, pour avoir le badge à la prochaine demande", async () => {
+// En échec (et pas seulement en retard) : cache normal sans badge. Le relais garde l'échec 30 min ; un cache court
+// ferait redessiner chaque affiche toutes les 10 minutes pendant toute la panne.
+test("Torrentio en échec : cache normal sans badge", async () => {
   const refus = async () => new Response("interdit", { status: 403 });
   const res = await makeHandler({ fetchImpl: internet({ torrentio: refus }), env })(req("type=movie&shape=poster&id=tt15239678"));
   assert.equal(res.status, 200);
-  assert.equal(res.headers.get("Cache-Control"), "public, max-age=3600");
-  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=600");
+  assert.equal(res.headers.get("Cache-Control"), "public, max-age=604800");
+  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=604800, stale-while-revalidate=604800, stale-if-error=86400");
+  // Relais injoignable (erreur, réponse vite) : pareil.
+  const base = internet();
+  const muet = async (url, opts) => (String(url).includes("/qualite/") ? new Response("", { status: 500 }) : base(url, opts));
+  const res2 = await makeHandler({ fetchImpl: muet, env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(res2.headers.get("Cache-Control"), "public, max-age=604800");
+});
+
+// Une donnée qui manque pour une panne passagère n'est jamais gardée des jours : cache court, puis l'affiche complète.
+const court = (res) => res.headers.get("Vercel-CDN-Cache-Control") === "max-age=600, stale-while-revalidate=3600";
+const avecPanne = (motif, reponse) => { const base = internet(); return async (url, opts) => (String(url).includes(motif) ? reponse(url, opts) : base(url, opts)); };
+
+test("fichier des notes IMDb illisible : note TMDB, cache court", async () => {
+  const res = await makeHandler({ fetchImpl: avecPanne("imdb-ratings.bin", () => new Response("", { status: 503 })), env })(req("type=movie&shape=poster&id=tt15239678&s=1.T0Q0"));
+  assert.equal(res.status, 200);
+  assert.ok(court(res), res.headers.get("Vercel-CDN-Cache-Control"));
+});
+
+// Instance qui démarre : le fichier des notes (8 s au pire) n'est pas attendu plus d'1,5 s ; la lecture continue.
+test("fichier des notes IMDb lent : pas attendu, cache court", async () => {
+  const t0 = Date.now();
+  const lent = () => new Promise((ok) => setTimeout(() => ok(new Response(new Uint8Array(4))), 2500));
+  const res = await makeHandler({ fetchImpl: avecPanne("imdb-ratings.bin", lent), env })(req("type=movie&shape=poster&id=tt15239678&s=1.T0Q0"));
+  assert.equal(res.status, 200);
+  assert.ok(Date.now() - t0 < 2300, `trop long : ${Date.now() - t0} ms`);
+  assert.ok(court(res), res.headers.get("Vercel-CDN-Cache-Control"));
+});
+
+test("photo des tendances illisible : sans N°, cache court", async () => {
+  const res = await makeHandler({ fetchImpl: avecPanne("/tendances/", () => new Response("", { status: 503 })), env })(req("type=movie&shape=poster&id=tt15239678&s=1.Q0"));
+  assert.equal(res.status, 200);
+  assert.ok(court(res), res.headers.get("Vercel-CDN-Cache-Control"));
+});
+
+test("image sans texte pas vérifiée (réseau) : cache court", async () => {
+  // Seule candidate pas vérifiée : l'affiche d'origine (rien d'autre à poser ici), mais pas pour une semaine.
+  const res = await makeHandler({ fetchImpl: avecPanne("/w342/", () => Promise.reject(new Error("réseau"))), env })(req("type=movie&shape=poster&id=tt15239678&s=1.Q0"));
+  assert.equal(res.status, 302);
+  assert.ok(court(res), res.headers.get("Vercel-CDN-Cache-Control"));
+  // Le réseau revenu, la même instance vérifie l'image (l'échec n'a pas été gardé) et dessine l'affiche avec son logo.
+  const ok = await makeHandler({ fetchImpl: internet(), env })(req("type=movie&shape=poster&id=tt15239678&s=1.Q0"));
+  assert.equal(ok.status, 200);
 });
 
 test("images téléchargées pendant qu'on attend Torrentio", async () => {
@@ -243,6 +310,8 @@ test("affiche classée : cache jusqu'au changement de photo", async () => {
     const s = secondesAvantBascule();
     assert.ok(Math.abs(age(res, "Cache-Control") - s) <= 2, res.headers.get("Cache-Control"));
     assert.ok(Math.abs(age(res, "Vercel-CDN-Cache-Control") - s) <= 2, res.headers.get("Vercel-CDN-Cache-Control"));
+    // Après le changement, la première demande reçoit encore l'ancienne pendant qu'on la redessine.
+    assert.match(res.headers.get("Vercel-CDN-Cache-Control"), /, stale-while-revalidate=3600, stale-if-error=86400$/);
   }
 });
 
@@ -256,14 +325,21 @@ test("presque classée sans rien à poser : redirection courte", async () => {
   assert.ok(age(res, "Vercel-CDN-Cache-Control") <= secondesAvantBascule());
 });
 
-// Le titre ne doit jamais manquer : logo introuvable sur une image sans texte → erreur (Nuvio montre
-// l'affiche d'origine), jamais une affiche sans nom gardée en cache.
-test("logo introuvable : 502 sans cache", async () => {
+// Le titre ne doit jamais manquer : logo introuvable sur une image sans texte → l'affiche d'origine de TMDB (avec son
+// titre), gardée une heure, jamais une affiche sans nom (une erreur 502 n'est jamais gardée : chaque demande redessinerait).
+test("logo introuvable : redirection vers l'affiche d'origine, gardée une heure", async () => {
   const base = internet();
   const f = async (url, opts) => (String(url).endsWith("/logo.png") ? new Response("non", { status: 404 }) : base(url, opts));
   const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678"));
-  assert.equal(res.status, 502);
-  assert.equal(res.headers.get("Cache-Control"), "no-store");
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get("Location"), "https://image.tmdb.org/t/p/w500/fr.jpg");
+  assert.equal(res.headers.get("Cache-Control"), "public, max-age=3600");
+  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=3600");
+  const avecFond = internet({ detail: json({ ...film, images: { ...film.images, backdrops: [{ iso_639_1: null, file_path: "/bdnu.jpg" }] } }) });
+  const g = async (url, opts) => (String(url).endsWith("/logo.png") ? new Response("non", { status: 404 }) : avecFond(url, opts));
+  const pays = await makeHandler({ fetchImpl: g, env })(req("type=movie&shape=landscape&id=tt15239678"));
+  assert.equal(pays.status, 302);
+  assert.equal(pays.headers.get("Location"), "https://image.tmdb.org/t/p/w780/bd.jpg");
 });
 
 // Lien bricolé (paramètre en trop, lettres dans le désordre ou inconnues, imdb qui contredit l'id) : redirigé
@@ -287,6 +363,9 @@ test("lien non canonique : redirection sans appel", async () => {
     const f = internet();
     const res = await makeHandler({ fetchImpl: f, env })(req(q));
     assert.equal(res.status, 308, q);
+    // Gardée 7 jours : la forme normale ne change qu'avec une mise en ligne (qui vide le cache).
+    assert.equal(res.headers.get("Cache-Control"), "public, max-age=604800", q);
+    assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=604800", q);
     const loc = new URL(res.headers.get("Location"), "https://affiches.test");
     assert.equal(decodeURIComponent(loc.pathname) + loc.search, cible, q);
     assert.equal(f.calls.length, 0, q);
@@ -314,10 +393,11 @@ const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 1
 const avecSorties = (...dates) => json({ ...film, release_dates: { results: [{ iso_3166_1: "FR", release_dates: dates.map(([type, d]) => ({ type, release_date: d })) }] } });
 
 test("statut_cache_court", async () => {
-  // Avec un statut (« Nouveau », une date…) : jusqu'au changement quotidien, dans l'appli comme au CDN.
+  // Avec un statut (« Nouveau », une date…) : jusqu'au changement quotidien (photo des tendances, ou minuit à
+  // Paris s'il vient avant), dans l'appli comme au CDN.
   const res = await makeHandler({ fetchImpl: internet({ detail: avecSorties([4, jour(-5)]) }), env })(req("type=movie&shape=poster&id=tt15239678"));
   assert.equal(res.status, 200);
-  const s = secondesAvantBascule();
+  const s = Math.min(secondesAvantBascule(), secondesAvantMinuitParis());
   assert.ok(Math.abs(age(res, "Cache-Control") - s) <= 2, res.headers.get("Cache-Control"));
   assert.ok(Math.abs(age(res, "Vercel-CDN-Cache-Control") - s) <= 2);
 });
@@ -373,12 +453,17 @@ test("v2_notes_seulement_si_demandees", async () => {
   assert.ok(base.calls.includes("https://affiches.test/notes/tt15239678.json"), base.calls.join("\n"));
 });
 
-test("v2_notes_en_echec_cache_court", async () => {
-  const base = internet();
-  const f = async (url, opts) => (String(url).includes("/notes/") ? new Response("", { status: 503 }) : base(url, opts));
-  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.Q0R1"));
-  assert.equal(res.status, 200);
-  assert.equal(res.headers.get("Cache-Control"), "public, max-age=3600");
+// Notes des autres sites en échec (MDBList en panne ou quota épuisé : le relais le garde une heure) : l'affiche part
+// sans elles, avec le cache normal (pas redessinée toutes les 10 minutes pendant la panne).
+test("v2_notes_en_echec_cache_normal", async () => {
+  for (const reponse of [() => json({ erreur: true }), () => new Response("", { status: 503 })]) {
+    r6();
+    const base = internet();
+    const f = async (url, opts) => (String(url).includes("/notes/") ? reponse() : base(url, opts));
+    const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.Q0R1"));
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("Cache-Control"), "public, max-age=604800");
+  }
 });
 
 test("v2_image_du_film_recadree_verifiee", async () => {

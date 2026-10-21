@@ -2,9 +2,11 @@
  * Qualité d'un titre (4K, puis DV ou HDR), lue dans les noms des flux de Torrentio, comme le fait
  * un addon de sources. Seulement la 4K : en dessous, pas de badge. Un échec ou un délai dépassé
  * donne null, et l'affiche part sans badge plutôt qu'avec un badge faux.
- * Sur Vercel, elle passe par le relais /qualite/… du service, gardé 3 jours par le cache de Vercel :
+ * Sur Vercel, elle passe par le relais /qualite/… du service, gardé un jour par le cache de Vercel :
  * ce qu'une instance a lu sert à toutes les autres (même badge partout, donc même ETag).
  */
+import { enteteRelais } from "./relais.js";
+
 export const TORRENTIO = "https://torrentio.strem.fun";
 const DELAI_MS = 2500;
 // Un jour : la VF lue dans les sources (statut des affiches) arrive vite après la sortie.
@@ -48,13 +50,14 @@ export async function lireTorrentio(video, fetchImpl = fetch) {
   } catch (e) { console.warn(`Torrentio injoignable pour ${video} : ${e && e.message}`); return null; }
 }
 
-async function lireRelais(relais, video, fetchImpl) {
+async function lireRelais(relais, video, fetchImpl, cle) {
   try {
     // ?v=3 : avec la VF des sources ; les réponses d'avant restent au CDN sous leurs anciennes adresses.
-    const res = await fetchImpl(`${relais}/qualite/${video}.json?v=3`, { signal: AbortSignal.timeout(DELAI_MS + 500) });
+    const res = await fetchImpl(`${relais}/qualite/${video}.json?v=3`, { headers: enteteRelais(cle), signal: AbortSignal.timeout(DELAI_MS + 500) });
     if (!res.ok) return null;
     const d = await res.json();
-    // Réponse gardée au CDN avant la qualité v2 : sans fhd, hdr10p ni atmos (lus false).
+    // Réponse gardée au CDN avant la qualité v2 : sans fhd, hdr10p ni atmos (lus false). { erreur: true } (Torrentio
+    // en panne) : null.
     return d && typeof d.uhd === "boolean"
       ? { uhd: d.uhd, extra: d.extra === "DV" || d.extra === "HDR" ? d.extra : null, fhd: d.fhd === true, hdr10p: d.hdr10p === true, atmos: d.atmos === true,
         vf: typeof d.vf === "boolean" ? d.vf : null, sources: Number.isInteger(d.sources) ? d.sources : null }
@@ -65,13 +68,14 @@ async function lireRelais(relais, video, fetchImpl) {
 /**
  * Qualité d'un film, ou d'une série (premier épisode de sa dernière saison) ; null si inconnue.
  * relais : adresse du service (sur Vercel) pour passer par son cache partagé ; sans relais, Torrentio directement.
+ * cle : RELAIS_KEY, envoyée au relais (lib/relais.js).
  */
-export async function qualityOf(type, imdbId, lastSeason, fetchImpl = fetch, relais = null) {
+export async function qualityOf(type, imdbId, lastSeason, fetchImpl = fetch, relais = null, cle = null) {
   if (!imdbId) return null;
   const video = type === "series" ? `series/${imdbId}:${lastSeason || 1}:1` : `movie/${imdbId}`;
   const now = Date.now(), hit = memo.get(video);
   if (hit && now < hit.until) return hit.promesse;
-  const entry = { promesse: relais ? lireRelais(relais, video, fetchImpl) : lireTorrentio(video, fetchImpl), until: now + GARDE_MS };
+  const entry = { promesse: relais ? lireRelais(relais, video, fetchImpl, cle) : lireTorrentio(video, fetchImpl), until: now + GARDE_MS };
   memo.delete(video);
   memo.set(video, entry);
   // Mémoire plafonnée : les entrées les plus anciennes sortent (une Map garde l'ordre d'arrivée).

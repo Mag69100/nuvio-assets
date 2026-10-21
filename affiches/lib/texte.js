@@ -87,23 +87,39 @@ export async function lignesDeTexte(image) {
 
 const IMG = "https://image.tmdb.org/t/p/w342";
 const DELAI_MS = 2500, MAX_MEMO = 5000;
-let memo = new Map();   // chemin TMDB → promesse de « a du texte » (true aussi si l'image n'a pas pu être lue)
+let memo = new Map();   // chemin TMDB → promesse de « a du texte » (true aussi pour une image absente ou illisible)
 export function resetMemo() { memo = new Map(); }
 
+/**
+ * Promesse de « a du texte » : true (aussi pour une image absente ou illisible : écartée), false, ou null si on n'a
+ * pas pu la lire (réseau, délai, TMDB en panne). null n'est pas gardé : on réessaiera à la demande suivante.
+ */
 function aDuTexte(chemin, fetchImpl) {
   if (!memo.has(chemin)) {
-    memo.set(chemin, fetchImpl(IMG + chemin, { signal: AbortSignal.timeout(DELAI_MS) })
-      .then(async (r) => (r.ok ? (await lignesDeTexte(Buffer.from(await r.arrayBuffer()))) > 0 : true))
-      .catch(() => true));
+    const verdict = fetchImpl(IMG + chemin, { signal: AbortSignal.timeout(DELAI_MS) })
+      .then(async (r) => {
+        if (!r.ok) return r.status >= 500 || r.status === 429 ? null : true;
+        const image = Buffer.from(await r.arrayBuffer());
+        try { return (await lignesDeTexte(image)) > 0; } catch { return true; }
+      })
+      .catch(() => null);
+    memo.set(chemin, verdict);
+    verdict.then((v) => { if (v === null && memo.get(chemin) === verdict) memo.delete(chemin); });
     // Mémoire plafonnée : les entrées les plus anciennes sortent (une Map garde l'ordre d'arrivée).
     while (memo.size > MAX_MEMO) memo.delete(memo.keys().next().value);
   }
   return memo.get(chemin);
 }
 
-/** La première image vraiment sans texte parmi les candidates (dans l'ordre de TMDB), ou null. */
-export async function sansTexte(chemins, fetchImpl = fetch) {
+/**
+ * { chemin : la première image vraiment sans texte parmi les candidates (dans l'ordre de TMDB), ou null ; incertain :
+ * une candidate d'avant n'a pas pu être lue (le choix peut changer : l'affiche prend alors le cache court) }.
+ */
+export async function choisirSansTexte(chemins, fetchImpl = fetch) {
   const verdicts = await Promise.all((chemins || []).map((c) => aDuTexte(c, fetchImpl)));
   const i = verdicts.indexOf(false);
-  return i < 0 ? null : chemins[i];
+  return { chemin: i < 0 ? null : chemins[i], incertain: verdicts.slice(0, i < 0 ? verdicts.length : i).includes(null) };
 }
+
+/** La première image vraiment sans texte parmi les candidates (dans l'ordre de TMDB), ou null. */
+export const sansTexte = (chemins, fetchImpl = fetch) => choisirSansTexte(chemins, fetchImpl).then((x) => x.chemin);

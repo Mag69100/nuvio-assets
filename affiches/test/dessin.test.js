@@ -572,4 +572,13 @@ test("titre_ecrit_sans_logo", async () => {
   }
   const paysage = await draw({ ...sans, shape: "landscape", image: "/large.jpg", titreTexte: "Un titre assez long pour deux lignes" }, f);
   assert.ok(await zoneTitre(paysage, [22, 250, 340, 170]) > 230, "titre pas écrit en paysage");
+  // titreInter (une lettre manque à la police choisie) : tout le titre en Inter, pas en Oswald.
+  const oswald = { ...sans, titreTexte: "Kış Uykusu", styles: { ...STYLES, police: "condensee" } };
+  assert.notDeepEqual(await draw({ ...oswald, titreInter: true }, f), await draw(oswald, f));
+});
+
+// La petite ligne en Inter quand la police choisie n'a pas toutes ses lettres.
+test("ligne2_en_inter", async () => {
+  const c = { ...base, line: null, line2: "Un film de Nuri Bilge Ceylan Ş", styles: { ...STYLES, police: "condensee" } };
+  assert.notDeepEqual(await draw({ ...c, ligne2Inter: true }, f), await draw(c, f));
 });

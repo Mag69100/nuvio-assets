@@ -38,7 +38,7 @@ test("relais_notes", async () => {
   const ok = await makeNotes({ fetchImpl: async () => json(MDB), env: { MDBLIST_API_KEY: "cle" } })(req("imdb=tt15239678"));
   assert.equal(ok.status, 200);
   assert.deepEqual(await ok.json(), { rt: 94, mc: 81, lb: 4.1 });
-  assert.equal(ok.headers.get("Vercel-CDN-Cache-Control"), "max-age=604800");
+  assert.equal(ok.headers.get("Vercel-CDN-Cache-Control"), "max-age=604800, stale-if-error=86400");
   assert.equal(ok.headers.get("Cache-Control"), "public, max-age=86400");
   assert.equal((await makeNotes({ fetchImpl: async () => json(MDB), env: { MDBLIST_API_KEY: "cle" } })(req("imdb=abc"))).status, 404);
   const sansCle = await makeNotes({ fetchImpl: async () => json(MDB), env: {} })(req("imdb=tt15239678"));
@@ -62,7 +62,8 @@ test("revue_mdblist_reponse_bizarre", async () => {
   assert.equal(await lireMdblist({ MDBLIST_API_KEY: "cle" }, "tt1", async () => json({ response: false, error: "limit" })), null);
 });
 
-// Revue : sans clé, le relais répond « aucune note » gardé 1 h (pas un échec en boucle) ; une panne est gardée 10 min au CDN.
+// Revue : sans clé, le relais répond « aucune note » gardé 1 h (pas un échec en boucle) ; une panne répond
+// { erreur: true } gardé 1 h (le CDN de Vercel ne garde jamais une 503), que les affiches lisent comme un échec.
 test("revue_relais_sans_cle_et_panne", async () => {
   const req = (q) => new Request("https://affiches.test/api/notes?" + q);
   const sansCle = await makeNotes({ fetchImpl: async () => json(MDB), env: {} })(req("imdb=tt15239678"));
@@ -70,6 +71,9 @@ test("revue_relais_sans_cle_et_panne", async () => {
   assert.deepEqual(await sansCle.json(), { rt: null, mc: null, lb: null });
   assert.equal(sansCle.headers.get("Vercel-CDN-Cache-Control"), "max-age=3600");
   const panne = await makeNotes({ fetchImpl: async () => json({}, 500), env: { MDBLIST_API_KEY: "cle" } })(req("imdb=tt15239678"));
-  assert.equal(panne.status, 503);
-  assert.equal(panne.headers.get("Vercel-CDN-Cache-Control"), "max-age=600");
+  assert.equal(panne.status, 200);
+  assert.deepEqual(await panne.json(), { erreur: true });
+  assert.equal(panne.headers.get("Cache-Control"), "public, max-age=3600");
+  assert.equal(panne.headers.get("Vercel-CDN-Cache-Control"), "max-age=3600");
+  assert.equal(await notesPlus("tt3", async () => json({ erreur: true }), "https://affiches.test"), null);
 });

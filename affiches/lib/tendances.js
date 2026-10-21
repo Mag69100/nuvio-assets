@@ -71,9 +71,16 @@ export function photoDuJour(env, type, fetchImpl = fetch, relais = null) {
 /** Les identifiants seuls de la photo du jour, ou null. */
 export const photoTendances = (env, type, fetchImpl = fetch, relais = null) => photoDuJour(env, type, fetchImpl, relais).then((p) => (p ? p.ids : null));
 
-/** Place (1 à 60) du titre sur la photo du jour, ou null (absent, ou photo illisible). */
-export async function trendingRank(env, type, tmdbId, fetchImpl = fetch, relais = null) {
+/**
+ * { rang : place (1 à 60) du titre sur la photo du jour, ou null ; illisible : pas de photo (relais et addon
+ * injoignables) — l'affiche part sans N°, avec le cache court, pour le prendre ensuite }.
+ */
+export async function lireRang(env, type, tmdbId, fetchImpl = fetch, relais = null) {
   const ids = await photoTendances(env, type, fetchImpl, relais);
-  const i = ids ? ids.indexOf(tmdbId) : -1;
-  return i < 0 ? null : i + 1;
+  if (!ids) return { rang: null, illisible: true };
+  const i = ids.indexOf(tmdbId);
+  return { rang: i < 0 ? null : i + 1, illisible: false };
 }
+
+/** Place (1 à 60) du titre sur la photo du jour, ou null (absent, ou photo illisible). */
+export const trendingRank = (env, type, tmdbId, fetchImpl = fetch, relais = null) => lireRang(env, type, tmdbId, fetchImpl, relais).then((r) => r.rang);

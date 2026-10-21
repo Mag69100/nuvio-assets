@@ -24,7 +24,7 @@ const CHOIX = {
   "note.on": [true, false], "note.source": ["imdb", "tmdb"], "note.style": ["etoile", "nu", "grand", "badge"],
   "genre.on": [true, false], "genre.forme": ["court", "complet"], "annee.on": [true, false], "age.on": [true, false],
   "texte.taille": [0.7, 0.95, 1, 1.1, 1.4], "texte.sep": ["point", "barre", "puce"], "texte.haut": [0.6, 1, 1.15, 1.4],
-  "texte.police": ["inter", "bebas"],
+  "texte.police": ["inter", "bebas", "elegante", "arrondie", "condensee"],
   "fondu.on": [true, false], "fondu.couleur": ["noir", "affiche"], "fondu.force": ["s", "m", "l"], "fondu.flou": [false, true],
   "fondu.hauteur": ["court", "normal", "long"],
   "titre.langue": ["fr", "en", "vo"], "titre.monte": [0, 0.05, 0.3], "titre.large": [0.6, 1, 1.4],
@@ -35,6 +35,12 @@ const CHOIX = {
   "haut.opacite": ["s", "m", "l"], "haut.couleur": ["blanc", "or", "noir"],
   "bandeau.on": [false, true], "bandeau.porte": ["statut", "tendance"], "bandeau.coin": ["d", "g"],
   "image.source": ["sanstexte", "officielle", "fond"],
+  "ambiance.accentC": ["", "0", "k", "z"], "texte.couleur": ["", "3", "q"], "haut.fond": ["", "a", "7"], "fondu.teinte": ["", "b", "x"],
+  "image.lum": [0.7, 1, 1.3], "image.contraste": [0.85, 1, 1.15], "image.satur": [0, 1, 1.6], "image.filtre": ["aucun", "nb", "sepia", "froid", "chaud"],
+  "image.grain": [false, true], "image.cadre": ["aucun", "blanc", "or", "couleur"], "image.cadreC": ["", "5"],
+  "texte.casse": ["normal", "maj"], "texte.espace": ["normal", "aere", "tresaere"], "texte.ombre": ["normale", "aucune", "forte"],
+  "titre.effet": ["aucun", "ombre", "halo"], "infos.ligne2": ["aucune", "realisateur", "accroche", "studio"], "infos.culte": [false, true],
+  "statut.episode": [false, true], "statut.forme": ["date", "compte"], "haut.coinStatut": ["auto", "hg", "hd", "bg", "bd"], "haut.coinQualite": ["auto", "hg", "hd", "bg", "bd"],
   "ambiance.voile": ["0", "s", "m", "l"], "ambiance.vignette": [false, true], "ambiance.accent": ["or", "blanc", "rouge", "bleu", "affiche"],
   "sortie.nb": [true, false], "sortie.cacherNote": [true, false],
 };
@@ -181,4 +187,34 @@ test("revue_codes_sans_effet", () => {
   assert.equal(ecrit("s=1.Zr"), "Zr");                  // l'étoile de la note l'utilise
   // La taille des badges vaut aussi pour la plateforme en coin.
   assert.equal(ecrit("s=1.S0T0Q0P1vczq"), "S0T0Q0P1vczq");
+});
+
+// Régie v3 : codes de 3 caractères (clé chiffre + lettre, puis la valeur), à côté des codes de 2 caractères.
+test("regie_v3_codes", () => {
+  const x = lire("s=1.0az0bq1am1bm1co1dn1e11fc1g5wc2am2bt2cf2dh3ar3b13c13dc3e43f1");
+  assert.deepEqual([x.ambiance.accentC, x.texte.couleur, x.image.lum, x.image.contraste, x.image.satur], ["z", "q", 1.3, 1.3, 1.4]);
+  assert.deepEqual([x.image.filtre, x.image.grain, x.image.cadre, x.image.cadreC], ["nb", true, "couleur", "5"]);
+  assert.deepEqual([x.texte.police, x.texte.casse, x.texte.espace, x.texte.ombre, x.titre.effet], ["condensee", "maj", "tresaere", "forte", "halo"]);
+  assert.deepEqual([x.infos.ligne2, x.infos.culte, x.statut.episode, x.statut.forme, x.haut.coinStatut, x.haut.coinQualite], ["realisateur", true, true, "compte", "bd", "hg"]);
+  // Écrit puis relu : identique ; dans le désordre : même lien.
+  const s1 = ecrit("s=1.0az0bq1am1bm1co1dn1e11fc1g5wc2am2bt2cf2dh3ar3b13c13dc3e43f1");
+  assert.equal(ecrit("s=1." + s1), s1);
+  assert.equal(ecrit("s=1.3f13e42dh1g51fc0bq"), ecrit("s=1.0bq1fc1g52dh3e43f1"));
+  // Valeur inconnue, code tronqué ou clé inconnue : ignorés.
+  assert.equal(ecrit("s=1.0a!"), "");
+  assert.equal(ecrit("s=1.T00a"), "T0");
+  assert.equal(ecrit("s=1.0qzT0"), "T0");
+  // Sans effet : cadre de couleur sans cadre « couleur », fond des badges sans style plein, teinte du fondu sans fondu.
+  assert.equal(ecrit("s=1.1g5"), "");
+  assert.equal(ecrit("s=1.0ca"), "");
+  assert.equal(ecrit("s=1.F00db"), "F0");
+  assert.equal(ecrit("s=1.S03c13dc"), "S0");
+});
+
+test("nuancier_et_echelles", async () => {
+  const { PALETTE, RETOUCHES, SATURATIONS } = await import("../worker/lien-affiches.js");
+  assert.equal(Object.keys(PALETTE).length, 36);
+  for (const c of Object.values(PALETTE)) assert.match(c, /^#[0-9a-f]{6}$/);
+  assert.equal(RETOUCHES.g, 1);
+  assert.equal(SATURATIONS.k, 1);
 });

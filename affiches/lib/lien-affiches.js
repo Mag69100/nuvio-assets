@@ -13,13 +13,13 @@ export function creerLienAffiches() {
   const copie = (r) => JSON.parse(JSON.stringify(r));
 
   const DEFAUT_REGLAGES = geler({
-    statut: { on: true, style: "texte" },
+    statut: { on: true, style: "texte", episode: false, forme: "date" },
     tendance: { on: true, style: "fleche" },
     qualite: { on: true, montrer: "plus", style: "texte" },
     // Badges du haut : « auto » = le style propre à chaque badge (ci-dessus) ; sinon un style commun.
-    haut: { inverse: false, style: "auto", forme: "arrondi", opacite: "l", couleur: "blanc" },
+    haut: { inverse: false, style: "auto", forme: "arrondi", opacite: "l", couleur: "blanc", fond: "", coinStatut: "auto", coinQualite: "auto" },
     bandeau: { on: false, porte: "statut", coin: "d" },
-    titre: { on: true, taille: 1, place: "auto", langue: "fr", monte: 0, large: 1 },
+    titre: { on: true, taille: 1, place: "auto", langue: "fr", monte: 0, large: 1, effet: "aucun" },
     note: { on: true, source: "imdb", style: "etoile", rt: false, mc: false, lb: false, couleur: "non" },
     genre: { on: true, forme: "court" },
     annee: { on: true },
@@ -27,10 +27,11 @@ export function creerLienAffiches() {
     age: { on: false },
     plateforme: { on: false, place: "ligne" },
     ligne: { ordre: "gna", barre: "aucune" },
-    texte: { taille: 1, sep: "point", haut: 1, police: "inter" },
-    image: { source: "sanstexte" },
-    fondu: { on: true, couleur: "noir", force: "m", flou: false, hauteur: "normal" },
-    ambiance: { voile: "m", vignette: false, accent: "or" },
+    texte: { taille: 1, sep: "point", haut: 1, police: "inter", couleur: "", casse: "normal", espace: "normal", ombre: "normale" },
+    infos: { ligne2: "aucune", culte: false },
+    image: { source: "sanstexte", lum: 1, contraste: 1, satur: 1, filtre: "aucun", grain: false, cadre: "aucun", cadreC: "" },
+    fondu: { on: true, couleur: "noir", force: "m", flou: false, hauteur: "normal", teinte: "" },
+    ambiance: { voile: "m", vignette: false, accent: "or", accentC: "" },
     sortie: { nb: true, cacherNote: true },
   });
 
@@ -39,6 +40,23 @@ export function creerLienAffiches() {
   const cranDe = (v) => Object.keys(TAILLES).reduce((a, c) => (Math.abs(TAILLES[c] - v) < Math.abs(TAILLES[a] - v) ? c : a));
   // Hauteur du titre : remonté de 0 à 30 % de la hauteur de l'image, par pas de 5 %.
   const MONTEES = Object.freeze({ a: 0, b: 0.05, c: 0.1, d: 0.15, e: 0.2, f: 0.25, g: 0.3 });
+  // Retouches de l'image : luminosité et contraste de 70 à 130 % (g = 100 %), saturation de 0 à 160 % (k = 100 %).
+  const RETOUCHES = Object.freeze(Object.fromEntries([..."abcdefghijklm"].map((c, i) => [c, Math.round(70 + i * 5) / 100])));
+  const SATURATIONS = Object.freeze(Object.fromEntries([..."abcdefghijklmnopq"].map((c, i) => [c, i / 10])));
+  // Nuancier : 36 couleurs, une par caractère (0–9, a–z) : blancs et gris, ors et oranges, rouges et roses,
+  // violets et bleus, cyans et verts, bruns et crèmes.
+  const PALETTE = Object.freeze(Object.fromEntries([..."0123456789abcdefghijklmnopqrstuvwxyz"].map((c, i) => [c, [
+    "#ffffff", "#e6e6e6", "#b3b3b3", "#7a7a7a", "#3d3d3d", "#000000",
+    "#fff3b0", "#f5c518", "#e8a33d", "#ff8a00", "#d9661f", "#a8541b",
+    "#ffb3c1", "#ff5c8a", "#e5484d", "#c21f3a", "#8e1b2e", "#5c1020",
+    "#d7c4ff", "#a970ff", "#6e3cc4", "#4c9aff", "#1f5fd1", "#14306e",
+    "#a8f0ff", "#26c6da", "#00897b", "#46c46e", "#2e8b3d", "#1b4d2a",
+    "#f3ead7", "#e0c9a6", "#b8946a", "#8a6a4c", "#5b4031", "#2e1f17",
+  ][i]])));
+  /** Le cran le plus proche dans une échelle de nombres. */
+  const procheDe = (echelle, v) => Object.keys(echelle).reduce((a, c) => (Math.abs(echelle[c] - v) < Math.abs(echelle[a] - v) ? c : a));
+  const ECHELLES = [TAILLES, RETOUCHES, SATURATIONS];
+  const COULEUR = Object.freeze(Object.fromEntries(Object.keys(PALETTE).map((c) => [c, c])));
 
   // Chaque code : [lettre, voie, champ, { caractère: valeur }, quand l'écrire]. L'ordre du tableau est l'ordre du lien.
   const titreOn = (r) => r.titre.on;
@@ -46,6 +64,10 @@ export function creerLienAffiches() {
   // Un badge en haut (statut, tendance, qualité, ou la plateforme en coin) : les réglages des badges servent.
   const hautOn = (r) => r.statut.on || r.tendance.on || r.qualite.on || (r.plateforme.on && r.plateforme.place === "coin");
   const styleCommun = (r) => hautOn(r) && r.haut.style !== "auto";
+  // Du texte est écrit sur l'affiche (ligne du bas ou badges) : casse, espacement et ombre servent.
+  const texteOn = (r) => r.titre.on || hautOn(r) || r.infos.culte;
+  // Coins des blocs du haut : 1 haut gauche, 2 haut droite, 3 bas gauche, 4 bas droite.
+  const COINS = Object.freeze({ 1: "hg", 2: "hd", 3: "bg", 4: "bd" });
   // La couleur d'accent sert à l'étoile, à la flèche ou au ruban de tendance, au bandeau, à la barre fine, au texte « accent » des badges.
   const accentOn = (r) => r.tendance.on || (r.bandeau.on && (r.statut.on || r.tendance.on))
     || (r.titre.on && ((r.note.on && r.note.style === "etoile") || r.ligne.barre === "fine")) || (styleCommun(r) && r.haut.couleur === "or");
@@ -90,7 +112,7 @@ export function creerLienAffiches() {
     ["x", "texte", "taille", TAILLES, titreOn],
     ["p", "texte", "sep", { b: "barre", u: "puce" }, titreOn],
     ["z", "texte", "haut", TAILLES, hautOn],
-    ["w", "texte", "police", { b: "bebas" }, (r) => r.titre.on || r.statut.on || r.tendance.on || r.qualite.on],
+    ["w", "texte", "police", { b: "bebas", e: "elegante", r: "arrondie", c: "condensee" }, (r) => r.titre.on || r.statut.on || r.tendance.on || r.qualite.on],
     ["F", "fondu", "on", { 0: false }, titreOn],
     ["f", "fondu", "couleur", { a: "affiche" }, (r) => r.titre.on && r.fondu.on],
     ["i", "fondu", "force", { s: "s", l: "l" }, (r) => r.titre.on && r.fondu.on],
@@ -102,6 +124,28 @@ export function creerLienAffiches() {
     ["Z", "ambiance", "accent", { b: "blanc", r: "rouge", u: "bleu", a: "affiche" }, accentOn],
     ["B", "sortie", "nb", { 0: false }],
     ["h", "sortie", "cacherNote", { 0: false }, (r) => r.titre.on && r.note.on],
+    // Régie v3 : clés de 2 caractères (un chiffre de 0 à 3, une lettre) et une valeur d'un caractère.
+    ["0a", "ambiance", "accentC", COULEUR, accentOn],
+    ["0b", "texte", "couleur", COULEUR, titreOn],
+    ["0c", "haut", "fond", COULEUR, (r) => styleCommun(r) && r.haut.style === "plein"],
+    ["0d", "fondu", "teinte", COULEUR, (r) => r.titre.on && r.fondu.on],
+    ["1a", "image", "lum", RETOUCHES],
+    ["1b", "image", "contraste", RETOUCHES],
+    ["1c", "image", "satur", SATURATIONS],
+    ["1d", "image", "filtre", { n: "nb", s: "sepia", f: "froid", c: "chaud" }],
+    ["1e", "image", "grain", { 1: true }],
+    ["1f", "image", "cadre", { b: "blanc", o: "or", c: "couleur" }],
+    ["1g", "image", "cadreC", COULEUR, (r) => r.image.cadre === "couleur"],
+    ["2a", "texte", "casse", { m: "maj" }, texteOn],
+    ["2b", "texte", "espace", { a: "aere", t: "tresaere" }, texteOn],
+    ["2c", "texte", "ombre", { 0: "aucune", f: "forte" }, texteOn],
+    ["2d", "titre", "effet", { o: "ombre", h: "halo" }, titreOn],
+    ["3a", "infos", "ligne2", { r: "realisateur", a: "accroche", s: "studio" }, titreOn],
+    ["3b", "infos", "culte", { 1: true }],
+    ["3c", "statut", "episode", { 1: true }, (r) => r.statut.on],
+    ["3d", "statut", "forme", { c: "compte" }, (r) => r.statut.on],
+    ["3e", "haut", "coinStatut", COINS, (r) => r.statut.on || r.tendance.on || r.infos.culte],
+    ["3f", "haut", "coinQualite", COINS, (r) => r.qualite.on || (r.plateforme.on && r.plateforme.place === "coin")],
   ];
 
   /** Les styles tout prêts de la régie (« mémoires »). */
@@ -135,8 +179,8 @@ export function creerLienAffiches() {
     for (const [lettre, voie, champ, valeurs, quand] of CODES) {
       if (quand && !quand(r)) continue;
       const v = r[voie][champ];
-      // Une taille est ramenée au cran le plus proche ; au cran de 100 %, c'est le défaut.
-      const car = valeurs === TAILLES ? cranDe(Number(v) || 1) : Object.keys(valeurs).find((k) => valeurs[k] === v);
+      // Une taille ou une retouche est ramenée au cran le plus proche ; au cran de 100 %, c'est le défaut.
+      const car = ECHELLES.includes(valeurs) ? procheDe(valeurs, Number.isFinite(Number(v)) ? Number(v) : 1) : Object.keys(valeurs).find((k) => valeurs[k] === v);
       if (car === undefined || valeurs[car] === DEFAUT_REGLAGES[voie][champ]) continue;
       s += lettre + car;
     }
@@ -150,9 +194,13 @@ export function creerLienAffiches() {
     if (s !== null) {
       if (!s.startsWith("1.")) return r;
       const codes = s.slice(2);
-      for (let i = 0; i + 1 < codes.length; i += 2) {
-        const code = CODES.find((c) => c[0] === codes[i]);
-        if (code && Object.prototype.hasOwnProperty.call(code[3], codes[i + 1])) r[code[1]][code[2]] = code[3][codes[i + 1]];
+      for (let i = 0; i + 1 < codes.length;) {
+        // Clé v3 (0a, 1c…) : 2 caractères de clé ; sinon 1. Puis la valeur, d'un caractère.
+        const long = /[0-3]/.test(codes[i]) ? 2 : 1, cle = codes.slice(i, i + long), car = codes[i + long];
+        i += long + 1;
+        if (car === undefined) break;
+        const code = CODES.find((c) => c[0] === cle);
+        if (code && Object.prototype.hasOwnProperty.call(code[3], car)) r[code[1]][code[2]] = code[3][car];
       }
       return r;
     }
@@ -186,7 +234,7 @@ export function creerLienAffiches() {
     return Object.keys(MEMOIRES).find((nom) => ecrireReglages(MEMOIRES[nom]) === s) || null;
   }
 
-  return { DEFAUT_REGLAGES, TAILLES, MONTEES, MEMOIRES, ecrireReglages, lireReglages, lireReglagesPaysage, lienAffiches, memoireDe };
+  return { DEFAUT_REGLAGES, TAILLES, MONTEES, RETOUCHES, SATURATIONS, PALETTE, MEMOIRES, ecrireReglages, lireReglages, lireReglagesPaysage, lienAffiches, memoireDe };
 }
 
-export const { DEFAUT_REGLAGES, TAILLES, MONTEES, MEMOIRES, ecrireReglages, lireReglages, lireReglagesPaysage, lienAffiches, memoireDe } = creerLienAffiches();
+export const { DEFAUT_REGLAGES, TAILLES, MONTEES, RETOUCHES, SATURATIONS, PALETTE, MEMOIRES, ecrireReglages, lireReglages, lireReglagesPaysage, lienAffiches, memoireDe } = creerLienAffiches();

@@ -71,6 +71,20 @@ test("cles_de_cache_sans_la_version", async () => {
   for (const k of cles) assert.ok(!k.includes(version), k);
 });
 
+// Survol d'une affiche dans l'aperçu du site (?leger=1) : l'IA relit son cache, jamais d'appel à Gemini.
+test("fiche_legere_sans_appel_gemini", async () => {
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    if (/\/movie\/7\b/.test(String(url))) return new Response(JSON.stringify({ id: 7, title: "Film", imdb_id: "tt0000007", overview: "…" }));
+    return new Response(JSON.stringify({}));
+  };
+  const avecCle = `/${Buffer.from(JSON.stringify({ k: "AIzaSyCleDeTest0123456789abcdefghijkl" })).toString("base64url")}`;
+  await get(`${avecCle}/meta/movie/tmdb:7.json?leger=1`);
+  assert.ok(!calls.some((u) => u.includes("generativelanguage")), "Gemini appelé pour une fiche légère");
+  await get(`${avecCle}/meta/movie/tmdb:7.json`);
+  assert.ok(calls.some((u) => u.includes("generativelanguage")), "fiche complète : Gemini pas appelé");
+});
+
 test("erreur_imprevue_reponse_propre", async () => {
   // Cache en panne : l'erreur remonte jusqu'en haut ; la réponse reste du JSON, jamais gardée, sans le détail.
   globalThis.caches = { default: { match: async () => { throw new Error("cache cassé https://x/?api_key=secret"); }, put: async () => {} } };

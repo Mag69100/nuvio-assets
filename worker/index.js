@@ -1177,6 +1177,9 @@ function catalogTrailers(trailers, vf) {
 const person = (p) => ({ name: p.name, character: p.character || p.job || undefined, photo: p.profile_path ? `${IMG}w185${p.profile_path}` : undefined, tmdbId: p.id });
 
 async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
+  // Fiche « légère » (survol dans l'aperçu du site) : sans clé Gemini, l'IA ne fait que relire son cache
+  // (« pour qui », rappel déjà écrits), pour ne pas dépenser le quota à chaque affiche survolée.
+  if (opts.leger) env = { ...env, GEMINI_API_KEY: "" };
   const tmdbId = await tmdbIdOf(env, kind, id);
   if (!tmdbId) return null;
   const lang = langOf(cfg);
@@ -1266,10 +1269,8 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
   // Lignes écrites par l'IA, lancées dès que possible, pendant que le reste de la fiche se construit :
   // « pour qui » et saison commandée n'ont besoin que de la fiche TMDB ; le rappel part dès que la
   // saga ou les épisodes sont connus. L'attente maximale compte à partir d'ici.
-  // Sans clé Gemini, « pour qui » et le rappel sont seulement relus dans le cache (écrits pour un autre).
-  // Fiche « légère » (survol dans l'aperçu du site) : sans les lignes écrites par Gemini, pour ne pas
-  // dépenser le quota à chaque affiche survolée.
-  const ai = !!env.GEMINI_API_KEY && !opts.leger;
+  // Sans clé Gemini (ou fiche légère), « pour qui » et le rappel sont seulement relus dans le cache.
+  const ai = !!env.GEMINI_API_KEY;
   const aiWait = new Promise((res) => setTimeout(() => res("attente"), FICHE_AI_WAIT_MS));
   const ask = (job) => (job ? Promise.race([job, aiWait]) : null);
   const profileJob = ask(aiProfile(env, ctx, `${movie ? "movie" : "tv"}-${d.id}`, profilePrompt(d, movie, keywords, cert)));

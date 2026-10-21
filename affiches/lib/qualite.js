@@ -83,3 +83,16 @@ export async function qualityOf(type, imdbId, lastSeason, fetchImpl = fetch, rel
   entry.promesse.then((q) => { if (!q) entry.until = Date.now() + GARDE_ECHEC_MS; });
   return entry.promesse;
 }
+
+/**
+ * Qualité déjà connue seulement : la mémoire de l'instance, sinon le relais sans clé (une réponse déjà au CDN passe,
+ * une adresse nouvelle est refusée). Jamais Torrentio, et rien n'est gardé en mémoire : un « inconnu » lu ainsi ne
+ * doit pas répondre plus tard à la place d'une vraie lecture avec la clé.
+ */
+export async function qualiteConnue(type, imdbId, lastSeason, fetchImpl = fetch, relais) {
+  if (!imdbId || !relais) return null;
+  const video = type === "series" ? `series/${imdbId}:${lastSeason || 1}:1` : `movie/${imdbId}`;
+  const hit = memo.get(video);
+  if (hit && Date.now() < hit.until) return hit.promesse;
+  return lireRelais(relais, video, fetchImpl, null);
+}

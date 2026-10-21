@@ -47,14 +47,37 @@ test("relais_proteges_par_la_cle", async () => {
   assert.equal(mdb.calls.length, 0);
   assert.equal((await notes(new Request("https://affiches.test/api/notes?imdb=tt1", { headers: avecCle }))).status, 200);
 
-  // /vf.json : refusé sans la clé ; avec, chaque titre est lu au relais /qualite/ avec la clé.
+  // /vf.json avec la clé : chaque titre est lu au relais /qualite/ avec la clé.
   const relais = enEcoute(() => json({ uhd: false, extra: null, vf: true, sources: 3 }));
   const vf = makeVf({ fetchImpl: relais, env: CLE });
-  assert.equal((await vf(new Request("https://affiches.test/api/vf?v=movie/tt1"))).status, 403);
-  assert.equal(relais.calls.length, 0);
   const ok = await vf(new Request("https://affiches.test/api/vf?v=movie/tt1", { headers: avecCle }));
   assert.deepEqual(await ok.json(), { "movie/tt1": { vf: true, sources: 3 } });
   assert.deepEqual(relais.calls, [["https://affiches.test/qualite/movie/tt1.json?v=3", avecCle]]);
+});
+
+// /vf.json sans la clé (copies auto-hébergées) : seulement ce qui est déjà connu, jamais Torrentio. Le relais
+// /qualite/ est appelé sans clé (CDN : réponse ; adresse nouvelle : 403) ; une réponse à trous n'est pas gardée,
+// et l'« inconnu » ne reste pas en mémoire pour la lecture suivante avec la clé.
+test("vf_sans_cle_lit_seulement_le_connu", async () => {
+  const relais = enEcoute(() => null);
+  const f = async (u, opts = {}) => {
+    relais.calls.push([String(u), opts.headers || {}]);
+    if (String(u).includes("/qualite/movie/tt1.json")) return json({ uhd: false, extra: null, vf: true, sources: 3 });
+    if (!(opts.headers || {})[ENTETE_RELAIS]) return new Response(null, { status: 403 });
+    return json({ uhd: false, extra: null, vf: false, sources: 9 });
+  };
+  const vf = makeVf({ fetchImpl: f, env: CLE });
+  const partiel = await vf(new Request("https://affiches.test/api/vf?v=movie/tt1,movie/tt2"));
+  assert.equal(partiel.status, 200);
+  assert.deepEqual(await partiel.json(), { "movie/tt1": { vf: true, sources: 3 }, "movie/tt2": null });
+  assert.equal(partiel.headers.get("Vercel-CDN-Cache-Control"), "no-store");
+  assert.ok(relais.calls.every(([u, h]) => u.includes("/qualite/") && !h[ENTETE_RELAIS]), "ni Torrentio ni clé");
+  // Tout connu : gardé normalement.
+  const complet = await vf(new Request("https://affiches.test/api/vf?v=movie/tt1"));
+  assert.equal(complet.headers.get("Vercel-CDN-Cache-Control"), "max-age=3600");
+  // L'addon, avec la clé, lit ensuite tt2 pour de vrai (l'inconnu d'avant n'est pas resté en mémoire).
+  const avec = await vf(new Request("https://affiches.test/api/vf?v=movie/tt2", { headers: avecCle }));
+  assert.deepEqual(await avec.json(), { "movie/tt2": { vf: false, sources: 9 } });
 });
 
 test("le_service_envoie_la_cle_a_ses_relais", async () => {

@@ -1379,16 +1379,20 @@ function qrOuvre(ouvert) {
 }
 
 // ---- Les contrôles ----
+// data-cle : de quoi retrouver un bouton après une reconstruction (focus). Préfixée par l'élément en cours de
+// dessin (« statut/Style:texte » et « qualite/Style:texte » ne se confondent plus).
+let prefixeCle = "";
+const cleDe = (s) => (prefixeCle ? prefixeCle + "/" : "") + s;
 function choix(titre, options, actuel, choisir) {
   const d = el("div", { class: "choix" }, el("span", { text: titre }));
   const puces = el("div", { class: "puces" });
-  options.forEach(([val, txt]) => puces.append(el("button", { type: "button", text: txt, "data-cle": titre + ":" + String(val), "aria-pressed": String(val === actuel), onclick: () => choisir(val) })));
+  options.forEach(([val, txt]) => puces.append(el("button", { type: "button", text: txt, "data-cle": cleDe(titre + ":" + String(val)), "aria-pressed": String(val === actuel), onclick: () => choisir(val) })));
   d.append(puces);
   return d;
 }
 function curseur(titre, val, regler, min = 60, max = 140, pas = 5) {
   const out = el("output", { text: Math.round(val * 100) + " %" });
-  const input = el("input", { type: "range", min: String(min), max: String(max), step: String(pas), value: String(Math.round(val * 100)), "aria-label": titre, "data-cle": "curseur:" + titre });
+  const input = el("input", { type: "range", min: String(min), max: String(max), step: String(pas), value: String(Math.round(val * 100)), "aria-label": titre, "data-cle": cleDe("curseur:" + titre) });
   // Partie remplie de la piste (dessinée en CSS jusqu'au bouton).
   const remplir = () => input.style.setProperty("--rempli", ((Number(input.value) - min) / (max - min)) * 100 + "%");
   remplir();
@@ -1398,8 +1402,8 @@ function curseur(titre, val, regler, min = 60, max = 140, pas = 5) {
 /** Nuancier : une pastille par couleur, plus « Par défaut » (la couleur d'origine de l'élément). */
 function nuancier(titre, actuel, choisir) {
   const grille = el("div", { class: "nuancier", role: "group", "aria-label": titre });
-  grille.append(el("button", { type: "button", class: "defaut", "aria-pressed": String(!actuel), "aria-label": "Par défaut", title: "Par défaut", "data-cle": titre + ":defaut", onclick: () => choisir("") }));
-  COULEURS.forEach((c, i) => grille.append(el("button", { type: "button", style: "background:" + LA.PALETTE[c], "aria-pressed": String(actuel === c), "aria-label": NOMS_COULEURS[i], title: NOMS_COULEURS[i], "data-cle": titre + ":" + c, onclick: () => choisir(c) })));
+  grille.append(el("button", { type: "button", class: "defaut", "aria-pressed": String(!actuel), "aria-label": "Par défaut", title: "Par défaut", "data-cle": cleDe(titre + ":defaut"), onclick: () => choisir("") }));
+  COULEURS.forEach((c, i) => grille.append(el("button", { type: "button", style: "background:" + LA.PALETTE[c], "aria-pressed": String(actuel === c), "aria-label": NOMS_COULEURS[i], title: NOMS_COULEURS[i], "data-cle": cleDe(titre + ":" + c), onclick: () => choisir(c) })));
   return grille;
 }
 const aide = (text) => el("p", { class: "regie-note", text });
@@ -1469,7 +1473,7 @@ function carteDe(v) {
       principal: () => {
         const autres = ["rt", "mc", "lb"].filter((k) => r.note[k]).length;
         const sites = el("div", { class: "choix" }, el("span", { text: "Autres" }), el("div", { class: "puces" },
-          ...[["rt", "Rotten T."], ["mc", "Metacritic"], ["lb", "Letterboxd"]].map(([k, nom]) => el("button", { type: "button", text: nom, "data-cle": "autres:" + k, "aria-pressed": String(r.note[k]),
+          ...[["rt", "Rotten T."], ["mc", "Metacritic"], ["lb", "Letterboxd"]].map(([k, nom]) => el("button", { type: "button", text: nom, "data-cle": cleDe("autres:" + k), "aria-pressed": String(r.note[k]),
             onclick: () => { if (r.note[k] || autres < 2) regle((r) => { r.note[k] = !r.note[k]; }); } }))));
         return [choix("Principale", [["imdb", "IMDb"], ["tmdb", "TMDB"]], r.note.source, (x) => regle((r) => { r.note.source = x; })), sites];
       },
@@ -1540,8 +1544,9 @@ function ongletPaysage() {
 function regieCartes() {
   const r = cible(), boite = $("regie-voies");
   boite.textContent = "";
-  if (regieOnglet === "paysage") { boite.append(...ongletPaysage()); return; }
+  if (regieOnglet === "paysage") { prefixeCle = "paysage"; boite.append(...ongletPaysage()); prefixeCle = ""; return; }
   ONGLETS[regieOnglet].forEach((v) => {
+    prefixeCle = v;
     const c = carteDe(v), allume = c.on ? c.on() : null, vide = sansEffet(r, v), ouverte = v === regieVoie;
     const carte = el("section", { class: "carte" + (allume === false || vide ? " eteinte" : "") + (ouverte ? " ouverte" : ""), "data-voie": v, "aria-label": c.nom });
     const tete = el("div", { class: "carte-tete" }, el("span", { class: "carte-icone" }, icone(c.couleur ? "couleur" : v)), el("b", { text: c.nom }));
@@ -1557,6 +1562,7 @@ function regieCartes() {
     }
     boite.append(carte);
   });
+  prefixeCle = "";
 }
 
 /** Le panneau « Plus de réglages » de la carte ouverte (regieVoie), par-dessus le bas de la console. */
@@ -1566,9 +1572,11 @@ function regiePanneau() {
   panneau.textContent = "";
   panneau.hidden = !(c && c.plus);
   if (panneau.hidden) return false;
+  prefixeCle = v;
   panneau.append(
     el("div", { class: "plus-tete" }, el("b", { text: c.nom }), el("button", { type: "button", class: "plus-fermer", text: "✕", "aria-label": "Fermer ces réglages", "data-cle": "fermer-plus", onclick: fermePlus })),
     el("div", { class: "carte-corps", id: "corps-" + v }, ...c.plus()));
+  prefixeCle = "";
   // Ouvert à l'instant : le focus entre dans le panneau (son premier réglage).
   if (!regieFocusPlus) return false;
   regieFocusPlus = false;

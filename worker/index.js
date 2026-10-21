@@ -43,7 +43,7 @@ import { routeCinemeta } from "./cinemeta.js";
 import { routeJeu } from "./jeu.js";
 import { routeEtat } from "./etat.js";
 import { statique } from "./statique.js";
-import { smartSearch, prepareWords, isExact, norm, capQuery } from "./search.js";
+import { smartSearch, prepareWords, isExact, norm, capQuery, genreQuery } from "./search.js";
 import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
 import { SEANCE_ID, carteSeance, rechercheSeance, routeSeance } from "./seance.js";
@@ -1021,7 +1021,8 @@ async function runSearch(env, type, query, page, opts, trace) {
   // Une description : Gemini part tout de suite. Pas toute la recherche classique (une dizaine
   // d'appels TMDB pour rien) : seulement de quoi reconnaître un titre connu fait de ces mots
   // (« danse avec les loups »), qui garde alors la recherche classique.
-  const descriptive = looksDescriptive(query);
+  // « horreur années 80 », « comédie romantique » : un genre (et une époque), que la recherche classique sait lister.
+  const descriptive = looksDescriptive(query) && !genreQuery(query, type);
   const aiOpts = { model: opts.aiModel, thinking: opts.aiThinking, fresh: opts.aiFresh };   // réglages de /debug/search
   const ai = descriptive ? aiTitles(env, opts.ctx, query, aiOpts) : null;
   let classic = [];

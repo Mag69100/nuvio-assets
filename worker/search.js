@@ -16,7 +16,9 @@
  *   - année : « dune 2021 » ; suites : « dune 2 », « star wars 4 », « jurassic world 2 »
  *   - acteurs et réalisateurs : « nolan », « omar sy » ; studios et plateformes : « pixar », « netflix »
  *   - plusieurs personnes ensemble : « pacino de niro », « tom hanks et meg ryan », « scorsese de niro »
+ *   - genre et époque, sans l'IA : « horreur années 80 », « western 1960 », « comédie française », « animé »
  */
+import { GENRES } from "./config.js";
 
 // Sigles et surnoms courants → titre à chercher. Clés en minuscules, sans accents ni ponctuation.
 export const ALIASES = {
@@ -544,6 +546,146 @@ export async function jointWorks(people, kind, api) {
   return dedupe(usable(lists[0].filter((c) => others.every((ids) => ids.has(c.id))))).sort((a, b) => fame(b) - fame(a));
 }
 
+// ---------- genre et époque ----------
+// Genres de config.js (GENRES) par leur nom sans accents : « science fiction » → films 878, séries 10765.
+const GENRE_IDS = Object.fromEntries(GENRES.map(([name, movie, series]) => [norm(name), { movie, series }]));
+// Pas de genre TMDB pour ces séries : un mot-clé TMDB à la place (horror, thriller, romance, musical).
+const TV_KEYWORDS = { horreur: "315058", thriller: "316362", romance: "9840", musique: "4344" };
+// Mots tapés → genres de GENRES (tous à la fois). « animé » seul : l'animation japonaise.
+const GENRE_LIST = [
+  [["action"], ["action"]],
+  [["aventure", "aventures", "adventure"], ["aventure"]],
+  [["animation", "dessin anime", "dessins animes", "serie animee", "series animees", "film d animation",
+    "films d animation", "film anime", "films animes", "cartoon", "cartoons"], ["animation"]],
+  [["anime", "animes", "animee", "animees", "manga", "mangas", "japanimation"], ["animation"], { lang: "ja" }],
+  [["comedie", "comedies", "comique", "comiques", "humour", "comedy"], ["comedie"]],
+  [["comedie romantique", "comedies romantiques", "romcom", "romcoms"], ["comedie", "romance"]],
+  [["comedie dramatique", "comedies dramatiques"], ["comedie", "drame"]],
+  [["comedie musicale", "comedies musicales", "musical", "musicals", "musicale", "musicales", "musique"], ["musique"]],
+  [["policier", "policiers", "policiere", "policieres", "polar", "polars", "crime", "criminel", "criminels",
+    "criminelle", "criminelles", "gangster", "gangsters", "mafia"], ["crime"]],
+  [["documentaire", "documentaires", "docu", "docus", "documentary"], ["documentaire"]],
+  [["drame", "drames", "dramatique", "dramatiques", "drama"], ["drame"]],
+  [["famille", "familial", "familiaux", "familiale", "familiales", "family"], ["famille"]],
+  [["fantastique", "fantastiques", "fantasy", "heroic fantasy"], ["fantastique"]],
+  [["historique", "historiques", "histoire", "history", "peplum", "peplums"], ["histoire"]],
+  [["horreur", "epouvante", "horror", "gore", "slasher", "slashers"], ["horreur"]],
+  [["mystere", "mysteres", "mystery"], ["mystere"]],
+  [["romance", "romances", "romantique", "romantiques"], ["romance"]],
+  [["science fiction", "sf", "scifi", "sci fi", "anticipation"], ["science fiction"]],
+  [["thriller", "thrillers", "suspense"], ["thriller"]],
+  [["guerre", "war"], ["guerre"]],
+  [["western", "westerns"], ["western"]],
+  [["enfants", "jeunesse"], ["enfants"]],
+];
+const GENRE_WORDS = new Map(GENRE_LIST.flatMap(([words, genres, extra]) => words.map((w) => [w, { genres, ...extra }])));
+// Pays d'origine (« horreur coréen », « comédie française ») : masculin, féminin, pluriels.
+const ORIGIN_LIST = [
+  ["KR", "coreen korean"], ["JP", "japonais japanese"], ["FR", "francais french"], ["US", "americain"],
+  ["GB", "anglais britannique british"], ["IT", "italien"], ["ES", "espagnol"], ["DE", "allemand"], ["IN", "indien bollywood"],
+  ["CN", "chinois"], ["HK", "hongkongais"], ["TR", "turc"], ["MX", "mexicain"], ["BE", "belge"], ["CA", "canadien quebecois"],
+  ["DK", "danois"], ["SE", "suedois"], ["NO", "norvegien"], ["TH", "thailandais"], ["BR", "bresilien"], ["AU", "australien"],
+  ["IE", "irlandais"], ["RU", "russe"], ["PL", "polonais"], ["AR", "argentin"], ["NZ", "neozelandais"],
+];
+const ORIGINS = new Map(ORIGIN_LIST.flatMap(([code, words]) => words.split(" ")
+  .flatMap((w) => [w, `${w}s`, `${w}e`, `${w}es`, `${w}ne`, `${w}nes`, `${w}que`, `${w}ques`].map((f) => [f, code]))));
+// Mots sans importance autour du genre : « les films d'horreur des années 80 ».
+const GENRE_FILLER = new Set(["film", "films", "movie", "movies", "serie", "series", "show", "shows", "les", "le", "la",
+  "l", "un", "une", "des", "de", "d", "du", "en", "et", "a"]);
+const ERA_WORDS = new Set(["annees", "annee", "decennie", "years"]);
+
+/** « 80 » → 1980, « 1980 » → 1980, « 00 » → 2000, « 10 » → 2010 ; null si ce n'est pas une décennie. */
+function decadeOf(s) {
+  const m = /^(\d{2}|(?:19|20)\d0)s?$/.exec(s || "");
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (m[1].length === 4) return n;
+  return n % 10 ? null : n >= 20 ? 1900 + n : 2000 + n;
+}
+
+/**
+ * Requête faite seulement d'un ou plusieurs genres, et au plus d'une époque et d'un pays : « horreur années 80 »,
+ * « comédie des années 90 », « film de guerre 70s », « western 1960 » (une année), « horreur coréen », « animé ».
+ * → { genres, from, to, country, lang, bare, with_genres, with_keywords } pour ce type, sinon null (titre, autre
+ * chose, ou genre sans équivalent TMDB pour ce type). bare : le genre seul, sans époque ni pays.
+ */
+export function genreQuery(query, kind) {
+  const w = norm(query).split(" ").filter(Boolean);
+  if (!w.length || w.length > 8) return null;
+  const g = { genres: [], from: null, to: null, country: null, lang: null };
+  const era = (from, to) => { if (g.from) return false; g.from = from; g.to = to; return true; };
+  for (let i = 0; i < w.length;) {
+    // Expression de genre la plus longue d'abord (« comedie romantique » avant « comedie »).
+    let n = 3;
+    for (; n >= 1; n--) {
+      const hit = i + n <= w.length && GENRE_WORDS.get(w.slice(i, i + n).join(" "));
+      if (hit) { g.genres.push(...hit.genres); if (hit.lang) g.lang = hit.lang; break; }
+    }
+    if (n >= 1) { i += n; continue; }
+    if (ERA_WORDS.has(w[i])) {                               // « années 80 », « années 1980 »
+      const d = decadeOf(w[i + 1]);
+      if (d === null || !era(d, d + 9)) return null;
+      i += 2;
+      continue;
+    }
+    const d = /s$/.test(w[i]) ? decadeOf(w[i]) : w[i + 1] === "s" ? decadeOf(w[i]) : null;
+    if (d !== null) {                                        // « 80s », « 1980s », « 80's »
+      if (!era(d, d + 9)) return null;
+      i += w[i + 1] === "s" && !/s$/.test(w[i]) ? 2 : 1;
+      continue;
+    }
+    if (/^(?:19|20)\d{2}$/.test(w[i])) {                     // une année : « western 1960 »
+      if (!era(Number(w[i]), Number(w[i]))) return null;
+      i++;
+      continue;
+    }
+    if (ORIGINS.has(w[i]) && !g.country) { g.country = ORIGINS.get(w[i]); i++; continue; }
+    if (GENRE_FILLER.has(w[i])) { i++; continue; }
+    return null;
+  }
+  if (!g.genres.length) return null;
+  const tv = kind === "series";
+  const ids = [], keywords = [];
+  for (const name of new Set(g.genres)) {
+    const id = GENRE_IDS[name] && GENRE_IDS[name][tv ? "series" : "movie"];
+    if (id) ids.push(String(id));
+    else if (tv && TV_KEYWORDS[name]) keywords.push(TV_KEYWORDS[name]);
+    else return null;                                        // « horreur » sans genre TMDB pour ce type
+  }
+  return { ...g, genres: [...new Set(g.genres)], bare: !g.from && !g.country && !g.lang,
+    with_genres: [...new Set(ids)].join(","), with_keywords: keywords.join(",") };
+}
+
+/**
+ * Paramètres « discover » d'une requête de genre : les titres les plus populaires de ce genre et de cette époque,
+ * avec assez de votes pour être connus (moins pour les vieux titres et les autres pays, moins vus sur TMDB).
+ */
+export function genreParams(g, kind, page = 1) {
+  const tv = kind === "series";
+  const old = g.to && g.to < (tv ? 1990 : 1960) ? 0.15 : g.to && g.to < (tv ? 2010 : 1990) ? 0.5 : 1;
+  const abroad = (g.country && g.country !== "US") || g.lang ? 0.5 : 1;
+  const year = g.from && g.from === g.to ? 0.3 : 1;          // une seule année : moins de titres
+  const p = {
+    sort_by: "popularity.desc", include_adult: "false", page,
+    "vote_count.gte": Math.max(10, Math.round((tv ? 100 : 300) * old * abroad * year)),
+  };
+  if (g.with_genres) p.with_genres = g.with_genres;
+  if (g.with_keywords) p.with_keywords = g.with_keywords;
+  // Pas de documentaires (films), ni d'émissions ou de programmes pour enfants (séries), sauf si c'est ce que l'on
+  // cherche ; pas de dessins animés non plus (Toy Story dans « comédie des années 90 »), sauf en famille.
+  const asked = new Set(g.with_genres.split(","));
+  const noise = [...(tv ? ["10762", "10763", "10764", "10766", "10767"] : ["99"]), ...(asked.has("10751") ? [] : ["16"])]
+    .filter((id) => !asked.has(id));
+  if (noise.length) p.without_genres = noise.join("|");
+  if (g.from) {
+    p[tv ? "first_air_date.gte" : "primary_release_date.gte"] = `${g.from}-01-01`;
+    p[tv ? "first_air_date.lte" : "primary_release_date.lte"] = `${g.to}-12-31`;
+  }
+  if (g.country) p.with_origin_country = g.country;
+  if (g.lang) p.with_original_language = g.lang;
+  return p;
+}
+
 // ---------- classement ----------
 const GOOD = 0.75;      // ressemblance d'un titre qui correspond vraiment à la requête
 const KEEP = 0.5;       // en dessous, le titre n'a pas grand-chose à voir
@@ -555,7 +697,7 @@ const PERSON_POP = 2;     // popularité TMDB d'une personne connue…
 const PERSON_VOTES = 1000; // …ou un de ses titres phares avec au moins autant de votes
 const PERSON_MAX = 15;    // films de la personne en tête, puis les titres qui correspondent
 const FAMOUS = 300;       // un titre exact avec autant de votes l'emporte sur un studio (ou une personne peu connue)
-const STRONG_VOTES = 100; // titre qui correspond à la requête gardé devant les titres de plusieurs personnes
+const STRONG_VOTES = 100; // titre qui correspond à la requête gardé devant les titres d'un genre ou de plusieurs personnes
 const HEAD_MAX = 15;
 
 const usable = (list) => (list || []).filter((it) => it && it.poster_path && it.vote_count > 0);
@@ -632,8 +774,16 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   const ym = alias ? null : base.match(/^(.+?)\s+((?:19|20)\d{2})$/);
   const sq = !alias && !ym && kind !== "series" ? sequelOf(base) : null;
   const main = alias || (ym ? ym[1] : base);               // ce que l'on cherche vraiment
+  // « horreur années 80 », « western 1960 », « animé » : les titres de ce genre (et de cette époque).
+  const genre = api && !alias ? genreQuery(raw, kind) : null;
+  const genreDiscover = (p) => api(`/discover/${kind === "series" ? "tv" : "movie"}`, genreParams(genre, kind, p));
+  const famousIn = (list) => list.some((it) => titleMatch(main, it) && it.vote_count >= FAMOUS);
 
-  // Pages suivantes : on continue simplement la recherche principale.
+  // Pages suivantes : on continue simplement la recherche principale (ou la liste du genre, comme en page 1).
+  if (page > 1 && genre && (!genre.bare || !famousIn(usable((await search(main, 1)).results)))) {
+    const d = await genreDiscover(page);
+    return page > ((d && d.total_pages) || 0) ? [] : usable(d.results);
+  }
   if (page > 1) {
     const d = await search(main, page, ym ? { [yearKey]: ym[2] } : {});
     if (!d.results || page > (d.total_pages || 0)) return [];
@@ -652,11 +802,11 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   if (ym) forms.push({ q: ym[1], pen: PEN_DERIVED });
   if (fixed) forms.push({ q: fixed, pen: PEN_FIXED });
   // « pacino de niro », « tom hanks et meg ryan » : chaque nom cherché à part (au plus PEOPLE_SEARCHES).
-  const splits = api && !alias && !ym && !sq && !studio ? personSplits(main, vocab) : [];
+  const splits = api && !alias && !ym && !sq && !studio && !genre ? personSplits(main, vocab) : [];
   const names = [...new Set(splits.flat())];
 
   const none = Promise.resolve(null);
-  const [rawRes, cleanRes, aliasRes, yearRes, fixedRes, pluralRes, enRes, people, sagas, studioRes, otherRes, ...namesRes] = await Promise.all([
+  const [rawRes, cleanRes, aliasRes, yearRes, fixedRes, pluralRes, enRes, people, sagas, studioRes, otherRes, genreRes, ...namesRes] = await Promise.all([
     search(raw, 1),
     clean ? search(clean, 1) : none,
     alias ? search(alias, 1) : none,
@@ -665,7 +815,7 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
     variant ? search(variant, 1) : none,
     // Titres anglais des résultats (« spirited away » → Le Voyage de Chihiro) ; pas affichés.
     search(main, 1, { language: "en-US" }),
-    api && !alias && !ym && !sq && !studio ? api("/search/person", { query: main, include_adult: "false" }) : none,
+    api && !alias && !ym && !sq && !studio && !genre ? api("/search/person", { query: main, include_adult: "false" }) : none,
     api && sq ? api("/search/collection", { query: sagaBase }) : none,
     api && studio ? api(`/discover/${kind === "series" ? "tv" : "movie"}`, {
       ...studio, sort_by: "popularity.desc", "vote_count.gte": kind === "series" ? 300 : 200,
@@ -674,6 +824,7 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
     }) : none,
     // La même requête dans l'autre type : « ted lasso » dans Films est une série connue.
     api && !sq && !studio ? api(`/search/${kind === "series" ? "movie" : "tv"}`, { query: main, include_adult: "false" }) : none,
+    genre ? genreDiscover(1) : none,
     ...names.map((n) => api("/search/person", { query: n, include_adult: "false" })),
   ]);
   const results = (d) => (d && d.results) || [];
@@ -702,12 +853,15 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   const together = splits.map((s) => s.map((n) => found.get(n)))
     .find((ps) => ps.every(Boolean) && new Set(ps.map((p) => p.id)).size === ps.length);
   const joint = together ? (await jointWorks(together, kind, api)).slice(0, HEAD_MAX) : [];
+  // Un genre seul (« horreur », « western ») : sa liste, sauf si un titre connu porte exactement ce nom (« Amour »).
+  const genreList = usable(results(genreRes));
+  const genreHead = genreList.length && !(genre.bare && famousIn(pool));
 
   // Toujours rien de proche : débuts de mots que TMDB reconnaît (« inters » → Interstellar).
   const best = Math.max(0, ...pool.map((it) => text.get(it.id)));
   const good = pool.filter((it) => text.get(it.id) >= GOOD).length;
   let fallback = [];
-  if (!sq && !studio && !otherKind && !joint.length && (best < GOOD || (good < 3 && best < EXACT))) {
+  if (!sq && !studio && !otherKind && !joint.length && !genreHead && (best < GOOD || (good < 3 && best < EXACT))) {
     fallback = fallbackQueries(fixed || main);
     const more = usable((await Promise.all(fallback.map((s) => search(s, 1)))).flatMap(results));
     scoreAll(more);
@@ -765,12 +919,18 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   }
 
   // Un titre qui est la requête et assez vu reste devant (« bonnie and clyde », « frost nixon ») ; un titre qui
-  // commence par elle, s'il est très connu.
-  const strongTitles = () => pool.filter((it) => (titleMatch(raw, it) && it.vote_count >= STRONG_VOTES)
-    || (scoreOf(raw, it) >= EXACT && it.vote_count >= FAMOUS)).sort((a, b) => fame(b) - fame(a));
+  // commence par elle, s'il est très connu. Devant un genre : seulement un titre identique et très connu (pas
+  // « Horreur dans la ville », ni « Science Fiction Volume One » pour « science fiction »).
+  const strongTitles = (onlyExact) => pool.filter((it) => (titleMatch(raw, it) && it.vote_count >= (onlyExact ? FAMOUS : STRONG_VOTES))
+    || (!onlyExact && scoreOf(raw, it) >= EXACT && it.vote_count >= FAMOUS)).sort((a, b) => fame(b) - fame(a));
   if (joint.length) {
-    head = dedupe([...strongTitles(), ...joint]);
+    head = dedupe([...strongTitles(false), ...joint]);
     headKind = `ensemble ${together.map((p) => p.name).join(" + ")}`;
+  }
+  // « horreur années 80 » : les titres de ce genre et de cette époque, les plus populaires (pas « Miles Western »).
+  if (genreHead) {
+    head = dedupe([...strongTitles(true), ...genreList]);
+    headKind = `genre ${genre.genres.join(" + ")}${genre.from ? ` ${genre.from}-${genre.to}` : ""}${genre.country ? ` ${genre.country}` : ""}`;
   }
 
   const out = dedupe([...head, ...ranked]).slice(0, FIRST_PAGE);
@@ -783,7 +943,7 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   if (trace) {
     Object.assign(trace, {
       forms, fixed, variant, alias: alias || null, year: ym ? ym[2] : null, sequel: sq, sagaBase, studio: studio || null,
-      fallback, head: headKind, otherKind, people: splits,
+      fallback, head: headKind, otherKind, people: splits, genre: genre ? genreParams(genre, kind) : null,
       results: out.map((it) => ({
         name: it.title || it.name, original: it.original_title || it.original_name, en: it.en_title, year: yearOf(it),
         votes: it.vote_count, text: text.has(it.id) ? +text.get(it.id).toFixed(3) : null,

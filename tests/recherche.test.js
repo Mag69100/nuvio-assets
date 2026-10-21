@@ -1,8 +1,10 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { smartSearch, prepareWords, personSplits } from "../worker/search.js";
+import worker, { oublierInfos } from "../worker/index.js";
+import { smartSearch, prepareWords, personSplits, genreQuery, genreParams } from "../worker/search.js";
 
-// Recherche : plusieurs personnes ensemble (« pacino de niro »), avec un TMDB simulé. Les recherches d'avant (titre, personne seule, studio, année) ne doivent pas changer.
+// Recherche : plusieurs personnes ensemble (« pacino de niro ») et genre + époque (« horreur années 80 »), avec un
+// TMDB simulé. Les recherches d'avant (titre, personne seule, studio, année) ne doivent pas changer.
 
 const film = (id, title, year, votes, extra = {}) => ({ id, title, original_title: title, release_date: `${year}-06-01`,
   vote_count: votes, popularity: votes / 100, poster_path: `/${id}.jpg`, genre_ids: [18], ...extra });
@@ -66,6 +68,9 @@ const TITLES = {
   "tom et jerry": [film(15602, "Tom et Jerry, le film", 1992, 600)],
 };
 
+const HORREUR_80 = [film(4488, "Vendredi 13", 1980, 3500, { genre_ids: [27] }), film(694, "Shining", 1980, 18000, { genre_ids: [27] }),
+  film(1091, "The Thing", 1982, 7500, { genre_ids: [27] })];
+const WESTERNS = [film(68718, "Django Unchained", 2012, 27000, { genre_ids: [37] }), film(429, "Le Bon, la Brute et le Truand", 1966, 9000, { genre_ids: [37] })];
 
 const norm = (s) => String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 let calls;
@@ -86,6 +91,12 @@ function fakeTmdb(budget = 22) {
     if (path === "/search/person") return { results: PEOPLE[norm(params.query)] || [] };
     const c = /^\/person\/(\d+)\/(movie|tv)_credits$/.exec(path);
     if (c) return CREDITS[`${c[1]}/${c[2]}`] || { cast: [], crew: [] };
+    if (path === "/discover/movie" && params.with_genres === "27" && params["primary_release_date.gte"] === "1980-01-01") {
+      return { results: Number(params.page) > 1 ? [film(9377, "La Mouche", 1986, 4000)] : HORREUR_80, total_pages: 3 };
+    }
+    if (path === "/discover/movie" && params.with_genres === "37") return { results: WESTERNS, total_pages: 5 };
+    if (path === "/discover/movie" && params.with_genres === "53") return { results: [film(807, "Seven", 1995, 20000, { genre_ids: [53] })], total_pages: 5 };
+    if (path === "/discover/tv" && params.with_keywords === "315058") return { results: [serie(1622, "Supernatural", 2005, 8700)], total_pages: 5 };
     return { results: [] };
   };
   return { search, api, left: () => left };
@@ -125,6 +136,57 @@ test("titres_qui_ne_sont_pas_des_personnes", () => {
   }
   // Sans vocabulaire : pas de noms de famille seuls (on ne sait pas si ce sont des mots de titres).
   assert.deepEqual(personSplits("dicaprio winslet", null), []);
+});
+
+// ---------- genre et époque ----------
+test("genre_et_epoque_reconnus", () => {
+  const g = (q, kind = "movie") => {
+    const r = genreQuery(q, kind);
+    return r && { genres: r.with_genres, kw: r.with_keywords, from: r.from, to: r.to, country: r.country, lang: r.lang, bare: r.bare };
+  };
+  const base = { kw: "", country: null, lang: null, bare: false };
+  assert.deepEqual(g("horreur années 80"), { ...base, genres: "27", from: 1980, to: 1989 });
+  assert.deepEqual(g("les films d'horreur des années 80"), { ...base, genres: "27", from: 1980, to: 1989 });
+  assert.deepEqual(g("comédie des années 90"), { ...base, genres: "35", from: 1990, to: 1999 });
+  assert.deepEqual(g("film de guerre 70s"), { ...base, genres: "10752", from: 1970, to: 1979 });
+  assert.deepEqual(g("thriller 80's"), { ...base, genres: "53", from: 1980, to: 1989 });
+  assert.deepEqual(g("western 1960"), { ...base, genres: "37", from: 1960, to: 1960 });
+  assert.deepEqual(g("science-fiction 2010"), { ...base, genres: "878", from: 2010, to: 2010 });
+  assert.deepEqual(g("SF années 2000"), { ...base, genres: "878", from: 2000, to: 2009 });
+  assert.deepEqual(g("comédie romantique années 1990"), { ...base, genres: "35,10749", from: 1990, to: 1999 });
+  assert.deepEqual(g("polar français"), { ...base, genres: "80", from: null, to: null, country: "FR" });
+  assert.deepEqual(g("horreur coréen"), { ...base, genres: "27", from: null, to: null, country: "KR" });
+  assert.deepEqual(g("animé années 2000", "series"), { ...base, genres: "16", from: 2000, to: 2009, lang: "ja" });
+  assert.deepEqual(g("séries policières années 90", "series"), { ...base, genres: "80", from: 1990, to: 1999 });
+  assert.deepEqual(g("dessin animé"), { ...base, genres: "16", from: null, to: null, bare: true });
+  // Séries sans genre TMDB « horreur » : le mot-clé horror.
+  assert.deepEqual(g("horreur", "series"), { ...base, genres: "", kw: "315058", from: null, to: null, bare: true });
+  // Pas des genres : titres, époque seule, décennie bancale, genre sans équivalent pour ce type.
+  for (const q of ["1917", "Les Années folles", "Années 80", "la guerre des mondes", "guerre des étoiles", "the boys saison 4",
+    "dune 2021", "horreur années 85", "horreur années 80 1990", "nolan", "comédie la haine", "française"]) {
+    assert.equal(genreQuery(q, "movie"), null, q);
+  }
+  assert.equal(genreQuery("enfants", "movie"), null);
+});
+
+test("genre_parametres_discover", () => {
+  const p = genreParams(genreQuery("horreur années 80", "movie"), "movie");
+  assert.equal(p.with_genres, "27");
+  assert.equal(p["primary_release_date.gte"], "1980-01-01");
+  assert.equal(p["primary_release_date.lte"], "1989-12-31");
+  assert.equal(p.sort_by, "popularity.desc");
+  assert.ok(p["vote_count.gte"] >= 100);                         // des titres connus
+  assert.deepEqual(p.without_genres.split("|").sort(), ["16", "99"]);   // ni documentaires ni dessins animés
+  const tv = genreParams(genreQuery("animé années 2000", "series"), "series", 2);
+  assert.equal(tv["first_air_date.gte"], "2000-01-01");
+  assert.equal(tv.with_original_language, "ja");
+  assert.equal(tv.page, 2);
+  assert.ok(!tv.without_genres.split("|").includes("16"));
+  assert.ok(tv.without_genres.split("|").includes("10767"));
+  const doc = genreParams(genreQuery("documentaire", "movie"), "movie");
+  assert.ok(!(doc.without_genres || "").split("|").includes("99"));
+  // Une seule année, un autre pays : moins de votes exigés.
+  assert.ok(genreParams(genreQuery("western 1960", "movie"), "movie")["vote_count.gte"] < p["vote_count.gte"]);
 });
 
 // ---------- recherche complète ----------
@@ -182,8 +244,8 @@ test("une_seule_personne_inchangee", async () => {
   assert.ok(!calls.some((c) => String(c.path).startsWith("/discover")));
 });
 
-test("pas_de_noms_pour_un_titre", async () => {
-  for (const q of ["dune 2021", "dune", "heat", "1917", "les annees folles", "annees 80", "thriller"]) {
+test("pas_de_noms_ni_de_genre_pour_un_titre", async () => {
+  for (const q of ["dune 2021", "dune", "heat", "1917", "les annees folles", "annees 80"]) {
     calls = [];
     const r = await cherche(q);
     assert.equal(r.trace.head, null, q);
@@ -193,12 +255,73 @@ test("pas_de_noms_pour_un_titre", async () => {
   }
 });
 
+test("genre_et_decennie", async () => {
+  const r = await cherche("horreur années 80");
+  assert.equal(r.trace.head, "genre horreur 1980-1989");
+  assert.deepEqual(r.names.slice(0, 3), ["Vendredi 13", "Shining", "The Thing"]);
+  assert.ok(r.stats.sure);
+  // Pas de recherche de secours ni de personne : un appel discover en plus de la recherche habituelle.
+  assert.ok(r.used <= 8, `${r.used} appels`);
+  assert.equal(calls.filter((c) => c.path === "/discover/movie").length, 1);
+  // Page suivante : la suite de la liste du genre, pas la recherche de titres.
+  calls = [];
+  const p2 = await cherche("horreur années 80", "movie", 2);
+  assert.deepEqual(p2.names, ["La Mouche"]);
+  assert.equal(calls.find((c) => c.path === "/discover/movie").params.page, 2);
+});
+
+test("genre_seul", async () => {
+  // « western » : la liste des westerns (avant : un acteur nommé Western, des titres inconnus).
+  const w = await cherche("western");
+  assert.equal(w.trace.head, "genre western");
+  assert.equal(w.names[0], "Django Unchained");
+  // « thriller » : un titre connu porte exactement ce nom, la recherche reste celle d'avant.
+  const t = await cherche("thriller");
+  assert.equal(t.trace.head, null);
+  assert.deepEqual(t.names, ["Thriller"]);
+  calls = [];
+  const t2 = await cherche("thriller", "movie", 2);
+  assert.deepEqual(t2.names, []);
+  assert.ok(!calls.some((c) => String(c.path).startsWith("/discover")));
+  // Séries d'horreur : le mot-clé TMDB, faute de genre.
+  const s = await cherche("horreur", "series");
+  assert.equal(s.names[0], "Supernatural");
+});
+
 test("budget_des_nouvelles_recherches", async () => {
   // Au pire : 4 noms cherchés, 3 filmographies, la recherche de secours… toujours dans les 22 appels de runSearch.
   for (const [q, kind] of [["pacino, de niro et pesci", "movie"], ["jennifer aniston courteney cox", "series"],
-    ["tommy lee jones will smith", "movie"]]) {
+    ["tommy lee jones will smith", "movie"], ["comédie romantique années 90", "movie"], ["animé", "series"]]) {
     calls = [];
     const r = await cherche(q, kind);
     assert.ok(r.used <= 20, `${q} : ${r.used} appels`);
   }
+});
+
+// ---------- par l'addon ----------
+test("addon_genre_sans_gemini", async () => {
+  oublierInfos();
+  const store = new Map(), urls = [];
+  globalThis.caches = { default: {
+    match: async (req) => (store.has(req.url) ? new Response(store.get(req.url)) : undefined),
+    put: async (req, res) => { store.set(req.url, await res.text()); },
+  } };
+  globalThis.fetch = async (url) => {
+    const u = new URL(String(url));
+    urls.push(u);
+    if (u.pathname === "/3/discover/movie" && u.searchParams.get("with_genres") === "27") return new Response(JSON.stringify({ results: HORREUR_80, total_pages: 1 }));
+    const m = /^\/3\/movie\/(\d+)$/.exec(u.pathname);
+    if (m) return new Response(JSON.stringify({ id: Number(m[1]), imdb_id: `tt${m[1]}` }));
+    return new Response(JSON.stringify({ results: [] }));
+  };
+  // Avec une clé Gemini dans le lien : « horreur années 80 » ressemble à une description, mais c'est un genre.
+  const cfg = Buffer.from(JSON.stringify({ k: "AIzaSyCleDeTest0123456789abcdefghijkl" })).toString("base64url");
+  const res = await worker.fetch(new Request(`https://x/${cfg}/catalog/movie/recherche-films/search=${encodeURIComponent("horreur années 80")}.json`),
+    { TMDB_API_KEY: "tmdb" }, { waitUntil: () => {} });
+  const { metas } = await res.json();
+  assert.deepEqual(metas.slice(0, 3).map((m) => [m.id, m.name, m.type]), [["tt4488", "Vendredi 13", "movie"], ["tt694", "Shining", "movie"], ["tt1091", "The Thing", "movie"]]);
+  assert.ok(metas[0].poster);
+  assert.ok(!urls.some((u) => u.hostname.includes("generativelanguage")), "Gemini appelé pour un genre");
+  // 50 appels sortants au plus par requête (Cloudflare) : recherche + fiches.
+  assert.ok(urls.length < 50, `${urls.length} appels`);
 });

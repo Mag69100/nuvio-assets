@@ -1788,7 +1788,16 @@ const app = {
     // Lien fixe : ses réglages sont dans la base ; la suite ne voit pas la différence.
     if (isFixedId(cfgSeg)) {
       fixedId = cfgSeg;
-      cfgSeg = await readFixed(env, fixedId);
+      try {
+        cfgSeg = await readFixed(env, fixedId);
+      } catch (e) {
+        // Base injoignable (et pas de copie de secours ici) : « réessaie », jamais « introuvable », et rien de gardé.
+        console.warn("lien fixe :", String((e && e.message) || e).slice(0, 300));
+        const error = "Base des liens fixes injoignable pour le moment : réessaie dans quelques minutes, ton lien n'a rien perdu.";
+        const page = path === "" || path === "/configure";
+        return new Response(page ? error : JSON.stringify({ error }), { status: 503, headers: {
+          ...(page ? { "Content-Type": "text/plain; charset=utf-8" } : HEADERS), "Cache-Control": "no-store", "Retry-After": "60" } });
+      }
       if (cfgSeg === null) {
         if (path === "" || path === "/configure") return Response.redirect(url.origin + "/configure", 302);
         return json({ error: "Lien fixe introuvable : refais ton lien sur la page de personnalisation." }, 60);

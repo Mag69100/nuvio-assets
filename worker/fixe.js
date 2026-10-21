@@ -15,7 +15,8 @@ import { same } from "./hote.js";
 const ID = /^f[0-9A-Za-z]{16}$/;
 const MODIF = /^[0-9A-Za-z]{22}$/;
 const MAX_SEG = 6000;               // réglages compactés (12 rangées sur mesure, clé, noms…) : bien moins
-const CACHE_S = 300;                // une ligne lue reste 5 min dans le cache Cloudflare (modifs : 5 min + 6 h de Nuvio)
+const CACHE_S = 300;                // une ligne lue sert 5 min depuis le cache Cloudflare (modifs : 5 min + 6 h de Nuvio)
+const SECOURS_S = 7 * 86400;        // puis reste 7 jours en secours, relue seulement si la base ne répond pas
 const cacheKey = (h) => new Request(`https://cache.local/lien-fixe/${h}`);
 
 export const isFixedId = (s) => ID.test(s);
@@ -51,16 +52,35 @@ const table = (env) => (ready = ready || env.LIENS.prepare(
   "CREATE TABLE IF NOT EXISTS liens (h TEXT PRIMARY KEY, c TEXT NOT NULL, e TEXT NOT NULL, t INTEGER NOT NULL)").run()
   .catch((e) => { ready = null; throw e; }));
 
+/** Ligne gardée dans le cache, avec l'heure de lecture (fraîche 5 min, secours 7 jours). */
+const keep = (h, r) => caches.default.put(cacheKey(h), new Response(JSON.stringify({ c: r.c, e: r.e, lu: Date.now() }),
+  { headers: { "Cache-Control": `public, max-age=${SECOURS_S}` } }));
+
+// Table pas encore créée (aucun lien fixe sur ce site) : le lien n'existe pas. Toute autre erreur de la base est
+// passagère : surtout pas « introuvable », qui pousserait à refaire son lien et à perdre l'ancien.
+const noTable = (e) => /no such table/i.test(String((e && e.message) || e));
+
 async function row(env, h) {
-  const hit = await caches.default.match(cacheKey(h));
-  if (hit) return hit.json();
-  let r = null;
-  try { r = await env.LIENS.prepare("SELECT c, e FROM liens WHERE h = ?").bind(h).first(); } catch (e) { return null; }   // table pas encore créée
-  if (r) await caches.default.put(cacheKey(h), new Response(JSON.stringify(r), { headers: { "Cache-Control": `public, max-age=${CACHE_S}` } }));
+  const hit = await caches.default.match(cacheKey(h)).then((r) => (r ? r.json() : null)).catch(() => null);
+  // Lu il y a moins de 5 min (les lignes d'avant, sans heure, sont relues).
+  if (hit && hit.lu && Date.now() - hit.lu < CACHE_S * 1000) return hit;
+  let r;
+  try {
+    r = await env.LIENS.prepare("SELECT c, e FROM liens WHERE h = ?").bind(h).first();
+  } catch (e) {
+    if (noTable(e)) return null;
+    // Base injoignable : la copie de secours si ce centre de Cloudflare en a une, sinon l'erreur (réponse 503).
+    if (hit) return hit;
+    throw e;
+  }
+  if (r) await keep(h, r);
   return r;
 }
 
-/** Réglages (le segment d'adresse habituel) d'un lien fixe, ou null s'il n'existe pas. */
+/**
+ * Réglages (le segment d'adresse habituel) d'un lien fixe, ou null s'il n'existe pas. Lève une erreur si la base
+ * ne répond pas (et qu'aucune copie de secours n'est là) : à dire « réessaie », jamais « introuvable ».
+ */
 export async function readFixed(env, id) {
   if (!fixedAvailable(env) || !isFixedId(id)) return null;
   const r = await row(env, await sha("lien:" + id));
@@ -101,7 +121,7 @@ export async function fixedRoute(request, env, path, valid) {
     const c = await seal(id, seg);
     await env.LIENS.prepare("UPDATE liens SET c = ?, t = ? WHERE h = ?").bind(c, Date.now(), h).run();
     // Ce centre de Cloudflare voit tout de suite les nouveaux réglages ; les autres d'ici 5 minutes.
-    await caches.default.put(cacheKey(h), new Response(JSON.stringify({ c, e: r.e }), { headers: { "Cache-Control": `public, max-age=${CACHE_S}` } }));
+    await keep(h, { c, e: r.e });
     return reply({ ok: true });
   } catch (e) {
     console.warn("lien fixe :", String(e));

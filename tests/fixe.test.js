@@ -95,6 +95,41 @@ test("lien_fixe_depuis_un_autre_site_refuse", async () => {
   assert.equal(res.status, 403);
 });
 
+// La base qui ne répond pas : jamais « introuvable » (on referait son lien et perdrait l'ancien), rien de gardé.
+test("lien_fixe_base_en_panne_pas_introuvable", async () => {
+  env.LIENS.prepare = () => ({ bind: () => ({ first: async () => { throw new Error("D1_ERROR: network connection lost"); } }) });
+  for (const path of ["/manifest.json", "/catalog/movie/accueil-top10.json", "/configure", ""]) {
+    const res = await at(`/f0123456789abcdef${path}`);
+    assert.equal(res.status, 503, path);
+    assert.equal(res.headers.get("Cache-Control"), "no-store", path);
+    assert.doesNotMatch(await res.text(), /introuvable/, path);
+  }
+});
+
+test("lien_fixe_table_absente_introuvable", async () => {
+  env.LIENS.prepare = () => ({ bind: () => ({ first: async () => { throw new Error("D1_ERROR: no such table: liens: SQLITE_ERROR"); } }) });
+  assert.match((await (await at("/f0123456789abcdef/manifest.json")).json()).error, /introuvable/);
+});
+
+test("lien_fixe_copie_de_secours_si_la_base_ne_repond_pas", async () => {
+  const { id } = await (await post("/lien-fixe", { c: seg({ n: "Secours" }) })).json();
+  assert.equal((await (await at(`/${id}/manifest.json`)).json()).name, "Secours");
+  // Une heure plus tard (copie plus fraîche), la base tombe : la copie gardée sert encore.
+  for (const [k, v] of store) if (k.includes("/lien-fixe/")) store.set(k, JSON.stringify({ ...JSON.parse(v), lu: Date.now() - 3600e3 }));
+  env.LIENS.prepare = () => ({ bind: () => ({ first: async () => { throw new Error("D1_ERROR: overloaded"); } }) });
+  const res = await at(`/${id}/manifest.json`);
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).name, "Secours");
+});
+
+test("lien_fixe_relu_dans_la_base_apres_5_minutes", async () => {
+  const { id } = await (await post("/lien-fixe", { c: seg({ n: "Base" }) })).json();
+  await at(`/${id}/manifest.json`);
+  // Copie de ce centre de Cloudflare vieille de plus de 5 min (modifiée ailleurs depuis) : la base fait foi.
+  for (const [k, v] of store) if (k.includes("/lien-fixe/")) store.set(k, JSON.stringify({ ...JSON.parse(v), c: "périmé", lu: Date.now() - 301e3 }));
+  assert.equal((await (await at(`/${id}/manifest.json`)).json()).name, "Base");
+});
+
 test("lien_fixe_indisponible_sans_base", async () => {
   delete env.LIENS;
   assert.equal((await post("/lien-fixe", { c: "" })).status, 501);

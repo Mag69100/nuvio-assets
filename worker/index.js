@@ -39,6 +39,7 @@ import { smartSearch, prepareWords, isExact, norm } from "./search.js";
 import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
 import { isFixedId, readFixed, fixedRoute, fixedAvailable } from "./fixe.js";
+import { secondesAvantBascule, jourTendances, routeTendances, prendrePhotos } from "./tendances.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
 const VERSION = "5.26.5";
@@ -656,26 +657,20 @@ function endpointAsDiscover(def) {
 }
 
 /**
- * Photo du jour des tendances, prise par le service d'affiches (affiches/lib/tendances.js) : identifiant TMDB →
- * place. Les « N° » des affiches en viennent ; les rangées « Tendances du jour » s'y rangent, pour que les
- * numéros se suivent. Elle change chaque jour à 4 h UTC : gardée par Cloudflare jusque-là. Illisible : vide.
+ * Photo du jour des tendances (worker/tendances.js), publiée par le service d'affiches : identifiant TMDB → place.
+ * Les « N° » des affiches en viennent ; les rangées « Tendances du jour » s'y rangent, pour que les numéros se
+ * suivent. Elle change chaque jour à 4 h UTC : gardée par Cloudflare jusque-là. Illisible : vide.
  */
-const BASCULE_UTC_H = 4;
-function secondesAvantBascule(now = Date.now()) {
-  const d = new Date(now), b = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), BASCULE_UTC_H);
-  return Math.max(60, Math.ceil(((b > now ? b : b + 86400000) - now) / 1000));
-}
 async function photoTendances(env, kind) {
   try {
-    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json`, { cf: { cacheTtl: secondesAvantBascule(), cacheEverything: true } });
+    // ?v=2 : la photo unique, prise par l'addon ; celles d'avant (une par serveur) restent sous l'ancienne adresse.
+    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json?v=2`, { cf: { cacheTtl: secondesAvantBascule(), cacheEverything: true } });
     const d = res.ok ? await res.json() : {};
     return new Map((Array.isArray(d.ids) ? d.ids : []).map((id, i) => [id, i]));
   } catch (e) { return new Map(); }
 }
 /** Titres rangés dans l'ordre de la photo ; ceux qu'elle n'a pas, à la suite, dans leur ordre. */
 const dansLOrdre = (items, photo) => (photo.size ? [...items].sort((a, b) => (photo.has(a.id) ? photo.get(a.id) : 1e9) - (photo.has(b.id) ? photo.get(b.id) : 1e9)) : items);
-/** Le jour de la photo des tendances en cours (elle change à 4 h UTC). */
-const jourTendances = (now = Date.now()) => new Date(now - BASCULE_UTC_H * 3600000).toISOString().slice(0, 10);
 const tendancesDuJour = (def) => /^\/trending\/(movie|tv)\/day$/.test(def.endpoint || "");
 
 /** Une page (1, 2, 3…) d'une définition de liste. */
@@ -1655,7 +1650,7 @@ function json(data, maxAge) {
   });
 }
 
-const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie", "lien-fixe"]);
+const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie", "lien-fixe", "tendances"]);
 
 async function loadCollections() {
   const res = await fetch(`${ASSETS}/collections/collections.json`, { cf: { cacheTtl: 600, cacheEverything: true } });
@@ -1751,6 +1746,10 @@ export default {
     if (!SAFE_HOST.test(new URL(request.url).host)) return withSecurity(new Response("Adresse invalide", { status: 400 }));
     return withSecurity(await app.fetch(request, env, ctx));
   },
+  // Tâche planifiée de 4 h UTC (wrangler.toml) : la photo du jour des tendances.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(prendrePhotos(env, event.scheduledTime));
+  },
 };
 
 // Le site et l'addon (sans les en-têtes de sécurité, ajoutés ci-dessus).
@@ -1816,6 +1815,9 @@ const app = {
     if (path.startsWith("/statique/")) return statique(path.slice(10), url.searchParams.get("v")) || new Response("introuvable", { status: 404 });
     if (path === "/manifest.json") return json(manifest(today, cfg, cfgSeg, url, await hasAlerts(env, url, cfg)), CACHE_CLIENT_S);
     if (path === "/collections.json") return json(await collections(cfg), CACHE_CLIENT_S);
+    // La photo du jour des tendances, lue par le service d'affiches (worker/tendances.js).
+    const tend = !cfgSeg && /^\/tendances\/([a-z]+)\.json$/.exec(path);
+    if (tend) return routeTendances(env, tend[1], HEADERS);
     if (path === "/logo.png") {   // le logo servi par le site, sans l'adresse du dépôt dans les pages
       const r = await fetch(`${ASSETS}/logo/addon.png`, { cf: { cacheTtl: 86400, cacheEverything: true } });
       return new Response(r.body, { status: r.status, headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } });

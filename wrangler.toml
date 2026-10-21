@@ -30,6 +30,10 @@ service = "nuvio-assets"
 binding = "LIENS"
 database_name = "nuvio-liens"
 
+# Photo du jour des tendances (worker/tendances.js) : prise à 4 h UTC, la même pour tout le monde.
+[triggers]
+crons = ["0 4 * * *"]
+
 [observability]
 enabled = true
 # Pas de journal de chaque requête : les adresses contiennent les réglages des liens, parfois une clé

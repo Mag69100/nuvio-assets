@@ -1,5 +1,5 @@
 /**
- * L'écran Nuvio des aperçus, recopié de Nuvio TV 1.1.0-beta.7 (la version du guide) avec les réglages
+ * L'écran Nuvio des aperçus, recopié de Nuvio TV (NUVIO_TV_VERSION, la version du guide) avec les réglages
  * conseillés de l'étape 9 : Vue moderne, thème Cramoisi, police Inter, cartes « Équilibré » à coins
  * « Pilule », Card Depth Effect, barre latérale moderne cachée (Hide Floating Pill), affiches maison.
  * Partagé par l'aperçu du hall et du guide (apercu.js) et par celui de la salle 2 (page.js) : les gens
@@ -9,6 +9,10 @@
  */
 import { parametresNuvio, POSTER_URL, APERCU_V } from "./reglages.js";
 import { creerLienAffiches } from "./lien-affiches.js";
+
+// La version de Nuvio TV recopiée ici, celle que le guide installe (guide.js s'en sert pour ses liens et ses
+// consignes). Quand elle change, on revérifie l'aperçu contre le code de Nuvio TV à ce tag.
+export const NUVIO_TV_VERSION = "1.1.0-beta.7";
 
 export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cramoisi) ---------- */
 .nvo { position: absolute; inset: 0; overflow: hidden; background: #0D0D0D; color: #fff; font-family: Inter, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
@@ -786,7 +790,7 @@ export const NUVIO_JS = "var __name = function (f) { return f; };\nconst NV_PP =
     reglages: '<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M14.28 2.15C13.91 2 13.44 2 12.5 2s-1.41 0-1.78.15c-.49.2-.89.6-1.09 1.08-.09.23-.13.49-.14.87-.02.56-.31 1.07-.8 1.35-.49.28-1.08.27-1.58.01-.34-.18-.58-.28-.82-.31-.53-.07-1.07.07-1.49.4-.32.24-.55.64-1.02 1.45-.47.81-.71 1.21-.76 1.6-.07.53.07 1.06.4 1.48.15.19.36.35.68.55.48.3.78.8.78 1.36s-.3 1.06-.78 1.36c-.32.2-.53.36-.68.56-.33.42-.47.95-.4 1.48.05.39.29.79.76 1.6.47.81.7 1.21 1.02 1.45.42.32.96.47 1.49.4.24-.03.49-.13.82-.31.5-.26 1.09-.27 1.58.01.49.28.78.79.8 1.35.01.38.05.64.14.87.2.49.6.88 1.09 1.08.37.15.84.15 1.78.15s1.41 0 1.78-.15c.49-.2.89-.59 1.09-1.08.09-.23.13-.49.14-.87.02-.56.31-1.07.8-1.35.49-.28 1.08-.27 1.58-.01.34.18.58.28.82.31.53.07 1.07-.07 1.49-.4.32-.24.55-.64 1.02-1.45.47-.81.71-1.21.76-1.6.07-.53-.07-1.06-.4-1.48-.15-.19-.36-.35-.68-.55-.48-.3-.78-.8-.78-1.36s.3-1.06.78-1.36c.32-.2.53-.36.68-.56.33-.42.47-.95.4-1.48-.05-.39-.29-.79-.76-1.6-.47-.81-.7-1.21-1.02-1.45-.42-.32-.96-.47-1.49-.4-.24.03-.49.13-.82.31-.5.26-1.09.27-1.58-.01-.49-.28-.78-.79-.8-1.35-.01-.38-.05-.64-.14-.87-.2-.49-.6-.88-1.09-1.08zM12.5 15c1.67 0 3.02-1.34 3.02-3s-1.35-3-3.02-3-3.02 1.34-3.02 3 1.35 3 3.02 3z"/></svg>',
   };
   const MENU = [["accueil", "Accueil"], ["decouvrir", "Découvrir"], ["recherche", "Rechercher"], ["biblio", "Bibliothèque"], ["reglages", "Paramètres"]];
-  const VERSION_TV = "1.1.0-beta.7";
+  const VERSION_TV = "${NUVIO_TV_VERSION}";
   const LOGO_NUVIO = "https://raw.githubusercontent.com/NuvioMedia/NuvioTV/" + VERSION_TV + "/app/src/main/res/drawable/app_logo_wordmark.png";
   // menu(ecran, vue courante, aller(vue)) : ouvre le panneau ; « Retour » ou un clic à côté le referme.
   // auto : ouvert de lui-même à l'arrivée (pour qu'on le voie) : il ne prend pas le focus, ne fait pas de bruit,

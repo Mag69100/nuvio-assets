@@ -7,17 +7,17 @@
 // Adresses de configuration des addons. Laisser vide ce qui n'est pas encore connu :
 // l'étape affiche alors une consigne générale.
 const LINKS = {
-  // Version testée avec ce guide (bêta). /tv sur le site redirige ici : plus court à taper.
-  nuvioTvVersion: "1.1.0-beta.7",
+  // Version testée avec ce guide (bêta), la même que celle de l'aperçu (nuvio.js). /tv sur le site redirige
+  // vers son APK : plus court à taper.
+  nuvioTvVersion: NUVIO_TV_VERSION,
   // Code Downloader (raccourcisseur AFTVnews) → https://nuvio-assets.xnzxflix.workers.dev/tv
   downloaderCode: "5486412",
-  nuvioTv: "https://github.com/NuvioMedia/NuvioTV/releases/tag/1.1.0-beta.7",
+  nuvioTv: "https://github.com/NuvioMedia/NuvioTV/releases/tag/" + NUVIO_TV_VERSION,
   // Fichier « universal » : marche sur toutes les TV et tous les Fire TV (32 et 64 bits).
-  nuvioTvApk: "https://github.com/NuvioMedia/NuvioTV/releases/download/1.1.0-beta.7/app-full-universal-release.apk",
+  nuvioTvApk: "https://github.com/NuvioMedia/NuvioTV/releases/download/" + NUVIO_TV_VERSION + "/app-full-universal-release.apk",
   nuvioDesktop: "https://github.com/NuvioMedia/NuvioDesktop/releases/latest",
-  // Téléphones et tablettes : Play Store (Android), APK sur GitHub, ou AltStore / SideStore (iPhone, iPad).
+  // Téléphones et tablettes : APK sur GitHub (Android ; Nuvio n'est pas sur le Play Store), ou AltStore / SideStore (iPhone, iPad).
   nuvioMobile: "https://github.com/NuvioMedia/NuvioMobile/releases/latest",
-  nuvioPlay: "https://play.google.com/store/apps/details?id=com.nuvio.app",
   nuvioIosSource: "https://raw.githubusercontent.com/NuvioMedia/NuvioMobile/cmp-rewrite/store.json",
   altstore: "https://altstore.io/",
   sidestore: "https://sidestore.io/",
@@ -37,6 +37,7 @@ const LINKS = {
 
 import { STAGE_HEAD, stageTop, secretsHTML, BEAM_HTML, SEATS_HTML, CREDITS_HTML } from "./stage.js";
 import { ICONE_APERCU, apercuDonnees } from "./apercu.js";
+import { NUVIO_TV_VERSION } from "./nuvio.js";
 import { reglagesHTML, POSTER_URL } from "./reglages.js";
 export { POSTER_URL };
 import { APPAREILS, installUrl } from "./liens.js";
@@ -659,7 +660,7 @@ ${secretsHTML("guide")}
         <p class="small">Si le code ne marche pas, tape l'adresse à la place :</p>
         ${copyBox("u-tv", short)}
         <ol start="4">
-          <li>Choisis <b>Installer</b>, puis ouvre Nuvio. Vérifie dans <span class="path">Paramètres → À propos</span> que la version est bien ${LINKS.nuvioTvVersion}.</li>
+          <li>Choisis <b>Installer</b>, puis ouvre Nuvio. Vérifie dans <span class="path">Paramètres → À propos</span> que la version est ${LINKS.nuvioTvVersion} ou plus récente.</li>
         </ol>
       <details class="manual"><summary>TV et Fire TV : installer à la main depuis GitHub (si le code ne marche pas)</summary>
         <p>Ouvre ${link(LINKS.nuvioTv, "la page de Nuvio TV " + LINKS.nuvioTvVersion)}, puis dans « Assets » prends <b>app-full-universal-release.apk</b>. Il marche partout. Les autres fichiers sont plus légers mais propres à un type de processeur : <b>armeabi-v7a</b> pour la plupart des Fire TV et des TV, <b>arm64-v8a</b> pour les boîtiers récents (Shield, Chromecast avec Google TV), <b>x86</b> et <b>x86_64</b> pour les émulateurs et PC.</p>
@@ -703,7 +704,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-tv">Copier</button><
         ${copyBox("u-fire", short)}
         <ol start="5">
           <li>Choisis <b>Installer</b>, puis <b>Supprimer</b> le fichier téléchargé pour libérer de la place.</li>
-          <li>Ouvre Nuvio et vérifie dans <span class="path">Paramètres → À propos</span> que la version est bien ${LINKS.nuvioTvVersion}. Astuce : maintiens le bouton Accueil → Applications pour l'ajouter à tes favoris.</li>
+          <li>Ouvre Nuvio et vérifie dans <span class="path">Paramètres → À propos</span> que la version est ${LINKS.nuvioTvVersion} ou plus récente. Astuce : maintiens le bouton Accueil → Applications pour l'ajouter à tes favoris.</li>
         </ol>
       <details class="manual"><summary>TV et Fire TV : installer à la main depuis GitHub (si le code ne marche pas)</summary>
         <p>Ouvre ${link(LINKS.nuvioTv, "la page de Nuvio TV " + LINKS.nuvioTvVersion)}, puis dans « Assets » prends <b>app-full-universal-release.apk</b>. Il marche partout. Les autres fichiers sont plus légers mais propres à un type de processeur : <b>armeabi-v7a</b> pour la plupart des Fire TV et des TV, <b>arm64-v8a</b> pour les boîtiers récents (Shield, Chromecast avec Google TV), <b>x86</b> et <b>x86_64</b> pour les émulateurs et PC.</p>
@@ -737,8 +738,8 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
       </div>
       <div class="mode-pane" data-pane="main">
         <ol>
-          <li>Le plus simple : installe <b>Nuvio</b> depuis ${link(LINKS.nuvioPlay, "le Google Play Store")}. Il se met à jour tout seul.</li>
-          <li>Pas de Play Store sur ton appareil ? Ouvre ${link(LINKS.nuvioMobile, "la page de Nuvio Mobile sur GitHub")} et, dans « Assets », prends <b>androidApp-full-arm64-v8a-release.apk</b> (presque tous les téléphones et tablettes récents) ou <b>armeabi-v7a</b> pour un très vieil appareil. Autorise l'installation quand Android le demande.</li>
+          <li>Nuvio n'est pas sur le Play Store : son fichier d'installation officiel (APK) est sur GitHub. Ouvre ${link(LINKS.nuvioMobile, "la page de Nuvio Mobile sur GitHub")} et, dans « Assets », prends <b>androidApp-full-arm64-v8a-release.apk</b> (presque tous les téléphones et tablettes récents) ou <b>androidApp-full-armeabi-v7a-release.apk</b> pour un très vieil appareil.</li>
+          <li>Ouvre le fichier téléchargé. Android demande d'autoriser ton navigateur à installer des applis : accepte, puis choisis <b>Installer</b>.</li>
           <li>Ouvre Nuvio. Sur téléphone et tablette, saute l'étape 4 : tu colles les liens directement dans l'appli.</li>
         </ol>
       </div>
@@ -747,7 +748,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
         <ol>
           <li><b>Copie ce message</b> :</li>
         </ol>
-        <div class="copy long"><code id="u-guide-android">Aide-moi à installer l'appli Nuvio sur mon téléphone (ou ma tablette) Android, puis à la configurer en français. Guide-moi une seule étape à la fois et attends que je te dise « c'est fait » avant de passer à la suivante. Si je bloque, je t'enverrai une capture d'écran. Pour l'installer : le plus simple est le Google Play Store (${LINKS.nuvioPlay}) ; sans Play Store, l'APK officiel est sur ${LINKS.nuvioMobile} (fichier androidApp-full-arm64-v8a-release.apk pour un appareil récent). Ensuite, le guide complet à suivre est ici : ${origin}/guide (étapes 3 et 5 à 12 ; l'étape 4 ne sert pas sur téléphone).</code><button type="button" data-copy="u-guide-android">Copier</button></div>
+        <div class="copy long"><code id="u-guide-android">Aide-moi à installer l'appli Nuvio sur mon téléphone (ou ma tablette) Android, puis à la configurer en français. Guide-moi une seule étape à la fois et attends que je te dise « c'est fait » avant de passer à la suivante. Si je bloque, je t'enverrai une capture d'écran. Nuvio n'est pas sur le Play Store : l'APK officiel est sur ${LINKS.nuvioMobile} (fichier androidApp-full-arm64-v8a-release.apk pour un appareil récent, androidApp-full-armeabi-v7a-release.apk pour un très vieux). Ensuite, le guide complet à suivre est ici : ${origin}/guide (étapes 3 et 5 à 12 ; l'étape 4 ne sert pas sur téléphone).</code><button type="button" data-copy="u-guide-android">Copier</button></div>
         <ol start="2">
           <li><b>Ouvre l'appli Claude</b> (ou ${link("https://claude.ai/new", "claude.ai")}), colle le message et envoie-le. Réponds-lui au fur et à mesure.</li>
         </ol>

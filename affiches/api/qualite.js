@@ -15,9 +15,15 @@ export function makeQualite({ fetchImpl = fetch } = {}) {
       return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" } });
     }
     const qualite = await lireTorrentio(`${type}/${video}`, fetchImpl);
-    if (!qualite) return new Response(null, { status: 503, headers: { "Cache-Control": "no-store" } });
+    // Torrentio en panne ou qui refuse : { erreur: true } gardé 30 min (le CDN de Vercel ne garde jamais une 503 :
+    // chaque affiche redemanderait Torrentio, et Vercel risquerait d'être bloqué).
+    if (!qualite) {
+      return new Response(JSON.stringify({ erreur: true }), {
+        headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=1800", "Vercel-CDN-Cache-Control": "max-age=1800" },
+      });
+    }
     return new Response(JSON.stringify(qualite), {
-      headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=86400", "Vercel-CDN-Cache-Control": "max-age=86400" },
+      headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=86400", "Vercel-CDN-Cache-Control": "max-age=86400, stale-if-error=86400" },
     });
   };
 }

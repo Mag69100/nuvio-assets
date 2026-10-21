@@ -54,7 +54,8 @@ async function lireRelais(relais, video, fetchImpl) {
     const res = await fetchImpl(`${relais}/qualite/${video}.json?v=3`, { signal: AbortSignal.timeout(DELAI_MS + 500) });
     if (!res.ok) return null;
     const d = await res.json();
-    // Réponse gardée au CDN avant la qualité v2 : sans fhd, hdr10p ni atmos (lus false).
+    // Réponse gardée au CDN avant la qualité v2 : sans fhd, hdr10p ni atmos (lus false). { erreur: true } (Torrentio
+    // en panne) : null.
     return d && typeof d.uhd === "boolean"
       ? { uhd: d.uhd, extra: d.extra === "DV" || d.extra === "HDR" ? d.extra : null, fhd: d.fhd === true, hdr10p: d.hdr10p === true, atmos: d.atmos === true,
         vf: typeof d.vf === "boolean" ? d.vf : null, sources: Number.isInteger(d.sources) ? d.sources : null }

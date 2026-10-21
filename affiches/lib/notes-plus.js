@@ -43,7 +43,8 @@ async function lireRelais(relais, imdb, fetchImpl) {
     if (!res.ok) return null;
     const d = await res.json();
     const nombre = (v) => (typeof v === "number" && v > 0 ? v : null);
-    return d ? { rt: nombre(d.rt), mc: nombre(d.mc), lb: nombre(d.lb) } : null;
+    // { erreur: true } : MDBList en panne ou quota épuisé (pas « aucune note », qui serait gardé un jour).
+    return d && !d.erreur ? { rt: nombre(d.rt), mc: nombre(d.mc), lb: nombre(d.lb) } : null;
   } catch { return null; }
 }
 

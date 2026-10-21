@@ -176,12 +176,19 @@ test("Torrentio lent : pas plus d'1 s d'attente, cache court", async () => {
   assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=600, stale-while-revalidate=3600");
 });
 
-test("Torrentio en échec : cache court, pour avoir le badge à la prochaine demande", async () => {
+// En échec (et pas seulement en retard) : cache normal sans badge. Le relais garde l'échec 30 min ; un cache court
+// ferait redessiner chaque affiche toutes les 10 minutes pendant toute la panne.
+test("Torrentio en échec : cache normal sans badge", async () => {
   const refus = async () => new Response("interdit", { status: 403 });
   const res = await makeHandler({ fetchImpl: internet({ torrentio: refus }), env })(req("type=movie&shape=poster&id=tt15239678"));
   assert.equal(res.status, 200);
-  assert.equal(res.headers.get("Cache-Control"), "public, max-age=3600");
-  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=600, stale-while-revalidate=3600");
+  assert.equal(res.headers.get("Cache-Control"), "public, max-age=604800");
+  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=604800, stale-while-revalidate=604800, stale-if-error=86400");
+  // Relais injoignable (erreur, réponse vite) : pareil.
+  const base = internet();
+  const muet = async (url, opts) => (String(url).includes("/qualite/") ? new Response("", { status: 500 }) : base(url, opts));
+  const res2 = await makeHandler({ fetchImpl: muet, env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(res2.headers.get("Cache-Control"), "public, max-age=604800");
 });
 
 test("images téléchargées pendant qu'on attend Torrentio", async () => {
@@ -410,12 +417,17 @@ test("v2_notes_seulement_si_demandees", async () => {
   assert.ok(base.calls.includes("https://affiches.test/notes/tt15239678.json"), base.calls.join("\n"));
 });
 
-test("v2_notes_en_echec_cache_court", async () => {
-  const base = internet();
-  const f = async (url, opts) => (String(url).includes("/notes/") ? new Response("", { status: 503 }) : base(url, opts));
-  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.Q0R1"));
-  assert.equal(res.status, 200);
-  assert.equal(res.headers.get("Cache-Control"), "public, max-age=3600");
+// Notes des autres sites en échec (MDBList en panne ou quota épuisé : le relais le garde une heure) : l'affiche part
+// sans elles, avec le cache normal (pas redessinée toutes les 10 minutes pendant la panne).
+test("v2_notes_en_echec_cache_normal", async () => {
+  for (const reponse of [() => json({ erreur: true }), () => new Response("", { status: 503 })]) {
+    r6();
+    const base = internet();
+    const f = async (url, opts) => (String(url).includes("/notes/") ? reponse() : base(url, opts));
+    const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.Q0R1"));
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("Cache-Control"), "public, max-age=604800");
+  }
 });
 
 test("v2_image_du_film_recadree_verifiee", async () => {

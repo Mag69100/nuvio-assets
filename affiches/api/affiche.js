@@ -77,11 +77,16 @@ function fetchImages(fetchImpl) {
   };
 }
 
-/** La qualité, ou null si Torrentio n'a pas répondu à temps ou a échoué (enRetard : cache court, on réessaiera). */
+/**
+ * La qualité, ou null si Torrentio n'a pas répondu à temps ou a échoué. En retard (la lecture continue : elle sera
+ * gardée par le relais et l'instance) : cache court, pour avoir le badge ensuite. En échec (Torrentio en panne, le
+ * relais le garde 30 min) : cache normal sans badge, sinon chaque affiche serait redessinée toutes les 10 minutes
+ * pendant toute la panne.
+ */
 function qualiteATemps(type, facts, fetchImpl, relais) {
   let timer;
   const delai = new Promise((ok) => { timer = setTimeout(() => ok({ enRetard: true, quality: null }), ATTENTE_QUALITE_MS); });
-  const lue = qualityOf(type, facts.imdbId, facts.lastSeason, fetchImpl, relais).then((quality) => ({ enRetard: quality === null && !!facts.imdbId, quality }));
+  const lue = qualityOf(type, facts.imdbId, facts.lastSeason, fetchImpl, relais).then((quality) => ({ enRetard: false, quality }));
   return Promise.race([lue, delai])
     .finally(() => clearTimeout(timer));
 }
@@ -172,8 +177,9 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
         lireSources ? qualiteATemps(type, facts, fetchImpl, relais) : { enRetard: false, quality: null },
         notesUtiles && facts.imdbId ? notesPlus(facts.imdbId, fetchImpl, relais) : undefined,
       ]);
-      // Notes des autres sites demandées mais pas lues (quota, panne) : cache court, pour les avoir ensuite.
-      const enRetard = qualiteEnRetard || notes === null;
+      // Notes des autres sites demandées mais pas lues (quota, panne) : cache normal sans elles (le relais garde
+      // l'échec une heure ; un cache court ferait redessiner sans fin pendant toute la panne).
+      const enRetard = qualiteEnRetard;
       const content = posterContent(facts, { imdbRating, rank: place, quality, notes }, shape, reglages, aujourdhui);
       // Rien à poser ni à griser : l'appli va chercher l'image directement chez TMDB, sans la redessiner ici.
       const retouchee = !!(content.styles.retouche || content.styles.cadre);

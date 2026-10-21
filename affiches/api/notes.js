@@ -15,10 +15,15 @@ export function makeNotes({ fetchImpl = fetch, env = process.env } = {}) {
       return new Response(JSON.stringify({ rt: null, mc: null, lb: null }), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" } });
     }
     const notes = await lireMdblist(env, imdb, fetchImpl);
-    // Panne ou quota : gardée 10 min au CDN, pour qu'une rafale de demandes ne vide pas le quota.
-    if (!notes) return new Response(null, { status: 503, headers: { "Cache-Control": "no-store", "Vercel-CDN-Cache-Control": "max-age=600" } });
+    // Panne ou quota : { erreur: true } gardé une heure, pour qu'une rafale de demandes ne vide pas le quota (le CDN
+    // de Vercel ne garde jamais une 503, même avec Vercel-CDN-Cache-Control).
+    if (!notes) {
+      return new Response(JSON.stringify({ erreur: true }), {
+        headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" },
+      });
+    }
     return new Response(JSON.stringify(notes), {
-      headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=86400", "Vercel-CDN-Cache-Control": "max-age=604800" },
+      headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=86400", "Vercel-CDN-Cache-Control": "max-age=604800, stale-if-error=86400" },
     });
   };
 }

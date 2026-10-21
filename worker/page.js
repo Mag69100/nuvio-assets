@@ -1596,7 +1596,8 @@ function carteDe(v) {
         ? [nuancier("Couleur du cadre", r.image.cadreC, (x) => regle((r) => { r.image.cadreC = x || "e"; }))]
         : [aide("Choisis « Couleur » pour prendre une teinte du nuancier.")] },
     saison: { nom: "Habillage de la saison", ...onOff("saison"),
-      principal: () => [aide("Halloween, Noël, Saint-Valentin, Pâques, été : un cadre et des ornements sur les films de la rangée « Spécial … », le temps de la fête. Nuvio ne dit pas de quelle rangée vient une affiche : un de ces films est habillé partout où il apparaît.")] },
+      principal: () => [aide("Halloween, Noël, Saint-Valentin, Pâques, été : un cadre et des ornements sur les films de la rangée « Spécial … », le temps de la fête.")],
+      plus: () => [aide("Nuvio ne dit pas de quelle rangée vient une affiche : un film de la rangée de saison est habillé partout où il apparaît (Tendances, recherche, fiche).")] },
     sortie: { nom: "Pas encore sorti", on: () => r.sortie.nb, bascule: () => regle((r) => { r.sortie.nb = !r.sortie.nb; }),
       principal: () => [choix("Note", [[true, "Cachée"], [false, "Montrée"]], r.sortie.cacherNote, (x) => regle((r) => { r.sortie.cacherNote = x; }))],
       plus: () => [aide("Noir et blanc tant que le titre n'est pas disponible chez soi en VF, comme dans les rangées.")] },

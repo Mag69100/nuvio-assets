@@ -425,7 +425,7 @@ a { color: var(--bulb); font-weight: 700; text-underline-offset: 3px; }
 .trousseau { display: grid; gap: 10px; padding: 16px 18px; border-radius: 14px; border: 1px solid rgba(255,207,107,.35); background: linear-gradient(180deg, rgba(255,207,107,.08), rgba(255,207,107,.02)); }
 .trousseau p { margin: 0; }
 .trousseau .vers-tel { justify-self: start; }
-.etat-cles { min-height: 1.3em; font-weight: 800; font-size: .9rem; color: var(--bulb); }
+.trousseau-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }.etat-cles { min-height: 1.3em; font-weight: 800; font-size: .9rem; color: var(--bulb); }
 .etat-cles:empty { display: none; }
 .etat-cles.erreur { color: #ffe1d8; }
 /* Personnaliser sans quitter le guide : la salle 2 par-dessus, dans un cadre. */
@@ -896,10 +896,13 @@ ${secretsHTML("guide")}
     <p class="note">Certains addons proposent aussi « Se connecter avec AllDebrid » : tu valides un code sur alldebrid.com au lieu de coller la clé. Les deux marchent.</p>
     <div class="trousseau" id="trousseau">
       <h3 class="sub-h">B · Ton trousseau</h3>
-      <p>Colle ta clé ici, une seule fois : le guide l'insère dans les liens des étapes suivantes. Elle reste sur cet appareil, rien n'est envoyé.</p>
+      <p>Colle ta clé ici, une seule fois : le guide l'insère dans les liens des étapes suivantes. Elle reste gardée dans ce navigateur, sur cet appareil : elle n'est jamais envoyée à notre serveur.</p>
       <label class="keyfield" for="ad-key"><span>Ta clé AllDebrid</span><input id="ad-key" type="text" placeholder="la clé nommée « Nuvio »" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
       <p class="etat-cles" id="etat-cles" role="status"></p>
-      <button type="button" class="vers-tel" id="cles-tel">Envoyer ma clé sur mon téléphone (QR code)</button>
+      <div class="trousseau-actions">
+        <button type="button" class="vers-tel" id="cles-tel">Envoyer ma clé sur mon téléphone (QR code)</button>
+        <button type="button" class="ca-changer" id="oublier-cle" hidden>Oublier ma clé</button>
+      </div>
     </div>
     <p class="note warn">Tes clés sont personnelles : ne les publie pas et ne les envoie à personne. Ne partage pas non plus tes liens d'installation d'addons, ils contiennent ta clé AllDebrid.</p>
   </section>
@@ -1132,7 +1135,7 @@ const choisirMode = (mode) => document.querySelectorAll("[data-panel]").forEach(
   p.querySelectorAll(".mode-pane").forEach((x) => { x.hidden = x.dataset.pane !== mode; });
 });
 document.querySelectorAll(".modes button").forEach((b) => b.addEventListener("click", () => choisirMode(b.dataset.mode)));
-// ---------- Le trousseau : clés et appareil, gardés dans le navigateur (rien n'est envoyé) ----------
+// ---------- Le trousseau : clés et appareil, gardés dans le navigateur (jamais envoyés au serveur du site) ----------
 const ORIG = ${JSON.stringify(origin)};
 const lit = (k) => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
 const garde = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} };
@@ -1233,9 +1236,15 @@ function majCles() {
   const brut = adInput.value.trim();
   $id("etat-cles").className = "etat-cles";
   if (brut && !ad) { $id("etat-cles").textContent = "Cette clé AllDebrid paraît incomplète : recopie-la depuis la page des clés API."; $id("etat-cles").classList.add("erreur", "alerte"); }
-  else $id("etat-cles").textContent = ad ? "Clé gardée sur cet appareil ✓" : "";
+  else $id("etat-cles").textContent = ad ? "Clé gardée dans ce navigateur ✓" : "";
+  $id("oublier-cle").hidden = !brut;
 }
 adInput.addEventListener("input", () => { garde("ad-key", adInput.value.trim().replace(/[^A-Za-z0-9]/g, "")); majCles(); });
+// Oublier ma clé : effacée de ce navigateur (et des liens préparés par le guide).
+$id("oublier-cle").addEventListener("click", () => {
+  garde("ad-key", ""); adInput.value = ""; majCles(); adInput.focus();
+  toast("Clé oubliée : elle n'est plus gardée sur cet appareil.");
+});
 // L'appareil : choisi à la main, ou déduit de l'onglet cliqué à l'étape 2 tant qu'on n'a rien choisi
 // (sauf TV et Fire TV : TV ou box, HD ou 4K, Dolby Vision ou non, seule la personne le sait).
 let appAuto = !appSel.value;
@@ -1425,7 +1434,8 @@ document.getElementById("cles-tel").addEventListener("click", () => {
   const o = paquetCles({ ad: adInput.value, appareil: appSel.value });
   if (!o.ad) { toast("Colle d'abord ta clé dans le trousseau."); adInput.focus(); return; }
   const b = btoa(JSON.stringify(o)).replace(/[+]/g, "-").replace(/[/]/g, "_").replace(/=+$/, "");
-  montrerQr("Ta clé sur ton téléphone", "Scanne avec l'appareil photo : le guide s'ouvre sur le téléphone, avec ta clé et tes liens prêts.", ORIGINE + "/guide#cles=" + b, "Elle passe de cet écran au téléphone par l'image, sans être envoyée sur internet.");
+  // La clé passe par l'image, pas par le serveur du site ; mais l'appli qui lit le QR code la voit.
+  montrerQr("Ta clé sur ton téléphone", "Scanne avec l'appareil photo du téléphone : le guide s'ouvre avec ta clé et tes liens prêts. Ta clé passe par l'image, pas par notre serveur ; évite les applis de scan, qui voient ce qu'elles lisent.", ORIGINE + "/guide#cles=" + b, "");
 });
 // Arrivée sur le téléphone avec un lien envoyé depuis le PC : on le montre avec un gros bouton Copier.
 (() => {

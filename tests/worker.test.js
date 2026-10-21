@@ -1,6 +1,6 @@
 import { test, beforeEach, mock } from "node:test";
 import assert from "node:assert/strict";
-import worker from "../worker/index.js";
+import worker, { oublierInfos } from "../worker/index.js";
 import { resetFails } from "../worker/hote.js";
 
 // Worker appelé comme par Cloudflare, avec un cache en mémoire et TMDB / Gemini simulés.
@@ -9,6 +9,7 @@ beforeEach(() => {
   store = new Map();
   calls = [];
   resetFails();
+  oublierInfos();
   globalThis.caches = {
     default: {
       match: async (req) => (store.has(req.url) ? new Response(store.get(req.url)) : undefined),

@@ -1,6 +1,6 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import worker from "../worker/index.js";
+import worker, { oublierInfos } from "../worker/index.js";
 import { capQuery, correctQuery, prepareWords } from "../worker/search.js";
 
 // Addon appelé comme par Cloudflare (cache en mémoire, TMDB simulé) : adresses piégées, erreurs, budget d'appels.
@@ -8,6 +8,7 @@ let store, calls;
 beforeEach(() => {
   store = new Map();
   calls = [];
+  oublierInfos();
   globalThis.caches = {
     default: {
       match: async (req) => (store.has(req.url) ? new Response(store.get(req.url)) : undefined),
@@ -108,7 +109,8 @@ test("page_incomplete_gardee_peu_de_temps", async () => {
   globalThis.fetch = async (url) => {
     const u = String(url);
     calls.push(u);
-    if (u.includes("/discover/")) return new Response(JSON.stringify({ results: Array.from({ length: 20 }, (_, i) => ({ id: 100 + i, name: `S${i}`, first_air_date: "2020-01-01" })), page: 1, total_pages: 5 }));
+    const p = Number(new URL(u).searchParams.get("page")) || 1;
+    if (u.includes("/discover/")) return new Response(JSON.stringify({ results: Array.from({ length: 20 }, (_, i) => ({ id: p * 100 + i, name: `S${i}`, first_air_date: "2020-01-01" })), page: p, total_pages: 5 }));
     const m = /\/tv\/(\d+)\?/.exec(u);
     if (m && refuse.has(Number(m[1]))) return new Response("{}", { status: 429 });
     if (m) return new Response(JSON.stringify({ id: Number(m[1]), external_ids: { imdb_id: `tt${m[1]}` } }));
@@ -121,7 +123,7 @@ test("page_incomplete_gardee_peu_de_temps", async () => {
   assert.match([...gardes.values()][0], /max-age=10800$/);
   // 5 sur 20 : page incomplète, 5 min dans le cache Cloudflare, 1 min dans Nuvio, même relue depuis le cache.
   gardes.clear();
-  [101, 102, 103, 104].forEach((id) => refuse.add(id));
+  [200, 201, 202, 203, 204].forEach((id) => refuse.add(id));
   assert.deepEqual(await page("/catalog/series/accueil-series-a-devorer/skip=20.json"), { cc: "public, max-age=60", n: 20 });
   assert.match([...gardes.values()][0], /max-age=300 partiel$/);
 });
@@ -214,11 +216,28 @@ test("budget_pire_cas_des_rangees", async () => {
   for (const path of ["/catalog/movie/accueil-top10.json", "/catalog/movie/accueil-vod-bientot.json", "/catalog/movie/accueil-vod-semaine.json",
     "/catalog/movie/films-cinema/genre=Prochainement.json", "/catalog/movie/accueil-attendus.json", "/catalog/series/accueil-series-a-devorer.json"]) {
     store.clear();
+    oublierInfos();
     const n = compteur();
     const { metas } = await (await get(cle + path, avecSelf(n))).json();
     assert.ok(n.sortants + n.cache <= 37, `${path} : ${n.sortants} appels sortants + ${n.cache} accès au cache`);
     if (path.includes("top10")) assert.ok(metas.length > 0 && n.sortants >= 33, `${path} : pire cas pas atteint (${n.sortants})`);
   }
+});
+
+// Une page relue pour un autre lien (autre clé de cache) : les fiches TMDB déjà lues par cette instance ne sont ni
+// redemandées ni relues, et la page est la même.
+test("fiches_gardees_en_memoire", async () => {
+  compteur();
+  const lues = [], listes = [];
+  const tmdbFetch = globalThis.fetch;
+  globalThis.fetch = (url) => { (/\/tv\/\d+\?/.test(String(url)) ? lues : listes).push(String(url)); return tmdbFetch(url); };
+  const a = (await (await get("/catalog/series/accueil-series-a-devorer.json")).json()).metas;
+  const autreLien = `/${Buffer.from(JSON.stringify({ m: 5 })).toString("base64url")}`;
+  const b = (await (await get(`${autreLien}/catalog/series/accueil-series-a-devorer.json`)).json()).metas;
+  assert.equal(a.length, 20);
+  assert.deepEqual(b, a);
+  assert.equal(listes.filter((u) => u.includes("/discover/")).length, 2, "la 2e page n'a pas été refaite");
+  assert.equal(lues.length, 20);
 });
 
 test("erreur_imprevue_reponse_propre", async () => {

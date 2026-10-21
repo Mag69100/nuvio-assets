@@ -277,8 +277,32 @@ async function tmdb(env, path, params = {}, lang = "fr-FR") {
  * Infos complémentaires d'un titre : identifiant IMDb et, pour les films, dates de sortie
  * (cinéma et numérique) par pays ; pour les séries, dernier et prochain épisode. Un seul appel
  * TMDB par titre, gardé 1 jour par Cloudflare (dates numériques et épisodes bougent).
+ *
+ * Le résumé (quelques champs) reste aussi 3 h dans la mémoire de cette instance du Worker : une page relue (autre
+ * lien, autre rangée, autre page) ne relit pas la grosse fiche TMDB (images, vidéos, dates de tous les pays), longue
+ * à décoder, et ne refait pas l'appel. Les réponses ratées ne sont pas gardées.
  */
+const INFOS = new Map();
+const INFOS_MAX = 3000, INFOS_MS = 3 * 3600e3;
+/** Pour les tests : oublie les résumés gardés en mémoire. */
+export const oublierInfos = () => INFOS.clear();
+
 async function extraInfo(env, kind, tmdbId) {
+  const k = `${kind}:${tmdbId}`, memo = INFOS.get(k);
+  if (memo && Date.now() - memo.at < INFOS_MS) return memo.info;
+  const info = await lireInfo(env, kind, tmdbId);
+  if (info.lu) {
+    INFOS.delete(k);
+    INFOS.set(k, { at: Date.now(), info });
+    if (INFOS.size > INFOS_MAX) INFOS.delete(INFOS.keys().next().value);   // le plus ancien
+  }
+  return info;
+}
+
+/** Ce qui sert d'un épisode TMDB (episodeNote, isFinale). */
+const slimEpisode = (e) => e && { air_date: e.air_date, season_number: e.season_number, episode_number: e.episode_number, episode_type: e.episode_type };
+
+async function lireInfo(env, kind, tmdbId) {
   const movie = kind !== "series";
   const url = new URL(`https://api.themoviedb.org/3/${movie ? "movie" : "tv"}/${tmdbId}`);
   // Même appel qu'avant, avec en plus les images : logo (en français si possible) et fond
@@ -298,12 +322,16 @@ async function extraInfo(env, kind, tmdbId) {
   if (!j) return { imdb: null, rate };
   const logo = bestImage(j.images && j.images.logos, "fr");
   const backdrop = bestImage((j.images && j.images.backdrops || []).filter((b) => !b.iso_639_1), "fr");
+  // Dates de sortie : seulement pays, type et date (releaseDates), pas les certifications ni les notes.
+  const releases = movie ? ((j.release_dates && j.release_dates.results) || []).map((r) => ({ iso_3166_1: r.iso_3166_1,
+    release_dates: (r.release_dates || []).map((x) => ({ type: x.type, release_date: x.release_date })) })) : null;
   return {
+    lu: true,
     imdb: (movie ? j.imdb_id : j.external_ids && j.external_ids.imdb_id) || null,
-    releases: movie ? (j.release_dates && j.release_dates.results) || [] : null,
+    releases,
     plateformeFr: movie && vfSurPlateforme(j["watch/providers"], j.original_language),
     plateformeVo: movie && plateformeFrance(j["watch/providers"]),
-    episode: movie ? null : { next: j.next_episode_to_air, last: j.last_episode_to_air, counts: seasonCounts(j.seasons), status: j.status },
+    episode: movie ? null : { next: slimEpisode(j.next_episode_to_air), last: slimEpisode(j.last_episode_to_air), counts: seasonCounts(j.seasons), status: j.status },
     logo: logo ? `${IMG}w500${logo.file_path.replace(/\.svg$/, ".png")}` : undefined,
     backdrop: backdrop ? backdrop.file_path : null,
     trailers: trailersOf(j.videos && j.videos.results).slice(0, 2),

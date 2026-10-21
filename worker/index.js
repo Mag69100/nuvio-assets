@@ -15,6 +15,8 @@
  *   /<config>/collections.json  collections Nuvio filtrées selon la config
  *   /catalog/<type>/<id>.json
  *   /catalog/<type>/<id>/<genre=…&skip=…>.json
+ *   /seance/<code>              le guide demande si « séance <code> » a été tapé dans Nuvio (voir seance.js)
+ *   /diagnostic                 photo de l'écran lue par Gemini, rangée parmi les pannes du guide (POST, diagnostic.js)
  *
  * Définitions des rangées et de Découvrir : ../catalogs.json (le même fichier qu'avant).
  * Secret requis : TMDB_API_KEY (clé API TMDB v3). L'IA (voir ai.js) tourne avec la clé Gemini que chacun
@@ -39,6 +41,8 @@ import { smartSearch, prepareWords, isExact, norm, capQuery } from "./search.js"
 import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
 import { isFixedId, readFixed, fixedRoute, fixedAvailable } from "./fixe.js";
+import { SEANCE_ID, carteSeance, rechercheSeance, routeSeance } from "./seance.js";
+import { routeDiagnostic } from "./diagnostic.js";
 import { sha256 } from "./outils-serveur.js";
 import { secondesAvantBascule, jourTendances, routeTendances, prendrePhotos } from "./tendances.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
@@ -261,7 +265,7 @@ function manifest(today, cfg, url, alerts) {
     name: cfg.n,
     description: "Rangées d'accueil, Découvrir et saison en cours, en français, en direct depuis TMDB.",
     logo: `${ASSETS}/logo/addon.png?v=${LOGO_V}`,
-    resources: ["catalog", { name: "meta", types: ["movie", "series"], idPrefixes: ["tt", "tmdb:", ...(alerts ? ["maj:"] : [])] }],
+    resources: ["catalog", { name: "meta", types: ["movie", "series"], idPrefixes: ["tt", "tmdb:", "catfr-", ...(alerts ? ["maj:"] : [])] }],
     types: ["movie", "series"],
     idPrefixes: ["tt", "tmdb:"],
     // Recherche : deux catalogues « Films » et « Séries » (titres en français), à la place
@@ -1788,7 +1792,7 @@ function json(data, maxAge) {
   });
 }
 
-const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie", "lien-fixe", "tendances", "saison.json"]);
+const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie", "lien-fixe", "tendances", "saison.json", "seance", "diagnostic"]);
 
 async function loadCollections() {
   const res = await fetch(`${ASSETS}/collections/collections.json`, { cf: { cacheTtl: 600, cacheEverything: true } });
@@ -1982,6 +1986,10 @@ const app = {
     // La photo du jour des tendances, lue par le service d'affiches (worker/tendances.js).
     const tend = !cfgSeg && /^\/tendances\/([a-z]+)\.json$/.exec(path);
     if (tend) return routeTendances(env, tend[1], HEADERS);
+    // Guide : le mot de passe de la séance (seance.js) et le diagnostic par photo (diagnostic.js).
+    const sc = /^\/seance\/([^/]+)$/.exec(path);
+    if (sc) return routeSeance(request, env, sc[1]);
+    if (path === "/diagnostic") return routeDiagnostic(request, env);
     if (path === "/logo.png") {   // le logo servi par le site, sans l'adresse du dépôt dans les pages
       const r = await fetch(`${ASSETS}/logo/addon.png`, { cf: { cacheTtl: 86400, cacheEverything: true } });
       return new Response(r.body, { status: r.status, headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } });
@@ -2089,6 +2097,7 @@ const app = {
       const info = (await hasAlerts(env, url, cfg)) ? await updateInfo(VERSION) : null;
       return new Response(JSON.stringify({ meta: info ? updateCard(info, env, url.origin) : null }), { headers: { ...HEADERS, "Cache-Control": "no-store" } });
     }
+    if (mm && mm[2] === SEANCE_ID) return json({ meta: carteSeance(url.origin, mm[1]) }, 3600);   // carte du mot de passe de la séance
     if (mm && decode(mm[2]) === null) return json({ meta: null }, 600);
     if (mm) {
       const fullKey = `https://cache.local/c${CACHE_V}/${today}/meta/${mm[1]}/${mm[2]}?l=${langOf(cfg)}&g=${cfg.g}&ai=${env.GEMINI_API_KEY ? 1 : 0}`;
@@ -2122,6 +2131,11 @@ const app = {
     // La clé ne dépend que de ce qui change le contenu (pas du nom ni de l'ordre choisis).
     // Une recherche faite sans clé Gemini (sans IA) n'est pas resservie à qui en a une, et inversement.
     const extra = parseExtra(extraSeg);
+    // « séance 4821 » tapé dans la recherche : la carte du guide, jamais en cache (voir seance.js).
+    if (extra.search && SEARCH.some((c) => c.id === id && c.type === type)) {
+      const seance = await rechercheSeance(request, env, type, extra.search);
+      if (seance) return seance;
+    }
     const aiTag = extra.search ? `&ai=${env.GEMINI_API_KEY ? 1 : 0}` : "";
     // La clé change aussi avec la photo des tendances (4 h UTC) : les rangées suivent les « N° » du jour.
     const cacheKey = new Request(`https://cache.local/c${CACHE_V}/${today}${path}?k=${await sha(contentKey(cfg))}${aiTag}&t=${jourTendances()}`);

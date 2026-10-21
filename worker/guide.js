@@ -43,6 +43,8 @@ export { POSTER_URL };
 import { APPAREILS, installUrl } from "./liens.js";
 import { feuilles, scripts } from "./statique.js";
 import { esc } from "./outils-serveur.js";
+import { pannesHTML } from "./pannes.js";
+import { seanceHTML, verifCleHTML, photoHTML } from "./guide-verifs.js";
 
 const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>`;
 const copyBox = (id, value) => `<div class="copy"><code id="${id}">${esc(value)}</code><button type="button" data-copy="${id}">Copier</button></div>`;
@@ -195,7 +197,7 @@ ${STAGE_HEAD}
 <meta property="og:title" content="Nuvio en français, de A à Z">
 <meta property="og:image" content="${LOGO}">
 <link rel="icon" href="${LOGO}">
-${feuilles("polices.css", "guide.css", "apercu.css", "nuvio.css", "reglages.css", "guide-reclames.css", "scene.css", "guide-fin.css")}
+${feuilles("polices.css", "guide.css", "apercu.css", "nuvio.css", "reglages.css", "guide-reclames.css", "scene.css", "guide-fin.css", "guide-verifs.css")}
 </head>
 <body>
 <div class="valance" aria-hidden="true"></div>
@@ -416,6 +418,7 @@ ${secretsHTML("guide")}
       <p>Colle ta clé ici, une seule fois : le guide l'insère dans les liens des étapes suivantes. Elle reste gardée dans ce navigateur, sur cet appareil : elle n'est jamais envoyée à notre serveur.</p>
       <label class="keyfield" for="ad-key"><span>Ta clé AllDebrid</span><input id="ad-key" type="text" placeholder="la clé nommée « Nuvio »" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
       <p class="etat-cles" id="etat-cles" role="status"></p>
+      ${verifCleHTML()}
       <div class="trousseau-actions">
         <button type="button" class="vers-tel" id="cles-tel">Envoyer ma clé sur mon téléphone (QR code)</button>
         <button type="button" class="ca-changer" id="oublier-cle" hidden>Oublier ma clé</button>
@@ -447,6 +450,7 @@ ${secretsHTML("guide")}
         <p class="perso-actions"><button type="button" class="perso-btn" data-perso-ouvrir>Personnaliser mon catalogue</button></p>
         ${addonBox("u-cat", manifest)}
         <p class="small perso" data-perso hidden>C'est ton lien perso, repris de ta programmation. <button type="button" class="perso-lien" data-perso-ouvrir>Le modifier</button> · <button type="button" class="perso-lien" data-perso-retour>Revenir au lien conseillé</button></p>
+        ${seanceHTML()}
       </article>
       <article class="addon">
         <header><h3>Lumio</h3><span class="role need">Débrideur</span></header>
@@ -574,17 +578,8 @@ ${secretsHTML("guide")}
       </div>
       <p class="pu-etat" id="pu-etat" aria-live="polite"></p>
     </div>
-    <details data-moment="fiche"><summary>« Aucun addon installé ne fournit de métadonnées pour… » en ouvrant un film</summary><p>Les fiches viennent du Catalogue FR : retire-le et rajoute-le (étape 6) pour que Nuvio voie qu'il fournit maintenant les fiches. Si tu avais un autre addon de fiches (TMDB Discover Plus, Cinemeta), tu peux le garder ou le supprimer.</p></details>
-    <details data-moment="recherche"><summary>« Aucun catalogue de recherche trouvé dans les addons installés »</summary><p>La recherche vient du Catalogue FR (addon n° 1 de l'étape 6) : vérifie qu'il est bien installé. Si tu viens de le mettre à jour, retire-le et rajoute-le pour que Nuvio voie ses catalogues de recherche.</p></details>
-    <details data-moment="lecture"><summary>Aucune source quand je clique sur Regarder</summary><p>Vérifie que ton abonnement AllDebrid premium est actif (étape 5) : l'essai gratuit de 7 jours ne suffit pas. Vérifie aussi que ta clé API est bien renseignée dans Lumio, StreamFusion, Torrentio et WAStream. S'il n'y a rien seulement sur certains films, tes exclusions sont peut-être trop strictes : relis l'encadré « Ce que ton appareil sait lire » de l'étape 6.</p></details>
-    <details data-moment="lecture"><summary>L'image saccade pendant les mouvements de caméra</summary><p>Si les travellings avancent par à-coups, sans rond de chargement, c'est du <b>judder</b> : le film est en 24 images/s (23,976) et la TV l'affiche en 60 Hz, alors les images sont répétées de façon inégale. Sur Fire TV : <span class="path">Paramètres → Affichage et sons → Affichage → Faire correspondre la fréquence d'images d'origine</span> → activé. Dans Nuvio, active aussi <b>Frame Rate Matching</b> (étape 9).</p><p>Si l'image se fige avec un rond de chargement, c'est autre chose : le fichier est trop lourd pour ta connexion (voir l'encadré de l'étape 6).</p></details>
-    <details data-moment="accueil fiche"><summary>C'est écrit « Movie » au lieu de « Film »</summary><p>La langue de l'appli est en anglais : <span class="path">Paramètres → Langue de l'application → Français</span> (étape 3).</p></details>
-    <details data-moment="accueil fiche"><summary>Les bandes-annonces sont en anglais</summary><p>Dans <span class="path">Paramètres → Intégrations → TMDB</span>, <b>désactive Bandes-annonces</b> (étape 3), puis force l'arrêt de Nuvio et relance-le. Activé, ce réglage fait passer les bandes-annonces de TMDB, souvent en anglais, avant celles du Catalogue FR, qui va chercher la VF sur TMDB, Allociné et YouTube.</p><p>Si un titre reste en version originale, c'est qu'aucune VF n'a été trouvée (fréquent pour les animés et les séries étrangères). Une VF trouvée en ouvrant la fiche arrive sur l'accueil dans les 3 heures.</p></details>
-    <details data-moment="accueil"><summary>Une rangée ou une modification n'apparaît pas</summary><p>Nuvio garde la liste des rangées d'un addon pendant 6 h. Pas besoin de réinstaller : dans <span class="path">Addons</span>, appuie sur <b>Actualiser les addons</b>, qui récupère tout de suite leurs dernières modifications.</p><p>Si tu as changé tes réglages en salle 2 avec un lien habituel, ton lien d'addon a changé : là, il faut bien remplacer l'ancien Catalogue FR par le nouveau lien de ton billet. Avec un lien fixe, rien à remplacer : « Actualiser les addons » suffit.</p><p>Les collections (les grandes tuiles du haut) ne bougent pas avec « Actualiser les addons » : Nuvio les a importées. Pour voir un changement de tuiles, supprime-les dans l'onglet Collections, puis réimporte-les (étape 7 : « Copier le contenu (PC/TEL) », puis le bouton presse-papiers en haut à droite de l'onglet Collections).</p></details>
-    <details data-moment="recherche"><summary>La recherche affiche « TMDB Search » ou des résultats en double</summary><p>Ton installation date d’avant le passage de la recherche dans le Catalogue FR. <b>1.</b> Retire le Catalogue FR et remets-le (lien de l’étape 6) pour que Nuvio voie sa recherche et ses fiches. <b>2.</b> Dans Addons, supprime <b>TMDB Discover Plus</b> : il ne sert plus, le Catalogue FR fait maintenant la recherche et les fiches. <b>3.</b> Vérifie que « Afficher le type de catalogue » est désactivé (étape 9).</p></details>
-    <details data-moment="accueil fiche"><summary>Un film à venir n’affiche pas sa date de dispo</summary><p>Pour un film pas encore regardable, l’addon envoie la date où il arrive chez toi (sortie numérique, ou une estimation) : c’est elle que le grand carrousel affiche, pas la sortie au cinéma. Le rappel « 📅 Dispo le 17 nov. » en tête du résumé n’apparaît que si <span class="path">Paramètres → Intégrations → TMDB → Informations de base</span> est désactivé (étape 3) : sinon, Nuvio remplace le résumé par celui de TMDB. Nuvio garde l’ancienne version environ 5 minutes : si rien ne change, ferme et relance l’appli.</p></details>
-    <details data-moment="profils"><summary>Un autre profil n'a pas les addons</summary><p>Chaque profil Nuvio a sa propre liste d'addons. Ouvre <span class="path">Paramètres → Profils → Gérer les profils</span>, choisis le profil, puis <b>Modifier</b>, et active <b>Utiliser les addons principaux</b> : il reprend alors exactement les addons du profil principal, et suivra chacune de tes modifications.</p></details>
-    <details data-moment="accueil"><summary>Une collection est tout en bas de l'accueil</summary><p>C'est normal : seule Plateformes est épinglée tout en haut. Genres, J'ai envie de…, Sagas et Studios viennent après les rangées du Catalogue FR. Pour en remonter une : <span class="path">Paramètres → Réorganiser les catalogues de l'accueil</span> (étape 10).</p></details>
+    ${photoHTML(origin)}
+    ${pannesHTML()}
     <div class="rembobinage" id="rembobinage">
       <svg class="rb-bobine" viewBox="0 0 80 80" aria-hidden="true"><circle class="rb-film" cx="40" cy="40" r="12"/><g class="rb-tourne"><circle cx="40" cy="40" r="36"/><path d="M40 33V4M33.9 43.5L8.8 58M46.1 43.5L71.2 58"/><circle cx="40" cy="40" r="7"/></g></svg>
       <div class="rb-texte">
@@ -637,7 +632,7 @@ ${scripts("nuvio.js", "apercu.js", "reglages.js")}
 // Étape 8 : le lien d'affiches de cet appareil, avec ce qui a été choisi en salle 2 (« Tes affiches »).
 if (window.NV) document.getElementById("u-poster").textContent = NV.lienPerso();
 </script>
-${scripts("guide-fin.js")}
+${scripts("guide-fin.js", "guide-verifs.js")}
 </body>
 </html>`;
 }

@@ -104,7 +104,8 @@ async function askGemini(env, query, model, thinking) {
 }
 
 /**
- * Une question à un modèle Gemini → texte de la réponse (erreur avec .status sinon).
+ * Une question à un modèle Gemini → texte de la réponse (erreur avec .status sinon). `user` : le texte, ou une
+ * liste de parties ({ text } ou { inlineData: { mimeType, data } }, pour une image).
  * opts.schema → réponse JSON selon ce schéma ; opts.thinking → niveau de réflexion ; opts.timeout →
  * attente maximale (5 s par défaut).
  */
@@ -114,7 +115,7 @@ async function geminiText(env, model, system, user, opts = {}) {
     headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: "user", parts: [{ text: user }] }],
+      contents: [{ role: "user", parts: Array.isArray(user) ? user : [{ text: user }] }],
       generationConfig: {
         temperature: 0.2,
         ...(opts.schema ? { responseMimeType: "application/json", responseSchema: opts.schema } : {}),
@@ -505,4 +506,35 @@ export async function aiRenewal(env, ctx, id, prompt) {
   };
   const r = await cachedAsk(env, ctx, `https://cache.local/renewal/v2/${id}`, RENEWAL_CACHE_S, ask, { optional: true });
   return { ...r, ...(r.value || { status: "", detail: "" }) };
+}
+
+/**
+ * Une photo à lire (diagnostic par photo du guide, voir diagnostic.js) → { value, model } ou
+ * { value: null, refused, quota, error }. Mêmes modèles et mêmes repos que les bonus de fiche (jamais
+ * 3.6 Flash, gardé pour la recherche), sans leur limite par minute : quelqu'un attend la réponse, et la
+ * liaison LIMITE_DIAGNOSTIC compte déjà les envois. Jamais en cache : rien de la photo n'est gardé.
+ * image : le JPEG en base64.
+ */
+export async function aiImage(env, system, text, image, schema) {
+  const tried = [];
+  let refused = false, quota = false;
+  for (const model of modelsFor(env, { optional: true })) {
+    try {
+      const parts = [{ text }, { inlineData: { mimeType: "image/jpeg", data: image } }];
+      const raw = await geminiText(env, model, system, parts, { schema, thinking: "low", timeout: 20000 });
+      let value;
+      try { value = JSON.parse(raw || "{}"); } catch (e) { throw Object.assign(new Error("réponse illisible"), { status: -1 }); }
+      return { value, model };
+    } catch (e) {
+      tried.push(`${model} : ${e.name === "TimeoutError" ? "pas de réponse" : String(e.message).slice(0, 200)}`);
+      if (keyRefused(e)) { refused = true; restKeyRefused(env); break; }
+      if (e.status === 429) quota = true;
+      const rest = restFor(e);
+      if (rest) RESTING.set(restKey(env, model), Date.now() + rest);
+    }
+  }
+  if (tried.length) console.warn("Gemini (photo) :", tried.join(" / "));
+  // Aucun modèle essayé : tous au repos (quota atteint il y a peu), ou clé refusée il y a moins de 10 min.
+  if (!tried.length) return { value: null, refused: keyResting(env), quota: !keyResting(env), error: "tous les modèles au repos" };
+  return { value: null, refused, quota, error: tried.join(" / ") };
 }

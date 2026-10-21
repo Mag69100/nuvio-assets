@@ -529,6 +529,7 @@ async function toMetas(env, ctx, results, kind, opts, today) {
       _digital: firstDigital(infos[i].releases),
       _guess: digitalGuess(infos[i].releases),
       _vf: likelyVf(infos[i].releases, it.original_language, today, infos[i].plateformeFr),
+      _plateforme: !!infos[i].plateformeFr,
     };
     return meta;
   });
@@ -690,7 +691,7 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
     opts = { ...opts, infos: new Map(gardes.map(([it, info]) => [it.id, info])) };
   }
   const metas = await toMetas(env, ctx, data.results, kind, opts, today);
-  return metas.map(({ _digital, _guess, _vf, ...m }) => m);
+  return metas.map(({ _digital, _guess, _vf, _plateforme, ...m }) => m);
 }
 
 /**
@@ -729,7 +730,7 @@ async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
   }
   if (!picked.length) return [];
   const metas = await toMetas(env, ctx, picked, kind, opts, today);
-  return metas.map(({ _digital, _guess, _vf, ...m }) => m);
+  return metas.map(({ _digital, _guess, _vf, _plateforme, ...m }) => m);
 }
 
 /** Film regardable chez soi : sorti en numérique (ou salle + 45 jours passés). Sans infos : gardé. */
@@ -762,7 +763,7 @@ async function fetchUpcomingPage(env, ctx, kind, page, today, opts) {
   }
   if (!found.length) return [];
   const metas = await toMetas(env, ctx, found.slice(0, PAGE), kind, { ...opts, upcoming: true }, today);
-  return metas.map(({ _digital, _guess, _vf, ...m }) => m);
+  return metas.map(({ _digital, _guess, _vf, _plateforme, ...m }) => m);
 }
 
 /**
@@ -798,8 +799,10 @@ async function fetchVfPage(env, ctx, def, kind, page, today, opts) {
   return metas
     .filter((m) => when(m) && when(m) >= from && when(m) <= to)
     .filter((m) => future || m._vf)   // « Dispo depuis peu » : seulement ceux qui ont sûrement une VF
+    // « Bientôt dispo » : sans ceux déjà en abonnement, location ou achat en France (date TMDB en retard).
+    .filter((m) => !(future && m._plateforme))
     .sort((a, b) => (future ? (when(a) < when(b) ? -1 : 1) : (when(a) > when(b) ? -1 : 1)))
-    .map(({ _digital, _guess, _vf, ...m }) => m);
+    .map(({ _digital, _guess, _vf, _plateforme, ...m }) => m);
 }
 
 function parseExtra(segment) {
@@ -914,7 +917,7 @@ async function catalog(env, ctx, type, id, extra, today, cfg) {
     const page = Math.floor(skip / PAGE) + 1;
     const results = await runSearch(env, type, query, page, opts);
     opts.search = true;
-    const metas = results.length ? (await toMetas(env, ctx, results, type, opts, today)).map(({ _digital, _guess, _vf, ...m }) => m) : [];
+    const metas = results.length ? (await toMetas(env, ctx, results, type, opts, today)).map(({ _digital, _guess, _vf, _plateforme, ...m }) => m) : [];
     // Recherche faite sans l'IA (Gemini trop lent ou en panne) : à ne pas garder en cache.
     if (opts.partial) metas.partial = true;
     return metas;

@@ -39,6 +39,7 @@ import { smartSearch, prepareWords, isExact, norm } from "./search.js";
 import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
 import { isFixedId, readFixed, fixedRoute, fixedAvailable } from "./fixe.js";
+import { sha256 } from "./outils-serveur.js";
 import { secondesAvantBascule, jourTendances, routeTendances, prendrePhotos } from "./tendances.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
@@ -215,7 +216,7 @@ function discoverDefs(today) {
   return defs;
 }
 
-function manifest(today, cfg, cfgSeg, url, alerts) {
+function manifest(today, cfg, url, alerts) {
   const paging = { name: "skip" };
   const discover = discoverDefs(today).filter((d) => cfg.d.includes(d.id)).map((d) => {
     const labels = d.options.map((o) => o.label);
@@ -477,7 +478,7 @@ function digitalGuess(releases) {
  *   « Dispo depuis le 9 oct. »    sortie récente (moins de 60 jours)
  *   « Dispo vers le 3 déc. »      pas de date annoncée : estimation
  */
-function releaseNote(releases, region, today, plateforme = {}) {
+function releaseNote(releases, today, plateforme = {}) {
   const known = firstDigital(releases || []);
   // Déjà sur une plateforme en France : « Déjà dispo » (en VF), ou « Dispo en VO » (pas de VF), plutôt qu'une date
   // à venir ou une estimation qui ne veut plus rien dire.
@@ -543,7 +544,7 @@ async function toMetas(env, ctx, results, kind, opts, today) {
     // séries : l'épisode de la semaine.
     const note = kind !== "movie" ? episodeNote(infos[i].episode, today)
       : opts.upcoming ? cinemaNote(infos[i].releases, opts.region, date, today)
-      : releaseNote(infos[i].releases, opts.region, today, lu ? { vf: lu.vf, vo: !lu.vf && lu.sources > 0 } : { vf: infos[i].plateformeFr, vo: infos[i].plateformeVo });
+      : releaseNote(infos[i].releases, today, lu ? { vf: lu.vf, vo: !lu.vf && lu.sources > 0 } : { vf: infos[i].plateformeFr, vo: infos[i].plateformeVo });
     // Pas encore regardable : la date affichée par Nuvio (carrousel, « date de sortie
     // complète ») devient la date de dispo plutôt que la sortie en salle.
     const dispo = kind === "movie" ? (firstDigital(infos[i].releases) || digitalGuess(infos[i].releases)) : "";
@@ -581,6 +582,9 @@ async function toMetas(env, ctx, results, kind, opts, today) {
   });
 }
 
+/** Une fiche sans les champs internes de toMetas (« _digital »…), telle qu'envoyée à Nuvio. */
+const sansInternes = ({ _digital, _guess, _vf, _dejaVf, ...m }) => m;
+
 /** Paramètres TMDB d'une recherche « discover », avec les règles de qualité communes
  *  et les réglages de la config (pays, genres masqués, note et année minimales, famille). */
 function discoverParams(def, kind, today, opts) {
@@ -615,17 +619,6 @@ function discoverParams(def, kind, today, opts) {
   if (def.untilToday) p[lte] = today;
   if (def.fromYear) p[gte] = maxDate(p[gte], `${def.fromYear}-01-01`);
   if (def.toYear) p[lte] = minDate(p[lte], `${def.toYear}-12-31`);
-  if (def.digital) {
-    // Sorties numériques (VOD, achat, location) dans le pays choisi, sur une fenêtre de dates.
-    delete p[gte]; delete p[lte];
-    p.with_release_type = "4";
-    p.region = opts.region;
-    p["release_date.gte"] = addDays(today, def.digital[0]);
-    p["release_date.lte"] = addDays(today, def.digital[1]);
-    // Seulement les films récents : sans ça, TMDB renvoie aussi les vieux films
-    // ressortis en numérique (rééditions, versions restaurées…).
-    p["primary_release_date.gte"] = addDays(today, -365);
-  }
   if (def.airedSince) p["air_date.gte"] = addDays(today, -def.airedSince);
   if (def.airDays !== undefined) { p["air_date.gte"] = addDays(today, -def.airDays); p["air_date.lte"] = addDays(today, def.airDays); }
   if (cfg.a) {
@@ -737,7 +730,7 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
     opts = { ...opts, infos: new Map(gardes.map(([it, info]) => [it.id, info])), sources };
   }
   const metas = await toMetas(env, ctx, data.results, kind, opts, today);
-  return metas.map(({ _digital, _guess, _vf, _dejaVf, ...m }) => m);
+  return metas.map(sansInternes);
 }
 
 /**
@@ -776,7 +769,7 @@ async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
   }
   if (!picked.length) return [];
   const metas = await toMetas(env, ctx, picked, kind, opts, today);
-  return metas.map(({ _digital, _guess, _vf, _dejaVf, ...m }) => m);
+  return metas.map(sansInternes);
 }
 
 /** Film regardable chez soi : sorti en numérique (ou salle + 45 jours passés). Sans infos : gardé. */
@@ -809,7 +802,7 @@ async function fetchUpcomingPage(env, ctx, kind, page, today, opts) {
   }
   if (!found.length) return [];
   const metas = await toMetas(env, ctx, found.slice(0, PAGE), kind, { ...opts, upcoming: true }, today);
-  return metas.map(({ _digital, _guess, _vf, _dejaVf, ...m }) => m);
+  return metas.map(sansInternes);
 }
 
 /**
@@ -820,7 +813,7 @@ async function fetchUpcomingPage(env, ctx, kind, page, today, opts) {
 async function fetchVfPage(env, ctx, def, kind, page, today, opts) {
   const future = def.digital[0] > 0;
   // Filtres de la config (genres masqués, note mini, famille…) appliqués comme ailleurs.
-  const base = { ...discoverParams({ ...def, digital: null }, kind, today, opts), page };
+  const base = { ...discoverParams(def, kind, today, opts), page };
   base["primary_release_date.gte"] = maxDate(base["primary_release_date.gte"], addDays(today, -365));
   const reqs = [tmdb(env, "/discover/movie", { ...base, with_release_type: "4",
     "release_date.gte": addDays(today, def.digital[0]), "release_date.lte": addDays(today, def.digital[1]) }, opts.lang)];
@@ -848,7 +841,7 @@ async function fetchVfPage(env, ctx, def, kind, page, today, opts) {
     // « Bientôt dispo » : sans ceux déjà regardables en VF (sources VF, ou plateforme en France : date TMDB en retard).
     .filter((m) => !(future && m._dejaVf))
     .sort((a, b) => (future ? (when(a) < when(b) ? -1 : 1) : (when(a) > when(b) ? -1 : 1)))
-    .map(({ _digital, _guess, _vf, _dejaVf, ...m }) => m);
+    .map(sansInternes);
 }
 
 /** decodeURIComponent sans erreur : null pour un « % » mal formé (« search=%C3%28 » faisait planter l'addon). */
@@ -968,7 +961,7 @@ async function catalog(env, ctx, type, id, extra, today, cfg) {
     const page = Math.floor(skip / PAGE) + 1;
     const results = await runSearch(env, type, query, page, opts);
     opts.search = true;
-    const metas = results.length ? (await toMetas(env, ctx, results, type, opts, today)).map(({ _digital, _guess, _vf, _dejaVf, ...m }) => m) : [];
+    const metas = results.length ? (await toMetas(env, ctx, results, type, opts, today)).map(sansInternes) : [];
     // Recherche faite sans l'IA (Gemini trop lent ou en panne) : à ne pas garder en cache.
     if (opts.partial) metas.partial = true;
     return metas;
@@ -1200,7 +1193,7 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
   const recent = movie && imdb && releaseDates(releases, [2, 3, 4, 5, 6]).some((x) => x >= addDays(today, -365) && x <= today);
   const lu = recent ? (await sourcesVf(env, [imdb])).get(imdb) : null;
   const plateforme = lu ? { vf: lu.vf, vo: !lu.vf && lu.sources > 0 } : { vf: vfSurPlateforme(wp, d.original_language), vo: plateformeFrance(wp) };
-  const note = movie ? releaseNote(releases, cfg.g, today, plateforme) : episodeNote(episodeOf(d), today);
+  const note = movie ? releaseNote(releases, today, plateforme) : episodeNote(episodeOf(d), today);
   const dispo = movie ? firstDigital(releases) || digitalGuess(releases) : "";
   const shownDate = dispo && dispo > today ? dispo : date;
   const credits = d.credits || {};
@@ -1723,10 +1716,8 @@ async function collections(cfg) {
     .filter((c) => c.folders.length);
 }
 
-async function sha(text) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return [...new Uint8Array(buf)].slice(0, 12).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
+/** Empreinte courte (24 caractères) : clés de cache, en-tête x-prefetch. */
+const sha = async (text) => (await sha256(text)).slice(0, 24);
 
 function html(body) {
   return new Response(body, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" } });
@@ -1840,7 +1831,7 @@ const app = {
     if (path === "/tv") return Response.redirect(NUVIO_TV_APK, 302);   // adresse courte pour Downloader : télécharge l'APK
     // Styles et scripts communs aux pages du site, gardés en cache par le navigateur (voir statique.js).
     if (path.startsWith("/statique/")) return statique(path.slice(10), url.searchParams.get("v")) || new Response("introuvable", { status: 404 });
-    if (path === "/manifest.json") return json(manifest(today, cfg, cfgSeg, url, await hasAlerts(env, url, cfg)), CACHE_CLIENT_S);
+    if (path === "/manifest.json") return json(manifest(today, cfg, url, await hasAlerts(env, url, cfg)), CACHE_CLIENT_S);
     if (path === "/collections.json") return json(await collections(cfg), CACHE_CLIENT_S);
     // La photo du jour des tendances, lue par le service d'affiches (worker/tendances.js).
     const tend = !cfgSeg && /^\/tendances\/([a-z]+)\.json$/.exec(path);
@@ -1913,7 +1904,7 @@ const app = {
     if (path === "/prefetch/profiles" && request.method === "POST") {
       const body = await request.json().catch(() => ({}));
       const key = typeof body.key === "string" ? body.key : "";
-      if (!key || request.headers.get("x-prefetch") !== await sha(key)) return json({ error: "interdit" }, 0);
+      if (!key || !same(request.headers.get("x-prefetch") || "", await sha(key))) return json({ error: "interdit" }, 0);
       // Le texte de chaque titre vient de TMDB, jamais de la requête (lu seulement s'il manque au cache).
       const items = (Array.isArray(body.items) ? body.items : [])
         .filter((it) => it && Number.isInteger(it.id) && it.id > 0 && it.key === `${String(it.key).startsWith("tv-") ? "tv" : "movie"}-${it.id}`)

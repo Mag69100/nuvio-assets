@@ -11,6 +11,7 @@
  */
 
 import { same } from "./hote.js";
+import { sha256 as sha } from "./outils-serveur.js";
 
 const ID = /^f[0-9A-Za-z]{16}$/;
 const MODIF = /^[0-9A-Za-z]{22}$/;
@@ -23,8 +24,6 @@ export const isFixedId = (s) => ID.test(s);
 export const fixedAvailable = (env) => !!env.LIENS;
 
 const enc = (s) => new TextEncoder().encode(s);
-const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
-const sha = async (s) => hex(await crypto.subtle.digest("SHA-256", enc(s)));
 const b64 = (bytes) => btoa(String.fromCharCode(...bytes));
 const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 

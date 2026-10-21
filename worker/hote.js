@@ -6,6 +6,8 @@
  * (pour installer les deux dans Nuvio sans conflit) et l'espace hébergeur (/hote/…).
  */
 
+import { hex, sha256 as sha } from "./outils-serveur.js";
+
 export const SOURCE_HOST = "nuvio-assets.xnzxflix.workers.dev";
 const ADDON_ID = "com.xnzx07.catalogue-fr";
 
@@ -73,8 +75,6 @@ export async function updateInfo(current) {
 // ---------- l'hébergeur : connexion, jeton d'alerte, « Plus tard » ----------
 // Hébergeur = qui connaît le secret ADMIN_PASSWORD. Sans lui, pas d'espace hébergeur.
 const TEXT = new TextEncoder();
-const toHex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
-const sha = async (s) => toHex(await crypto.subtle.digest("SHA-256", TEXT.encode(s)));
 
 // Mot de passe trop court, ou laissé tel que dans l'exemple (docker-compose.yml, page /copie) : refusé,
 // l'espace hébergeur reste fermé tant qu'il n'est pas changé.
@@ -94,7 +94,7 @@ const hasPassword = (env) => passwordState(env) === "ok";
 async function sign(env, what) {
   const secret = env.HOTE_SECRET || env.TMDB_API_KEY || "";
   const key = await crypto.subtle.importKey("raw", TEXT.encode(`${secret}|${env.ADMIN_PASSWORD}`), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  return toHex(await crypto.subtle.sign("HMAC", key, TEXT.encode(what)));
+  return hex(await crypto.subtle.sign("HMAC", key, TEXT.encode(what)));
 }
 /** Comparaison en temps constant (deux textes de même longueur). */
 export const same = (a, b) => {

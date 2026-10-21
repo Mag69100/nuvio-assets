@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { configurePage } from "../worker/page.js";
 import { hallPage } from "../worker/hall.js";
 import { STAGE_JS } from "../worker/stage.js";
+import * as LA from "../worker/lien-affiches.js";
 import { defaults, decodeConfig, PROVIDERS, REGIONS, GENRES, LANGUAGES, SORTS, SEASON_KEYS, MAX_CUSTOM, COLLECTIONS } from "../worker/config.js";
 
 const rows = [{ id: "a", home: true, name: "A", type: "movie" }];
@@ -126,6 +127,43 @@ test("remise_d_origine_garde_la_cle_et_s_annule", () => {
   assert.match(html, /id="annule-btn">Annuler<\/button>/);
   assert.match(html, /Object\.assign\(state, avant\); renderAll\(\);/);
   assert.match(html, /setTimeout\(annuleFin, 10000\)/);
+});
+
+// Régie : un élément éteint puis rallumé retrouve ses réglages (gardés entiers dans le navigateur), sauf si
+// la forme courte du lien a changé ailleurs entre-temps.
+test("regie_garde_les_reglages_d_un_element_eteint", () => {
+  const html = page();
+  const src = /const REGIE_COMPLET = [^\n]*\n/.exec(html)[0] + /const fusionne = [\s\S]*?\n\};\n/.exec(html)[0] + /function regieLue\(\) \{[\s\S]*?\n\}\n/.exec(html)[0];
+  const lit = (s) => LA.lireReglages(new URLSearchParams(s ? "s=1." + s : ""));
+  const essai = (court, complet) => {
+    const store = { "affiches-v2-complet": JSON.stringify(complet) };
+    const localStorage = { getItem: (k) => store[k] ?? null };
+    const NV = { reglages: { affiches: lit(court), affichesPaysage: null } };
+    return new Function("LA", "NV", "localStorage", src + "\nreturn regieLue();")(LA, NV, localStorage);
+  };
+  const r = JSON.parse(JSON.stringify(LA.DEFAUT_REGLAGES));
+  r.qualite.style = "pastille"; r.qualite.montrer = "tout"; r.qualite.on = false;
+  // La forme courte (lien) a oublié « pastille » et « tout » : la régie les retrouve.
+  assert.equal(lit(LA.ecrireReglages(r)).qualite.style, "texte");
+  const lu = essai(LA.ecrireReglages(r), { r, rp: null });
+  assert.equal(lu.r.qualite.style, "pastille");
+  assert.equal(lu.r.qualite.montrer, "tout");
+  assert.equal(lu.rp, null);
+  // La forme courte a changé ailleurs (titre éteint) : elle passe devant les réglages gardés.
+  const ailleurs = JSON.parse(JSON.stringify(r)); ailleurs.titre.on = false;
+  assert.equal(essai(LA.ecrireReglages(ailleurs), { r, rp: null }).r.titre.on, false);
+  assert.equal(essai(LA.ecrireReglages(ailleurs), { r, rp: null }).r.qualite.style, "texte");
+  // Rien de gardé, ou une valeur abîmée : la forme courte.
+  assert.equal(essai(LA.ecrireReglages(r), "abîmé").r.qualite.style, "texte");
+});
+
+// Régie : fenêtre modale, le reste de la page est inerte tant qu'elle est ouverte.
+test("regie_modale_inerte", () => {
+  const html = page();
+  assert.match(html, /regieFond\.forEach\(\(n\) => \{ n\.inert = true; \}\);/);
+  assert.match(html, /regieFond\.forEach\(\(n\) => \{ n\.inert = false; \}\);/);
+  // Repères des boutons préfixés par l'élément (plus de « Style:texte » en double).
+  assert.match(html, /"data-cle": cleDe\(titre \+ ":" \+ String\(val\)\)/);
 });
 
 // Lien fixe : à la fermeture de l'onglet, le dernier réglage part tout de suite (keepalive), hors de la file.

@@ -763,6 +763,24 @@ ${feuilles("scene.css", "nuvio.css")}
   .coll details summary { padding-block: 11px; }
   .nvo-rech input, .rename input, .field input:is([type=text], [type=password]).plain, select, input[type=number] { font-size: 16px; }
   .act { scroll-margin-top: 76px; }
+  /* La régie au doigt : puces et boutons de 40 px de haut, interrupteurs plus grands (zone de 44 px), nuancier
+     sur 10 colonnes (19 pastilles de 14 px sur un téléphone, c'était trop petit), textes d'au moins 0,75rem. */
+  .regie-console .puces { gap: 6px; }
+  .regie-console .puces button { min-height: 40px; padding: 8px 13px; font-size: .8rem; }
+  .regie-console .choix { grid-template-columns: 84px 1fr; }
+  .regie-console .choix > span { font-size: .75rem; letter-spacing: .04em; }
+  .regie-console .regie-note { font-size: .8rem; }
+  .regie-console .interrupteur { width: 52px; height: 30px; }
+  .regie-console .interrupteur::before { content: ""; position: absolute; inset: -7px -4px; }
+  .regie-console .interrupteur::after { top: 4px; left: 4px; width: 22px; height: 22px; }
+  .regie-console .interrupteur[aria-checked="true"]::after { transform: translateX(22px); }
+  .regie-voies .carte-plus { min-height: 40px; padding: 8px 13px; font-size: .78rem; }
+  .regie-plus .plus-fermer { width: 44px; height: 44px; }
+  .regie-onglets button { min-height: 44px; font-size: .8rem; }
+  .regie-memoires button { font-size: .75rem; }
+  .regie-console .curseur input[type=range] { height: 40px; }
+  .regie-console .curseur output { font-size: .8rem; }
+  .regie-console .nuancier { grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 7px; }
 }
 /* Ouverte par-dessus le guide (dans un cadre) : seulement les réglages et le billet. La barre du guide
    porte le titre et « Terminé » ; rien ne mène ailleurs (salles, guide, mode d'emploi déjà dans le guide). */
@@ -1347,6 +1365,37 @@ const pct = (v) => Math.round(Number(v) * 100) + " %";
 const SEPS = { point: "·", barre: "|", puce: "•" };
 let regieR = null, regieRP = null, regieHisto = [], regieAttente = 0, regieTitres = [], regieChoisi = 0, regieForme = "poster", regieVoie = null, regieOnglet = "haut", regieDeclencheur = null;
 
+// Les réglages entiers de la régie, gardés aussi dans ce navigateur (JSON) : la forme courte, celle du lien
+// (gardée par nuvio.js), oublie les réglages d'un élément éteint ; rallumé, il les retrouve ici. Relus seulement
+// s'ils donnent encore la même forme courte (sinon une autre page l'a changée : elle passe devant).
+const REGIE_COMPLET = "affiches-v2-complet";
+const fusionne = (base, o) => {
+  const r = JSON.parse(JSON.stringify(base));
+  if (o && typeof o === "object") for (const k of Object.keys(r)) {
+    if (!(k in o)) continue;
+    if (r[k] && typeof r[k] === "object" && !Array.isArray(r[k])) r[k] = fusionne(r[k], o[k]);
+    else if (typeof o[k] === typeof r[k]) r[k] = o[k];
+  }
+  return r;
+};
+function regieLue() {
+  const r = NV.reglages.affiches, rp = NV.reglages.affichesPaysage;
+  try {
+    const j = JSON.parse(localStorage.getItem(REGIE_COMPLET) || "null");
+    if (j && j.r) {
+      const jr = fusionne(r, j.r), jrp = j.rp && rp ? fusionne(rp, j.rp) : null;
+      const pareil = LA.ecrireReglages(jr) === LA.ecrireReglages(r) && (rp ? !!jrp && LA.ecrireReglages(jrp) === LA.ecrireReglages(rp) : !j.rp);
+      if (pareil) return { r: jr, rp: rp ? jrp : null };
+    }
+  } catch (e) {}
+  return { r, rp };
+}
+function regieGarde() {
+  NV.reglages.affiches = regieR;
+  NV.reglages.affichesPaysage = regieRP;
+  try { localStorage.setItem(REGIE_COMPLET, JSON.stringify({ r: regieR, rp: regieRP })); } catch (e) {}
+}
+
 /** Les réglages qu'on modifie : ceux du paysage quand il est réglé à part et montré, sinon ceux du portrait. */
 const cible = () => (regieRP && regieForme === "landscape" ? regieRP : regieR);
 
@@ -1621,15 +1670,15 @@ function regieDessine(garderCorps) {
 // « Annuler » revient d'un changement : un changement sans effet ne compte pas, et un même curseur glissé
 // (cle) compte pour un seul changement.
 let regieCleDerniere = "", regieDernier = 0;
+// Un changement compte s'il change le lien (forme courte) ; « Annuler » remet les réglages entiers d'avant.
 const regieEtat = () => JSON.stringify([LA.ecrireReglages(regieR), regieRP ? LA.ecrireReglages(regieRP) : null]);
 function regieChange(modif, cle) {
-  const avant = regieEtat();
+  const avant = regieEtat(), entiers = JSON.stringify([regieR, regieRP]);
   modif(cible());
   const suite = cle && cle === regieCleDerniere && Date.now() - regieDernier < 800;
-  if (regieEtat() !== avant && !suite) { regieHisto.push(avant); if (regieHisto.length > 60) regieHisto.shift(); }
+  if (regieEtat() !== avant && !suite) { regieHisto.push(entiers); if (regieHisto.length > 60) regieHisto.shift(); }
   regieCleDerniere = cle || ""; regieDernier = Date.now();
-  NV.reglages.affiches = regieR;
-  NV.reglages.affichesPaysage = regieRP;
+  regieGarde();
   regieDessine(!!cle);
   clearTimeout(regieAttente);
   regieAttente = setTimeout(regieApercus, 400);
@@ -1699,23 +1748,29 @@ async function regieCharge() {
 
 function regieOuvre(declencheur) {
   regieDeclencheur = declencheur || null;
-  regieR = NV.reglages.affiches;
-  regieRP = NV.reglages.affichesPaysage;
+  ({ r: regieR, rp: regieRP } = regieLue());
   regieHisto = [];
   regieVoie = null;
   $("regie").hidden = false;
   document.body.classList.add("regie-ouverte");
+  // Fenêtre modale : le reste de la page devient inerte (ni clic, ni Tab, ni lecteur d'écran) tant qu'elle est
+  // ouverte ; les messages de la salle (toast) restent lisibles.
+  regieFond = [...document.body.children].filter((n) => n !== $("regie") && !n.classList.contains("toast") && n.tagName !== "SCRIPT" && !n.inert);
+  regieFond.forEach((n) => { n.inert = true; });
   regieDessine();
   regieCharge().then(regieApercus);
   $("regie-fermer").focus();
 }
+let regieFond = [];
 function regieFerme() {
   clearTimeout(regieAttente);
   $("regie").hidden = true;
   document.body.classList.remove("regie-ouverte");
+  regieFond.forEach((n) => { n.inert = false; });
+  regieFond = [];
   if (!NV.reglages.pp) { NV.reglages.pp = true; drawPP(); }
   E.pp();
-  if (regieDeclencheur) regieDeclencheur.focus();
+  if (regieDeclencheur && regieDeclencheur.isConnected) regieDeclencheur.focus();
 }
 $("regie-ouvrir").addEventListener("click", (e) => regieOuvre(e.currentTarget));
 $("pp-ouvrir").addEventListener("click", (e) => regieOuvre(e.currentTarget));
@@ -1732,11 +1787,8 @@ document.addEventListener("keydown", (e) => {
 });
 $("regie-annuler").addEventListener("click", () => {
   if (!regieHisto.length) return;
-  const [s, sp] = JSON.parse(regieHisto.pop());
-  regieR = LA.lireReglages(new URLSearchParams("s=1." + s));
-  regieRP = sp === null ? null : LA.lireReglages(new URLSearchParams("s=1." + sp));
-  NV.reglages.affiches = regieR;
-  NV.reglages.affichesPaysage = regieRP;
+  [regieR, regieRP] = JSON.parse(regieHisto.pop());
+  regieGarde();
   regieDessine();
   clearTimeout(regieAttente);
   regieAttente = setTimeout(regieApercus, 400);

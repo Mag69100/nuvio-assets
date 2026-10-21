@@ -435,8 +435,12 @@ test("serie_fin_et_avancement", () => {
   assert.equal("avance" in contenu(enCours, plein), false);
   assert.equal("avance" in contenu(serie, plein, "poster", reglages("3i1")), false);
   assert.equal("avance" in contenu(enCours, plein, "poster", reglages("S03i1")), false);
-  // Pas encore sortie en VF (sources sans VF) : pas de barre.
-  const vo = contenu({ ...enCours, firstAir: "2026-09-01" }, { ...plein, quality: { uhd: true, extra: null, vf: false, sources: 4 } }, "poster", reglages("3i1"));
+  // Nouvelle série pas encore sortie en VF (sources sans VF) : pas de barre.
+  const vo = contenu({ ...enCours, firstAir: "2026-09-01", lastSeason: 1, seasons: [{ season_number: 1, air_date: "2026-09-01", episode_count: 8 }] }, { ...plein, quality: { uhd: true, extra: null, vf: false, sources: 4 } }, "poster", reglages("3i1"));
   assert.equal(vo.statut, "BIENTÔT");
+  assert.equal(vo.gris, true);
   assert.equal("avance" in vo, false);
+  // Série déjà là, sa saison 2 pas encore en VF : en couleur, « SAISON 2 BIENTÔT » (pas « BIENTÔT » comme une nouvelle série).
+  const saison = contenu({ ...enCours, firstAir: "2024-09-01" }, { ...plein, quality: { uhd: true, extra: null, vf: false, sources: 4 } }, "poster", reglages("3i1"));
+  assert.deepEqual([saison.statut, saison.gris], ["SAISON 2 BIENTÔT", false]);
 });

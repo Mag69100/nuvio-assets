@@ -128,7 +128,7 @@ export function posterContent(facts, { imdbRating, rank, quality, notes, saga, s
   if (!image) return null;
   // Pas sorti = pas encore chez soi en VF, comme les rangées de l'addon (au cinéma compris).
   // Les sources lues avec la qualité (VF ou pas) décident pour un titre récent ; sinon, les dates.
-  const { sorti, statut, quand } = etatSortie(facts, today, quality ? { vf: quality.vf, sources: quality.sources } : null);
+  const { sorti, statut, quand, saison: saisonVf } = etatSortie(facts, today, quality ? { vf: quality.vf, sources: quality.sources } : null);
   const pasSorti = !sorti;
   const plateforme = r.plateforme.on && facts.provider ? facts.provider.logo : null;
   const line = {};
@@ -157,6 +157,8 @@ export function posterContent(facts, { imdbRating, rank, quality, notes, saga, s
   let libelle = null, libelle2 = null;
   if (r.statut.on && statut) {
     if (statut === "salle") { libelle = LIBELLES_STATUT.salle; if (quand) libelle2 = dateDe(quand); }
+    // Série déjà là, sa nouvelle saison pas encore en VF : « SAISON 23 BIENTÔT » (une nouvelle série : « BIENTÔT »).
+    else if (statut === "saisonvf") libelle = `SAISON ${saisonVf} BIENTÔT`;
     else libelle = quand ? dateDe(quand) : LIBELLES_STATUT[statut];
   }
   // Série : « NOUVEL ÉPISODE » (un épisode sorti il y a moins de 7 jours), puis « TERMINÉE » ou « ANNULÉE », si rien

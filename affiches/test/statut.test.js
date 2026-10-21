@@ -196,8 +196,15 @@ test("sources : la VF trouvée décide pour un film récent", () => {
 });
 
 test("sources : série récente sans VF → pas sortie", () => {
-  const s = { ...serie(jours(-10), [{ season_number: 1, air_date: jours(-10) }]), lastEpisode: jours(-3) };
+  const s = { ...serie(jours(-10), [{ season_number: 1, air_date: jours(-10) }]), lastEpisode: jours(-3), lastSeason: 1 };
   assert.deepEqual(etatSortie(s, AUJ, { vf: false, sources: 14 }), { sorti: false, statut: "bientot" });
+  // Sur une plateforme en France qui la double : rien ne change.
+  assert.deepEqual(etatSortie({ ...s, plateformeFrance: true }, AUJ, { vf: false, sources: 14 }), { sorti: true, statut: "nouveau" });
+  // One Piece : la saison 23 pas encore en VF, mais les saisons d'avant oui : sortie, « Saison 23 bientôt ».
+  const onePiece = { ...serie("1999-10-20", [{ season_number: 22, air_date: "2025-01-05" }, { season_number: 23, air_date: jours(-12) }]), lastEpisode: jours(-2), lastSeason: 23 };
+  assert.equal(etatSortie(onePiece, AUJ).statut, "saison");
+  assert.deepEqual(etatSortie(onePiece, AUJ, { vf: false, sources: 35 }), { sorti: true, statut: "saisonvf", saison: 23 });
+  assert.deepEqual(etatSortie({ ...onePiece, plateformeFrance: true }, AUJ, { vf: false, sources: 35 }), { sorti: true, statut: "saisonvf", saison: 23 });
   assert.deepEqual(etatSortie(s, AUJ, { vf: true, sources: 14 }), { sorti: true, statut: "nouveau" });
   // Aucune source : rien ne change (pas de quoi juger).
   assert.deepEqual(etatSortie(s, AUJ, { vf: false, sources: 0 }), { sorti: true, statut: "nouveau" });

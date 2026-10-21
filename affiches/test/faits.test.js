@@ -108,7 +108,7 @@ test("age_conseille_france", async () => {
   const serie = { ...movie, id: 94605, release_date: undefined, first_air_date: "2021-11-06", content_ratings: { results: [{ iso_3166_1: "US", rating: "TV-14" }, { iso_3166_1: "FR", rating: "-16" }] } };
   const fs = fauxFetch([["/tv/94605", json(serie)]]);
   const s = await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fs);
-  assert.equal(new URL(fs.calls[0]).searchParams.get("append_to_response"), "images,external_ids,content_ratings");
+  assert.equal(new URL(fs.calls[0]).searchParams.get("append_to_response"), "images,external_ids,content_ratings,watch/providers");
   assert.equal(s.age, "16");
   assert.equal((await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fauxFetch([["/tv/94605", json({ ...serie, content_ratings: { results: [{ iso_3166_1: "FR", rating: "TP" }] } })]]))).age, null);
 });

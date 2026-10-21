@@ -65,7 +65,7 @@ function plateformeDe(d) {
 }
 
 /**
- * Le film est-il en VF sur une plateforme (abonnement, gratuit, pub, location, achat) en France, même sans date de
+ * Le titre (film ou série) est-il en VF sur une plateforme (abonnement, gratuit, pub, location, achat) en France, même sans date de
  * sortie francophone chez TMDB (films Netflix sortis partout le même jour) ? Oui pour un film en anglais ou en
  * français ; un autre film étranger seulement sur Netflix ou Disney+ en abonnement, qui doublent presque tout (EB,
  * néerlandais, est sur Prime Video en VO seulement). La France seule : en Suisse ou au Canada, la plateforme peut
@@ -96,9 +96,9 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
   const d = await tmdbGet(env, `/${type === "series" ? "tv" : "movie"}/${tmdbId}`, {
     // Films : les dates de sortie détaillées servent au statut (« En salle », « Nouveau »…) et à l'âge conseillé ;
     // séries : les classifications par pays, pour l'âge.
-    // Plateformes (watch/providers) : toujours pour un film (VF disponible ?), pour une série seulement pour le logo
-    // de plateforme ; logos dans les langues d'origine courantes.
-    language: "fr-FR", append_to_response: (type === "series" ? "images,external_ids,content_ratings" : "images,external_ids,release_dates") + (options.plateforme || type !== "series" ? ",watch/providers" : "") + (options.credits && type !== "series" ? ",credits" : ""),
+    // Plateformes (watch/providers) : toujours (VF disponible ?, et le logo de plateforme) ; logos dans les langues
+    // d'origine courantes.
+    language: "fr-FR", append_to_response: (type === "series" ? "images,external_ids,content_ratings" : "images,external_ids,release_dates") + ",watch/providers" + (options.credits && type !== "series" ? ",credits" : ""),
     include_image_language: options.vo ? LANGUES_IMAGES : "fr,en,null",
   }, fetchImpl);
   if (!d) return null;
@@ -154,7 +154,7 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
     // Saga du film (réglage Saga, lib/saga.js) : l'identifiant de sa collection TMDB.
     collection: type !== "series" && d.belongs_to_collection ? d.belongs_to_collection.id || null : null,
     originalLanguage: d.original_language || "",
-    plateformeFrance: type !== "series" && plateformeFrance(d),
+    plateformeFrance: plateformeFrance(d),
     age: ageDe(type, d),
     firstAir: type === "series" ? d.first_air_date || "" : "",
     seasons: type === "series" ? (d.seasons || []).map((s) => ({ season_number: s.season_number, air_date: s.air_date || "", episode_count: s.episode_count ?? null })) : [],

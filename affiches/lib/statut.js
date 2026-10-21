@@ -94,12 +94,22 @@ function sortieFilm(facts, today, sources) {
   return { sorti: false, statut: "bientot", ...(quand ? { quand } : {}) };
 }
 
+/**
+ * Série : les sources lues sont celles du 1er épisode de sa dernière saison, souvent pas encore doublée (One Piece,
+ * saison 23 ; American Horror Story, saison 13) alors que la série l'est. Sans VF dans ces sources (sans sources du
+ * tout : pas de quoi juger), une série récente :
+ * - avec des saisons d'avant : sortie (en couleur), et sa nouvelle saison annoncée pour bientôt (« Saison 23 bientôt »)
+ *   plutôt que « Nouvelle saison » (seule la VF compte). Même sur une plateforme en France : la saison 13 d'American
+ *   Horror Story n'y est pas encore en VF ;
+ * - nouvelle série (une seule saison) : pas sortie, « Bientôt », en noir et blanc ; sauf sur une plateforme en France
+ *   qui la double (série en anglais ou en français, Netflix, Disney+) : rien ne change.
+ */
 function sortieSerie(facts, today, sources) {
   const base = sortieSerieDates(facts, today), s = lues(sources);
-  // Série récente avec des sources, aucune en VF : pas sortie, « Bientôt » (sans sources du tout : pas de quoi juger).
   const recente = (facts.lastEpisode || facts.firstAir || "") >= ajoute(today, -365);
-  if (base.sorti && s && !s.vf && s.sources > 0 && recente) return { sorti: false, statut: "bientot" };
-  return base;
+  if (!base.sorti || !s || s.vf || !(s.sources > 0) || !recente) return base;
+  if ((facts.lastSeason || 1) > 1) return { sorti: true, statut: "saisonvf", saison: facts.lastSeason };
+  return facts.plateformeFrance ? base : { sorti: false, statut: "bientot" };
 }
 
 function sortieSerieDates(facts, today) {
@@ -113,7 +123,8 @@ function sortieSerieDates(facts, today) {
 }
 
 /**
- * { sorti: disponible chez soi en VF, statut: "bientot" | "salle" | "nouveau" | "saison" | null,
+ * { sorti: disponible chez soi en VF, statut: "bientot" | "salle" | "nouveau" | "saison" | "saisonvf" | null,
+ *   saison (« saisonvf » : la saison pas encore en VF),
  *   quand (pas sorti, si on la connaît) : { quoi: "dispo" | "cinema" | "sortie", date, vers: date estimée } }.
  * sources (facultatif) : { vf, sources } lus chez Torrentio avec la qualité ; null ou vf inconnu : les dates.
  */

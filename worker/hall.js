@@ -150,11 +150,13 @@ ${scripts("scene.js")}
 <script>${apercuDonnees(origin)}</script>
 ${scripts("nuvio.js", "apercu.js")}
 <script>
-// Le mur : les 6 premiers films de « Tendances du jour · Films ».
-fetch(${JSON.stringify(origin)} + "/catalog/movie/accueil-top10.json").then((r) => r.json()).then((d) => {
+// Le mur : les 6 premiers films de « Tendances du jour · Films ». Rien à montrer (liste vide, erreur) :
+// le mur disparaît, plutôt que de rester en attente.
+const sansMur = () => { document.querySelector(".mur").hidden = true; };
+fetch(${JSON.stringify(origin)} + "/catalog/movie/accueil-top10.json").then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }).then((d) => {
   const box = document.getElementById("affiches");
-  const metas = (d.metas || []).filter((m) => m.poster).slice(0, 6);
-  if (!metas.length) return;
+  const metas = ((d && d.metas) || []).filter((m) => m.poster).slice(0, 6);
+  if (!metas.length) { sansMur(); return; }
   box.textContent = "";
   metas.forEach((m) => {
     const c = document.createElement("div"); c.className = "cadre"; c.title = m.name; c.setAttribute("role", "img"); c.setAttribute("aria-label", m.name);
@@ -163,7 +165,7 @@ fetch(${JSON.stringify(origin)} + "/catalog/movie/accueil-top10.json").then((r) 
     if (pp) { const im = new Image(); im.onload = () => pose(pp); im.onerror = () => pose(m.poster); im.src = pp; } else pose(m.poster);
     box.append(c);
   });
-}).catch(() => { document.querySelector(".mur").hidden = true; });
+}).catch(sansMur);
 </script>
 ${copy ? `<script>
 // Copie auto-hébergée : bandeau pour l'hébergeur connecté quand une nouvelle version est sortie.

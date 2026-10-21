@@ -1,5 +1,5 @@
 /**
- * L'écran Nuvio des aperçus, recopié de Nuvio TV 1.1.0-beta.7 (la version du guide) avec les réglages
+ * L'écran Nuvio des aperçus, recopié de Nuvio TV (NUVIO_TV_VERSION, la version du guide) avec les réglages
  * conseillés de l'étape 9 : Vue moderne, thème Cramoisi, police Inter, cartes « Équilibré » à coins
  * « Pilule », Card Depth Effect, barre latérale moderne cachée (Hide Floating Pill), affiches maison.
  * Partagé par l'aperçu du hall et du guide (apercu.js) et par celui de la salle 2 (page.js) : les gens
@@ -9,6 +9,10 @@
  */
 import { parametresNuvio, POSTER_URL, APERCU_V } from "./reglages.js";
 import { creerLienAffiches } from "./lien-affiches.js";
+
+// La version de Nuvio TV recopiée ici, celle que le guide installe (guide.js s'en sert pour ses liens et ses
+// consignes). Quand elle change, on revérifie l'aperçu contre le code de Nuvio TV à ce tag.
+export const NUVIO_TV_VERSION = "1.1.0-beta.7";
 
 export const NUVIO_CSS = `/* ---------- L'écran Nuvio (Vue moderne, thème Cramoisi) ---------- */
 .nvo { position: absolute; inset: 0; overflow: hidden; background: #0D0D0D; color: #fff; font-family: Inter, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
@@ -504,14 +508,19 @@ export const NUVIO_JS = "var __name = function (f) { return f; };\nconst NV_PP =
     if (!caches.ba.has(u)) caches.ba.set(u, fetch(u).then((r) => r.ok ? r.json() : {}).then((d) => (d && /^[A-Za-z0-9_-]{6,20}$/.test(d.key || "")) ? d.key : null).catch(() => null));
     return caches.ba.get(u);
   };
-  // Lecteur YouTube normal (pas youtube-nocookie : sans la session Google, YouTube y demande souvent
-  // « Connectez-vous pour confirmer que vous n'êtes pas un robot »), avec l'adresse du site (origin, referrer).
+  // Lecteur YouTube sans cookies (youtube-nocookie), avec l'adresse du site (origin, referrer) : pas de cookie
+  // tiers posé sans accord. S'il demande « Connectez-vous pour confirmer que vous n'êtes pas un robot », la
+  // vidéo ne joue jamais : rien ne s'affiche (quandJoue), et la bande-annonce demandée propose le lien YouTube.
   const youtube = (key, muet) => {
     const f = document.createElement("iframe");
-    f.src = "https://www.youtube.com/embed/" + key + "?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1&origin=" + encodeURIComponent(location.origin) + (muet ? "&mute=1&controls=0&loop=1&disablekb=1&playlist=" + key : "");
+    f.src = "https://www.youtube-nocookie.com/embed/" + key + "?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1&origin=" + encodeURIComponent(location.origin) + (muet ? "&mute=1&controls=0&loop=1&disablekb=1&playlist=" + key : "");
     f.title = "Bande-annonce"; f.allow = "autoplay; encrypted-media; picture-in-picture"; f.allowFullscreen = true; f.referrerPolicy = "strict-origin-when-cross-origin"; if (muet) f.tabIndex = -1;
     return f;
   };
+  // Les bandes-annonces qui partent toutes seules attendent le premier geste du visiteur sur la page (clic,
+  // toucher, touche du clavier) : rien n'est chargé chez YouTube pour qui ne fait que passer. Ensuite, comme Nuvio.
+  let aInteragi = false;
+  ["pointerdown", "keydown"].forEach((t) => addEventListener(t, () => { aInteragi = true; }, { capture: true, once: true, passive: true }));
   // quandJoue(iframe, ok) : ok() quand YouTube dit que la vidéo joue vraiment (état 1). Bloquée (robot,
   // vidéo privée…), elle ne joue jamais : on ne montre alors pas l'écran d'erreur de YouTube.
   const quandJoue = (f, ok) => {
@@ -613,7 +622,7 @@ export const NUVIO_JS = "var __name = function (f) { return f; };\nconst NV_PP =
       stopVideo();
       if (!m || m.dossier || calme() || tactile) return;
       baT = setTimeout(() => baCle(m).then((key) => {
-        if (!key || courant !== m || !el.isConnected) return;
+        if (!key || courant !== m || !el.isConnected || !aInteragi) return;
         const v = mkd("div", "nvo-video"), fr = youtube(key, true); v.append(fr); bd.append(v);
         quandJoue(fr, () => setTimeout(() => v.classList.add("on"), 400));
       }), 3000);
@@ -786,7 +795,7 @@ export const NUVIO_JS = "var __name = function (f) { return f; };\nconst NV_PP =
     reglages: '<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M14.28 2.15C13.91 2 13.44 2 12.5 2s-1.41 0-1.78.15c-.49.2-.89.6-1.09 1.08-.09.23-.13.49-.14.87-.02.56-.31 1.07-.8 1.35-.49.28-1.08.27-1.58.01-.34-.18-.58-.28-.82-.31-.53-.07-1.07.07-1.49.4-.32.24-.55.64-1.02 1.45-.47.81-.71 1.21-.76 1.6-.07.53.07 1.06.4 1.48.15.19.36.35.68.55.48.3.78.8.78 1.36s-.3 1.06-.78 1.36c-.32.2-.53.36-.68.56-.33.42-.47.95-.4 1.48.05.39.29.79.76 1.6.47.81.7 1.21 1.02 1.45.42.32.96.47 1.49.4.24-.03.49-.13.82-.31.5-.26 1.09-.27 1.58.01.49.28.78.79.8 1.35.01.38.05.64.14.87.2.49.6.88 1.09 1.08.37.15.84.15 1.78.15s1.41 0 1.78-.15c.49-.2.89-.59 1.09-1.08.09-.23.13-.49.14-.87.02-.56.31-1.07.8-1.35.49-.28 1.08-.27 1.58-.01.34.18.58.28.82.31.53.07 1.07-.07 1.49-.4.32-.24.55-.64 1.02-1.45.47-.81.71-1.21.76-1.6.07-.53-.07-1.06-.4-1.48-.15-.19-.36-.35-.68-.55-.48-.3-.78-.8-.78-1.36s.3-1.06.78-1.36c.32-.2.53-.36.68-.56.33-.42.47-.95.4-1.48-.05-.39-.29-.79-.76-1.6-.47-.81-.7-1.21-1.02-1.45-.42-.32-.96-.47-1.49-.4-.24.03-.49.13-.82.31-.5.26-1.09.27-1.58-.01-.49-.28-.78-.79-.8-1.35-.01-.38-.05-.64-.14-.87-.2-.49-.6-.88-1.09-1.08zM12.5 15c1.67 0 3.02-1.34 3.02-3s-1.35-3-3.02-3-3.02 1.34-3.02 3 1.35 3 3.02 3z"/></svg>',
   };
   const MENU = [["accueil", "Accueil"], ["decouvrir", "Découvrir"], ["recherche", "Rechercher"], ["biblio", "Bibliothèque"], ["reglages", "Paramètres"]];
-  const VERSION_TV = "1.1.0-beta.7";
+  const VERSION_TV = "${NUVIO_TV_VERSION}";
   const LOGO_NUVIO = "https://raw.githubusercontent.com/NuvioMedia/NuvioTV/" + VERSION_TV + "/app/src/main/res/drawable/app_logo_wordmark.png";
   // menu(ecran, vue courante, aller(vue)) : ouvre le panneau ; « Retour » ou un clic à côté le referme.
   // auto : ouvert de lui-même à l'arrivée (pour qu'on le voie) : il ne prend pas le focus, ne fait pas de bruit,
@@ -964,7 +973,7 @@ export const NUVIO_JS = "var __name = function (f) { return f; };\nconst NV_PP =
     dessine();
     // « Préférer les métadonnées de l'addon externe » : la fiche est celle de l'addon (résumé, distribution, épisodes).
     fiche(m0).then((x) => { if (x && f.isConnected) { m = { ...m0, ...x, id: m0.id, type: m0.type }; finBA(); dessine(); auto(); } });
-    const auto = () => { clearTimeout(baT); if (tactile || calme()) return; baT = setTimeout(() => { if (f.isConnected && !f.classList.contains("ba") && !f.querySelector(".fv") && fh.querySelector(".lire.focus")) lanceBA(true); }, 5000); };
+    const auto = () => { clearTimeout(baT); if (tactile || calme()) return; baT = setTimeout(() => { if (aInteragi && f.isConnected && !f.classList.contains("ba") && !f.querySelector(".fv") && fh.querySelector(".lire.focus")) lanceBA(true); }, 5000); };
     auto();
     f.addEventListener("scroll", () => f.classList.toggle("loin", f.scrollTop > 200 * ecran.clientWidth / 1920));
     f.addEventListener("click", (e) => { if (f.classList.contains("ba") && !e.target.closest(".fb")) finBA(); });

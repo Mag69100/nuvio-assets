@@ -7,17 +7,17 @@
 // Adresses de configuration des addons. Laisser vide ce qui n'est pas encore connu :
 // l'étape affiche alors une consigne générale.
 const LINKS = {
-  // Version testée avec ce guide (bêta). /tv sur le site redirige ici : plus court à taper.
-  nuvioTvVersion: "1.1.0-beta.7",
+  // Version testée avec ce guide (bêta), la même que celle de l'aperçu (nuvio.js). /tv sur le site redirige
+  // vers son APK : plus court à taper.
+  nuvioTvVersion: NUVIO_TV_VERSION,
   // Code Downloader (raccourcisseur AFTVnews) → https://nuvio-assets.xnzxflix.workers.dev/tv
   downloaderCode: "5486412",
-  nuvioTv: "https://github.com/NuvioMedia/NuvioTV/releases/tag/1.1.0-beta.7",
+  nuvioTv: "https://github.com/NuvioMedia/NuvioTV/releases/tag/" + NUVIO_TV_VERSION,
   // Fichier « universal » : marche sur toutes les TV et tous les Fire TV (32 et 64 bits).
-  nuvioTvApk: "https://github.com/NuvioMedia/NuvioTV/releases/download/1.1.0-beta.7/app-full-universal-release.apk",
+  nuvioTvApk: "https://github.com/NuvioMedia/NuvioTV/releases/download/" + NUVIO_TV_VERSION + "/app-full-universal-release.apk",
   nuvioDesktop: "https://github.com/NuvioMedia/NuvioDesktop/releases/latest",
-  // Téléphones et tablettes : Play Store (Android), APK sur GitHub, ou AltStore / SideStore (iPhone, iPad).
+  // Téléphones et tablettes : APK sur GitHub (Android ; Nuvio n'est pas sur le Play Store), ou AltStore / SideStore (iPhone, iPad).
   nuvioMobile: "https://github.com/NuvioMedia/NuvioMobile/releases/latest",
-  nuvioPlay: "https://play.google.com/store/apps/details?id=com.nuvio.app",
   nuvioIosSource: "https://raw.githubusercontent.com/NuvioMedia/NuvioMobile/cmp-rewrite/store.json",
   altstore: "https://altstore.io/",
   sidestore: "https://sidestore.io/",
@@ -37,6 +37,7 @@ const LINKS = {
 
 import { STAGE_HEAD, stageTop, secretsHTML, BEAM_HTML, SEATS_HTML, CREDITS_HTML } from "./stage.js";
 import { ICONE_APERCU, apercuDonnees } from "./apercu.js";
+import { NUVIO_TV_VERSION } from "./nuvio.js";
 import { reglagesHTML, POSTER_URL } from "./reglages.js";
 export { POSTER_URL };
 import { APPAREILS, installUrl } from "./liens.js";
@@ -77,6 +78,100 @@ const appareilsHTML = () => `<div class="choix-appareil" id="choix-appareil">
 const consigne = (addon) => `<p class="consigne" data-consigne="${addon}"><b>Pour ton appareil :</b> <span>choisis-le dans l'encadré « Avant tout » plus haut, le guide te dira quoi régler.</span></p>`;
 
 export const NUVIO_TV_APK = LINKS.nuvioTvApk;
+
+// ---------- Étape 2 : un onglet par appareil où installer Nuvio (TV par défaut : le guide se lit souvent à côté) ----------
+const ONGLETS = [
+  ["tv", ICONES_APPAREIL.tv, "TV Android", "Google TV, Shield…"],
+  ["fire", ICONES_APPAREIL.stick, "Fire TV", "Stick, Cube"],
+  ["android", '<rect x="9" y="3" width="14" height="26" rx="3"/><path d="M14 25h4"/>', "Android", "téléphone, tablette"],
+  ["ios", '<rect x="5" y="4" width="22" height="25" rx="3"/><circle cx="16" cy="25.5" r=".9"/>', "iPhone, iPad", "via AltStore"],
+  ["pc", '<rect x="6" y="7" width="20" height="13" rx="1.5"/><path d="M3 24h26l-2-4H5z"/>', "Windows, Mac", "ordinateur"],
+  ["linux", '<rect x="4" y="6" width="24" height="20" rx="2"/><path d="M9 13l4 3-4 3M15 20h7"/>', "Linux", "ordinateur"],
+];
+const ongletsHTML = () => ONGLETS.map(([id, svg, nom, detail], i) => `<button type="button" role="tab" id="tab-${id}" aria-controls="panel-${id}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-tab="${id}"><svg viewBox="0 0 32 32" aria-hidden="true">${svg}</svg><b>${nom}</b><small>${detail}</small><i class="claude-dispo">+ Claude</i></button>`).join("\n      ");
+// Le panneau d'un onglet ; seul celui de la TV est ouvert au départ.
+const panneau = (id, contenu) => `<div class="panel" role="tabpanel" id="panel-${id}" aria-labelledby="tab-${id}" data-panel="${id}"${id === "tv" ? "" : " hidden"}>
+      ${contenu}
+    </div>`;
+const modes = (avecClaude) => `<div class="modes" role="group" aria-label="Façon d'installer">
+        <button type="button" data-mode="main" aria-pressed="true"><b>À la main</b><small>pas à pas</small></button>
+        <button type="button" data-mode="claude" aria-pressed="false"><b>Avec Claude</b><small>${avecClaude}</small></button>
+      </div>`;
+
+// TV Android et Fire TV : mêmes étapes (Downloader, puis l'APK), à quelques menus près.
+// n : la façon de nommer l'appareil dans les phrases (« la TV », « ton Fire TV »…).
+const TV = { id: "tv", n: { le: "la TV", ton: "ta TV", mon: "ma TV", du: "de la TV", au: "à la TV" },
+  etapes: [
+    "Sur la TV, installe l'appli <b>Downloader</b> depuis le Play Store.",
+    `Autorise-la à installer des applis : <span class="path">Paramètres → Système (ou Appareil) → Sécurité → Sources inconnues → Downloader</span>. Le chemin varie un peu selon la marque.`,
+    "Dans Downloader, tape ce code dans le champ d'adresse et valide. Il télécharge directement le bon fichier, <b>app-full-universal-release.apk</b> :",
+  ],
+  fin: [`Choisis <b>Installer</b>, puis ouvre Nuvio. Vérifie dans <span class="path">Paramètres → À propos</span> que la version est ${LINKS.nuvioTvVersion} ou plus récente.`],
+  debogage: `<span class="path">Paramètres → Système → À propos</span>, appuie 7 fois sur « Version de l'OS » (ou « Build »). Puis <span class="path">Options pour les développeurs → Débogage USB</span>.`,
+  ip: `<span class="path">Paramètres → Réseau et Internet</span>, puis ton Wi-Fi`,
+  // Android 11 et plus : certaines TV (Google TV Streamer…) refusent « adb connect » sur le port 5555 tant
+  // qu'on n'a pas associé l'ordinateur par le débogage sans fil (code d'association, port tiré au hasard).
+  secours: {
+    claude: " Si la connexion sur le port 5555 est refusée, guide-moi pour activer « Débogage sans fil » dans les options pour les développeurs, associe l'ordinateur avec « adb pair » (adresse, port et code d'association affichés sur la TV), puis connecte-toi avec l'adresse et le port de l'écran « Débogage sans fil ».",
+    main: `<p class="small">Connexion refusée ? Sur les TV récentes (Android 11 et plus), active <span class="path">Options pour les développeurs → Débogage sans fil</span>, choisis « Associer l'appareil avec un code », puis tape <code>adb pair</code> suivi de l'adresse et du port affichés (par exemple <code>adb pair 192.168.1.42:37123</code>) et donne le code à 6 chiffres. Ensuite, <code>adb connect</code> avec l'adresse et le port de l'écran « Débogage sans fil » (pas 5555).</p>`,
+  },
+};
+const FIRE = { id: "fire", n: { le: "le Fire TV", ton: "ton Fire TV", mon: "mon Fire TV", du: "du Fire TV", au: "au Fire TV" },
+  // Les derniers Fire TV tournent sous Vega OS, plus sous Android : aucune appli Android ne s'y installe.
+  avant: `<p class="note warn"><b>Fire TV Stick 4K Select</b> et <b>Fire TV Stick HD de 2026</b> (Wi-Fi 6) : ils tournent sous Vega OS, pas sous Android, et Nuvio ne peut pas s'y installer. Pour vérifier : <span class="path">Paramètres → Ma Fire TV → À propos</span> ; si la version du logiciel commence par « 1. », c'est Vega OS. Les Fire TV Stick Lite, 4K et 4K Max, le Cube et les TV Fire TV marchent.</p>`,
+  etapes: [
+    "Installe <b>Downloader</b> de <b>AFTVnews</b> depuis l'Amazon Appstore (cherche « Downloader », icône orange). Évite « Downloader for Fire, Browser… », une imitation payante.",
+    `Active les options développeur : <span class="path">Paramètres → Ma Fire TV → À propos</span>, puis appuie 7 fois sur le nom de l'appareil.`,
+    `Autorise Downloader : <span class="path">Paramètres → Ma Fire TV → Options pour les développeurs → Applications de sources inconnues → Downloader</span>.`,
+    "Ouvre Downloader, va dans le champ d'adresse, tape ce code (ou dicte-le à la télécommande Alexa) et valide. Il télécharge directement le bon fichier, <b>app-full-universal-release.apk</b> :",
+  ],
+  fin: [
+    "Choisis <b>Installer</b>, puis <b>Supprimer</b> le fichier téléchargé pour libérer de la place.",
+    `Ouvre Nuvio et vérifie dans <span class="path">Paramètres → À propos</span> que la version est ${LINKS.nuvioTvVersion} ou plus récente. Astuce : maintiens le bouton Accueil → Applications pour l'ajouter à tes favoris.`,
+  ],
+  debogage: `<span class="path">Paramètres → Ma Fire TV → À propos</span>, appuie 7 fois sur le nom de l'appareil. Puis <span class="path">Options pour les développeurs → Débogage ADB → Activé</span>.`,
+  ip: `<span class="path">Paramètres → Ma Fire TV → À propos → Réseau</span>`,
+};
+const li = (items) => items.map((t) => `<li>${t}</li>`).join("\n          ");
+const panneauTV = ({ id, n, avant = "", etapes, fin, debogage, ip, secours = { claude: "", main: "" } }, short) => panneau(id, `${avant}${modes("il s'en occupe depuis l'ordi")}
+      <div class="mode-pane" data-pane="main">
+        <ol>
+          ${li(etapes)}
+        </ol>
+        <div class="code"><span>Code Downloader</span><b>${LINKS.downloaderCode}</b></div>
+        <p class="small">Si le code ne marche pas, tape l'adresse à la place :</p>
+        ${copyBox("u-" + id, short)}
+        <ol start="${etapes.length + 1}">
+          ${li(fin)}
+        </ol>
+      <details class="manual"><summary>TV et Fire TV : installer à la main depuis GitHub (si le code ne marche pas)</summary>
+        <p>Ouvre ${link(LINKS.nuvioTv, "la page de Nuvio TV " + LINKS.nuvioTvVersion)}, puis dans « Assets » prends <b>app-full-universal-release.apk</b>. Il marche partout. Les autres fichiers sont plus légers mais propres à un type de processeur : <b>armeabi-v7a</b> pour la plupart des Fire TV et des TV, <b>arm64-v8a</b> pour les boîtiers récents (Shield, Chromecast avec Google TV), <b>x86</b> et <b>x86_64</b> pour les émulateurs et PC.</p>
+      </details>
+      </div>
+      <div class="mode-pane" data-pane="claude" hidden>
+        <p>Tu as un ordinateur sur le même Wi-Fi que ${n.le} et l'appli <b>Claude</b> (avec Claude Code) ? Claude installe Nuvio sur ${n.ton} à ta place, par le réseau (ADB). Rien à télécharger sur ${n.le}.</p>
+        <p class="small">Depuis ton téléphone, l'appli Claude peut piloter Claude Code qui tourne sur ton ordinateur (Remote Control) : ça marche aussi, tant que l'ordinateur reste allumé sur le même Wi-Fi. Une session Claude Code « dans le cloud », elle, ne voit pas ${n.ton}.</p>
+        <ol>
+          <li><b>Active le débogage sur ${n.le}</b> : ${debogage}</li>
+          <li><b>Note l'adresse IP ${n.du}</b> : ${ip}. Elle ressemble à 192.168.1.42.</li>
+          <li><b>Ouvre Claude Code sur l'ordinateur</b> et colle ce message en remplaçant l'adresse IP par celle de ${n.ton} :</li>
+        </ol>
+        <div class="copy long"><code id="u-claude-${id}">Installe Nuvio TV sur ${n.mon} par ADB. Adresse IP ${n.du} : 192.168.1.42. Étapes : installe les outils ADB (Android platform-tools) s'ils manquent, télécharge le fichier APK depuis ${esc(LINKS.nuvioTvApk)}, connecte-toi ${n.au} avec « adb connect » sur le port 5555, puis installe l'APK avec « adb install -r ».${secours.claude} Explique-moi chaque étape avant de la faire et dis-moi quand accepter la demande qui s'affichera sur ${n.le}. À la fin, déconnecte-toi ${n.du}.</code><button type="button" data-copy="u-claude-${id}">Copier</button></div>
+        <ol start="4">
+          <li>Quand ${n.le} affiche <b>« Autoriser le débogage ? »</b>, coche « Toujours autoriser depuis cet ordinateur » et valide.</li>
+          <li>Une fois Nuvio installé, <b>désactive le débogage</b> sur ${n.le} (même menu). Laisser ADB ouvert permet à n'importe quel appareil du réseau de piloter ${n.ton}.</li>
+        </ol>
+        <details class="manual"><summary>Sans Claude : les commandes à taper soi-même</summary>
+          <p>Avec les <a href="https://developer.android.com/tools/releases/platform-tools" target="_blank" rel="noopener">outils ADB de Google</a> installés et le fichier APK téléchargé :</p>
+          <div class="copy long"><code id="u-adb-${id}" class="lignes">adb connect 192.168.1.42:5555
+adb install -r app-full-universal-release.apk
+adb disconnect</code><button type="button" data-copy="u-adb-${id}">Copier</button></div>
+          ${secours.main}
+        </details>
+      </div>`);
+
+// Ordinateur (Windows, Mac ou Linux) : Claude choisit lui-même le bon fichier, le message est le même.
+const MESSAGE_DESKTOP = `Installe Nuvio Desktop sur cet ordinateur. Prends la dernière version sur ${LINKS.nuvioDesktop}, avec le fichier qui correspond à mon système : .msi pour Windows ; .dmg arm64 (puce Apple) ou x86_64 (Intel) pour Mac ; .deb, .rpm, .flatpak ou .AppImage selon ma distribution Linux. Télécharge-le et installe-le. Explique-moi chaque étape avant de la faire, et à la fin dis-moi comment ouvrir Nuvio.`;
 
 export function guidePage({ origin, season }) {
   const short = origin.replace(/^https?:\/\//, "") + "/tv";
@@ -231,24 +326,15 @@ a { color: var(--bulb); font-weight: 700; text-underline-offset: 3px; }
   .copy .qr-btn { display: block; }
   .vers-tel { display: inline-flex; align-items: center; gap: 8px; }
 }
-.qr-modal, .lien-recu { position: fixed; inset: 0; z-index: 88; display: grid; place-items: center; padding: 16px; background: rgba(5,3,4,.84); animation: rise .25s ease both; }
-.qr-modal .boite, .lien-recu .boite { position: relative; display: grid; gap: 12px; justify-items: center; text-align: center; width: min(420px, 100%); padding: 24px; border-radius: 18px; background: var(--velvet-2); border: 1px solid rgba(255,207,107,.35); box-shadow: 0 30px 80px rgba(0,0,0,.7); }
-.qr-modal h2, .lien-recu h2 { margin: 0; font: 400 1.8rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
+.qr-modal { position: fixed; inset: 0; z-index: 88; display: grid; place-items: center; padding: 16px; background: rgba(5,3,4,.84); animation: rise .25s ease both; }
+.qr-modal .boite { position: relative; display: grid; gap: 12px; justify-items: center; text-align: center; width: min(420px, 100%); padding: 24px; border-radius: 18px; background: var(--velvet-2); border: 1px solid rgba(255,207,107,.35); box-shadow: 0 30px 80px rgba(0,0,0,.7); }
+.qr-modal h2 { margin: 0; font: 400 1.8rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
 .qr-modal .code-qr { width: 270px; height: 270px; padding: 12px; border-radius: 12px; background: #fff; }
 .qr-modal .code-qr svg { width: 100%; height: 100%; display: block; }
-.qr-modal p, .lien-recu p { margin: 0; color: #e6d6c8; font-size: .95rem; }
+.qr-modal p { margin: 0; color: #e6d6c8; font-size: .95rem; }
 .qr-modal small { color: var(--dim); max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 .78rem var(--type); }
-.qr-modal .fermer, .lien-recu .fermer { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%; border: 0; background: rgba(255,255,255,.08); color: var(--cream); font: 800 1.1rem/1 var(--body); cursor: pointer; }
-.lien-recu code { display: block; width: 100%; max-height: 7.5em; overflow: auto; padding: 10px 12px; border-radius: 10px; background: #0f080c; border: 1px solid var(--seat); font: 400 .8rem/1.45 var(--type); word-break: break-all; text-align: left; color: #f0e2cf; }
-.lien-recu .copier { width: 100%; font: 800 1.05rem var(--body); padding: 14px; border-radius: 12px; border: 0; background: var(--bulb); color: var(--ink); cursor: pointer; }
+.qr-modal .fermer { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%; border: 0; background: rgba(255,255,255,.08); color: var(--cream); font: 800 1.1rem/1 var(--body); cursor: pointer; }
 
-
-.compat { overflow-x: auto; border: 1px solid var(--seat); border-radius: 12px; }
-.compat table { width: 100%; border-collapse: collapse; font-size: .9rem; min-width: 520px; }
-.compat th { text-align: left; font: 700 .7rem var(--body); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); padding: 10px 12px; background: rgba(255,255,255,.03); }
-.compat td { padding: 10px 12px; border-top: 1px solid var(--seat); vertical-align: top; color: #e6d6c8; }
-.compat td:first-child { font-weight: 800; color: var(--cream); }
-.compat td:nth-child(2) { font: 700 .9rem var(--type); color: var(--bulb); white-space: nowrap; }
 /* Le choix de l’appareil : des cartes par famille, repliées sur l’appareil choisi et sa configuration. */
 .choix-appareil { display: grid; gap: 10px; }
 .ca-titre { margin: 0; font: 700 .72rem var(--body); letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
@@ -305,16 +391,14 @@ a { color: var(--bulb); font-weight: 700; text-underline-offset: 3px; }
 .compat-box { border: 1px solid var(--bulb); border-radius: 14px; padding: 16px 18px; display: grid; gap: 12px; background: linear-gradient(180deg, rgba(255,207,107,.08), rgba(255,207,107,.02)); scroll-margin-top: 20px; }
 .compat-box h3 { margin: 0; font: 400 1.5rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
 .compat-box p { margin: 0; color: #e6d6c8; }
-.compat tr.adapt td { background: rgba(255,207,107,.06); }
-.compat tr.adapt td:first-child { box-shadow: inset 3px 0 0 var(--bulb); }
-.compat td:nth-child(3) b { color: var(--bulb); }
 .tag-adapt { font: 800 .66rem var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); background: var(--bulb); border-radius: 4px; padding: 2px 6px; white-space: nowrap; }
 .tips li { color: #e6d6c8; }
 .code { justify-self: start; display: grid; gap: 2px; padding: 12px 22px 10px; border-radius: 12px; background: var(--cream); color: var(--ink); box-shadow: 0 0 0 3px var(--bulb), 0 10px 30px rgba(0,0,0,.4); }
 .code span { font: 700 .7rem var(--body); letter-spacing: .2em; text-transform: uppercase; color: #7a5a4c; }
 .code b { font: 400 3rem/1 var(--display); letter-spacing: .12em; }
 .small { font-size: .88rem; color: var(--dim); }
-#u-adb { white-space: pre; }
+.ou-installer { margin: 0; font: 800 1.05rem var(--body); color: var(--cream); }
+.ou-installer small { display: block; font: 400 .88rem var(--body); color: var(--dim); }
 .panel ul { margin-top: 6px; }
 .manual summary { cursor: pointer; color: var(--bulb); font-weight: 700; }
 .manual p { margin: 8px 0 0; color: #d9c8be; }
@@ -329,7 +413,7 @@ a { color: var(--bulb); font-weight: 700; text-underline-offset: 3px; }
 .trousseau { display: grid; gap: 10px; padding: 16px 18px; border-radius: 14px; border: 1px solid rgba(255,207,107,.35); background: linear-gradient(180deg, rgba(255,207,107,.08), rgba(255,207,107,.02)); }
 .trousseau p { margin: 0; }
 .trousseau .vers-tel { justify-self: start; }
-.etat-cles { min-height: 1.3em; font-weight: 800; font-size: .9rem; color: var(--bulb); }
+.trousseau-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }.etat-cles { min-height: 1.3em; font-weight: 800; font-size: .9rem; color: var(--bulb); }
 .etat-cles:empty { display: none; }
 .etat-cles.erreur { color: #ffe1d8; }
 /* Personnaliser sans quitter le guide : la salle 2 par-dessus, dans un cadre. */
@@ -499,6 +583,9 @@ ${feuilles("apercu.css", "nuvio.css", "reglages.css")}
 .r-dots { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
 .r-dots button { width: 10px; height: 10px; padding: 0; border-radius: 50%; border: 0; background: var(--seat); }
 .r-dots button[aria-pressed="true"] { background: var(--bulb); }
+.r-dots { align-items: center; }
+.r-dots button.r-pause { width: auto; height: auto; margin-left: 6px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--seat); background: transparent; color: var(--dim); font: 700 .72rem var(--body); cursor: pointer; }
+.r-dots button.r-pause:hover { color: var(--cream); border-color: rgba(255,207,107,.5); }
 @media (max-width: 600px) { .reclame { padding: 22px 20px 52px; } .reclame .r-etoile { width: 70px; height: 70px; font-size: .85rem; top: 10px; right: 10px; } .reclame h3 { padding-right: 64px; } }
 
 /* La vendeuse d'esquimaux passe dans l'allée de l'entracte. */
@@ -581,6 +668,7 @@ ${feuilles("scene.css")}
   .reel-menu a { padding: 12px; }
   .r-dots { gap: 0; }
   .r-dots button { box-sizing: border-box; width: 30px; height: 30px; padding: 10px; background-clip: content-box; }
+  .r-dots button.r-pause { min-height: 44px; padding: 0 14px; }
 }
 </style>
 </head>
@@ -626,7 +714,7 @@ ${secretsHTML("guide")}
   <section class="act" id="avant">
     <header><span class="num">01</span><span class="label">Avant de commencer</span><h2>Ce qu'il te faut</h2></header>
     <ul>
-      <li><b>Un appareil</b> : une TV Android ou Google TV, un Fire TV, un téléphone ou une tablette (Android, iPhone, iPad), ou un ordinateur (Windows, Mac, Linux).</li>
+      <li><b>Un appareil</b> : une TV Android ou Google TV, un Fire TV (sauf le Fire TV Stick 4K Select et le Fire TV Stick HD de 2026, voir l'étape 2), un téléphone ou une tablette (Android, iPhone, iPad), ou un ordinateur (Windows, Mac, Linux).</li>
       <li><b>Sur TV, un téléphone</b> sur le même Wi-Fi : il sert à coller les liens au lieu de les taper à la télécommande.</li>
       <li><b>Un compte AllDebrid premium</b> (payant, quelques euros par mois) : Lumio, StreamFusion, Torrentio et WAStream s'en servent pour fournir des sources rapides. On le crée à l'étape 5. ${link(LINKS.realDebrid, "Real-Debrid")} ou ${link(LINKS.torbox, "TorBox")} marchent aussi.</li>
     </ul>
@@ -635,110 +723,22 @@ ${secretsHTML("guide")}
 
   <section class="act" id="installer">
     <header><span class="num">02</span><span class="label">Installation</span><h2>Installer Nuvio</h2></header>
-    <p class="lead">Choisis ton appareil. Sur TV, on installe la version testée avec ce guide, <b>Nuvio TV ${LINKS.nuvioTvVersion}</b>, depuis sa page officielle sur GitHub. Sur téléphone, tablette et ordinateur, c'est l'appli Nuvio de la même équipe : les étapes suivantes sont les mêmes partout.</p>
-    <div class="appareils" role="tablist" aria-label="Ton appareil">
-      <button type="button" role="tab" aria-selected="true" data-tab="tv"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="6" width="26" height="16" rx="2"/><path d="M11 27h10M16 22v5"/></svg><b>TV Android</b><small>Google TV, Shield…</small><i class="claude-dispo">+ Claude</i></button>
-      <button type="button" role="tab" aria-selected="false" data-tab="fire"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="12" width="17" height="8" rx="2"/><path d="M22 16h3M25 13v6"/><path d="M10.5 16h6"/></svg><b>Fire TV</b><small>Stick, Cube</small><i class="claude-dispo">+ Claude</i></button>
-      <button type="button" role="tab" aria-selected="false" data-tab="android"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="9" y="3" width="14" height="26" rx="3"/><path d="M14 25h4"/></svg><b>Android</b><small>téléphone, tablette</small><i class="claude-dispo">+ Claude</i></button>
-      <button type="button" role="tab" aria-selected="false" data-tab="ios"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="4" width="22" height="25" rx="3"/><circle cx="16" cy="25.5" r=".9"/></svg><b>iPhone, iPad</b><small>via AltStore</small><i class="claude-dispo">+ Claude</i></button>
-      <button type="button" role="tab" aria-selected="false" data-tab="pc"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="6" y="7" width="20" height="13" rx="1.5"/><path d="M3 24h26l-2-4H5z"/></svg><b>Windows, Mac</b><small>ordinateur</small><i class="claude-dispo">+ Claude</i></button>
-      <button type="button" role="tab" aria-selected="false" data-tab="linux"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="24" height="20" rx="2"/><path d="M9 13l4 3-4 3M15 20h7"/></svg><b>Linux</b><small>ordinateur</small><i class="claude-dispo">+ Claude</i></button>
+    <p class="lead">Sur TV, on installe la version testée avec ce guide, <b>Nuvio TV ${LINKS.nuvioTvVersion}</b>, depuis sa page officielle sur GitHub. Sur téléphone, tablette et ordinateur, c'est l'appli Nuvio de la même équipe : les étapes suivantes sont les mêmes partout.</p>
+    <p class="ou-installer" id="ou-installer">Où veux-tu installer Nuvio ? <small>Pas forcément sur l'appareil où tu lis ce guide.</small></p>
+    <div class="appareils" role="tablist" aria-labelledby="ou-installer">
+      ${ongletsHTML()}
     </div>
-    <div class="panel" data-panel="tv">
-      <div class="modes" role="group" aria-label="Façon d'installer">
-        <button type="button" data-mode="main" aria-pressed="true"><b>À la main</b><small>pas à pas</small></button>
-        <button type="button" data-mode="claude" aria-pressed="false"><b>Avec Claude</b><small>il s'en occupe depuis l'ordi</small></button>
-      </div>
-      <div class="mode-pane" data-pane="main">
-        <ol>
-          <li>Sur la TV, installe l'appli <b>Downloader</b> depuis le Play Store.</li>
-          <li>Autorise-la à installer des applis : <span class="path">Paramètres → Système (ou Appareil) → Sécurité → Sources inconnues → Downloader</span>. Le chemin varie un peu selon la marque.</li>
-          <li>Dans Downloader, tape ce code dans le champ d'adresse et valide. Il télécharge directement le bon fichier, <b>app-full-universal-release.apk</b> :</li>
-        </ol>
-        <div class="code"><span>Code Downloader</span><b>${LINKS.downloaderCode}</b></div>
-        <p class="small">Si le code ne marche pas, tape l'adresse à la place :</p>
-        ${copyBox("u-tv", short)}
-        <ol start="4">
-          <li>Choisis <b>Installer</b>, puis ouvre Nuvio. Vérifie dans <span class="path">Paramètres → À propos</span> que la version est bien ${LINKS.nuvioTvVersion}.</li>
-        </ol>
-      <details class="manual"><summary>TV et Fire TV : installer à la main depuis GitHub (si le code ne marche pas)</summary>
-        <p>Ouvre ${link(LINKS.nuvioTv, "la page de Nuvio TV " + LINKS.nuvioTvVersion)}, puis dans « Assets » prends <b>app-full-universal-release.apk</b>. Il marche partout. Les autres fichiers sont plus légers mais propres à un type de processeur : <b>armeabi-v7a</b> pour la plupart des Fire TV et des TV, <b>arm64-v8a</b> pour les boîtiers récents (Shield, Chromecast avec Google TV), <b>x86</b> et <b>x86_64</b> pour les émulateurs et PC.</p>
-      </details>
-      </div>
-      <div class="mode-pane" data-pane="claude" hidden>
-        <p>Tu as un ordinateur sur le même Wi-Fi que la TV et l'appli <b>Claude</b> (avec Claude Code) ? Claude installe Nuvio sur ta TV à ta place, par le réseau (ADB). Rien à télécharger sur la TV.</p>
-        <p class="small">Depuis ton téléphone, l'appli Claude peut piloter Claude Code qui tourne sur ton ordinateur (Remote Control) : ça marche aussi, tant que l'ordinateur reste allumé sur le même Wi-Fi. Une session Claude Code « dans le cloud », elle, ne voit pas ta TV.</p>
-        <ol>
-          <li><b>Active le débogage sur la TV</b> : <span class="path">Paramètres → Système → À propos</span>, appuie 7 fois sur « Version de l'OS » (ou « Build »). Puis <span class="path">Options pour les développeurs → Débogage USB</span> (ou « Débogage sans fil »).</li>
-          <li><b>Note l'adresse IP de la TV</b> : <span class="path">Paramètres → Réseau et Internet</span>, puis ton Wi-Fi. Elle ressemble à 192.168.1.42.</li>
-          <li><b>Ouvre Claude Code sur l'ordinateur</b> et colle ce message en remplaçant l'adresse IP par celle de ta TV :</li>
-        </ol>
-        <div class="copy long"><code id="u-claude-tv">Installe Nuvio TV sur ma TV par ADB. Adresse IP de la TV : 192.168.1.42. Étapes : installe les outils ADB (Android platform-tools) s'ils manquent, télécharge le fichier APK depuis ${esc(LINKS.nuvioTvApk)}, connecte-toi à la TV avec « adb connect » sur le port 5555, puis installe l'APK avec « adb install -r ». Explique-moi chaque étape avant de la faire et dis-moi quand accepter la demande qui s'affichera sur la TV. À la fin, déconnecte-toi de la TV.</code><button type="button" data-copy="u-claude-tv">Copier</button></div>
-        <ol start="4">
-          <li>Quand la TV affiche <b>« Autoriser le débogage ? »</b>, coche « Toujours autoriser depuis cet ordinateur » et valide.</li>
-          <li>Une fois Nuvio installé, <b>désactive le débogage</b> sur la TV (même menu). Laisser ADB ouvert permet à n'importe quel appareil du réseau de piloter ta TV.</li>
-        </ol>
-        <details class="manual"><summary>Sans Claude : les commandes à taper soi-même</summary>
-          <p>Avec les <a href="https://developer.android.com/tools/releases/platform-tools" target="_blank" rel="noopener">outils ADB de Google</a> installés et le fichier APK téléchargé :</p>
-          <div class="copy long"><code id="u-adb-tv" class="lignes">adb connect 192.168.1.42:5555
-adb install -r app-full-universal-release.apk
-adb disconnect</code><button type="button" data-copy="u-adb-tv">Copier</button></div>
-        </details>
-      </div>
-    </div>
-    <div class="panel" data-panel="fire" hidden>
-      <div class="modes" role="group" aria-label="Façon d'installer">
-        <button type="button" data-mode="main" aria-pressed="true"><b>À la main</b><small>pas à pas</small></button>
-        <button type="button" data-mode="claude" aria-pressed="false"><b>Avec Claude</b><small>il s'en occupe depuis l'ordi</small></button>
-      </div>
-      <div class="mode-pane" data-pane="main">
-        <ol>
-          <li>Installe <b>Downloader</b> de <b>AFTVnews</b> depuis l'Amazon Appstore (cherche « Downloader », icône orange). Évite « Downloader for Fire, Browser… », une imitation payante.</li>
-          <li>Active les options développeur : <span class="path">Paramètres → Ma Fire TV → À propos</span>, puis appuie 7 fois sur le nom de l'appareil.</li>
-          <li>Autorise Downloader : <span class="path">Paramètres → Ma Fire TV → Options pour les développeurs → Applications de sources inconnues → Downloader</span>.</li>
-          <li>Ouvre Downloader, va dans le champ d'adresse, tape ce code (ou dicte-le à la télécommande Alexa) et valide. Il télécharge directement le bon fichier, <b>app-full-universal-release.apk</b> :</li>
-        </ol>
-        <div class="code"><span>Code Downloader</span><b>${LINKS.downloaderCode}</b></div>
-        <p class="small">Si le code ne marche pas, tape l'adresse à la place :</p>
-        ${copyBox("u-fire", short)}
-        <ol start="5">
-          <li>Choisis <b>Installer</b>, puis <b>Supprimer</b> le fichier téléchargé pour libérer de la place.</li>
-          <li>Ouvre Nuvio et vérifie dans <span class="path">Paramètres → À propos</span> que la version est bien ${LINKS.nuvioTvVersion}. Astuce : maintiens le bouton Accueil → Applications pour l'ajouter à tes favoris.</li>
-        </ol>
-      <details class="manual"><summary>TV et Fire TV : installer à la main depuis GitHub (si le code ne marche pas)</summary>
-        <p>Ouvre ${link(LINKS.nuvioTv, "la page de Nuvio TV " + LINKS.nuvioTvVersion)}, puis dans « Assets » prends <b>app-full-universal-release.apk</b>. Il marche partout. Les autres fichiers sont plus légers mais propres à un type de processeur : <b>armeabi-v7a</b> pour la plupart des Fire TV et des TV, <b>arm64-v8a</b> pour les boîtiers récents (Shield, Chromecast avec Google TV), <b>x86</b> et <b>x86_64</b> pour les émulateurs et PC.</p>
-      </details>
-      </div>
-      <div class="mode-pane" data-pane="claude" hidden>
-        <p>Tu as un ordinateur sur le même Wi-Fi que le Fire TV et l'appli <b>Claude</b> (avec Claude Code) ? Claude installe Nuvio sur ton Fire TV à ta place, par le réseau (ADB). Rien à télécharger sur le Fire TV.</p>
-        <p class="small">Depuis ton téléphone, l'appli Claude peut piloter Claude Code qui tourne sur ton ordinateur (Remote Control) : ça marche aussi, tant que l'ordinateur reste allumé sur le même Wi-Fi. Une session Claude Code « dans le cloud », elle, ne voit pas ton Fire TV.</p>
-        <ol>
-          <li><b>Active le débogage sur le Fire TV</b> : <span class="path">Paramètres → Ma Fire TV → À propos</span>, appuie 7 fois sur le nom de l'appareil. Puis <span class="path">Options pour les développeurs → Débogage ADB → Activé</span>.</li>
-          <li><b>Note l'adresse IP du Fire TV</b> : <span class="path">Paramètres → Ma Fire TV → À propos → Réseau</span>. Elle ressemble à 192.168.1.42.</li>
-          <li><b>Ouvre Claude Code sur l'ordinateur</b> et colle ce message en remplaçant l'adresse IP par celle de ton Fire TV :</li>
-        </ol>
-        <div class="copy long"><code id="u-claude-fire">Installe Nuvio TV sur mon Fire TV par ADB. Adresse IP du Fire TV : 192.168.1.42. Étapes : installe les outils ADB (Android platform-tools) s'ils manquent, télécharge le fichier APK depuis ${esc(LINKS.nuvioTvApk)}, connecte-toi au Fire TV avec « adb connect » sur le port 5555, puis installe l'APK avec « adb install -r ». Explique-moi chaque étape avant de la faire et dis-moi quand accepter la demande qui s'affichera sur le Fire TV. À la fin, déconnecte-toi du Fire TV.</code><button type="button" data-copy="u-claude-fire">Copier</button></div>
-        <ol start="4">
-          <li>Quand le Fire TV affiche <b>« Autoriser le débogage ? »</b>, coche « Toujours autoriser depuis cet ordinateur » et valide.</li>
-          <li>Une fois Nuvio installé, <b>désactive le débogage</b> sur le Fire TV (même menu). Laisser ADB ouvert permet à n'importe quel appareil du réseau de piloter ton Fire TV.</li>
-        </ol>
-        <details class="manual"><summary>Sans Claude : les commandes à taper soi-même</summary>
-          <p>Avec les <a href="https://developer.android.com/tools/releases/platform-tools" target="_blank" rel="noopener">outils ADB de Google</a> installés et le fichier APK téléchargé :</p>
-          <div class="copy long"><code id="u-adb-fire" class="lignes">adb connect 192.168.1.42:5555
-adb install -r app-full-universal-release.apk
-adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button></div>
-        </details>
-      </div>
-    </div>
-    <div class="panel" data-panel="android" hidden>
+    ${panneauTV(TV, short)}
+    ${panneauTV(FIRE, short)}
+    <div class="panel" role="tabpanel" id="panel-android" aria-labelledby="tab-android" data-panel="android" hidden>
       <div class="modes" role="group" aria-label="Façon d'installer">
         <button type="button" data-mode="main" aria-pressed="true"><b>À la main</b><small>pas à pas</small></button>
         <button type="button" data-mode="claude" aria-pressed="false"><b>Avec Claude</b><small>il te guide sur ton téléphone</small></button>
       </div>
       <div class="mode-pane" data-pane="main">
         <ol>
-          <li>Le plus simple : installe <b>Nuvio</b> depuis ${link(LINKS.nuvioPlay, "le Google Play Store")}. Il se met à jour tout seul.</li>
-          <li>Pas de Play Store sur ton appareil ? Ouvre ${link(LINKS.nuvioMobile, "la page de Nuvio Mobile sur GitHub")} et, dans « Assets », prends <b>androidApp-full-arm64-v8a-release.apk</b> (presque tous les téléphones et tablettes récents) ou <b>armeabi-v7a</b> pour un très vieil appareil. Autorise l'installation quand Android le demande.</li>
+          <li>Nuvio n'est pas sur le Play Store : son fichier d'installation officiel (APK) est sur GitHub. Ouvre ${link(LINKS.nuvioMobile, "la page de Nuvio Mobile sur GitHub")} et, dans « Assets », prends <b>androidApp-full-arm64-v8a-release.apk</b> (presque tous les téléphones et tablettes récents) ou <b>androidApp-full-armeabi-v7a-release.apk</b> pour un très vieil appareil.</li>
+          <li>Ouvre le fichier téléchargé. Android demande d'autoriser ton navigateur à installer des applis : accepte, puis choisis <b>Installer</b>.</li>
           <li>Ouvre Nuvio. Sur téléphone et tablette, saute l'étape 4 : tu colles les liens directement dans l'appli.</li>
         </ol>
       </div>
@@ -747,13 +747,13 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
         <ol>
           <li><b>Copie ce message</b> :</li>
         </ol>
-        <div class="copy long"><code id="u-guide-android">Aide-moi à installer l'appli Nuvio sur mon téléphone (ou ma tablette) Android, puis à la configurer en français. Guide-moi une seule étape à la fois et attends que je te dise « c'est fait » avant de passer à la suivante. Si je bloque, je t'enverrai une capture d'écran. Pour l'installer : le plus simple est le Google Play Store (${LINKS.nuvioPlay}) ; sans Play Store, l'APK officiel est sur ${LINKS.nuvioMobile} (fichier androidApp-full-arm64-v8a-release.apk pour un appareil récent). Ensuite, le guide complet à suivre est ici : ${origin}/guide (étapes 3 et 5 à 12 ; l'étape 4 ne sert pas sur téléphone).</code><button type="button" data-copy="u-guide-android">Copier</button></div>
+        <div class="copy long"><code id="u-guide-android">Aide-moi à installer l'appli Nuvio sur mon téléphone (ou ma tablette) Android, puis à la configurer en français. Guide-moi une seule étape à la fois et attends que je te dise « c'est fait » avant de passer à la suivante. Si je bloque, je t'enverrai une capture d'écran. Nuvio n'est pas sur le Play Store : l'APK officiel est sur ${LINKS.nuvioMobile} (fichier androidApp-full-arm64-v8a-release.apk pour un appareil récent, androidApp-full-armeabi-v7a-release.apk pour un très vieux). Ensuite, le guide complet à suivre est ici : ${origin}/guide (étapes 3 et 5 à 12 ; l'étape 4 ne sert pas sur téléphone).</code><button type="button" data-copy="u-guide-android">Copier</button></div>
         <ol start="2">
           <li><b>Ouvre l'appli Claude</b> (ou ${link("https://claude.ai/new", "claude.ai")}), colle le message et envoie-le. Réponds-lui au fur et à mesure.</li>
         </ol>
       </div>
     </div>
-    <div class="panel" data-panel="ios" hidden>
+    <div class="panel" role="tabpanel" id="panel-ios" aria-labelledby="tab-ios" data-panel="ios" hidden>
       <div class="modes" role="group" aria-label="Façon d'installer">
         <button type="button" data-mode="main" aria-pressed="true"><b>À la main</b><small>pas à pas</small></button>
         <button type="button" data-mode="claude" aria-pressed="false"><b>Avec Claude</b><small>il te guide sur ton téléphone</small></button>
@@ -782,7 +782,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
         </ol>
       </div>
     </div>
-    <div class="panel" data-panel="pc" hidden>
+    <div class="panel" role="tabpanel" id="panel-pc" aria-labelledby="tab-pc" data-panel="pc" hidden>
       <div class="modes" role="group" aria-label="Façon d'installer">
         <button type="button" data-mode="main" aria-pressed="true"><b>À la main</b><small>pas à pas</small></button>
         <button type="button" data-mode="claude" aria-pressed="false"><b>Avec Claude</b><small>il s'en occupe depuis l'ordi</small></button>
@@ -809,11 +809,11 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
         <p>Tu as l'appli <b>Claude</b> (avec Claude Code) sur cet ordinateur ? Claude trouve le bon fichier pour ton système, le télécharge et l'installe à ta place.</p>
         <p class="note warn">Nuvio Desktop est encore en version <b>alpha</b>, réservée aux testeurs : attends-toi à quelques bugs.</p>
         <ol><li><b>Ouvre Claude Code</b> et colle ce message :</li></ol>
-        <div class="copy long"><code id="u-claude-pc">Installe Nuvio Desktop sur cet ordinateur. Prends la dernière version sur https://github.com/NuvioMedia/NuvioDesktop/releases/latest, avec le fichier qui correspond à mon système : .msi pour Windows ; .dmg arm64 (puce Apple) ou x86_64 (Intel) pour Mac ; .deb, .rpm, .flatpak ou .AppImage selon ma distribution Linux. Télécharge-le et installe-le. Explique-moi chaque étape avant de la faire, et à la fin dis-moi comment ouvrir Nuvio.</code><button type="button" data-copy="u-claude-pc">Copier</button></div>
+        <div class="copy long"><code id="u-claude-pc">${esc(MESSAGE_DESKTOP)}</code><button type="button" data-copy="u-claude-pc">Copier</button></div>
         <ol start="2"><li>Accepte les demandes d'autorisation de Claude (et ton mot de passe si le système le demande), puis ouvre Nuvio et saute l'étape 4 : tu colles les liens directement dans l'appli.</li></ol>
       </div>
     </div>
-    <div class="panel" data-panel="linux" hidden>
+    <div class="panel" role="tabpanel" id="panel-linux" aria-labelledby="tab-linux" data-panel="linux" hidden>
       <div class="modes" role="group" aria-label="Façon d'installer">
         <button type="button" data-mode="main" aria-pressed="true"><b>À la main</b><small>pas à pas</small></button>
         <button type="button" data-mode="claude" aria-pressed="false"><b>Avec Claude</b><small>il s'en occupe depuis l'ordi</small></button>
@@ -845,7 +845,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
         <p>Tu as l'appli <b>Claude</b> (avec Claude Code) sur cet ordinateur ? Claude trouve le bon fichier pour ton Linux, le télécharge et l'installe à ta place.</p>
         <p class="note warn">Nuvio Desktop est encore en version <b>alpha</b>, réservée aux testeurs : attends-toi à quelques bugs.</p>
         <ol><li><b>Ouvre Claude Code</b> et colle ce message :</li></ol>
-        <div class="copy long"><code id="u-claude-linux">Installe Nuvio Desktop sur cet ordinateur. Prends la dernière version sur https://github.com/NuvioMedia/NuvioDesktop/releases/latest, avec le fichier qui correspond à mon système : .msi pour Windows ; .dmg arm64 (puce Apple) ou x86_64 (Intel) pour Mac ; .deb, .rpm, .flatpak ou .AppImage selon ma distribution Linux. Télécharge-le et installe-le. Explique-moi chaque étape avant de la faire, et à la fin dis-moi comment ouvrir Nuvio.</code><button type="button" data-copy="u-claude-linux">Copier</button></div>
+        <div class="copy long"><code id="u-claude-linux">${esc(MESSAGE_DESKTOP)}</code><button type="button" data-copy="u-claude-linux">Copier</button></div>
         <ol start="2"><li>Accepte les demandes d'autorisation de Claude (et ton mot de passe si le système le demande), puis ouvre Nuvio et saute l'étape 4 : tu colles les liens directement dans l'appli.</li></ol>
       </div>
     </div>
@@ -860,7 +860,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
     </div>
     <ol>
       <li><span class="path">Paramètres → Langue de l'application → Français</span>. Sinon, l'appli affiche « Movie » au lieu de « Film ».</li>
-      <li><span class="path">Paramètres → Enrichissement TMDB</span> : <b>Langue → Français</b> (titres, résumés et logos en VF). Désactive <b>Bandes-annonces</b> : activé, Nuvio prend celles de TMDB, souvent en anglais, à la place de celles du Catalogue FR, qui sont en VF dès qu'une VF existe. Désactive aussi <b>Infos</b> pour voir quand arrivent les films à venir (« 📅 Dispo le 17 nov. » en tête du résumé), <b>Détails</b> pour garder « Entre deux saisons » sur les séries en pause (sinon Nuvio met « En cours »), et <b>Illustrations</b> pour garder les fonds en pleine définition et les logos en français du Catalogue FR.</li>
+      <li><span class="path">Paramètres → Intégrations → TMDB</span> : <b>Langue → Français</b> (titres, résumés et logos en VF). Désactive <b>Bandes-annonces</b> : activé, Nuvio prend celles de TMDB, souvent en anglais, à la place de celles du Catalogue FR, qui sont en VF dès qu'une VF existe. Désactive aussi <b>Informations de base</b> pour voir quand arrivent les films à venir (« 📅 Dispo le 17 nov. » en tête du résumé), <b>Détails</b> pour garder « Entre deux saisons » sur les séries en pause (sinon Nuvio met « En cours »), et <b>Illustrations</b> pour garder les fonds en pleine définition et les logos en français du Catalogue FR.</li>
     </ol>
   </section>
 
@@ -888,10 +888,13 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
     <p class="note">Certains addons proposent aussi « Se connecter avec AllDebrid » : tu valides un code sur alldebrid.com au lieu de coller la clé. Les deux marchent.</p>
     <div class="trousseau" id="trousseau">
       <h3 class="sub-h">B · Ton trousseau</h3>
-      <p>Colle ta clé ici, une seule fois : le guide l'insère dans les liens des étapes suivantes. Elle reste sur cet appareil, rien n'est envoyé.</p>
+      <p>Colle ta clé ici, une seule fois : le guide l'insère dans les liens des étapes suivantes. Elle reste gardée dans ce navigateur, sur cet appareil : elle n'est jamais envoyée à notre serveur.</p>
       <label class="keyfield" for="ad-key"><span>Ta clé AllDebrid</span><input id="ad-key" type="text" placeholder="la clé nommée « Nuvio »" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
       <p class="etat-cles" id="etat-cles" role="status"></p>
-      <button type="button" class="vers-tel" id="cles-tel">Envoyer ma clé sur mon téléphone (QR code)</button>
+      <div class="trousseau-actions">
+        <button type="button" class="vers-tel" id="cles-tel">Envoyer ma clé sur mon téléphone (QR code)</button>
+        <button type="button" class="ca-changer" id="oublier-cle" hidden>Oublier ma clé</button>
+      </div>
     </div>
     <p class="note warn">Tes clés sont personnelles : ne les publie pas et ne les envoie à personne. Ne partage pas non plus tes liens d'installation d'addons, ils contiennent ta clé AllDebrid.</p>
   </section>
@@ -1051,10 +1054,10 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
     <details data-moment="lecture"><summary>Aucune source quand je clique sur Regarder</summary><p>Vérifie que ton abonnement AllDebrid premium est actif (étape 5) : l'essai gratuit de 7 jours ne suffit pas. Vérifie aussi que ta clé API est bien renseignée dans Lumio, StreamFusion, Torrentio et WAStream. S'il n'y a rien seulement sur certains films, tes exclusions sont peut-être trop strictes : relis l'encadré « Ce que ton appareil sait lire » de l'étape 6.</p></details>
     <details data-moment="lecture"><summary>L'image saccade pendant les mouvements de caméra</summary><p>Si les travellings avancent par à-coups, sans rond de chargement, c'est du <b>judder</b> : le film est en 24 images/s (23,976) et la TV l'affiche en 60 Hz, alors les images sont répétées de façon inégale. Sur Fire TV : <span class="path">Paramètres → Affichage et sons → Affichage → Faire correspondre la fréquence d'images d'origine</span> → activé. Dans Nuvio, active aussi <b>Frame Rate Matching</b> (étape 9).</p><p>Si l'image se fige avec un rond de chargement, c'est autre chose : le fichier est trop lourd pour ta connexion (voir l'encadré de l'étape 6).</p></details>
     <details data-moment="accueil fiche"><summary>C'est écrit « Movie » au lieu de « Film »</summary><p>La langue de l'appli est en anglais : <span class="path">Paramètres → Langue de l'application → Français</span> (étape 3).</p></details>
-    <details data-moment="accueil fiche"><summary>Les bandes-annonces sont en anglais</summary><p>Dans <span class="path">Paramètres → Enrichissement TMDB</span>, <b>désactive Bandes-annonces</b> (étape 3), puis force l'arrêt de Nuvio et relance-le. Activé, ce réglage fait passer les bandes-annonces de TMDB, souvent en anglais, avant celles du Catalogue FR, qui va chercher la VF sur TMDB, Allociné et YouTube.</p><p>Si un titre reste en version originale, c'est qu'aucune VF n'a été trouvée (fréquent pour les animés et les séries étrangères). Une VF trouvée en ouvrant la fiche arrive sur l'accueil dans les 3 heures.</p></details>
+    <details data-moment="accueil fiche"><summary>Les bandes-annonces sont en anglais</summary><p>Dans <span class="path">Paramètres → Intégrations → TMDB</span>, <b>désactive Bandes-annonces</b> (étape 3), puis force l'arrêt de Nuvio et relance-le. Activé, ce réglage fait passer les bandes-annonces de TMDB, souvent en anglais, avant celles du Catalogue FR, qui va chercher la VF sur TMDB, Allociné et YouTube.</p><p>Si un titre reste en version originale, c'est qu'aucune VF n'a été trouvée (fréquent pour les animés et les séries étrangères). Une VF trouvée en ouvrant la fiche arrive sur l'accueil dans les 3 heures.</p></details>
     <details data-moment="accueil"><summary>Une rangée ou une modification n'apparaît pas</summary><p>Nuvio garde la liste des rangées d'un addon pendant 6 h. Pas besoin de réinstaller : dans <span class="path">Addons</span>, appuie sur <b>Actualiser les addons</b>, qui récupère tout de suite leurs dernières modifications.</p><p>Si tu as changé tes réglages en salle 2 avec un lien habituel, ton lien d'addon a changé : là, il faut bien remplacer l'ancien Catalogue FR par le nouveau lien de ton billet. Avec un lien fixe, rien à remplacer : « Actualiser les addons » suffit.</p><p>Les collections (les grandes tuiles du haut) ne bougent pas avec « Actualiser les addons » : Nuvio les a importées. Pour voir un changement de tuiles, supprime-les dans l'onglet Collections, puis réimporte-les (étape 7 : « Copier le contenu (PC/TEL) », puis le bouton presse-papiers en haut à droite de l'onglet Collections).</p></details>
     <details data-moment="recherche"><summary>La recherche affiche « TMDB Search » ou des résultats en double</summary><p>Ton installation date d’avant le passage de la recherche dans le Catalogue FR. <b>1.</b> Retire le Catalogue FR et remets-le (lien de l’étape 6) pour que Nuvio voie sa recherche et ses fiches. <b>2.</b> Dans Addons, supprime <b>TMDB Discover Plus</b> : il ne sert plus, le Catalogue FR fait maintenant la recherche et les fiches. <b>3.</b> Vérifie que « Afficher le type de catalogue » est désactivé (étape 9).</p></details>
-    <details data-moment="accueil fiche"><summary>Un film à venir n’affiche pas sa date de dispo</summary><p>Pour un film pas encore regardable, l’addon envoie la date où il arrive chez toi (sortie numérique, ou une estimation) : c’est elle que le grand carrousel affiche, pas la sortie au cinéma. Le rappel « 📅 Dispo le 17 nov. » en tête du résumé n’apparaît que si <span class="path">Paramètres → Intégrations → Enrichissement TMDB → Infos</span> est désactivé (étape 3) : sinon, Nuvio remplace le résumé par celui de TMDB. Nuvio garde l’ancienne version environ 5 minutes : si rien ne change, ferme et relance l’appli.</p></details>
+    <details data-moment="accueil fiche"><summary>Un film à venir n’affiche pas sa date de dispo</summary><p>Pour un film pas encore regardable, l’addon envoie la date où il arrive chez toi (sortie numérique, ou une estimation) : c’est elle que le grand carrousel affiche, pas la sortie au cinéma. Le rappel « 📅 Dispo le 17 nov. » en tête du résumé n’apparaît que si <span class="path">Paramètres → Intégrations → TMDB → Informations de base</span> est désactivé (étape 3) : sinon, Nuvio remplace le résumé par celui de TMDB. Nuvio garde l’ancienne version environ 5 minutes : si rien ne change, ferme et relance l’appli.</p></details>
     <details data-moment="profils"><summary>Un autre profil n'a pas les addons</summary><p>Chaque profil Nuvio a sa propre liste d'addons. Ouvre <span class="path">Paramètres → Profils → Gérer les profils</span>, choisis le profil, puis <b>Modifier</b>, et active <b>Utiliser les addons principaux</b> : il reprend alors exactement les addons du profil principal, et suivra chacune de tes modifications.</p></details>
     <details data-moment="accueil"><summary>Une collection est tout en bas de l'accueil</summary><p>C'est normal : seule Plateformes est épinglée tout en haut. Genres, J'ai envie de…, Sagas et Studios viennent après les rangées du Catalogue FR. Pour en remonter une : <span class="path">Paramètres → Réorganiser les catalogues de l'accueil</span> (étape 10).</p></details>
     <div class="rembobinage" id="rembobinage">
@@ -1103,29 +1106,28 @@ ${CREDITS_HTML}
 
 ${scripts("liens.js")}
 <script>
-// Onglets d'installation
-document.querySelectorAll(".appareils button").forEach((b) => b.addEventListener("click", () => {
-  document.querySelectorAll(".appareils button").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+// Onglets d'installation : un clic, ou les flèches (Début, Fin) quand le focus est sur un onglet.
+// TV par défaut, sans deviner : on lit souvent ce guide sur le téléphone, à côté de la TV.
+const onglets = [...document.querySelectorAll(".appareils [role=tab]")];
+const ouvreOnglet = (b) => {
+  onglets.forEach((x) => { x.setAttribute("aria-selected", String(x === b)); x.tabIndex = x === b ? 0 : -1; });
   document.querySelectorAll("[data-panel]").forEach((p) => { p.hidden = p.dataset.panel !== b.dataset.tab; });
-}));
+};
+onglets.forEach((b) => b.addEventListener("click", () => ouvreOnglet(b)));
+document.querySelector(".appareils").addEventListener("keydown", (e) => {
+  const i = onglets.indexOf(document.activeElement); if (i < 0) return;
+  const j = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: onglets.length - 1 }[e.key];
+  if (j === undefined) return;
+  e.preventDefault();
+  const b = onglets[(j + onglets.length) % onglets.length]; b.focus(); b.click();
+});
 // À la main ou avec Claude (le choix suit d'un appareil à l'autre).
 const choisirMode = (mode) => document.querySelectorAll("[data-panel]").forEach((p) => {
   p.querySelectorAll(".modes button").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.mode === mode)));
   p.querySelectorAll(".mode-pane").forEach((x) => { x.hidden = x.dataset.pane !== mode; });
 });
 document.querySelectorAll(".modes button").forEach((b) => b.addEventListener("click", () => choisirMode(b.dataset.mode)));
-// On ouvre l'onglet de l'appareil sur lequel on lit le guide (Fire TV, iPhone, Android, ordinateur, Linux).
-(() => {
-  const ua = navigator.userAgent;
-  const ipad = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
-  const tab = /AFT|Fire ?TV/i.test(ua) ? "fire"
-    : /iPhone|iPad|iPod/.test(ua) || ipad ? "ios"
-    : /Android/.test(ua) && !/TV|AFT|BRAVIA|SmartTV/i.test(ua) ? "android"
-    : /Windows|Macintosh/.test(ua) ? "pc"
-    : /Linux|X11/.test(ua) ? "linux" : null;
-  if (tab) document.querySelector('.appareils button[data-tab="' + tab + '"]').click();
-})();
-// ---------- Le trousseau : clés et appareil, gardés dans le navigateur (rien n'est envoyé) ----------
+// ---------- Le trousseau : clés et appareil, gardés dans le navigateur (jamais envoyés au serveur du site) ----------
 const ORIG = ${JSON.stringify(origin)};
 const lit = (k) => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
 const garde = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} };
@@ -1171,6 +1173,21 @@ function appliquerPerso(base) {
   setInstall("u-cat");
 }
 try { appliquerPerso(basePerso(sessionStorage.getItem("programmation") || "", ORIG)); } catch (e) { appliquerPerso(""); }
+// Fenêtres par-dessus le guide (salle 2, QR code) : le reste de la page devient inerte (le focus reste dans
+// la fenêtre), Échap la ferme, et le focus revient au bouton qui l'a ouverte. Renvoie de quoi tout rétablir.
+function modale(ov, fermer) {
+  const avant = document.activeElement;
+  const fond = [...document.body.children].filter((x) => x !== ov && !x.inert);
+  fond.forEach((x) => { x.inert = true; });
+  ov.setAttribute("aria-modal", "true");
+  const echap = (e) => { if (e.key === "Escape") { e.preventDefault(); fermer(); } };
+  addEventListener("keydown", echap);
+  return () => {
+    removeEventListener("keydown", echap);
+    fond.forEach((x) => { x.inert = false; });
+    if (avant && avant.isConnected && !avant.closest("[hidden]")) avant.focus({ preventScroll: true });
+  };
+}
 // La salle 2 s'ouvre par-dessus le guide, sans changer de page ; en la fermant, son lien arrive dans les cartes.
 function ouvrirSalle2(e) {
   const declencheur = e && e.currentTarget;
@@ -1181,8 +1198,9 @@ function ouvrirSalle2(e) {
   ov.innerHTML = '<div class="s2-barre"><p><b>Ta programmation</b><span>Choisis tes rangées, tes plateformes et tes filtres : le guide reprend ton lien.</span></p><button type="button" class="s2-fini">Terminé, revenir au guide</button></div><iframe title="Salle 2 : ta programmation"></iframe>';
   const frame = ov.querySelector("iframe"); frame.src = depart;
   document.body.append(ov); document.documentElement.classList.add("s2-ouverte");
-  const fini = ov.querySelector(".s2-fini"); fini.focus();
+  const fini = ov.querySelector(".s2-fini");
   const fermer = () => {
+    if (!ov.isConnected) return;
     // La salle 2 réécrit son adresse à chaque réglage : on la relit à la fermeture.
     let u = "";
     try { u = frame.contentWindow.location.href; } catch (err) {}
@@ -1190,13 +1208,13 @@ function ouvrirSalle2(e) {
     const base = basePerso(u, ORIG);
     try { sessionStorage.setItem("programmation", (base || ORIG) + "/configure"); } catch (err) {}
     appliquerPerso(base);
-    removeEventListener("keydown", echap); ov.remove(); document.documentElement.classList.remove("s2-ouverte");
+    ov.remove(); libere(); document.documentElement.classList.remove("s2-ouverte");
     $id("u-cat").closest(".addon").scrollIntoView({ block: "center" });
     if (declencheur && declencheur.isConnected && !declencheur.closest("[hidden]")) declencheur.focus({ preventScroll: true });
     toast(base ? "Ton lien perso est prêt : il est dans la carte du Catalogue FR." : "Tu gardes les réglages conseillés.");
   };
-  const echap = (ev) => { if (ev.key === "Escape") fermer(); };
-  fini.addEventListener("click", fermer); addEventListener("keydown", echap);
+  const libere = modale(ov, fermer);
+  fini.addEventListener("click", fermer); fini.focus();
 }
 document.querySelectorAll("[data-perso-ouvrir]").forEach((b) => b.addEventListener("click", ouvrirSalle2));
 document.querySelectorAll("[data-perso-retour]").forEach((b) => b.addEventListener("click", () => {
@@ -1226,9 +1244,15 @@ function majCles() {
   const brut = adInput.value.trim();
   $id("etat-cles").className = "etat-cles";
   if (brut && !ad) { $id("etat-cles").textContent = "Cette clé AllDebrid paraît incomplète : recopie-la depuis la page des clés API."; $id("etat-cles").classList.add("erreur", "alerte"); }
-  else $id("etat-cles").textContent = ad ? "Clé gardée sur cet appareil ✓" : "";
+  else $id("etat-cles").textContent = ad ? "Clé gardée dans ce navigateur ✓" : "";
+  $id("oublier-cle").hidden = !brut;
 }
 adInput.addEventListener("input", () => { garde("ad-key", adInput.value.trim().replace(/[^A-Za-z0-9]/g, "")); majCles(); });
+// Oublier ma clé : effacée de ce navigateur (et des liens préparés par le guide).
+$id("oublier-cle").addEventListener("click", () => {
+  garde("ad-key", ""); adInput.value = ""; majCles(); adInput.focus();
+  toast("Clé oubliée : elle n'est plus gardée sur cet appareil.");
+});
 // L'appareil : choisi à la main, ou déduit de l'onglet cliqué à l'étape 2 tant qu'on n'a rien choisi
 // (sauf TV et Fire TV : TV ou box, HD ou 4K, Dolby Vision ou non, seule la personne le sait).
 let appAuto = !appSel.value;
@@ -1237,8 +1261,8 @@ $id("choix-appareil").addEventListener("keydown", (e) => { caClavier = e.key.ind
 $id("choix-appareil").addEventListener("pointerdown", () => { caClavier = false; });
 $id("choix-appareil").addEventListener("change", () => { appAuto = false; if (!caClavier) caOuvert = false; garde("guide-appareil", appSel.value); majCles(); });
 $id("ca-changer").addEventListener("click", () => { caOuvert = true; majCles(); const r = appRadios.find((x) => x.checked) || appRadios[0]; r.focus(); });
-document.querySelectorAll(".appareils button").forEach((b) => b.addEventListener("click", (e) => {
-  if (!e.isTrusted || !appAuto) return;
+onglets.forEach((b) => b.addEventListener("click", () => {
+  if (!appAuto) return;
   appSel.value = { android: "ecran", ios: "ecran", pc: "ecran", linux: "ecran" }[b.dataset.tab] || "";
   garde("guide-appareil", appSel.value); majCles();
 }));
@@ -1378,17 +1402,17 @@ function qrSvg(qrcode, texte) {
   return '<svg viewBox="-2 -2 ' + w + " " + w + '" shape-rendering="crispEdges" role="img" aria-label="QR code"><path d="' + d + '" fill="#2a1a14"/></svg>';
 }
 function montrerQr(titre, texte, cible, detail) {
-  document.querySelectorAll(".qr-modal").forEach((x) => x.remove());
+  document.querySelectorAll(".qr-modal").forEach((x) => x._fermer());
   const ov = document.createElement("div"); ov.className = "qr-modal"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", titre);
   ov.innerHTML = '<div class="boite"><button type="button" class="fermer" aria-label="Fermer">×</button><h2></h2><div class="code-qr">Impression du QR code…</div><p></p><small></small></div>';
   ov.querySelector("h2").textContent = titre;
   ov.querySelector("p").textContent = texte;
   ov.querySelector("small").textContent = detail || "";
   document.body.append(ov);
-  const close = () => ov.remove();
+  const close = () => { if (!ov.isConnected) return; ov.remove(); libere(); };
+  const libere = modale(ov, close); ov._fermer = close;
   ov.querySelector(".fermer").addEventListener("click", close); ov.querySelector(".fermer").focus();
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
-  ov.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
   chargerQr().then((qrcode) => { ov.querySelector(".code-qr").innerHTML = qrSvg(qrcode, cible); },
     () => { const q = ov.querySelector(".code-qr"), p = document.createElement("p"); p.className = "alerte"; p.setAttribute("role", "alert"); p.textContent = "QR code indisponible : vérifie ta connexion."; q.textContent = ""; q.append(p); });
 }
@@ -1418,27 +1442,14 @@ document.getElementById("cles-tel").addEventListener("click", () => {
   const o = paquetCles({ ad: adInput.value, appareil: appSel.value });
   if (!o.ad) { toast("Colle d'abord ta clé dans le trousseau."); adInput.focus(); return; }
   const b = btoa(JSON.stringify(o)).replace(/[+]/g, "-").replace(/[/]/g, "_").replace(/=+$/, "");
-  montrerQr("Ta clé sur ton téléphone", "Scanne avec l'appareil photo : le guide s'ouvre sur le téléphone, avec ta clé et tes liens prêts.", ORIGINE + "/guide#cles=" + b, "Elle passe de cet écran au téléphone par l'image, sans être envoyée sur internet.");
+  // La clé passe par l'image, pas par le serveur du site ; mais l'appli qui lit le QR code la voit.
+  montrerQr("Ta clé sur ton téléphone", "Scanne avec l'appareil photo du téléphone : le guide s'ouvre avec ta clé et tes liens prêts. Ta clé passe par l'image, pas par notre serveur ; évite les applis de scan, qui voient ce qu'elles lisent.", ORIGINE + "/guide#cles=" + b, "");
 });
-// Arrivée sur le téléphone avec un lien envoyé depuis le PC : on le montre avec un gros bouton Copier.
-(() => {
-  if (location.hash.indexOf("#lien=") !== 0) return;
-  const p = new URLSearchParams(location.hash.slice(1)), lien = p.get("lien") || "", nom = p.get("nom") || "Ton lien";
-  history.replaceState(null, "", location.pathname);
-  if (!/^https?:[/][/]/.test(lien)) return;
-  const ov = document.createElement("div"); ov.className = "lien-recu"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", "Lien reçu");
-  ov.innerHTML = '<div class="boite"><button type="button" class="fermer" aria-label="Fermer">×</button><h2>Lien reçu</h2><p></p><code></code><button type="button" class="copier">Copier le lien</button><p class="aide">Puis colle-le dans la page « Gérer depuis le téléphone » de Nuvio.</p></div>';
-  ov.querySelector("p").textContent = "Envoyé depuis ton ordinateur : " + nom + ".";
-  ov.querySelector("code").textContent = lien;
-  document.body.append(ov);
-  const btn = ov.querySelector(".copier");
-  btn.addEventListener("click", () => {
-    const fini = (t) => { btn.textContent = t; popcorn(btn); };
-    try { navigator.clipboard.writeText(lien).then(() => fini("Copié ✓"), () => { const r = document.createRange(); r.selectNodeContents(ov.querySelector("code")); getSelection().removeAllRanges(); getSelection().addRange(r); btn.textContent = "Sélectionné : copie-le"; }); }
-    catch (e) { btn.textContent = "Appuie longuement sur le lien pour le copier"; }
-  });
-  ov.querySelector(".fermer").addEventListener("click", () => ov.remove());
-})();
+// Ancien format des QR codes (/guide#lien=…) : on passe à la page /lien, qui les ouvre aujourd'hui.
+if (location.hash.indexOf("#lien=") === 0) {
+  const p = new URLSearchParams(location.hash.slice(1));
+  location.replace(ORIGINE + "/lien#" + new URLSearchParams({ u: p.get("lien") || "", nom: p.get("nom") || "" }).toString());
+}
 
 // ---------- Réclames d'avant-séance : une nouvelle toutes les 7 secondes ----------
 (() => {
@@ -1454,14 +1465,25 @@ document.getElementById("cles-tel").addEventListener("click", () => {
     });
     dots.querySelectorAll("button").forEach((b, j) => b.setAttribute("aria-pressed", String(j === i)));
   };
+  // Le défilement s'arrête au survol et au focus ; le bouton Pause l'arrête pour de bon. Sans animation
+  // (mouvement réduit), il est arrêté au départ : le bouton le relance.
+  let arrete = matchMedia("(prefers-reduced-motion: reduce)").matches, dessus = false;
+  const pause = document.createElement("button"); pause.type = "button"; pause.className = "r-pause";
+  const restart = () => {
+    clearInterval(timer);
+    pause.textContent = arrete ? "Lecture" : "Pause";
+    pause.setAttribute("aria-label", arrete ? "Relancer le défilement des réclames" : "Arrêter le défilement des réclames");
+    if (!arrete && !dessus) timer = setInterval(() => show(i + 1), 7000);
+  };
   items.forEach((_, j) => {
     const b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-label", "Réclame " + (j + 1));
     b.addEventListener("click", () => { show(j); restart(); }); dots.append(b);
   });
-  const restart = () => { clearInterval(timer); if (!matchMedia("(prefers-reduced-motion: reduce)").matches) timer = setInterval(() => show(i + 1), 7000); };
+  pause.addEventListener("click", () => { arrete = !arrete; restart(); });
+  dots.append(pause);
   [box, dots].forEach((el) => {
-    el.addEventListener("mouseenter", () => clearInterval(timer)); el.addEventListener("mouseleave", restart);
-    el.addEventListener("focusin", () => clearInterval(timer)); el.addEventListener("focusout", restart);
+    el.addEventListener("mouseenter", () => { dessus = true; restart(); }); el.addEventListener("mouseleave", () => { dessus = false; restart(); });
+    el.addEventListener("focusin", () => { dessus = true; restart(); }); el.addEventListener("focusout", () => { dessus = false; restart(); });
   });
   show(0); restart();
 })();

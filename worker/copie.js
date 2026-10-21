@@ -87,7 +87,7 @@ code { font: .9em "Courier Prime", monospace; background: #0f080c; padding: 1px 
       <ol>
         <li>Crée un compte GitHub si tu n'en as pas, puis <a href="${REPO}/fork" target="_blank" rel="noopener">fais ta copie du dépôt</a> (« Fork »).</li>
         <li>Sur <a href="https://dash.cloudflare.com" target="_blank" rel="noopener">dash.cloudflare.com</a> : Workers &amp; Pages → Créer → Importer un dépôt → choisis ta copie.</li>
-        <li>Dans ton Worker → Paramètres → Variables et secrets : ajoute <code>TMDB_API_KEY</code> et <code>ADMIN_PASSWORD</code> en secrets.</li>
+        <li>Dans ton Worker → Paramètres → Variables et secrets : ajoute <code>TMDB_API_KEY</code> et <code>ADMIN_PASSWORD</code> en secrets. Ajoute aussi, conseillé, le secret <code>HOTE_SECRET</code> : une longue suite de caractères au hasard, qui protège ta connexion à l'espace hébergeur. Et la variable <code>DEPOT</code> = <code>ton-pseudo/nuvio-assets</code> (ta copie sur GitHub), pour que « Mettre à jour » mène à ta copie.</li>
         <li>Ouvre l'adresse de ton Worker : c'est ton site, avec son guide et sa salle 2. Ton addon est sur <code>…/manifest.json</code>.</li>
       </ol>
     </article>
@@ -103,7 +103,7 @@ code { font: .9em "Courier Prime", monospace; background: #0f080c; padding: 1px 
         <li>Lance <code>docker compose up -d</code>.</li>
         <li>Ton site est sur <code>http://adresse-du-serveur:8787</code>, ton addon sur <code>…/manifest.json</code> (Nuvio TV accepte le http à la maison).</li>
       </ol>
-      <p class="pour">De l'extérieur (téléphone en 4G) : passe par Cloudflare Tunnel, et indique ton adresse dans <code>ADRESSE_PUBLIQUE</code>.</p>
+      <p class="pour">De l'extérieur (téléphone en 4G) : passe par Cloudflare Tunnel, et indique ton adresse dans <code>ADRESSE_PUBLIQUE</code>. Si tout passe par le tunnel (ou un proxy https sur la même machine), publie le port en <code>"127.0.0.1:8787:8787"</code> au lieu de <code>"8787:8787"</code> : plus rien ne circule en clair sur ton réseau. Sur Docker, <code>HOTE_SECRET</code> se crée tout seul.</p>
     </article>
   </section>
 

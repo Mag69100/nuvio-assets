@@ -681,7 +681,9 @@ ${REGLAGES_AFFICHES}
         ok("rgba(" + Math.round(r) + "," + Math.round(g) + "," + Math.round(b) + ",.92)");
       } catch (e) { ok(""); } };
       // Miniature 8 × 8 par wsrv.nl : elle autorise la lecture des pixels (pas les images de TMDB ni de GitHub).
-      im.onerror = () => ok(""); im.src = "https://wsrv.nl/?url=" + encodeURIComponent(src) + "&w=8&h=8&fit=fill&output=png";
+      // Une image qui vient déjà de wsrv.nl est lue telle quelle : wsrv refuse (404) d'être appelé sur lui-même.
+      im.onerror = () => ok("");
+      im.src = src.startsWith("https://wsrv.nl/") ? src : "https://wsrv.nl/?url=" + encodeURIComponent(src) + "&w=8&h=8&fit=fill&output=png";
     }));
     return lueurs.get(src);
   };

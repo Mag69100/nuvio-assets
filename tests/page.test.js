@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { configurePage } from "../worker/page.js";
 import { hallPage } from "../worker/hall.js";
+import { STAGE_JS } from "../worker/stage.js";
 import { defaults, decodeConfig, PROVIDERS, REGIONS, GENRES, LANGUAGES, SORTS, SEASON_KEYS, MAX_CUSTOM, COLLECTIONS } from "../worker/config.js";
 
 const rows = [{ id: "a", home: true, name: "A", type: "movie" }];
@@ -12,13 +13,46 @@ const page = (copy = false) => configurePage({ copy,
   regions: REGIONS, genres: GENRES, languages: LANGUAGES, sorts: SORTS, seasons: SEASON_KEYS, maxCustom: MAX_CUSTOM, season: null,
 });
 
-// Le billet se partage (bouton « Offrir », QR code, image) : jamais avec la clé Gemini de l'utilisateur.
+// Le billet se partage (bouton « Offrir », image du billet) : jamais avec la clé Gemini de l'utilisateur.
+// Le QR « Continuer sur le téléphone », lui, sert à ses propres appareils : il emporte la clé (avec un avertissement).
 test("partage_sans_cle", () => {
   const html = page();
   assert.match(html, /const shared = compact\(\{ \.\.\.state, k: "", al: "" \}\);\s*shareUrl = D\.origin \+ .*enc\(shared\)/);
-  assert.doesNotMatch(html, /addData\(configureUrl\)/);
+  // Offrir : partage et copie avec l'adresse sans clé.
+  assert.match(html, /url: shareUrl \}/);
+  assert.match(html, /writeText\(shareUrl\)/);
   assert.doesNotMatch(html, /url: configureUrl/);
   assert.doesNotMatch(html, /writeText\(configureUrl\)/);
+  // Image du billet : son QR code est fait avec l'adresse sans clé, et seulement elle.
+  const image = html.slice(html.indexOf('$("img-btn")'), html.indexOf("const tk = "));
+  assert.match(image, /addData\(shareUrl\)/);
+  assert.equal((image.match(/addData\(/g) || []).length, 1);
+  // QR pour ses appareils : la clé voyage, et le texte le dit.
+  assert.match(html, /addData\(fixe && fixe\.modif \? lienModif\(\) : configureUrl\)/);
+  assert.match(html, /ta clé Gemini comprise[^<]*ne le montre à personne d'autre/);
+});
+
+// La clé Gemini n'est plus dans la barre d'adresse : rangée sur l'appareil, reprise au rechargement.
+test("cle_hors_de_la_barre_d_adresse", () => {
+  const html = page();
+  assert.match(html, /const sansCle = compact\(\{ \.\.\.state, k: "" \}\);/);
+  assert.match(html, /history\.replaceState\(null, "", affichee\)/);
+  assert.doesNotMatch(html, /replaceState\(null, "", configureUrl\)/);
+  assert.match(html, /if \(!fixe\) \{ if \(state\.k\) cleGarde\(state\.k\); else state\.k = cleLue\(\); \}/);
+});
+
+// Les liens « Salle 2 » du site (scene.js) reprennent la programmation de l'onglet, mais sans la clé Gemini.
+test("liens_salle_2_sans_cle", () => {
+  const src = /const sansCle = \(href\) => \{[\s\S]*?\n  \};/.exec(STAGE_JS)[0];
+  const sansCle = new Function(src + "\nreturn sansCle;")();
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const seg = /^https:\/\/x\/([^/]+)\/configure$/.exec(sansCle("https://x/" + b64({ n: "Ma télé", k: KEY, m: 7 }) + "/configure"))[1];
+  assert.deepEqual(JSON.parse(Buffer.from(seg, "base64url").toString()), { n: "Ma télé", m: 7 });
+  assert.equal(sansCle("https://x/" + b64({ k: KEY }) + "/configure"), "https://x/configure");
+  const sans = "https://x/" + b64({ m: 7 }) + "/configure";
+  assert.equal(sansCle(sans), sans);
+  assert.equal(sansCle("https://x/fAbc123/configure"), "https://x/fAbc123/configure");
+  assert.equal(sansCle("https://x/configure"), "https://x/configure");
 });
 
 // L'indication sous le champ accepte les mêmes clés que le serveur (nouveau format « AQ.… » compris).

@@ -855,7 +855,7 @@ ${feuilles("scene.css", "nuvio.css")}
           </div>
           <small id="ai-key-hint" aria-live="polite"></small>
         </div>
-        <p class="sub">Ta clé est rangée dans ton lien d'installation : ne partage pas ce lien. Sans clé, tu profites quand même des réponses déjà écrites pour les autres.</p>
+        <p class="sub">Ta clé est rangée dans ton lien d'installation : ne partage pas ce lien. Elle est aussi gardée sur cet appareil, pour la retrouver en revenant ici ; « Offrir ce billet » ne l'emporte jamais. Sans clé, tu profites quand même des réponses déjà écrites pour les autres.</p>
 ${copy ? "" : `        <p class="sub">Le lien partagé sature ? <a href="${origin}/copie">Monte ta propre copie</a> : la même chose, avec tes clés et ton quota.</p>
 `}      </section>
 
@@ -944,7 +944,7 @@ ${copy ? HOTE_HTML : ""}
             <button type="button" class="btn line" id="share-btn">Offrir ce billet</button>
             <button type="button" class="btn line full" id="img-btn">Télécharger le billet en image</button>
           </div>
-          <div class="qr" id="qr" hidden><div id="qr-code" class="qr-wait">Impression du QR code…</div><p>Scanne-le avec ton téléphone : cette page s'ouvre avec les mêmes réglages, il ne reste qu'à copier les liens. Avec un lien fixe, le téléphone pourra aussi le modifier : ne montre ce QR code à personne d'autre.</p></div>
+          <div class="qr" id="qr" hidden><div id="qr-code" class="qr-wait">Impression du QR code…</div><p>Scanne-le avec ton téléphone : cette page s'ouvre avec les mêmes réglages, ta clé Gemini comprise, il ne reste qu'à copier les liens. Avec un lien fixe, le téléphone pourra aussi le modifier. Ce QR code est pour toi seul : ne le montre à personne d'autre (pour partager ta programmation, c'est « Offrir ce billet »).</p></div>
         </div>
         <div class="stub"><span>Admis · 1 salle</span></div>
         <div class="stamp" aria-hidden="true">Copié</div>
@@ -1238,8 +1238,10 @@ function fetchJSON(url) {
   return p;
 }
 let currentBase = D.origin, screenBase = null, screenTimer = 0, screenToken = 0, lastZap = 0;
-let configureUrl = D.origin + "/configure"; // adresse de cette page avec les réglages en cours
-let shareUrl = configureUrl;                  // la même, sans la clé Gemini : pour le billet partagé
+let configureUrl = D.origin + "/configure"; // adresse de cette page avec les réglages en cours, clé Gemini comprise :
+                                              // pour ses propres appareils seulement (QR « Continuer sur le téléphone »)
+let pageUrl = configureUrl;                   // la même sans la clé : celle qu'on voit dans la barre d'adresse
+let shareUrl = configureUrl;                  // sans la clé ni le jeton d'alerte : pour le billet partagé
 // L'écran grésille à chaque changement (pas plus de deux fois par seconde).
 function zap(sc) {
   const now = Date.now(); if (now - lastZap < 450) return; lastZap = now;
@@ -1814,9 +1816,17 @@ function update() {
   currentBase = D.origin + (Object.keys(vu).length ? "/" + enc(vu) : "");
   // L'adresse de la page suit les réglages : on peut revenir, recharger ou partager sans rien perdre.
   configureUrl = base + "/configure";
+  // La clé Gemini reste hors de la barre d'adresse (historique, capture d'écran, lien recopié) : rechargée,
+  // la page la reprend sur cet appareil (cleGarde). Dans le guide (cadre, adresse invisible), la page garde
+  // la clé : le guide relit cette adresse pour le lien d'addon à installer.
+  const sansCle = compact({ ...state, k: "" });
+  pageUrl = garde ? configureUrl : D.origin + (Object.keys(sansCle).length ? "/" + enc(sansCle) : "") + "/configure";
   const shared = compact({ ...state, k: "", al: "" });
   shareUrl = D.origin + (Object.keys(shared).length ? "/" + enc(shared) : "") + "/configure";
-  try { if (location.protocol.startsWith("http") && location.href !== configureUrl) history.replaceState(null, "", configureUrl); } catch (e) {}
+  const affichee = document.documentElement.classList.contains("dans-guide") ? configureUrl : pageUrl;
+  try { if (location.protocol.startsWith("http") && location.href !== affichee) history.replaceState(null, "", affichee); } catch (e) {}
+  // Gardée dans l'onglet pour le guide (lien d'addon, avec la clé) ; les liens « Salle 2 » du site la
+  // reprennent sans la clé (scene.js).
   try { sessionStorage.setItem("programmation", configureUrl); } catch (e) {}
   if (!$("qr").hidden) drawQr();
   $("u-manifest").textContent = manifest;
@@ -1976,7 +1986,11 @@ function aiKeyHint() {
   $("ai-key-hint").textContent = !k ? "" : cleOk ? "Clé reconnue ✓" : "Ça ne ressemble pas à une clé Gemini : recopie-la depuis Google AI Studio (elle commence par AIza).";
   $("ai-key-hint").classList.toggle("alerte", !!k && !cleOk);
 }
-$("ai-key").addEventListener("input", () => { state.k = $("ai-key").value.trim(); aiKeyHint(); update(); });
+$("ai-key").addEventListener("input", () => { state.k = $("ai-key").value.trim(); cleGarde(state.k); aiKeyHint(); update(); });
+// La clé Gemini est gardée sur cet appareil : l'adresse de la page ne la porte plus (voir update).
+const CLE_GEMINI = "cle-gemini";
+function cleGarde(k) { try { if (k) localStorage.setItem(CLE_GEMINI, k); else localStorage.removeItem(CLE_GEMINI); } catch (e) {} }
+function cleLue() { try { return localStorage.getItem(CLE_GEMINI) || ""; } catch (e) { return ""; } }
 $("ai-key").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } });
 $("ai-key-eye").addEventListener("click", (e) => {
   const show = $("ai-key").classList.toggle("masque") === false;
@@ -2097,7 +2111,8 @@ function loadQr() {
 function drawQr() {
   const box = $("qr-code");
   loadQr().then((qrcode) => {
-    const q = qrcode(0, "M"); q.addData(fixe && fixe.modif ? lienModif() : shareUrl); q.make();
+    // Pour ses propres appareils : la clé Gemini voyage avec (le billet offert et l'image, eux, ne l'ont jamais).
+    const q = qrcode(0, "M"); q.addData(fixe && fixe.modif ? lienModif() : configureUrl); q.make();
     const n = q.getModuleCount(), w = n + 4; let d = "";
     for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += "M" + c + " " + r + "h1v1h-1z";
     box.className = "";
@@ -2204,6 +2219,11 @@ if (matchMedia("(hover: hover) and (pointer: fine)").matches && !matchMedia("(pr
   tk.addEventListener("pointerleave", () => { tk.classList.remove("tilting"); tk.style.setProperty("--rx", "0deg"); tk.style.setProperty("--ry", "0deg"); });
 }
 
+// Clé Gemini : une adresse qui l'apporte encore (ancien lien, lien d'addon avec « configure ») la range sur
+// cet appareil ; une adresse sans clé (page rechargée, lien « Salle 2 ») la reprend. Pas sur un lien fixe :
+// ses réglages sont gardés par le site, y glisser la clé les changerait sans qu'on l'ait demandé.
+if (!fixe) { if (state.k) cleGarde(state.k); else state.k = cleLue(); }
+else if (fixe.modif && state.k) cleGarde(state.k);
 renderAll();
 // Lien fixe : un réglage de cet onglet n'était pas encore arrivé quand la page a été redemandée. On le
 // renvoie, puis on recharge une fois pour l'afficher (une seule : si le serveur le lit autrement, on s'arrête).

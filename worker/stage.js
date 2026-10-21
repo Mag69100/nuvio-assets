@@ -899,11 +899,24 @@ export const STAGE_JS = String.raw`
     son.setAttribute("aria-pressed", String(sfx.on));
     son.addEventListener("click", () => { sfx.set(!sfx.on); son.setAttribute("aria-pressed", String(sfx.on)); sfx.click(); });
   }
-  // Les liens vers la programmation (salle 2) la retrouvent telle qu'on l'avait laissée.
+  // Les liens vers la programmation (salle 2) la retrouvent telle qu'on l'avait laissée, sans la clé Gemini :
+  // l'adresse gardée la porte (le guide en tire le lien d'addon), la salle 2 la reprend sur l'appareil.
+  const sansCle = (href) => {
+    const u = new URL(href), m = /^[/]([A-Za-z0-9_-]+)[/]configure$/.exec(u.pathname);
+    if (!m) return u.href;
+    try {
+      const o = JSON.parse(atob(m[1].replace(/-/g, "+").replace(/_/g, "/")));
+      if (!o || typeof o !== "object" || !("k" in o)) return u.href;
+      delete o.k;
+      // (octets UTF-8 lus et réécrits tels quels : les noms accentués ne bougent pas)
+      const s = JSON.stringify(o), seg = s === "{}" ? "" : btoa(s).replace(/[+]/g, "-").replace(/[/]/g, "_").replace(/=+$/, "");
+      return u.origin + (seg ? "/" + seg : "") + "/configure";
+    } catch (e) { return u.href; }
+  };
   try {
     const s1 = sessionStorage.getItem("programmation");
     // (une ancienne adresse « / » mène désormais au guide : on l'ignore)
-    if (s1 && new URL(s1).origin === location.origin && new URL(s1).pathname !== "/") document.querySelectorAll("a[data-programmation]").forEach((a) => { a.href = s1; });
+    if (s1 && new URL(s1).origin === location.origin && new URL(s1).pathname !== "/") { const lien = sansCle(s1); document.querySelectorAll("a[data-programmation]").forEach((a) => { a.href = lien; }); }
   } catch (e) {}
 
   // ---------- Rideau : retiré une fois relevé ----------

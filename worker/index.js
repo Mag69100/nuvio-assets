@@ -287,7 +287,8 @@ async function extraInfo(env, kind, tmdbId) {
   return {
     imdb: (movie ? j.imdb_id : j.external_ids && j.external_ids.imdb_id) || null,
     releases: movie ? (j.release_dates && j.release_dates.results) || [] : null,
-    plateformeFr: movie && plateformeFrance(j["watch/providers"]),
+    plateformeFr: movie && vfSurPlateforme(j["watch/providers"], j.original_language),
+    plateformeVo: movie && plateformeFrance(j["watch/providers"]),
     episode: movie ? null : { next: j.next_episode_to_air, last: j.last_episode_to_air, counts: seasonCounts(j.seasons), status: j.status },
     logo: logo ? `${IMG}w500${logo.file_path.replace(/\.svg$/, ".png")}` : undefined,
     backdrop: backdrop ? backdrop.file_path : null,
@@ -416,6 +417,16 @@ function plateformeFrance(wp) {
 }
 
 /**
+ * … et en VF : film en anglais ou en français, ou autre film étranger sur Netflix ou Disney+ en abonnement (ils
+ * doublent presque tout). EB (néerlandais) est sur Prime Video en VO seulement. Même règle que les affiches.
+ */
+function vfSurPlateforme(wp, originalLanguage) {
+  if (!plateformeFrance(wp)) return false;
+  const fr = wp.results.FR;
+  return ["en", "fr"].includes(originalLanguage) || (fr.flatrate || []).some((p) => /netflix|disney/i.test(p.provider_name || ""));
+}
+
+/**
  * Indice de VF : le film a une sortie (salle ou numérique) dans un pays francophone, ou il
  * est français, ou il est sur une plateforme en France (films Netflix sortis partout
  * le même jour, sans date francophone chez TMDB). Les petits films sortis directement en VOD
@@ -441,9 +452,13 @@ function digitalGuess(releases) {
  *   « Dispo depuis le 9 oct. »    sortie récente (moins de 60 jours)
  *   « Dispo vers le 3 déc. »      pas de date annoncée : estimation
  */
-function releaseNote(releases, region, today) {
+function releaseNote(releases, region, today, plateforme = {}) {
+  const known = firstDigital(releases || []);
+  // Déjà sur une plateforme en France : « Déjà dispo » (en VF), ou « Dispo en VO » (pas de VF), plutôt qu'une date
+  // à venir ou une estimation qui ne veut plus rien dire.
+  if (!(known && known <= today) && plateforme.vf) return "Déjà dispo";
+  if (!(known && known <= today) && plateforme.vo) return "Dispo en VO";
   if (!releases || !releases.length) return "";
-  const known = firstDigital(releases);
   if (known) {
     if (known > today) return known <= addDays(today, 200) ? `Dispo le ${shortDate(known)}` : "";
     return known >= addDays(today, -60) ? `Dispo depuis le ${shortDate(known)}` : "";
@@ -499,7 +514,7 @@ async function toMetas(env, ctx, results, kind, opts, today) {
     // séries : l'épisode de la semaine.
     const note = kind !== "movie" ? episodeNote(infos[i].episode, today)
       : opts.upcoming ? cinemaNote(infos[i].releases, opts.region, date, today)
-      : releaseNote(infos[i].releases, opts.region, today);
+      : releaseNote(infos[i].releases, opts.region, today, { vf: infos[i].plateformeFr, vo: infos[i].plateformeVo });
     // Pas encore regardable : la date affichée par Nuvio (carrousel, « date de sortie
     // complète ») devient la date de dispo plutôt que la sortie en salle.
     const dispo = kind === "movie" ? (firstDigital(infos[i].releases) || digitalGuess(infos[i].releases)) : "";
@@ -1130,7 +1145,7 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
   const short = lang.slice(0, 2);
   const movie = kind === "movie";
   const d = await tmdb(env, `/${movie ? "movie" : "tv"}/${tmdbId}`, {
-    append_to_response: movie ? "credits,videos,images,release_dates,external_ids,keywords" : "aggregate_credits,credits,videos,images,external_ids,content_ratings,keywords",
+    append_to_response: movie ? "credits,videos,images,release_dates,external_ids,keywords,watch/providers" : "aggregate_credits,credits,videos,images,external_ids,content_ratings,keywords",
     include_image_language: `${short},en,null`, include_video_language: `${short},en`,
   }, lang);
   if (!d || !d.id) return null;
@@ -1139,7 +1154,8 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
   const metaId = id.startsWith("tt") ? id : imdb || `tmdb:${tmdbId}`;
   const date = (movie ? d.release_date : d.first_air_date) || "";
   const releases = movie ? (d.release_dates && d.release_dates.results) || [] : null;
-  const note = movie ? releaseNote(releases, cfg.g, today) : episodeNote(episodeOf(d), today);
+  const wp = movie ? d["watch/providers"] : null;
+  const note = movie ? releaseNote(releases, cfg.g, today, { vf: vfSurPlateforme(wp, d.original_language), vo: plateformeFrance(wp) }) : episodeNote(episodeOf(d), today);
   const dispo = movie ? firstDigital(releases) || digitalGuess(releases) : "";
   const shownDate = dispo && dispo > today ? dispo : date;
   const credits = d.credits || {};

@@ -65,13 +65,16 @@ function plateformeDe(d) {
 }
 
 /**
- * Le film est-il sur une plateforme (abonnement, gratuit, pub, location, achat) en France ? Il y est alors en VF,
- * même sans date de sortie francophone chez TMDB (films Netflix sortis partout le même jour). La France seule :
- * en Suisse ou au Canada, la plateforme peut n'avoir que l'allemand ou l'anglais. Sert au statut (lib/statut.js).
+ * Le film est-il en VF sur une plateforme (abonnement, gratuit, pub, location, achat) en France, même sans date de
+ * sortie francophone chez TMDB (films Netflix sortis partout le même jour) ? Oui pour un film en anglais ou en
+ * français ; un autre film étranger seulement sur Netflix ou Disney+ en abonnement, qui doublent presque tout (EB,
+ * néerlandais, est sur Prime Video en VO seulement). La France seule : en Suisse ou au Canada, la plateforme peut
+ * n'avoir que l'allemand ou l'anglais. Sert au statut (lib/statut.js).
  */
 function plateformeFrance(d) {
   const fr = ((d["watch/providers"] || {}).results || {}).FR || {};
-  return ["flatrate", "free", "ads", "rent", "buy"].some((k) => (fr[k] || []).length > 0);
+  if (!["flatrate", "free", "ads", "rent", "buy"].some((k) => (fr[k] || []).length > 0)) return false;
+  return ["en", "fr"].includes(d.original_language) || (fr.flatrate || []).some((p) => /netflix|disney/i.test(p.provider_name || ""));
 }
 
 const first = (list, langs) => {

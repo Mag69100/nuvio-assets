@@ -603,13 +603,35 @@ test("bientot_dispo_sans_les_films_deja_sur_une_plateforme_en_france", async () 
       { id: 1, title: "Déjà en location", original_language: "fr", release_date: jour(-200), popularity: 9 },
       { id: 2, title: "Vraiment bientôt", original_language: "fr", release_date: jour(-200), popularity: 8 },
     ], page: 1, total_pages: 1 }));
-    if (/\/movie\/1\?/.test(u)) return new Response(JSON.stringify({ release_dates: dates(["FR", 4, jour(6)]), "watch/providers": { results: { FR: { rent: [{ provider_name: "Canal VOD" }] } } } }));
-    if (/\/movie\/2\?/.test(u)) return new Response(JSON.stringify({ release_dates: dates(["FR", 4, jour(6)]) }));
+    if (/\/movie\/1\?/.test(u)) return new Response(JSON.stringify({ original_language: "fr", release_dates: dates(["FR", 4, jour(6)]), "watch/providers": { results: { FR: { rent: [{ provider_name: "Canal VOD" }] } } } }));
+    if (/\/movie\/2\?/.test(u)) return new Response(JSON.stringify({ original_language: "fr", release_dates: dates(["FR", 4, jour(6)]) }));
     return new Response(JSON.stringify({ results: [] }));
   };
   const { metas } = await (await get("/catalog/movie/accueil-vod-bientot.json")).json();
   assert.deepEqual(metas.map((m) => m.name), ["Vraiment bientôt"]);
   assert.ok(!metas.some((m) => "_plateforme" in m));
+});
+
+// EB : sorti au cinéma aux Pays-Bas il y a 5 mois, sans date numérique, déjà sur Prime Video en France, mais en VO.
+// La fiche ne dit plus « Dispo vers le … » (estimation) : « Dispo en VO ». En anglais (VF probable) : « Déjà dispo ».
+test("fiche_deja_dispo_sur_une_plateforme_en_france", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const fiche = (fr, langue) => ({ id: 1662858, title: "EB", release_date: jour(-160), original_language: langue,
+    release_dates: { results: [{ iso_3166_1: "NL", release_dates: [{ type: 3, release_date: jour(-160) + "T00:00:00.000Z" }] }] },
+    "watch/providers": { results: fr ? { FR: { flatrate: [{ provider_name: "Amazon Prime Video" }] } } : {} } });
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (/\/movie\/1662858\?/.test(u)) return new Response(JSON.stringify(fiche(true, "nl")));
+    if (/\/movie\/1662859\?/.test(u)) return new Response(JSON.stringify({ ...fiche(true, "en"), id: 1662859 }));
+    return new Response("{}");
+  };
+  const m = (await (await get("/meta/movie/tmdb:1662858.json")).json()).meta;
+  assert.match(m.description || "", /Dispo en VO/);
+  assert.doesNotMatch(m.description || "", /Dispo vers|Déjà dispo/);
+  const en = (await (await get("/meta/movie/tmdb:1662859.json")).json()).meta;
+  assert.match(en.description || "", /Déjà dispo/);
+  assert.ok(calls.some((u) => /\/movie\/1662858\?/.test(u) && /append_to_response=[^&]*watch/.test(decodeURIComponent(u))), "plateformes pas demandées");
 });
 
 test("prochainement_pages_pleines_et_fiches_lues_une_fois", async () => {

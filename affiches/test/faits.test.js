@@ -142,9 +142,16 @@ test("logo_dans_une_autre_langue", async () => {
 // Sur une plateforme (abonnement, gratuit, pub, location, achat) en France : VF disponible. Pas ailleurs : en Suisse
 // (Bad Apples, avec l'Allemagne et l'Autriche) ou au Canada, la plateforme peut n'avoir que l'allemand ou l'anglais.
 test("plateforme_en_france", async () => {
-  const sur = (results) => titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, fauxFetch([["/movie/693134", json({ ...movie, "watch/providers": { results } })]]));
+  const sur = (results, langue = "en") => titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, fauxFetch([["/movie/693134", json({ ...movie, original_language: langue, "watch/providers": { results } })]]));
   assert.equal((await sur({ FR: { flatrate: [{ provider_name: "Netflix" }] } })).plateformeFrance, true);
   assert.equal((await sur({ FR: { rent: [{ provider_name: "Apple TV" }] } })).plateformeFrance, true);
+  // Film étranger (ni anglais ni français) : seulement sur Netflix ou Disney+, qui doublent presque tout. EB
+  // (néerlandais) sur Prime Video : en VO seulement.
+  assert.equal((await sur({ FR: { flatrate: [{ provider_name: "Amazon Prime Video" }], rent: [{ provider_name: "Amazon Video" }] } }, "nl")).plateformeFrance, false);
+  assert.equal((await sur({ FR: { flatrate: [{ provider_name: "Netflix" }] } }, "es")).plateformeFrance, true);
+  assert.equal((await sur({ FR: { flatrate: [{ provider_name: "Disney Plus" }] } }, "ko")).plateformeFrance, true);
+  assert.equal((await sur({ FR: { rent: [{ provider_name: "Canal VOD" }] } }, "fr")).plateformeFrance, true);
+  assert.equal((await sur({ FR: { buy: [{ provider_name: "Netflix" }] } }, "nl")).plateformeFrance, false);
   assert.equal((await sur({ CH: { flatrate: [{ provider_name: "Sky" }] }, CA: { rent: [{ provider_name: "Apple TV" }] } })).plateformeFrance, false);
   assert.equal((await sur({ US: { flatrate: [{ provider_name: "Disney Plus" }] }, DE: { flatrate: [{ provider_name: "Disney Plus" }] } })).plateformeFrance, false);
   assert.equal((await sur({ FR: { link: "https://…" } })).plateformeFrance, false);

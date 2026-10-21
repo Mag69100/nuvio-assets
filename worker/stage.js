@@ -9,7 +9,7 @@
  * Petits plaisirs : pop-corn quand on copie, lettres de l'enseigne qu'on décroche,
  * ampoule fatiguée, pluie de pop-corn secrète.
  *
- * Rien ne bouge si l'appareil demande moins d'animations. Par défaut, la salle est éteinte et le son activé.
+ * Rien ne bouge si l'appareil demande moins d'animations. Par défaut, la salle est éteinte et le son coupé.
  */
 
 // À mettre dans <head> : rideau une fois par visite, iris d'arrivée, salle éteinte.
@@ -736,6 +736,8 @@ export const STAGE_CSS = `
 @media (prefers-reduced-motion: reduce) {
   .curtain, .torch, .beam canvas, .iris, .saison i, .secret { display: none; }
   .marquee, .marquee::after, .marquee h1, .beam, .ampoules i, .tete, .tete *, .cabine *, .saison, .draperie { animation: none !important; }
+  /* Fenêtres et billets apparaissent et partent sans glisser ni clignoter (ils sont retirés par minuterie). */
+  .billet-jour, .billet-jour.part, .fiche-billet, .retro, .retro.fin, #trophees.gagne { animation: none !important; }
   .ampoules .vives { display: none; }
   .ampoules .base i.grillee { background: #4e3420; box-shadow: inset 0 0 2px #000; }
   .generique { height: auto; -webkit-mask: none; mask: none; }
@@ -826,11 +828,11 @@ export const STAGE_JS = String.raw`
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
   };
 
-  // ---------- Son de la salle (activé par défaut ; le navigateur attend un premier clic) ----------
+  // ---------- Son de la salle (coupé par défaut : on l'allume avec le bouton « Son », le choix est gardé) ----------
   // Uniquement des notes douces, sans bruit ni boucle : un « tic » de bois, un carillon de caisse,
   // des « plop » de pop-corn, une petite fanfare. Tout passe par un volume général bas et un compresseur.
   const sfx = window.sfx = (() => {
-    let ctx = null, out = null, on = store.get("son") !== "0";
+    let ctx = null, out = null, on = store.get("son") === "1";
     const ac = () => {
       if (!ctx) {
         const A = window.AudioContext || window.webkitAudioContext; if (!A) return null;

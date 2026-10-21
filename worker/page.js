@@ -47,7 +47,7 @@ const HOTE_HTML = `
         <p class="sub">Tu héberges ta propre copie du Catalogue FR. Connecte-toi avec ton mot de passe (le secret ADMIN_PASSWORD de ta copie) pour voir les nouvelles versions et recevoir les alertes dans Nuvio.</p>
         <div id="hote-box" class="hote-box"></div>
       </section>`;
-const HOTE_JS = `
+export const HOTE_JS = `
 // ---------- espace hébergeur ----------
 let hote = null;
 function hoteCall(path, body) {
@@ -147,9 +147,267 @@ ${STAGE_HEAD}
 <meta property="og:title" content="Compose ta programmation Nuvio">
 <meta property="og:image" content="${LOGO}">
 <link rel="icon" href="${LOGO}">
-${feuilles("polices.css")}
-<style>
-/* Salle obscure : enseigne en haut, la bobine de réglages à gauche, l'écran et le billet à droite. */
+${feuilles("polices.css", "salle2.css", "scene.css", "nuvio.css", "salle2-fin.css")}
+</head>
+<body>
+  <div class="valance" aria-hidden="true"></div>
+  ${stageTop({ here: "programmation", origin })}
+  ${secretsHTML("programmation")}
+  <div class="marquee-wrap">
+    ${BEAM_HTML}
+    <div class="marquee"><small>Nuvio · en français</small><h1>Ta programmation</h1></div>
+    <p class="tagline">Ton accueil, ta salle, tes règles.</p>
+    <a class="guide-link" href="${origin}/guide">Pas encore Nuvio ? Suis le guide de A à Z →</a>
+    <p>Choisis ce qui passe sur ton accueil, crée tes propres rangées, renomme-les, filtre ce que tu ne veux pas voir. <b>L'écran se met à jour en direct</b>, et ton billet contient ton lien d'installation. Rien n'est enregistré : tout tient dans le lien. Ou crée un <b>lien fixe</b> : il ne change plus, et tes changements arrivent dans Nuvio sans réinstaller.</p>
+  </div>
+
+  <div class="layout">
+    <main>
+      <nav class="nav" aria-label="Sections">
+        <a href="#s-nom">Nom</a><a href="#s-pays">Pays</a><a href="#s-rangees">Rangées</a><a href="#s-saison">Saison</a>
+        <a href="#s-plateformes">Plateformes</a><a href="#s-filtres">Filtres</a><a href="#s-ia">IA</a><a href="#s-decouvrir">Découvrir</a><a href="#s-collections">Collections</a><a href="#s-affiches">Affiches</a>${copy ? '<a href="#s-hote">Hébergeur</a>' : ""}<a href="#s-mode">Installer</a>
+      </nav>
+
+      <section class="act" id="s-nom">
+        <header><span>Affiche</span><h2>Le nom de ton addon</h2></header>
+        <label for="name" class="sub">Il apparaît dans la liste des addons de Nuvio.</label>
+        <input type="text" id="name" maxlength="40" autocomplete="off" spellcheck="false" enterkeyhint="done">
+      </section>
+
+      <section class="act" id="s-pays">
+        <header><span>Salle</span><h2>Ton pays</h2></header>
+        <p class="sub">Les plateformes et les sorties au cinéma changent d'un pays à l'autre. Au Québec, les titres sont en français québécois quand ils existent.</p>
+        <div class="seg" id="regions" role="group" aria-label="Pays"></div>
+      </section>
+
+      <section class="act" id="s-rangees">
+        <header><span>Bobine</span><h2>Les rangées de l'accueil</h2></header>
+        <p class="sub">Mets à l'affiche celles que tu veux, range-les avec les flèches, et renomme-les avec le crayon. Tu peux aussi créer tes propres rangées.</p>
+        <ol class="reel" id="rows"></ol>
+        <button type="button" class="add-row" id="add-row">+ Créer une rangée sur mesure</button>
+        <div class="builder" id="builder" hidden>
+          <h3 id="b-title">Nouvelle rangée</h3>
+          <label class="field"><span>Nom de la rangée</span><input type="text" class="plain" id="b-name" maxlength="40" enterkeyhint="done" placeholder="ex. K-dramas à pleurer"></label>
+          <div class="field"><span>Quoi</span><div class="seg" id="b-type" role="group" aria-label="Type"></div></div>
+          <div class="field"><span>Genres (l'un ou l'autre)</span><div class="chips" id="b-genres"></div></div>
+          <div class="field"><span>Seulement sur ces plateformes (facultatif)</span><div class="chips" id="b-prov"></div></div>
+          <div class="two">
+            <label class="field"><span>Langue d'origine</span><select id="b-lang"></select></label>
+            <div class="field"><span>Sortis entre</span><div class="two"><input type="number" id="b-from" min="1900" max="2100" inputmode="numeric" enterkeyhint="done" placeholder="1900" aria-label="Année de début"><input type="number" id="b-to" min="1900" max="2100" inputmode="numeric" enterkeyhint="done" placeholder="aujourd'hui" aria-label="Année de fin"></div></div>
+          </div>
+          <div class="field"><span>Note minimale</span><div class="range"><input type="range" id="b-vote" min="0" max="9" step="0.5" aria-label="Note minimale"><output id="b-vote-out"></output></div></div>
+          <div class="field"><span>Ordre</span><div class="seg" id="b-sort" role="group" aria-label="Ordre"></div></div>
+          <p class="summary" id="b-summary"></p>
+          <div class="b-actions"><button type="button" class="mini ok" id="b-save">Ajouter à l'affiche</button><button type="button" class="mini" id="b-cancel">Annuler</button></div>
+        </div>
+      </section>
+
+      <section class="act" id="s-saison">
+        <header><span>Calendrier</span><h2>La rangée « Spécial »</h2></header>
+        <p class="sub">Elle change toute seule selon la période. Décoche les fêtes qui ne t'intéressent pas : en dehors des fêtes choisies, elle montre les films à l'affiche.</p>
+        <div class="chips" id="seasons"></div>
+      </section>
+
+      <section class="act" id="s-plateformes">
+        <header><span>Abonnements</span><h2>Tes plateformes</h2></header>
+        <p class="sub">Elles décident du contenu de « Nouveautés sur tes plateformes » et des tuiles de la collection Plateformes.</p>
+        <div class="chips" id="providers"></div>
+        <p class="warn" id="prov-warn" hidden>Aucune plateforme choisie : la rangée « Nouveautés sur tes plateformes » ne s'affichera pas.</p>
+      </section>
+
+      <section class="act" id="s-filtres">
+        <header><span>Le videur</span><h2>Ce que tu ne veux pas voir</h2></header>
+        <p class="sub">Ces filtres s'appliquent partout : rangées, Découvrir et collections.</p>
+        <div class="field"><span>Genres à masquer</span><div class="chips danger" id="excl"></div></div>
+        <div class="two">
+          <div class="field"><span>Note minimale partout</span><div class="range"><input type="range" id="g-vote" min="0" max="8" step="0.5" aria-label="Note minimale partout"><output id="g-vote-out"></output></div></div>
+          <label class="field"><span>Rien de sorti avant</span><select id="g-year"></select></label>
+        </div>
+        <label class="switch"><input type="checkbox" id="g-family"><span><b>Mode famille</b><small>Films tous publics ou -10 ans seulement, pas d'horreur, séries pour la famille et les enfants.</small></span></label>
+        <label class="switch"><input type="checkbox" id="g-unreleased"><span><b>Tendances et Découvrir : seulement ce qu'on peut déjà regarder</b><small>TMDB y met aussi les films encore au cinéma ou pas encore sortis. Ils passent dans « Bientôt dispo » et « Les plus attendus ». Dans Découvrir (Populaires, Nouveautés, films de cette année et de l'an dernier) : seulement les films déjà dispo dans ton pays, en abonnement, location ou achat.</small></span></label>
+      </section>
+
+      <section class="act" id="s-ia">
+        <header><span>Projectionniste</span><h2>La recherche par IA</h2></header>
+        <p class="sub">L'IA comprend les recherches du genre « le film où un mec revit la même journée » et écrit dans les fiches « pour qui », « à savoir » et le rappel avant une suite. Elle marche avec ta propre clé Gemini, gratuite : crée-la en 2 minutes sur <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>, puis colle-la ici.</p>
+        <div class="field">
+          <span>Ta clé Gemini (facultatif)</span>
+          <div class="ai-key">
+            <input type="text" id="ai-key" class="plain masque" autocomplete="off" data-1p-ignore data-lpignore="true" spellcheck="false" enterkeyhint="done" placeholder="AIza…" aria-label="Ta clé Gemini" aria-describedby="ai-key-hint">
+            <button type="button" id="ai-key-eye" aria-label="Afficher la clé" aria-pressed="false">👁</button>
+          </div>
+          <small id="ai-key-hint" aria-live="polite"></small>
+        </div>
+        <p class="sub">Ta clé est rangée dans ton lien d'installation : ne partage pas ce lien. Elle est aussi gardée sur cet appareil, pour la retrouver en revenant ici ; « Offrir ce billet » ne l'emporte jamais. Sans clé, tu profites quand même des réponses déjà écrites pour les autres.</p>
+${copy ? "" : `        <p class="sub">Le lien partagé sature ? <a href="${origin}/copie">Monte ta propre copie</a> : la même chose, avec tes clés et ton quota.</p>
+`}      </section>
+
+      <section class="act" id="s-decouvrir">
+        <header><span>Coulisses</span><h2>Les catalogues de Découvrir</h2></header>
+        <p class="sub">Ils ne passent pas sur l'accueil, seulement dans l'onglet Découvrir, avec leurs filtres par genre, année ou décennie.</p>
+        <div class="group"><h3>Films</h3><div class="chips" id="disc-movie"></div></div>
+        <div class="group"><h3>Séries</h3><div class="chips" id="disc-series"></div></div>
+      </section>
+
+      <section class="act" id="s-collections">
+        <header><span>Grand écran</span><h2>Les collections</h2></header>
+        <p class="sub">Les grandes tuiles de l'accueil, à importer avec le second lien de ton billet. Plateformes reste tout en haut ; les autres viennent après tes rangées. Choisis les collections, puis les tuiles de chacune et leur ordre.</p>
+        <div id="collections" style="display:grid;gap:10px"></div>
+      </section>
+
+      <section class="act" id="s-affiches">
+        <header><span>Vitrine</span><h2>Tes affiches</h2></header>
+        <p class="sub">Les affiches des cartes de Nuvio : ce qui s'affiche dessus, et comment. Tout se règle dans la régie, sur tes vraies affiches en grand. Ton lien d'addon ne change pas : le lien « Affiches » de ton billet se colle dans Nuvio (Paramètres → Disposition → Custom Poster Source). Tes réglages restent gardés dans ce navigateur.</p>
+        <p class="aff-resume" id="aff-resume"></p>
+        <button type="button" class="btn solid" id="regie-ouvrir">Régler mes affiches</button>
+      </section>
+
+${copy ? HOTE_HTML : ""}
+      <section class="act" id="s-mode">
+        <header><span>Mode d'emploi</span><h2>Installer sur ta TV sans rien taper</h2></header>
+        <ol class="steps-howto">
+          <li><span><b>Sur la TV</b>, dans Nuvio : Addons → <b>Gérer depuis le téléphone</b>. Un QR code s'affiche.</span></li>
+          <li><span><b>Scanne-le avec ton téléphone</b>, connecté au même Wi-Fi que la TV.</span></li>
+          <li><span><b>Colle les liens de ton billet</b> : l'addon dans l'onglet Addons, les collections avec « Copier le contenu (PC/TEL) », puis le bouton presse-papiers en haut à droite de l'onglet Collections, et les affiches dans Paramètres → Disposition → Custom Poster Source.</span></li>
+          <li><span><b>Mets Nuvio en français</b> : langue de l'appli et langue TMDB (Paramètres → Intégrations → TMDB).</span></li>
+        </ol>
+        <p class="sub">Nuvio est sur ton téléphone, ta tablette ou ton ordinateur ? Pas besoin de QR code : colle directement le lien d'addon de ton billet dans l'onglet Addons. Pour les collections, « Copier le contenu (PC/TEL) » copie tout le contenu de leur lien : dans Nuvio, onglet Collections, appuie sur le bouton presse-papiers en haut à droite, sur téléphone comme sur ordinateur.</p>
+        <p class="sub">Pour retrouver tes réglages plus tard, ouvre ton lien d'addon en remplaçant « manifest.json » par « configure ». Avec un lien fixe, fais-le sur l'appareil qui l'a créé (ou avec son lien pour modifier) : tes changements arrivent dans Nuvio sans réinstaller, avec « Actualiser les addons ». Les collections, elles, sont importées : après un changement de tuiles, supprime-les dans Nuvio et réimporte-les (« Copier le contenu (PC/TEL) », puis le bouton presse-papiers en haut à droite de l'onglet Collections). Tu pars de zéro ? <a href="${origin}/guide">Le guide complet</a> installe Nuvio et tous les addons, dans l'ordre.</p>
+      </section>
+
+      <button type="button" class="reset" id="reset">Revenir à la programmation d'origine</button>
+      <div class="annule" id="annule" role="status" hidden><span id="annule-txt"></span><button type="button" id="annule-btn">Annuler</button></div>
+    </main>
+
+    <aside>
+      <div class="rail">
+      <div class="stage" id="stage">
+        <div class="glow" id="glow" aria-hidden="true"></div>
+        <div class="tv"><div class="screen" id="screen" role="region" aria-label="Aperçu interactif de ton accueil Nuvio"></div></div>
+        <div class="tv-foot"></div>
+        <div class="screen-tools">
+          <button type="button" class="mini" id="ret-btn" title="Le bouton Retour de la télécommande (touche Retour arrière du clavier)">◀ Retour</button>
+          <div class="seg" id="fmt" role="group" aria-label="Format des affiches"></div>
+          <button type="button" class="mini" id="pp-btn" aria-pressed="false">Affiches maison</button>
+        </div>
+        <p class="pp-note" id="pp-note" hidden>Ce sont tes affiches maison. <button type="button" class="pp-ouvrir" id="pp-ouvrir">Régler mes affiches</button></p>
+        <div class="screen-fun">
+          <button type="button" class="mini" id="zoom" aria-pressed="false">Agrandir l'écran</button>
+        </div>
+        <button type="button" class="btn big-close" id="big-close">Fermer le grand écran</button>
+      </div>
+      </div>
+      <p class="caption"><span class="souris">Passe la souris sur une affiche (ou utilise les flèches) comme avec la télécommande, clique pour ouvrir sa fiche ; « Retour » ouvre le menu de Nuvio.</span><span class="doigt">Touche une affiche pour ouvrir sa fiche, fais glisser les rangées du doigt.</span></p>
+
+      <div class="ticket" id="ticket">
+        <div class="main">
+          <div class="t-head"><b id="t-name"></b><span id="t-serial"></span></div>
+          <div class="t-seance" id="t-seance"></div>
+          <div class="t-meta"><span><b id="t-rows"></b> rangées</span><span><b id="t-prov"></b> plateformes</span><span><b id="t-coll"></b> collections</span><span id="t-extra"></span></div>
+          <div class="t-label">Addon · Addons → Ajouter un addon</div>
+          <div class="t-url" id="u-manifest"></div>
+          <div class="t-btns">
+            <button type="button" class="btn solid" id="copy-manifest">Copier</button>
+            <a class="btn line" id="open-app" href="#">Ouvrir dans l'appli</a>
+          </div>
+          <div class="fixe" id="fixe" hidden>
+            <p id="fixe-txt"></p>
+            <div class="t-btns"><button type="button" class="btn solid" id="fixe-creer">Créer mon lien fixe</button></div>
+            <p class="autre" id="fixe-autre" hidden>Modifier depuis un autre appareil ? <button type="button" class="discret" id="fixe-modif">Copier le lien de modification</button> (à ouvrir dans un navigateur, pas dans Nuvio)</p>
+            <p class="alerte" id="fixe-err" role="alert"></p>
+          </div>
+          <div class="t-label">Collections · onglet Collections → presse-papiers en haut à droite</div>
+          <div class="t-url" id="u-collections"></div>
+          <div class="t-btns"><button type="button" class="btn solid" id="copy-collections">Copier</button><button type="button" class="btn line" id="copy-collections-contenu" title="Tout le contenu du lien, à coller dans Nuvio (sur PC, Nuvio ne prend que le contenu)">Copier le contenu (PC/TEL)</button></div>
+          <textarea class="t-url t-contenu" id="contenu-collections" readonly hidden aria-label="Contenu du lien des collections"></textarea>
+          <div class="t-label">Affiches · Paramètres → Disposition → Custom Poster Source</div>
+          <div class="t-url" id="u-affiches">${POSTER_URL.replace(/&/g, "&amp;")}</div>
+          <div class="t-btns"><button type="button" class="btn solid full" id="copy-affiches">Copier</button></div>
+          <div class="t-btns">
+            <button type="button" class="btn line" id="qr-btn" aria-expanded="false" aria-controls="qr">Continuer sur le téléphone</button>
+            <button type="button" class="btn line" id="share-btn">Offrir ce billet</button>
+            <button type="button" class="btn line full" id="img-btn">Télécharger le billet en image</button>
+          </div>
+          <div class="qr" id="qr" hidden><div id="qr-code" class="qr-wait">Impression du QR code…</div><p>Scanne-le avec ton téléphone : cette page s'ouvre avec les mêmes réglages, ta clé Gemini comprise, il ne reste qu'à copier les liens. Avec un lien fixe, le téléphone pourra aussi le modifier. Ce QR code est pour toi seul : ne le montre à personne d'autre (pour partager ta programmation, c'est « Offrir ce billet »).</p></div>
+        </div>
+        <div class="stub"><span>Admis · 1 salle</span></div>
+        <div class="stamp" aria-hidden="true">Copié</div>
+      </div>
+
+    </aside>
+  </div>
+
+  ${SEATS_HTML}
+  ${CREDITS_HTML}
+
+
+  <div class="dock"><button type="button" class="dock-billet" id="dock-billet">Ton billet : <b id="dock-count"></b><i aria-hidden="true">↓</i></button><button type="button" class="btn" id="dock-copy">Copier mon lien</button></div>
+
+  <div class="regie-affiches" id="regie" role="dialog" aria-modal="true" aria-labelledby="regie-titre" hidden>
+    <div class="regie-boite">
+      <div class="regie-barre">
+        <h2 id="regie-titre">Tes affiches</h2>
+        <div class="regie-actions">
+          <button type="button" class="mini" id="regie-importer" aria-expanded="false" aria-controls="regie-import">Importer un lien</button>
+          <button type="button" class="mini" id="regie-qr-btn" aria-expanded="false" aria-controls="regie-qr">QR code</button>
+          <button type="button" class="mini" id="regie-annuler" disabled>↶ Annuler</button>
+          <button type="button" class="btn solid" id="regie-copier">Copier mon lien d'affiches</button>
+          <button type="button" class="regie-x" id="regie-fermer" aria-label="Fermer la régie">✕</button>
+        </div>
+        <div class="regie-import" id="regie-import" role="region" aria-label="Importer un lien d'affiches" hidden>
+          <label for="regie-import-lien">Colle un lien d'affiches (le tien, ou celui de quelqu'un) pour reprendre ses réglages :</label>
+          <div class="regie-import-ligne">
+            <input type="text" id="regie-import-lien" spellcheck="false" autocomplete="off" placeholder="https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?…">
+            <button type="button" class="btn solid" id="regie-import-ok">Importer</button>
+          </div>
+          <p class="regie-import-msg" id="regie-import-msg" aria-live="polite"></p>
+        </div>
+        <div class="regie-import regie-qr" id="regie-qr" role="region" aria-label="QR code du lien d'affiches" hidden>
+          <div id="regie-qr-code" class="regie-qr-code">Impression du QR code…</div>
+          <p>Scanne-le avec ton téléphone : ton lien d'affiches s'ouvre, prêt à copier. Colle-le ensuite dans Nuvio : Paramètres → Disposition → Custom Poster Source. Le QR code suit tes réglages.</p>
+        </div>
+      </div>
+      <div class="regie-corps">
+      <div class="regie-scene">
+        <div class="regie-rideau g" aria-hidden="true"></div><div class="regie-rideau d" aria-hidden="true"></div>
+        <div class="regie-tete">
+          <p class="regie-legende" id="regie-legende"></p>
+          <div class="seg" id="regie-format" role="group" aria-label="Forme de l'affiche"></div>
+        </div>
+        <figure class="regie-plateau" id="regie-plateau"><img id="regie-grande" alt=""></figure>
+        <div class="regie-coulisses" id="regie-coulisses" role="group" aria-label="D'autres films avec les mêmes réglages"></div>
+      </div>
+      <div class="regie-console">
+        <div class="regie-memoires" id="regie-memoires" role="group" aria-label="Styles tout prêts">
+          <button type="button" data-memoire="maison" aria-label="Style Maison"><img alt=""><span>Maison</span></button><button type="button" data-memoire="essentiel" aria-label="Style Essentiel"><img alt=""><span>Essentiel</span></button><button type="button" data-memoire="noteSeule" aria-label="Style Note seule"><img alt=""><span>Note seule</span></button><button type="button" data-memoire="cine" aria-label="Style Ciné"><img alt=""><span>Ciné</span></button><button type="button" data-memoire="postersPlus" aria-label="Style Posters+"><img alt=""><span>Posters+</span></button><button type="button" data-memoire="plateforme" aria-label="Style Plateforme"><img alt=""><span>Plateforme</span></button><button type="button" data-memoire="nue" aria-label="Style Nue"><img alt=""><span>Nue</span></button>
+        </div>
+        <p class="regie-perso" id="regie-perso" hidden>Réglages perso : choisis un style pour repartir de lui.</p>
+        <p class="regie-cible" id="regie-cible" hidden>Tu règles les images en paysage.</p>
+        <div class="regie-onglets" id="regie-onglets" role="tablist" aria-label="Réglages par partie de l'affiche">
+          <button type="button" role="tab" id="onglet-haut" data-onglet="haut" aria-selected="true" aria-controls="regie-voies">Haut</button><button type="button" role="tab" id="onglet-titre" data-onglet="titre" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Titre</button><button type="button" role="tab" id="onglet-infos" data-onglet="infos" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Infos</button><button type="button" role="tab" id="onglet-image" data-onglet="image" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Image</button><button type="button" role="tab" id="onglet-couleurs" data-onglet="couleurs" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Couleurs</button><button type="button" role="tab" id="onglet-paysage" data-onglet="paysage" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Paysage</button>
+        </div>
+        <div class="regie-voies" id="regie-voies" role="tabpanel" aria-labelledby="onglet-haut"></div>
+        <div class="regie-plus" id="regie-plus" role="region" aria-label="Plus de réglages" hidden></div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+<script>${nuvioDonnees(origin)}</script>
+${scripts("nuvio.js")}
+<script>
+const D = ${json};
+</script>
+${scripts("outils.js", "salle2.js")}
+${copy ? scripts("salle2-hote.js") : ""}
+${scripts("scene.js")}
+</body>
+</html>`;
+}
+
+// Les styles et le script de la salle 2, les mêmes pour tous : servis à part (statique.js), gardés en cache par le
+// navigateur. La page, elle, change avec chaque lien (réglages, D) et n'est jamais gardée.
+export const SALLE2_CSS = `/* Salle obscure : enseigne en haut, la bobine de réglages à gauche, l'écran et le billet à droite. */
 :root {
   --velvet: #170c12;      /* fond : velours sombre */
   --velvet-2: #22121b;    /* panneaux */
@@ -733,11 +991,10 @@ body::after { content: ""; position: fixed; inset: -50%; pointer-events: none; z
 @keyframes sweep-row { from { background-position: 100% 0; } to { background-position: 0 0; } }
 .frame.lit .pos { animation: tick .45s cubic-bezier(.16,1,.3,1); }
 @keyframes tick { from { transform: scale(.3); opacity: 0; } }
+`;
 
-</style>
-${feuilles("scene.css", "nuvio.css")}
-<style>
-/* ---------- Téléphone (après tout le reste, pour passer devant) ---------- */
+// Après scene.css et nuvio.css, pour passer devant.
+export const SALLE2_FIN_CSS = `/* ---------- Téléphone (après tout le reste, pour passer devant) ---------- */
 @media (max-width: 960px) {
   /* L'aperçu en haut, les réglages, puis le billet tout à la fin (là où on en a besoin). */
   aside, .rail { display: contents; }
@@ -784,258 +1041,10 @@ ${feuilles("scene.css", "nuvio.css")}
    porte le titre et « Terminé » ; rien ne mène ailleurs (salles, guide, mode d'emploi déjà dans le guide). */
 .dans-guide .valance, .dans-guide .foyer, .dans-guide .marquee-wrap, .dans-guide .draperie, .dans-guide #s-mode, .dans-guide .nav a[href="#s-mode"] { display: none !important; }
 .dans-guide body { padding-top: 16px; }
-@media (prefers-reduced-motion: reduce) { body::after, .frame::after, .frame .pos, .screen::before, .nv *, .fiche, .fiche * { animation: none !important; } .ticket { transform: none; } .nv, .nv-track { scroll-behavior: auto; } }
-</style>
-</head>
-<body>
-  <div class="valance" aria-hidden="true"></div>
-  ${stageTop({ here: "programmation", origin })}
-  ${secretsHTML("programmation")}
-  <div class="marquee-wrap">
-    ${BEAM_HTML}
-    <div class="marquee"><small>Nuvio · en français</small><h1>Ta programmation</h1></div>
-    <p class="tagline">Ton accueil, ta salle, tes règles.</p>
-    <a class="guide-link" href="${origin}/guide">Pas encore Nuvio ? Suis le guide de A à Z →</a>
-    <p>Choisis ce qui passe sur ton accueil, crée tes propres rangées, renomme-les, filtre ce que tu ne veux pas voir. <b>L'écran se met à jour en direct</b>, et ton billet contient ton lien d'installation. Rien n'est enregistré : tout tient dans le lien. Ou crée un <b>lien fixe</b> : il ne change plus, et tes changements arrivent dans Nuvio sans réinstaller.</p>
-  </div>
+@media (prefers-reduced-motion: reduce) { body::after, .frame::after, .frame .pos, .screen::before, .nv *, .fiche, .fiche * { animation: none !important; } .ticket { transform: none; } .nv, .nv-track { scroll-behavior: auto; } }`;
 
-  <div class="layout">
-    <main>
-      <nav class="nav" aria-label="Sections">
-        <a href="#s-nom">Nom</a><a href="#s-pays">Pays</a><a href="#s-rangees">Rangées</a><a href="#s-saison">Saison</a>
-        <a href="#s-plateformes">Plateformes</a><a href="#s-filtres">Filtres</a><a href="#s-ia">IA</a><a href="#s-decouvrir">Découvrir</a><a href="#s-collections">Collections</a><a href="#s-affiches">Affiches</a>${copy ? '<a href="#s-hote">Hébergeur</a>' : ""}<a href="#s-mode">Installer</a>
-      </nav>
-
-      <section class="act" id="s-nom">
-        <header><span>Affiche</span><h2>Le nom de ton addon</h2></header>
-        <label for="name" class="sub">Il apparaît dans la liste des addons de Nuvio.</label>
-        <input type="text" id="name" maxlength="40" autocomplete="off" spellcheck="false" enterkeyhint="done">
-      </section>
-
-      <section class="act" id="s-pays">
-        <header><span>Salle</span><h2>Ton pays</h2></header>
-        <p class="sub">Les plateformes et les sorties au cinéma changent d'un pays à l'autre. Au Québec, les titres sont en français québécois quand ils existent.</p>
-        <div class="seg" id="regions" role="group" aria-label="Pays"></div>
-      </section>
-
-      <section class="act" id="s-rangees">
-        <header><span>Bobine</span><h2>Les rangées de l'accueil</h2></header>
-        <p class="sub">Mets à l'affiche celles que tu veux, range-les avec les flèches, et renomme-les avec le crayon. Tu peux aussi créer tes propres rangées.</p>
-        <ol class="reel" id="rows"></ol>
-        <button type="button" class="add-row" id="add-row">+ Créer une rangée sur mesure</button>
-        <div class="builder" id="builder" hidden>
-          <h3 id="b-title">Nouvelle rangée</h3>
-          <label class="field"><span>Nom de la rangée</span><input type="text" class="plain" id="b-name" maxlength="40" enterkeyhint="done" placeholder="ex. K-dramas à pleurer"></label>
-          <div class="field"><span>Quoi</span><div class="seg" id="b-type" role="group" aria-label="Type"></div></div>
-          <div class="field"><span>Genres (l'un ou l'autre)</span><div class="chips" id="b-genres"></div></div>
-          <div class="field"><span>Seulement sur ces plateformes (facultatif)</span><div class="chips" id="b-prov"></div></div>
-          <div class="two">
-            <label class="field"><span>Langue d'origine</span><select id="b-lang"></select></label>
-            <div class="field"><span>Sortis entre</span><div class="two"><input type="number" id="b-from" min="1900" max="2100" inputmode="numeric" enterkeyhint="done" placeholder="1900" aria-label="Année de début"><input type="number" id="b-to" min="1900" max="2100" inputmode="numeric" enterkeyhint="done" placeholder="aujourd'hui" aria-label="Année de fin"></div></div>
-          </div>
-          <div class="field"><span>Note minimale</span><div class="range"><input type="range" id="b-vote" min="0" max="9" step="0.5" aria-label="Note minimale"><output id="b-vote-out"></output></div></div>
-          <div class="field"><span>Ordre</span><div class="seg" id="b-sort" role="group" aria-label="Ordre"></div></div>
-          <p class="summary" id="b-summary"></p>
-          <div class="b-actions"><button type="button" class="mini ok" id="b-save">Ajouter à l'affiche</button><button type="button" class="mini" id="b-cancel">Annuler</button></div>
-        </div>
-      </section>
-
-      <section class="act" id="s-saison">
-        <header><span>Calendrier</span><h2>La rangée « Spécial »</h2></header>
-        <p class="sub">Elle change toute seule selon la période. Décoche les fêtes qui ne t'intéressent pas : en dehors des fêtes choisies, elle montre les films à l'affiche.</p>
-        <div class="chips" id="seasons"></div>
-      </section>
-
-      <section class="act" id="s-plateformes">
-        <header><span>Abonnements</span><h2>Tes plateformes</h2></header>
-        <p class="sub">Elles décident du contenu de « Nouveautés sur tes plateformes » et des tuiles de la collection Plateformes.</p>
-        <div class="chips" id="providers"></div>
-        <p class="warn" id="prov-warn" hidden>Aucune plateforme choisie : la rangée « Nouveautés sur tes plateformes » ne s'affichera pas.</p>
-      </section>
-
-      <section class="act" id="s-filtres">
-        <header><span>Le videur</span><h2>Ce que tu ne veux pas voir</h2></header>
-        <p class="sub">Ces filtres s'appliquent partout : rangées, Découvrir et collections.</p>
-        <div class="field"><span>Genres à masquer</span><div class="chips danger" id="excl"></div></div>
-        <div class="two">
-          <div class="field"><span>Note minimale partout</span><div class="range"><input type="range" id="g-vote" min="0" max="8" step="0.5" aria-label="Note minimale partout"><output id="g-vote-out"></output></div></div>
-          <label class="field"><span>Rien de sorti avant</span><select id="g-year"></select></label>
-        </div>
-        <label class="switch"><input type="checkbox" id="g-family"><span><b>Mode famille</b><small>Films tous publics ou -10 ans seulement, pas d'horreur, séries pour la famille et les enfants.</small></span></label>
-        <label class="switch"><input type="checkbox" id="g-unreleased"><span><b>Tendances et Découvrir : seulement ce qu'on peut déjà regarder</b><small>TMDB y met aussi les films encore au cinéma ou pas encore sortis. Ils passent dans « Bientôt dispo » et « Les plus attendus ». Dans Découvrir (Populaires, Nouveautés, films de cette année et de l'an dernier) : seulement les films déjà dispo dans ton pays, en abonnement, location ou achat.</small></span></label>
-      </section>
-
-      <section class="act" id="s-ia">
-        <header><span>Projectionniste</span><h2>La recherche par IA</h2></header>
-        <p class="sub">L'IA comprend les recherches du genre « le film où un mec revit la même journée » et écrit dans les fiches « pour qui », « à savoir » et le rappel avant une suite. Elle marche avec ta propre clé Gemini, gratuite : crée-la en 2 minutes sur <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>, puis colle-la ici.</p>
-        <div class="field">
-          <span>Ta clé Gemini (facultatif)</span>
-          <div class="ai-key">
-            <input type="text" id="ai-key" class="plain masque" autocomplete="off" data-1p-ignore data-lpignore="true" spellcheck="false" enterkeyhint="done" placeholder="AIza…" aria-label="Ta clé Gemini" aria-describedby="ai-key-hint">
-            <button type="button" id="ai-key-eye" aria-label="Afficher la clé" aria-pressed="false">👁</button>
-          </div>
-          <small id="ai-key-hint" aria-live="polite"></small>
-        </div>
-        <p class="sub">Ta clé est rangée dans ton lien d'installation : ne partage pas ce lien. Elle est aussi gardée sur cet appareil, pour la retrouver en revenant ici ; « Offrir ce billet » ne l'emporte jamais. Sans clé, tu profites quand même des réponses déjà écrites pour les autres.</p>
-${copy ? "" : `        <p class="sub">Le lien partagé sature ? <a href="${origin}/copie">Monte ta propre copie</a> : la même chose, avec tes clés et ton quota.</p>
-`}      </section>
-
-      <section class="act" id="s-decouvrir">
-        <header><span>Coulisses</span><h2>Les catalogues de Découvrir</h2></header>
-        <p class="sub">Ils ne passent pas sur l'accueil, seulement dans l'onglet Découvrir, avec leurs filtres par genre, année ou décennie.</p>
-        <div class="group"><h3>Films</h3><div class="chips" id="disc-movie"></div></div>
-        <div class="group"><h3>Séries</h3><div class="chips" id="disc-series"></div></div>
-      </section>
-
-      <section class="act" id="s-collections">
-        <header><span>Grand écran</span><h2>Les collections</h2></header>
-        <p class="sub">Les grandes tuiles de l'accueil, à importer avec le second lien de ton billet. Plateformes reste tout en haut ; les autres viennent après tes rangées. Choisis les collections, puis les tuiles de chacune et leur ordre.</p>
-        <div id="collections" style="display:grid;gap:10px"></div>
-      </section>
-
-      <section class="act" id="s-affiches">
-        <header><span>Vitrine</span><h2>Tes affiches</h2></header>
-        <p class="sub">Les affiches des cartes de Nuvio : ce qui s'affiche dessus, et comment. Tout se règle dans la régie, sur tes vraies affiches en grand. Ton lien d'addon ne change pas : le lien « Affiches » de ton billet se colle dans Nuvio (Paramètres → Disposition → Custom Poster Source). Tes réglages restent gardés dans ce navigateur.</p>
-        <p class="aff-resume" id="aff-resume"></p>
-        <button type="button" class="btn solid" id="regie-ouvrir">Régler mes affiches</button>
-      </section>
-
-${copy ? HOTE_HTML : ""}
-      <section class="act" id="s-mode">
-        <header><span>Mode d'emploi</span><h2>Installer sur ta TV sans rien taper</h2></header>
-        <ol class="steps-howto">
-          <li><span><b>Sur la TV</b>, dans Nuvio : Addons → <b>Gérer depuis le téléphone</b>. Un QR code s'affiche.</span></li>
-          <li><span><b>Scanne-le avec ton téléphone</b>, connecté au même Wi-Fi que la TV.</span></li>
-          <li><span><b>Colle les liens de ton billet</b> : l'addon dans l'onglet Addons, les collections avec « Copier le contenu (PC/TEL) », puis le bouton presse-papiers en haut à droite de l'onglet Collections, et les affiches dans Paramètres → Disposition → Custom Poster Source.</span></li>
-          <li><span><b>Mets Nuvio en français</b> : langue de l'appli et langue TMDB (Paramètres → Intégrations → TMDB).</span></li>
-        </ol>
-        <p class="sub">Nuvio est sur ton téléphone, ta tablette ou ton ordinateur ? Pas besoin de QR code : colle directement le lien d'addon de ton billet dans l'onglet Addons. Pour les collections, « Copier le contenu (PC/TEL) » copie tout le contenu de leur lien : dans Nuvio, onglet Collections, appuie sur le bouton presse-papiers en haut à droite, sur téléphone comme sur ordinateur.</p>
-        <p class="sub">Pour retrouver tes réglages plus tard, ouvre ton lien d'addon en remplaçant « manifest.json » par « configure ». Avec un lien fixe, fais-le sur l'appareil qui l'a créé (ou avec son lien pour modifier) : tes changements arrivent dans Nuvio sans réinstaller, avec « Actualiser les addons ». Les collections, elles, sont importées : après un changement de tuiles, supprime-les dans Nuvio et réimporte-les (« Copier le contenu (PC/TEL) », puis le bouton presse-papiers en haut à droite de l'onglet Collections). Tu pars de zéro ? <a href="${origin}/guide">Le guide complet</a> installe Nuvio et tous les addons, dans l'ordre.</p>
-      </section>
-
-      <button type="button" class="reset" id="reset">Revenir à la programmation d'origine</button>
-      <div class="annule" id="annule" role="status" hidden><span id="annule-txt"></span><button type="button" id="annule-btn">Annuler</button></div>
-    </main>
-
-    <aside>
-      <div class="rail">
-      <div class="stage" id="stage">
-        <div class="glow" id="glow" aria-hidden="true"></div>
-        <div class="tv"><div class="screen" id="screen" role="region" aria-label="Aperçu interactif de ton accueil Nuvio"></div></div>
-        <div class="tv-foot"></div>
-        <div class="screen-tools">
-          <button type="button" class="mini" id="ret-btn" title="Le bouton Retour de la télécommande (touche Retour arrière du clavier)">◀ Retour</button>
-          <div class="seg" id="fmt" role="group" aria-label="Format des affiches"></div>
-          <button type="button" class="mini" id="pp-btn" aria-pressed="false">Affiches maison</button>
-        </div>
-        <p class="pp-note" id="pp-note" hidden>Ce sont tes affiches maison. <button type="button" class="pp-ouvrir" id="pp-ouvrir">Régler mes affiches</button></p>
-        <div class="screen-fun">
-          <button type="button" class="mini" id="zoom" aria-pressed="false">Agrandir l'écran</button>
-        </div>
-        <button type="button" class="btn big-close" id="big-close">Fermer le grand écran</button>
-      </div>
-      </div>
-      <p class="caption"><span class="souris">Passe la souris sur une affiche (ou utilise les flèches) comme avec la télécommande, clique pour ouvrir sa fiche ; « Retour » ouvre le menu de Nuvio.</span><span class="doigt">Touche une affiche pour ouvrir sa fiche, fais glisser les rangées du doigt.</span></p>
-
-      <div class="ticket" id="ticket">
-        <div class="main">
-          <div class="t-head"><b id="t-name"></b><span id="t-serial"></span></div>
-          <div class="t-seance" id="t-seance"></div>
-          <div class="t-meta"><span><b id="t-rows"></b> rangées</span><span><b id="t-prov"></b> plateformes</span><span><b id="t-coll"></b> collections</span><span id="t-extra"></span></div>
-          <div class="t-label">Addon · Addons → Ajouter un addon</div>
-          <div class="t-url" id="u-manifest"></div>
-          <div class="t-btns">
-            <button type="button" class="btn solid" id="copy-manifest">Copier</button>
-            <a class="btn line" id="open-app" href="#">Ouvrir dans l'appli</a>
-          </div>
-          <div class="fixe" id="fixe" hidden>
-            <p id="fixe-txt"></p>
-            <div class="t-btns"><button type="button" class="btn solid" id="fixe-creer">Créer mon lien fixe</button></div>
-            <p class="autre" id="fixe-autre" hidden>Modifier depuis un autre appareil ? <button type="button" class="discret" id="fixe-modif">Copier le lien de modification</button> (à ouvrir dans un navigateur, pas dans Nuvio)</p>
-            <p class="alerte" id="fixe-err" role="alert"></p>
-          </div>
-          <div class="t-label">Collections · onglet Collections → presse-papiers en haut à droite</div>
-          <div class="t-url" id="u-collections"></div>
-          <div class="t-btns"><button type="button" class="btn solid" id="copy-collections">Copier</button><button type="button" class="btn line" id="copy-collections-contenu" title="Tout le contenu du lien, à coller dans Nuvio (sur PC, Nuvio ne prend que le contenu)">Copier le contenu (PC/TEL)</button></div>
-          <textarea class="t-url t-contenu" id="contenu-collections" readonly hidden aria-label="Contenu du lien des collections"></textarea>
-          <div class="t-label">Affiches · Paramètres → Disposition → Custom Poster Source</div>
-          <div class="t-url" id="u-affiches">${POSTER_URL.replace(/&/g, "&amp;")}</div>
-          <div class="t-btns"><button type="button" class="btn solid full" id="copy-affiches">Copier</button></div>
-          <div class="t-btns">
-            <button type="button" class="btn line" id="qr-btn" aria-expanded="false" aria-controls="qr">Continuer sur le téléphone</button>
-            <button type="button" class="btn line" id="share-btn">Offrir ce billet</button>
-            <button type="button" class="btn line full" id="img-btn">Télécharger le billet en image</button>
-          </div>
-          <div class="qr" id="qr" hidden><div id="qr-code" class="qr-wait">Impression du QR code…</div><p>Scanne-le avec ton téléphone : cette page s'ouvre avec les mêmes réglages, ta clé Gemini comprise, il ne reste qu'à copier les liens. Avec un lien fixe, le téléphone pourra aussi le modifier. Ce QR code est pour toi seul : ne le montre à personne d'autre (pour partager ta programmation, c'est « Offrir ce billet »).</p></div>
-        </div>
-        <div class="stub"><span>Admis · 1 salle</span></div>
-        <div class="stamp" aria-hidden="true">Copié</div>
-      </div>
-
-    </aside>
-  </div>
-
-  ${SEATS_HTML}
-  ${CREDITS_HTML}
-
-
-  <div class="dock"><button type="button" class="dock-billet" id="dock-billet">Ton billet : <b id="dock-count"></b><i aria-hidden="true">↓</i></button><button type="button" class="btn" id="dock-copy">Copier mon lien</button></div>
-
-  <div class="regie-affiches" id="regie" role="dialog" aria-modal="true" aria-labelledby="regie-titre" hidden>
-    <div class="regie-boite">
-      <div class="regie-barre">
-        <h2 id="regie-titre">Tes affiches</h2>
-        <div class="regie-actions">
-          <button type="button" class="mini" id="regie-importer" aria-expanded="false" aria-controls="regie-import">Importer un lien</button>
-          <button type="button" class="mini" id="regie-qr-btn" aria-expanded="false" aria-controls="regie-qr">QR code</button>
-          <button type="button" class="mini" id="regie-annuler" disabled>↶ Annuler</button>
-          <button type="button" class="btn solid" id="regie-copier">Copier mon lien d'affiches</button>
-          <button type="button" class="regie-x" id="regie-fermer" aria-label="Fermer la régie">✕</button>
-        </div>
-        <div class="regie-import" id="regie-import" role="region" aria-label="Importer un lien d'affiches" hidden>
-          <label for="regie-import-lien">Colle un lien d'affiches (le tien, ou celui de quelqu'un) pour reprendre ses réglages :</label>
-          <div class="regie-import-ligne">
-            <input type="text" id="regie-import-lien" spellcheck="false" autocomplete="off" placeholder="https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?…">
-            <button type="button" class="btn solid" id="regie-import-ok">Importer</button>
-          </div>
-          <p class="regie-import-msg" id="regie-import-msg" aria-live="polite"></p>
-        </div>
-        <div class="regie-import regie-qr" id="regie-qr" role="region" aria-label="QR code du lien d'affiches" hidden>
-          <div id="regie-qr-code" class="regie-qr-code">Impression du QR code…</div>
-          <p>Scanne-le avec ton téléphone : ton lien d'affiches s'ouvre, prêt à copier. Colle-le ensuite dans Nuvio : Paramètres → Disposition → Custom Poster Source. Le QR code suit tes réglages.</p>
-        </div>
-      </div>
-      <div class="regie-corps">
-      <div class="regie-scene">
-        <div class="regie-rideau g" aria-hidden="true"></div><div class="regie-rideau d" aria-hidden="true"></div>
-        <div class="regie-tete">
-          <p class="regie-legende" id="regie-legende"></p>
-          <div class="seg" id="regie-format" role="group" aria-label="Forme de l'affiche"></div>
-        </div>
-        <figure class="regie-plateau" id="regie-plateau"><img id="regie-grande" alt=""></figure>
-        <div class="regie-coulisses" id="regie-coulisses" role="group" aria-label="D'autres films avec les mêmes réglages"></div>
-      </div>
-      <div class="regie-console">
-        <div class="regie-memoires" id="regie-memoires" role="group" aria-label="Styles tout prêts">
-          <button type="button" data-memoire="maison" aria-label="Style Maison"><img alt=""><span>Maison</span></button><button type="button" data-memoire="essentiel" aria-label="Style Essentiel"><img alt=""><span>Essentiel</span></button><button type="button" data-memoire="noteSeule" aria-label="Style Note seule"><img alt=""><span>Note seule</span></button><button type="button" data-memoire="cine" aria-label="Style Ciné"><img alt=""><span>Ciné</span></button><button type="button" data-memoire="postersPlus" aria-label="Style Posters+"><img alt=""><span>Posters+</span></button><button type="button" data-memoire="plateforme" aria-label="Style Plateforme"><img alt=""><span>Plateforme</span></button><button type="button" data-memoire="nue" aria-label="Style Nue"><img alt=""><span>Nue</span></button>
-        </div>
-        <p class="regie-perso" id="regie-perso" hidden>Réglages perso : choisis un style pour repartir de lui.</p>
-        <p class="regie-cible" id="regie-cible" hidden>Tu règles les images en paysage.</p>
-        <div class="regie-onglets" id="regie-onglets" role="tablist" aria-label="Réglages par partie de l'affiche">
-          <button type="button" role="tab" id="onglet-haut" data-onglet="haut" aria-selected="true" aria-controls="regie-voies">Haut</button><button type="button" role="tab" id="onglet-titre" data-onglet="titre" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Titre</button><button type="button" role="tab" id="onglet-infos" data-onglet="infos" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Infos</button><button type="button" role="tab" id="onglet-image" data-onglet="image" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Image</button><button type="button" role="tab" id="onglet-couleurs" data-onglet="couleurs" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Couleurs</button><button type="button" role="tab" id="onglet-paysage" data-onglet="paysage" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Paysage</button>
-        </div>
-        <div class="regie-voies" id="regie-voies" role="tabpanel" aria-labelledby="onglet-haut"></div>
-        <div class="regie-plus" id="regie-plus" role="region" aria-label="Plus de réglages" hidden></div>
-      </div>
-      </div>
-    </div>
-  </div>
-
-<script>${nuvioDonnees(origin)}</script>
-${scripts("nuvio.js", "outils.js")}
-<script>
-const D = ${json};
-const hashDepart = location.hash; // l'adresse est réécrite ensuite (réglages), on garde l'ancre demandée
+/** Le script de la salle 2 : après nuvio.js et les données de la page (const D). */
+export const SALLE2_JS = `const hashDepart = location.hash; // l'adresse est réécrite ensuite (réglages), on garde l'ancre demandée
 window.hashDepart = hashDepart;
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const state = clone(D.cfg);
@@ -2478,10 +2487,4 @@ function spyNav() {
 }
 addEventListener("scroll", () => { if (!navTick) { navTick = true; requestAnimationFrame(spyNav); } }, { passive: true });
 spyNav();
-{ const i = navLinks.findIndex((a) => a.getAttribute("href") === hashDepart); if (i >= 0) setTimeout(() => navLinks[i].click(), 500); }
-${copy ? HOTE_JS : ""}
-</script>
-${scripts("scene.js")}
-</body>
-</html>`;
-}
+{ const i = navLinks.findIndex((a) => a.getAttribute("href") === hashDepart); if (i >= 0) setTimeout(() => navLinks[i].click(), 500); }`;

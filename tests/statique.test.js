@@ -23,7 +23,7 @@ test("pages_sans_google_fonts_ni_cdn", async () => {
     assert.ok(statiques(html).some((u) => u.startsWith("/statique/polices.css?v=")), p);
     for (const u of statiques(html)) assert.equal((await get(u)).status, 200, p + " " + u);
   }
-  for (const s of ["outils.js"]) assert.doesNotMatch(contenuStatique(s), /cdn\.jsdelivr|googleapis/, s);
+  for (const s of ["outils.js", "salle2.js", "guide.js", "guide-fin.js"]) assert.doesNotMatch(contenuStatique(s), /cdn\.jsdelivr|googleapis/, s);
 });
 
 test("polices_servies_et_gardees", async () => {
@@ -50,4 +50,18 @@ test("qrcode_tel_que_publie", async () => {
   assert.ok(outils.includes(`sc.integrity = "${QRCODE_SRI}"`));
   assert.match(lib, /Copyright \(c\) 2009 Kazuhiko Arase/);
   assert.match(lib, /Licensed under the MIT license/);
+});
+
+// Salle 2 et guide : leurs styles et leurs scripts, les mêmes pour tous, sont servis à part ; la page ne garde que
+// ce qui change avec elle (les réglages D, l'adresse du site).
+test("salle_2_et_guide_legeres", async () => {
+  for (const p of ["/configure", "/guide"]) {
+    const html = await (await get(p)).text();
+    const enLigne = [...html.matchAll(/<(script|style)>([\s\S]*?)<\/\1>/g)].map((m) => m[2]);
+    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+    for (const s of scripts) assert.doesNotThrow(() => new Function(s));
+    assert.ok(enLigne.every((s) => s.length < 20000 || s.startsWith("\nconst D = ") || /^const D = /.test(s.trim())), p);
+    assert.doesNotMatch(html, /<style>/, p);
+  }
+  for (const s of ["salle2.js", "salle2-hote.js", "guide.js", "guide-fin.js", "outils.js"]) assert.doesNotThrow(() => new Function(contenuStatique(s)), s);
 });

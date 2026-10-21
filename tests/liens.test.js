@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { APPAREILS, cleAllDebrid, torrentioUrl, installUrl, sansInstall, basePerso, paquetCles, lirePaquet, LIENS_JS } from "../worker/liens.js";
 import { guidePage } from "../worker/guide.js";
+import { enLigne } from "./support/en-ligne.mjs";
 
 const O = "https://nuvio-assets.xnzxflix.workers.dev";
 const CLE = "AbCdEf0123456789XyZ";
@@ -42,7 +43,7 @@ test("box_android_rangees_par_ce_qu_elles_lisent", () => {
   assert.match(filtre("box-4k"), /^dolbyvision,brremux,/);           // 4K sans Dolby Vision (ou on ne sait pas)
   assert.doesNotMatch(filtre("shield"), /brremux|dolbyvision|4k/);   // Shield : tout passe
   // Le choix de l’appareil du guide propose chaque appareil (une carte), avec ses exemples.
-  const html = guidePage({ origin: O, season: "" });
+  const html = enLigne(guidePage({ origin: O, season: "" }));
   for (const id of Object.keys(APPAREILS)) assert.ok(html.includes('<input type="radio" name="appareil" value="' + id + '">'), id);
   assert.ok(html.includes("Chromecast avec Google TV 4K"));
 });
@@ -65,7 +66,7 @@ test("lien_perso_de_la_salle_2", () => {
 test("qr_du_guide_garde_le_lien_perso", () => {
   // Les QR du guide passent TON lien de l'ordinateur au téléphone, pour l'installer chez toi : clé Gemini
   // et alertes comprises (seul le billet partagé de la salle 2 les retire).
-  const html = guidePage({ origin: O, season: "" });
+  const html = enLigne(guidePage({ origin: O, season: "" }));
   assert.doesNotMatch(html, /sansCles/);
   assert.doesNotMatch(html, /dataset\.qr/);
 });
@@ -90,7 +91,7 @@ test("code_injecte_valide", () => {
 });
 
 test("guide_scripts_valides", () => {
-  const html = guidePage({ origin: O, season: "" });
+  const html = enLigne(guidePage({ origin: O, season: "" }));
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
   assert.ok(scripts.length >= 4);
   for (const s of scripts) assert.doesNotThrow(() => new Function(s));
@@ -102,7 +103,7 @@ test("guide_scripts_valides", () => {
 
 test("panneau_de_la_cabine", () => {
   // Étape 12 : chaque panne est rangée sous au moins un voyant, et chaque voyant allume au moins une panne.
-  const html = guidePage({ origin: O, season: "" });
+  const html = enLigne(guidePage({ origin: O, season: "" }));
   const voyants = [...html.matchAll(/class="voyant" data-moment="([a-z]+)"/g)].map((m) => m[1]);
   const pannes = [...html.matchAll(/<details data-moment="([a-z ]+)">/g)].map((m) => m[1].split(" "));
   assert.equal(voyants.length, 5);
@@ -118,6 +119,6 @@ test("installer_sans_stremio_ni_windows", () => {
   assert.equal(sansInstall("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/141"), true);
   assert.equal(sansInstall("Mozilla/5.0 (Linux; Android 14) Chrome/141 Mobile"), false);
   assert.equal(sansInstall("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"), false);
-  const html = guidePage({ origin: O, season: "" });
+  const html = enLigne(guidePage({ origin: O, season: "" }));
   assert.ok(!html.includes("stremio:"), "plus aucun lien stremio:// dans le guide");
 });

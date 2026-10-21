@@ -195,480 +195,7 @@ ${STAGE_HEAD}
 <meta property="og:title" content="Nuvio en français, de A à Z">
 <meta property="og:image" content="${LOGO}">
 <link rel="icon" href="${LOGO}">
-${feuilles("polices.css")}
-<style>
-/* Le programme de la séance : une colonne de lecture, chaque étape est un « acte » numéroté. */
-:root {
-  --foyer-w: 1180px;
-  --velvet: #170c12; --velvet-2: #22121b; --seat: #3d2230; --cream: #f5ead8; --dim: #b9a59c;
-  --bulb: #ffcf6b; --red: #e5413a; --ink: #2a1a14; --green: #5fd39a;
-  --display: "Bebas Neue", Impact, "Arial Narrow", sans-serif;
-  --body: "Figtree", "Segoe UI", system-ui, sans-serif;
-  --type: "Courier Prime", "Courier New", ui-monospace, monospace;
-  --serif: "Instrument Serif", Georgia, serif;
-  color-scheme: dark;
-}
-* { box-sizing: border-box; }
-[hidden] { display: none !important; }
-html { overflow-x: clip; }
-html, body { margin: 0; }
-body {
-  position: relative; color: var(--cream); font: 16px/1.6 var(--body);
-  background: radial-gradient(ellipse 80% 40% at 50% -5%, rgba(229,65,58,.22), transparent 70%), repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 2px, transparent 2px 46px), var(--velvet);
-  padding: max(104px, calc(env(safe-area-inset-top) + 92px)) max(16px, env(safe-area-inset-right)) calc(48px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-}
-body::after { content: ""; position: fixed; inset: -50%; pointer-events: none; z-index: 50; opacity: .07; mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  animation: grain 1.2s steps(6) infinite; }
-@keyframes grain { 0%{transform:translate(0,0)} 25%{transform:translate(-3%,2%)} 50%{transform:translate(2%,-3%)} 75%{transform:translate(3%,3%)} 100%{transform:translate(0,0)} }
-.valance { position: absolute; inset: 0 0 auto; height: 74px; pointer-events: none;
-  background: radial-gradient(ellipse 34px 30px at 34px 0, #6d1420 0 28px, transparent 29px) 0 46px / 68px 32px repeat-x, repeating-linear-gradient(90deg, rgba(0,0,0,.28) 0 3px, transparent 3px 22px, rgba(255,255,255,.04) 22px 24px, transparent 24px 34px), linear-gradient(#4a0c15, #7a1824 70%, #5a0f1a);
-  -webkit-mask: linear-gradient(#000, #000) top / 100% 48px no-repeat, radial-gradient(ellipse 34px 30px at 34px 0, #000 28px, transparent 29px) 0 46px / 68px 32px repeat-x;
-          mask: linear-gradient(#000, #000) top / 100% 48px no-repeat, radial-gradient(ellipse 34px 30px at 34px 0, #000 28px, transparent 29px) 0 46px / 68px 32px repeat-x;
-  filter: drop-shadow(0 8px 10px rgba(0,0,0,.5)); }
-.valance::after { content: ""; position: absolute; left: 0; right: 0; top: 40px; height: 6px; background: repeating-linear-gradient(90deg, #d9a441 0 6px, #8a5f1a 6px 9px); }
-a { color: var(--bulb); font-weight: 700; text-underline-offset: 3px; }
-:focus-visible { outline: 3px solid var(--bulb); outline-offset: 3px; border-radius: 6px; }
-
-.wrap { max-width: 860px; margin: 0 auto; display: grid; gap: 26px; }
-.hero { position: relative; text-align: center; display: grid; gap: 14px; justify-items: center; }
-.hero .marquee { margin-bottom: 4px; }
-.hero h1 { font-size: clamp(2.6rem, 9vw, 5rem); text-wrap: balance; }
-.hero .tagline { margin: 0; font: italic 400 1.45rem/1.25 var(--serif); color: var(--bulb); }
-.hero p { margin: 0; max-width: 60ch; color: var(--dim); }
-.facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-.facts span { font: 700 .82rem var(--body); padding: 7px 12px; border-radius: 99px; border: 1px solid var(--seat); background: var(--velvet-2); color: var(--cream); }
-
-.toc { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 18px; background: var(--velvet-2); border: 1px solid var(--seat); border-radius: 16px; padding: 18px 20px; counter-reset: toc; }
-.toc a { color: var(--cream); font-weight: 600; text-decoration: none; display: flex; gap: 10px; align-items: baseline; padding: 3px 0; }
-.toc a::before { counter-increment: toc; content: counter(toc, decimal-leading-zero); font: 400 1.1rem var(--display); color: var(--bulb); min-width: 2ch; }
-.toc a:hover { color: var(--bulb); }
-
-.act { position: relative; background: var(--velvet-2); border: 1px solid var(--seat); border-radius: 18px; padding: 24px; display: grid; gap: 14px; scroll-margin-top: 20px; overflow: hidden; }
-.act::before { content: ""; position: absolute; inset: 0 0 auto; height: 2px; background: linear-gradient(90deg, transparent, rgba(255,207,107,.5), transparent); }
-.act > header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 16px; align-items: end; }
-/* L'étiquette et le titre restent toujours dans la colonne du milieu, l'un sous l'autre. */
-.act > header .label { grid-column: 2; grid-row: 1; } .act > header h2 { grid-column: 2; grid-row: 2; }
-.act .num { grid-row: span 2; position: relative; isolation: isolate; width: 84px; height: 84px; display: grid; place-items: center; border-radius: 50%;
-  font: 400 2.9rem/1 var(--display); padding-top: 4px; color: var(--bulb); text-shadow: 0 0 20px rgba(255,207,107,.35);
-  background:
-    radial-gradient(circle, transparent 0 57%, rgba(255,207,107,.55) 58% 60%, transparent 61% 68%, rgba(255,207,107,.22) 69% 70%, transparent 71%),
-    linear-gradient(rgba(255,207,107,.16), rgba(255,207,107,.16)) center / 1px 100% no-repeat,
-    linear-gradient(rgba(255,207,107,.16), rgba(255,207,107,.16)) center / 100% 1px no-repeat,
-    var(--velvet); }
-/* Amorce de film : le secteur balaie le cercle une fois, à l'arrivée sur l'étape. */
-.act .num::before { content: ""; position: absolute; inset: 0; border-radius: 50%; z-index: -1; background: conic-gradient(rgba(255,207,107,.32) var(--sweep), transparent 0); }
-.act.rolling .num::before { animation: leader .9s linear; }
-.act.rolling .num { animation: leader-num .9s steps(1); }
-@keyframes leader { from { --sweep: 0deg; } to { --sweep: 360deg; } }
-@keyframes leader-num { 0% { opacity: .35; } 100% { opacity: 1; } }
-.act .label { font: 700 .74rem var(--type); letter-spacing: .14em; text-transform: uppercase; color: #fff; background: var(--red); padding: 3px 8px 2px; border-radius: 3px; justify-self: start; transform: rotate(-2deg); }
-.act h2 { margin: 0; font: 400 2.2rem/1 var(--display); letter-spacing: .03em; text-wrap: balance; }
-.act .lead { margin: 0; font: 400 1.15rem/1.45 var(--serif); color: #d6c3b8; }
-.act p { margin: 0; }
-.sub-h { margin: 6px 0 0; font: 800 .8rem var(--body); letter-spacing: .18em; text-transform: uppercase; color: var(--bulb); }
-.act ol, .act ul { margin: 0; padding-left: 1.3em; display: grid; gap: 7px; }
-.act li::marker { color: var(--bulb); font-weight: 800; }
-.path { font-weight: 800; color: #fff; background: rgba(255,255,255,.06); border-radius: 5px; padding: 0 5px; }
-.opt { font: 800 .66rem var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--ink); background: var(--bulb); border-radius: 4px; padding: 2px 6px; vertical-align: 4px; }
-
-/* Choix de l'appareil : une carte par appareil, avec son icône. */
-.appareils { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; }
-.appareils button { position: relative; display: grid; justify-items: center; gap: 2px; padding: 14px 8px 12px; border-radius: 12px; cursor: pointer; text-align: center;
-  border: 1px solid var(--seat); background: var(--velvet); color: var(--cream); transition: border-color .2s ease, background .2s ease, transform .2s ease; }
-.appareils button:hover { border-color: rgba(255,207,107,.5); transform: translateY(-2px); }
-.appareils svg { width: 30px; height: 30px; margin-bottom: 4px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--bulb); }
-.appareils b { font: 800 .9rem/1.2 var(--body); }
-.appareils small { font-size: .74rem; color: var(--dim); }
-.appareils .claude-dispo { position: absolute; top: 6px; right: 6px; font: normal 800 .58rem var(--body); letter-spacing: .04em; padding: 2px 5px; border-radius: 99px; background: rgba(255,207,107,.14); color: var(--bulb); }
-.appareils button[aria-selected="true"] { background: var(--cream); border-color: var(--cream); color: var(--ink); box-shadow: 0 0 0 3px rgba(255,207,107,.35); }
-.appareils button[aria-selected="true"] svg { color: var(--red); }
-.appareils button[aria-selected="true"] small { color: #7a5a4c; }
-.appareils button[aria-selected="true"] .claude-dispo { background: var(--ink); color: var(--cream); }
-/* À la main ou avec Claude */
-.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 5px; border-radius: 12px; background: rgba(0,0,0,.28); border: 1px solid var(--seat); }
-.modes button { display: grid; gap: 1px; padding: 9px 10px; border: 0; border-radius: 9px; background: transparent; color: var(--dim); cursor: pointer; text-align: center; }
-.modes button b { font: 800 .92rem var(--body); }
-.modes button small { font-size: .74rem; }
-.modes button[aria-pressed="true"] { background: var(--bulb); color: var(--ink); }
-.mode-pane { display: grid; gap: 10px; }
-@media (max-width: 520px) { .appareils { grid-template-columns: repeat(2, 1fr); } }
-.panel { display: grid; gap: 10px; }
-
-.addons { display: grid; gap: 12px; counter-reset: ad; }
-.addon { border: 1px solid var(--seat); border-radius: 14px; background: var(--velvet); padding: 16px 18px; display: grid; gap: 10px; }
-.addon > header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.addon > header::before { counter-increment: ad; content: counter(ad); font: 400 1.6rem/1 var(--display); color: var(--ink); background: var(--bulb); width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex: none; padding-top: 3px; }
-.addon h3 { margin: 0; font: 800 1.12rem var(--body); }
-.addon .role { font: 700 .72rem var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
-.addon .role.need { color: var(--bulb); }
-
-.copy { display: grid; grid-template-columns: minmax(0, 1fr) auto; background: #0f080c; border: 1px solid var(--seat); border-radius: 10px; overflow: hidden; }
-.copy code { font: 400 .82rem/1.45 var(--type); padding: 11px 13px; overflow-x: auto; white-space: nowrap; min-width: 0; user-select: all; color: #f0e2cf; }
-.copy button { font: 800 .85rem var(--body); border: 0; background: var(--cream); color: var(--ink); padding: 0 16px; cursor: pointer; min-width: 92px; }
-.copy button:hover { background: var(--bulb); }
-.copy.long code { white-space: normal; word-break: break-all; max-height: 7.5em; overflow-y: auto; }
-/* Blocs de commandes : une commande par ligne. */
-.copy.long code.lignes { white-space: pre-wrap; max-height: none; }
-/* Du PC au téléphone : un QR code à côté de chaque lien, et le lien reçu sur le téléphone. */
-.copy .qr-btn { display: none; min-width: 0; padding: 0 12px; background: #2a1520; color: var(--bulb); border-left: 1px solid var(--seat); }
-.copy .qr-btn:hover { background: #3a1d2b; }
-.copy .qr-btn svg { width: 20px; height: 20px; display: block; }
-.contenu { justify-self: start; font: 800 .86rem var(--body); padding: 8px 14px; border-radius: 99px; border: 1px solid rgba(255,207,107,.45); background: transparent; color: var(--bulb); cursor: pointer; }
-.contenu:hover { background: rgba(255,207,107,.1); }
-/* Copie bloquée par le navigateur : le contenu s'affiche, déjà sélectionné, pour le copier à la main. */
-.contenu-txt { width: 100%; height: 9em; resize: vertical; padding: 11px 13px; border-radius: 10px; border: 1px solid var(--seat); background: #0f080c; color: #f0e2cf; font: 400 .78rem/1.45 var(--type); }
-.vers-tel { display: none; font: 800 .86rem var(--body); padding: 8px 14px; border-radius: 99px; border: 1px solid rgba(255,207,107,.45); background: transparent; color: var(--bulb); cursor: pointer; }
-@media (hover: hover) and (pointer: fine) and (min-width: 700px) {
-  .copy { grid-template-columns: minmax(0, 1fr) auto auto; }
-  .copy .qr-btn { display: block; }
-  .vers-tel { display: inline-flex; align-items: center; gap: 8px; }
-}
-.qr-modal { position: fixed; inset: 0; z-index: 88; display: grid; place-items: center; padding: 16px; background: rgba(5,3,4,.84); animation: rise .25s ease both; }
-.qr-modal .boite { position: relative; display: grid; gap: 12px; justify-items: center; text-align: center; width: min(420px, 100%); padding: 24px; border-radius: 18px; background: var(--velvet-2); border: 1px solid rgba(255,207,107,.35); box-shadow: 0 30px 80px rgba(0,0,0,.7); }
-.qr-modal h2 { margin: 0; font: 400 1.8rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
-.qr-modal .code-qr { width: 270px; height: 270px; padding: 12px; border-radius: 12px; background: #fff; }
-.qr-modal .code-qr svg { width: 100%; height: 100%; display: block; }
-.qr-modal p { margin: 0; color: #e6d6c8; font-size: .95rem; }
-.qr-modal small { color: var(--dim); max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 .78rem var(--type); }
-.qr-modal .fermer { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%; border: 0; background: rgba(255,255,255,.08); color: var(--cream); font: 800 1.1rem/1 var(--body); cursor: pointer; }
-
-/* Le choix de l’appareil : des cartes par famille, repliées sur l’appareil choisi et sa configuration. */
-.choix-appareil { display: grid; gap: 10px; }
-.ca-titre { margin: 0; font: 700 .72rem var(--body); letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
-.ca-liste { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.ca-famille { grid-column: 1 / -1; margin: 8px 0 0; font: 800 .74rem var(--body); letter-spacing: .16em; text-transform: uppercase; color: var(--bulb); }
-.ca-famille:first-child { margin-top: 0; }
-.ca-carte { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px;
-  border: 1px solid var(--seat); background: var(--velvet); color: var(--cream); cursor: pointer; transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease; }
-.ca-carte:hover { border-color: rgba(255,207,107,.5); }
-.ca-carte input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
-.ca-carte:focus-within { outline: 2px solid var(--bulb); outline-offset: 2px; }
-.ca-carte svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--bulb); }
-.ca-carte svg circle { fill: currentColor; stroke: none; }
-.ca-nom { display: grid; gap: 2px; font: 800 .95rem/1.25 var(--body); }
-.ca-nom small { font: 400 .8rem/1.35 var(--body); color: var(--dim); }
-.ca-q { font: normal 700 .78rem var(--type); color: var(--bulb); padding: 3px 7px; border-radius: 6px; border: 1px solid rgba(255,207,107,.35); white-space: nowrap; }
-.ca-carte.on { background: var(--cream); border-color: var(--cream); color: var(--ink); box-shadow: 0 0 0 3px rgba(255,207,107,.35); }
-.ca-carte.on small { color: #6b4c3e; }
-.ca-carte.on svg { color: var(--red); }
-.ca-carte.on .ca-q { color: var(--ink); border-color: rgba(42,26,20,.3); }
-.ca-carte[hidden], .ca-famille[hidden], .ma-conf[hidden] { display: none; }
-.choix-appareil.replie .ca-liste { grid-template-columns: minmax(0, 1fr); }
-.choix-appareil.replie .ca-carte.on { animation: ca-pose .4s cubic-bezier(.16,1,.3,1); }
-.choix-appareil.replie .ca-aide { display: none; }
-@keyframes ca-pose { from { transform: scale(.97); box-shadow: 0 0 0 10px rgba(255,207,107,0); } }
-.ma-conf { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px 14px; border-radius: 12px; border: 1px dashed rgba(255,207,107,.45); animation: rise .3s ease both; }
-.ma-conf dl { margin: 0; display: grid; gap: 8px; }
-.ma-conf dl div { display: grid; grid-template-columns: 8.5em minmax(0, 1fr); gap: 10px; }
-.ma-conf dt { font: 700 .7rem var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); padding-top: 3px; }
-.ma-conf dd { margin: 0; color: var(--cream); }
-.ca-changer { font: 800 .85rem var(--body); padding: 8px 14px; border-radius: 99px; border: 1px solid rgba(255,207,107,.45); background: transparent; color: var(--bulb); cursor: pointer; white-space: nowrap; }
-.ca-changer:hover { background: rgba(255,207,107,.1); }
-@media (max-width: 620px) {
-  .ca-liste { grid-template-columns: minmax(0, 1fr); }
-  .ma-conf { grid-template-columns: minmax(0, 1fr); }
-  .ma-conf dl div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
-  .ca-changer { justify-self: start; }
-}
-@media (prefers-reduced-motion: reduce) { .choix-appareil.replie .ca-carte.on, .ma-conf { animation: none; } }
-.tips { display: grid; gap: 8px; }
-.first-run { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px 22px; align-items: center; padding: 18px 20px; border-radius: 14px;
-  background: linear-gradient(135deg, rgba(229,65,58,.14), rgba(229,65,58,.04)); border: 1px solid rgba(229,65,58,.4); color: #eadacd; }
-.first-run p { margin: 0; line-height: 1.55; }
-.first-run .pick { font-weight: 800; color: var(--ink); background: var(--bulb); padding: 1px 8px; border-radius: 5px; white-space: nowrap; }
-.first-run small { grid-column: 1 / -1; display: block; padding-top: 12px; border-top: 1px dashed rgba(255,207,107,.25); color: var(--dim); font-size: .88rem; line-height: 1.6; }
-/* La boîte de dialogue de Nuvio, en miniature : « Avancé » a le focus de la télécommande. */
-.choix { display: grid; gap: 8px; padding: 12px; border-radius: 12px; background: #0f0b14; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); min-width: 170px; }
-.choix span { display: block; padding: 9px 14px; border-radius: 9px; font: 700 .9rem var(--body); color: #8f88a2; background: rgba(255,255,255,.04); }
-.choix span.focus { position: relative; color: #111; background: #fff; box-shadow: 0 0 0 3px var(--bulb), 0 0 6px rgba(255,207,107,.2); }
-.choix span.focus::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; box-shadow: 0 0 22px rgba(255,207,107,.45); animation: halo 2.4s ease-in-out infinite; }
-.choix small { border: 0; padding: 0; grid-column: auto; font: 600 .7rem var(--body); color: #6f6884; text-align: center; }
-@keyframes halo { 50% { opacity: 0; } }
-@media (max-width: 600px) { .first-run { grid-template-columns: 1fr; } .choix { justify-self: start; } }
-.compat-box { border: 1px solid var(--bulb); border-radius: 14px; padding: 16px 18px; display: grid; gap: 12px; background: linear-gradient(180deg, rgba(255,207,107,.08), rgba(255,207,107,.02)); scroll-margin-top: 20px; }
-.compat-box h3 { margin: 0; font: 400 1.5rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
-.compat-box p { margin: 0; color: #e6d6c8; }
-.tag-adapt { font: 800 .66rem var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); background: var(--bulb); border-radius: 4px; padding: 2px 6px; white-space: nowrap; }
-.tips li { color: #e6d6c8; }
-.code { justify-self: start; display: grid; gap: 2px; padding: 12px 22px 10px; border-radius: 12px; background: var(--cream); color: var(--ink); box-shadow: 0 0 0 3px var(--bulb), 0 10px 30px rgba(0,0,0,.4); }
-.code span { font: 700 .7rem var(--body); letter-spacing: .2em; text-transform: uppercase; color: #7a5a4c; }
-.code b { font: 400 3rem/1 var(--display); letter-spacing: .12em; }
-.small { font-size: .88rem; color: var(--dim); }
-.ou-installer { margin: 0; font: 800 1.05rem var(--body); color: var(--cream); }
-.ou-installer small { display: block; font: 400 .88rem var(--body); color: var(--dim); }
-.panel ul { margin-top: 6px; }
-.manual summary { cursor: pointer; color: var(--bulb); font-weight: 700; }
-.manual p { margin: 8px 0 0; color: #d9c8be; }
-.note { border-left: 3px solid var(--bulb); background: rgba(255,207,107,.07); padding: 10px 14px; border-radius: 0 10px 10px 0; color: #e6d6c8; font-size: .95rem; }
-.note.warn { border-color: var(--red); background: rgba(229,65,58,.09); }
-.keyfield { display: grid; gap: 6px; }
-.keyfield span { font: 700 .72rem var(--body); letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
-.keyfield input { font: 600 1rem var(--type); padding: 11px 13px; border-radius: 10px; border: 1px dashed var(--bulb); background: #0f080c; color: var(--cream); }
-.keyfield input, .keyfield select { min-width: 0; width: 100%; }
-.keyfield select { font: 700 1rem var(--body); padding: 11px 13px; border-radius: 10px; border: 1px solid var(--bulb); background: #0f080c; color: var(--cream); cursor: pointer; }
-/* Le trousseau (étape 5) : les clés tapées une fois, reprises partout. */
-.trousseau { display: grid; gap: 10px; padding: 16px 18px; border-radius: 14px; border: 1px solid rgba(255,207,107,.35); background: linear-gradient(180deg, rgba(255,207,107,.08), rgba(255,207,107,.02)); }
-.trousseau p { margin: 0; }
-.trousseau .vers-tel { justify-self: start; }
-.trousseau-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }.etat-cles { min-height: 1.3em; font-weight: 800; font-size: .9rem; color: var(--bulb); }
-.etat-cles:empty { display: none; }
-.etat-cles.erreur { color: #ffe1d8; }
-/* Personnaliser sans quitter le guide : la salle 2 par-dessus, dans un cadre. */
-.perso-actions { margin: 0; }
-.perso-btn { font: 800 .92rem var(--body); padding: 10px 18px; border-radius: 99px; border: 1px solid var(--bulb); background: rgba(255,207,107,.1); color: var(--bulb); cursor: pointer; transition: background-color .2s ease; }
-.perso-btn:hover { background: rgba(255,207,107,.2); }
-.perso-lien { font: inherit; font-weight: 800; padding: 0; border: 0; background: none; color: var(--bulb); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.salle2 { position: fixed; inset: 0; z-index: 92; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--velvet); animation: rise .3s ease both; }
-.s2-barre { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap;
-  padding: max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left)); background: var(--velvet-2); border-bottom: 1px solid rgba(255,207,107,.35); }
-.s2-barre p { margin: 0; display: grid; gap: 2px; min-width: 0; }
-.s2-barre b { font: 400 1.5rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
-.s2-barre span { font-size: .86rem; color: var(--dim); }
-.s2-fini { font: 800 .95rem var(--body); padding: 10px 18px; border-radius: 99px; border: 0; background: var(--bulb); color: var(--ink); cursor: pointer; }
-.salle2 iframe { width: 100%; height: 100%; border: 0; background: var(--velvet); }
-html.s2-ouverte, html.s2-ouverte body { overflow: hidden; }
-@media (max-width: 560px) { .s2-barre { flex-wrap: nowrap; } .s2-barre b { font-size: 1.25rem; } .s2-barre span { display: none; } .s2-fini { padding: 9px 14px; font-size: .86rem; white-space: nowrap; } }
-@media (prefers-reduced-motion: reduce) { .salle2 { animation: none; } }
-/* Installer d'un geste (nuvio://) et consignes selon l'appareil */
-.installer { justify-self: start; font: 800 .88rem var(--body); color: var(--bulb); text-decoration: underline; text-underline-offset: 3px; }
-.installer[hidden] { display: none; }
-.consigne { margin: 0; padding: 10px 14px; border-radius: 10px; background: rgba(255,255,255,.04); border: 1px dashed var(--seat); color: #e6d6c8; font-size: .93rem; }
-.consigne.pret { border-style: solid; border-color: rgba(255,207,107,.45); background: rgba(255,207,107,.07); }
-.cle-ad { display: grid; gap: 6px; }
-.cle-ad p { margin: 0; }
-.copy[hidden], .cle-ad[hidden] { display: none; }
-
-.faq details { border-bottom: 1px solid var(--seat); padding: 12px 0; }
-.faq summary { cursor: pointer; font-weight: 800; }
-.faq details p { margin: 8px 0 0; color: #d9c8be; }
-/* Le pupitre de la cabine (étape 12) : on allume le voyant de l'endroit où ça coince, les autres pannes s'effacent. */
-.pupitre { display: grid; gap: 12px; padding: 18px 20px 16px; border-radius: 14px;
-  background: radial-gradient(circle at 10px 10px, #7a654f 0 2.5px, transparent 3px), radial-gradient(circle at calc(100% - 10px) 10px, #7a654f 0 2.5px, transparent 3px),
-    radial-gradient(circle at 10px calc(100% - 10px), #7a654f 0 2.5px, transparent 3px), radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #7a654f 0 2.5px, transparent 3px), linear-gradient(#2b2226, #1b1418);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), inset 0 0 0 1px rgba(0,0,0,.5), 0 10px 26px rgba(0,0,0,.35); }
-/* L'étiquette de la plaque : du ruban à lettres en relief, collé un peu de travers. */
-.pu-plaque { justify-self: start; margin: 0; padding: 4px 10px 3px; border-radius: 3px; transform: rotate(-1deg); font: 700 .74rem var(--type); letter-spacing: .18em; text-transform: uppercase;
-  color: #f4f0e6; background: #0d0a0b; text-shadow: 0 -1px 0 #000; box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 1px 0 rgba(0,0,0,.6); }
-.pu-voyants { display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr)); gap: 10px; }
-.voyant { display: grid; justify-items: center; gap: 4px; padding: 14px 8px 11px; border-radius: 12px; border: 1px solid #0c090a; cursor: pointer; text-align: center; color: var(--cream);
-  background: linear-gradient(#30272b, #221a1e); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 3px 0 #0c090a; transition: transform .1s ease, box-shadow .1s ease, border-color .2s ease; }
-.voyant:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 1px 0 #0c090a; }
-.voyant b { font: 800 .9rem/1.2 var(--body); }
-.voyant small { font: 400 .74rem var(--type); color: var(--dim); }
-.voyant .lampe { width: 24px; height: 24px; margin-bottom: 4px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #6e3431, #2e1010 70%);
-  box-shadow: 0 0 0 3px #8a6a3a, 0 0 0 4px #000, inset 0 -3px 6px rgba(0,0,0,.5); }
-.voyant[aria-pressed="true"] { border-color: rgba(255,90,74,.55); }
-.voyant[aria-pressed="true"] .lampe { background: radial-gradient(circle at 35% 30%, #ffe1d8, #ff5a4a 45%, #b81f18 78%);
-  box-shadow: 0 0 0 3px #c99a4a, 0 0 0 4px #000, 0 0 18px 5px rgba(255,80,60,.55); animation: allume .6s; }
-/* L'ampoule grésille avant de tenir. */
-@keyframes allume { 0%, 18%, 36% { opacity: .35; } 10%, 26%, 100% { opacity: 1; } }
-.pu-etat { margin: 0; font-size: .9rem; color: var(--dim); }
-.faq details.revient { animation: rise .35s ease both; }
-/* Le grand rembobinage : chaque geste coché remet de la pellicule sur la bobine. */
-.rembobinage { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px 20px; align-items: start; margin-top: 6px; padding: 18px 20px; border-radius: 14px; border: 1px dashed rgba(255,207,107,.4); background: rgba(255,207,107,.04); }
-.rembobinage h3 { margin: 0 0 6px; font: 400 1.6rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
-.rb-texte { display: grid; gap: 8px; }
-.rb-bobine { width: 78px; height: 78px; }
-.rb-bobine * { transform-box: view-box; }
-.rb-film { fill: #3a2418; stroke: #6b4a32; stroke-width: 1; transition: r .6s cubic-bezier(.16,1,.3,1); }
-.rb-tourne { fill: none; stroke: var(--bulb); stroke-width: 2.5; stroke-linecap: round; transform-origin: 40px 40px; transition: transform .7s cubic-bezier(.16,1,.3,1); }
-.rb-tourne circle:last-child { fill: var(--velvet); }
-.act .rb-gestes { list-style: none; padding: 0; gap: 2px; }
-.rb-gestes label { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; align-items: start; padding: 5px 0; cursor: pointer; color: #e6d6c8; }
-.rb-gestes input { appearance: none; -webkit-appearance: none; width: 20px; height: 20px; margin: 3px 0 0; display: grid; place-items: center; border-radius: 5px; border: 2px solid var(--bulb); background: transparent; cursor: pointer; }
-.rb-gestes input::after { content: "✓"; font: 800 .8rem/1 var(--body); color: #0e2a1c; opacity: 0; }
-.rb-gestes input:checked { background: var(--green); border-color: var(--green); }
-.rb-gestes input:checked::after { opacity: 1; }
-.rb-gestes input:checked + span { color: var(--dim); text-decoration: line-through; text-decoration-color: rgba(95,211,154,.6); }
-.rb-fin { font: italic 400 1.3rem/1.3 var(--serif); color: var(--green); animation: rise .4s ease both; }
-@media (max-width: 520px) { .pupitre, .rembobinage { padding: 16px; } .rembobinage { grid-template-columns: minmax(0, 1fr); } .rb-bobine { width: 60px; height: 60px; } }
-@media (prefers-reduced-motion: reduce) { .voyant[aria-pressed="true"] .lampe, .faq details.revient, .rb-fin { animation: none; } .rb-film, .rb-tourne { transition: none; } }
-.cta { display: flex; flex-wrap: wrap; gap: 10px; }
-.btn { display: inline-block; font: 800 .95rem var(--body); text-decoration: none; padding: 12px 18px; border-radius: 10px; background: var(--bulb); color: var(--ink); }
-.btn.ghost { background: transparent; color: var(--cream); border: 1px solid var(--seat); }
-footer { text-align: center; color: var(--dim); font: italic 400 1.05rem var(--serif); }
-/* La bobine : avance au fil de la lecture, et sert de sommaire. */
-.reel-nav { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 40;
-  display: grid; justify-items: end; gap: 10px; transition: opacity .3s ease, transform .3s ease; }
-.reel-nav.away { opacity: 0; transform: translateY(14px); pointer-events: none; }
-.reel-btn { display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; border-radius: 99px; cursor: pointer; text-align: left;
-  border: 1px solid rgba(255,207,107,.3); background: rgba(28,14,21,.9); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-  color: var(--cream); font: 700 .85rem/1.2 var(--body); box-shadow: 0 12px 30px rgba(0,0,0,.5); }
-.reel-btn:hover { border-color: var(--bulb); }
-.reel-btn svg { width: 42px; height: 42px; flex: none; }
-.reel-btn .disc { fill: #4a2a36; stroke: var(--bulb); stroke-width: 1.5; }
-.reel-btn .hole { fill: var(--velvet); }
-.reel-btn .hub { fill: var(--bulb); }
-.reel-btn .spin { transform-origin: 21px 21px; }
-.reel-btn b { font: 400 1.4rem/1 var(--display); color: var(--bulb); letter-spacing: .04em; }
-.reel-btn small { display: block; color: var(--dim); font-weight: 600; max-width: 24ch; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.reel-menu { display: grid; gap: 2px; padding: 8px; min-width: 260px; max-height: min(62vh, 520px); overflow: auto; border-radius: 16px;
-  border: 1px solid rgba(255,207,107,.25); background: rgba(28,14,21,.96); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-  box-shadow: 0 20px 50px rgba(0,0,0,.6); transform-origin: 100% 100%; animation: unspool .22s cubic-bezier(.16,1,.3,1); counter-reset: rm; }
-@keyframes unspool { from { opacity: 0; transform: scale(.9) translateY(8px); } }
-.reel-menu a { display: flex; gap: 10px; align-items: baseline; padding: 8px 12px; border-radius: 10px; color: var(--cream); text-decoration: none; font-weight: 600; }
-.reel-menu a::before { counter-increment: rm; content: counter(rm, decimal-leading-zero); font: 400 1.05rem var(--display); color: var(--bulb); min-width: 2ch; }
-.reel-menu a:hover { background: rgba(255,255,255,.06); }
-.reel-menu a.on { background: var(--bulb); color: var(--ink); }
-.reel-menu a.on::before { color: var(--ink); }
-.copy button { transition: background .15s ease, transform .15s ease; }
-.copy button:active { transform: scale(.94); }
-/* Étape faite : un talon de billet qu'on composte. */
-.composte { grid-column: 3; grid-row: 1 / span 2; align-self: center; position: relative; padding: 9px 14px 9px 22px; border: 0; border-radius: 8px; cursor: pointer;
-  font: 800 .82rem var(--body); color: var(--dim); background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--seat); white-space: nowrap; transition: background .2s ease, color .2s ease; }
-.composte::before { content: ""; position: absolute; left: 8px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px currentColor; }
-.composte:hover { color: var(--cream); }
-.composte[aria-pressed="true"] { color: #0e2a1c; background: var(--green); box-shadow: none; animation: punch .35s cubic-bezier(.16,1,.3,1); }
-.composte[aria-pressed="true"]::before { background: var(--velvet-2); box-shadow: none; }
-@keyframes punch { 40% { transform: scale(.9) rotate(-3deg); } }
-.act.fait .num { color: var(--green); text-shadow: 0 0 20px rgba(95,211,154,.35); }
-.toc a.fait::after, .reel-menu a.fait::after { content: "✓"; margin-left: auto; color: var(--green); font-weight: 800; }
-.reel-menu a.on.fait::after { color: var(--ink); }
-.reel-btn .ring { fill: none; stroke: var(--green); stroke-width: 2.2; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 21px 21px; transition: stroke-dasharray .5s ease; }
-.reel-menu .home { border-bottom: 1px dashed rgba(255,207,107,.25); border-radius: 10px 10px 0 0; margin-bottom: 4px; color: var(--bulb); }
-.reel-menu .home::before { content: "↩"; counter-increment: none; }
-.reel-menu .astuce { margin: 6px 12px 4px; font-size: .78rem; color: var(--dim); }
-kbd { font: 700 .75rem var(--type); padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,.08); box-shadow: inset 0 -1px 0 rgba(0,0,0,.4); color: var(--cream); }
-
-/* Entracte, à mi-parcours */
-.entracte { display: flex; align-items: center; gap: 22px; padding: 22px 8px; border-top: 2px dashed rgba(255,207,107,.25); border-bottom: 2px dashed rgba(255,207,107,.25); }
-.entracte p { margin: 0; color: var(--dim); max-width: 46ch; }
-.entracte .titre { font: italic 400 2.6rem/1 var(--serif); color: var(--bulb); text-shadow: 0 0 18px rgba(255,207,107,.45); margin-bottom: 4px; }
-.cornet { position: relative; flex: none; width: 54px; height: 64px; margin-top: 14px; }
-.cornet::before { content: ""; position: absolute; inset: 10px 0 0; background: repeating-linear-gradient(90deg, #e5413a 0 9px, #f5ead8 9px 18px); clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%); border-radius: 3px; }
-.cornet::after { content: ""; position: absolute; left: -2px; right: -2px; top: -2px; height: 22px;
-  background: radial-gradient(circle at 15% 70%, #fff6e2 0 7px, transparent 7.5px), radial-gradient(circle at 40% 40%, #ffeec6 0 8px, transparent 8.5px), radial-gradient(circle at 65% 65%, #fff8ea 0 7px, transparent 7.5px), radial-gradient(circle at 86% 45%, #ffe7b0 0 7px, transparent 7.5px); }
-.cornet i { position: absolute; left: 50%; top: 0; width: 13px; height: 11px; z-index: 1; animation: saute 2.6s cubic-bezier(.3,.6,.4,1) infinite;
-  background: radial-gradient(circle at 30% 38%, #fffaf0 0 3px, transparent 3.6px), radial-gradient(circle at 68% 32%, #fff3dc 0 3.4px, transparent 4px), radial-gradient(circle at 52% 70%, #ffe8b4 0 3.8px, transparent 4.3px); }
-.cornet i:nth-child(2) { animation-delay: .9s; --dx: -22px; }
-.cornet i:nth-child(3) { animation-delay: 1.7s; --dx: 18px; }
-@keyframes saute { 0%, 55% { transform: translate(-50%, 6px) scale(.6); opacity: 0; } 60% { opacity: 1; } 78% { transform: translate(calc(-50% + var(--dx, 6px) * .6), -26px) rotate(160deg); } 100% { transform: translate(calc(-50% + var(--dx, 6px)), 4px) rotate(320deg); opacity: 0; } }
-
-/* Le panneau de sortie de secours : direction la salle 2 (ta programmation) */
-.sortie-wrap { display: flex; justify-content: center; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
-.sortie { display: inline-flex; align-items: center; gap: 12px; padding: 10px 18px 10px 12px; border-radius: 8px; text-decoration: none; color: #eafff2;
-  background: linear-gradient(#1f9d5c, #13804a); position: relative; box-shadow: 0 0 0 3px #0c3d25, 0 0 14px rgba(60,220,140,.25), inset 0 1px 0 rgba(255,255,255,.25); }
-.sortie::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; box-shadow: 0 0 26px rgba(60,220,140,.45); animation: halo 4s ease-in-out infinite; }
-.sortie svg { width: 30px; height: 30px; flex: none; }
-.sortie b { display: block; font: 400 1.6rem/1 var(--display); letter-spacing: .12em; }
-.sortie span { display: block; font: 700 .8rem var(--body); opacity: .9; }
-.sortie:hover { box-shadow: 0 0 0 3px #0c3d25, 0 0 40px rgba(60,220,140,.7), inset 0 1px 0 rgba(255,255,255,.25); }
-
-/* Le raccourci vers la salle 2, pour qui a déjà Nuvio */
-.raccourci { display: inline-block; font: 800 .92rem var(--body); text-decoration: none; color: var(--ink); background: var(--bulb); padding: 9px 16px; border-radius: 99px; box-shadow: 0 0 22px rgba(255,207,107,.35); }
-.raccourci:hover { background: #fff1c9; }
-
-</style>
-${feuilles("apercu.css", "nuvio.css", "reglages.css")}
-<style>
-/* Réclames d'avant-séance : de fausses pubs d'époque pour les fonctions du site. */
-.reclames { position: relative; display: grid; }
-.reclame { grid-area: 1 / 1; position: relative; display: grid; gap: 8px; justify-items: start; padding: 26px 30px 24px; border-radius: 6px; color: #2a1a14; overflow: hidden;
-  background: radial-gradient(circle, rgba(42,26,20,.09) 1px, transparent 1.5px) 0 0 / 6px 6px, linear-gradient(160deg, #f6ead2, #ead8b6);
-  box-shadow: inset 0 0 0 6px #ead8b6, inset 0 0 0 8px #2a1a14, 0 18px 40px rgba(0,0,0,.45);
-  opacity: 0; visibility: hidden; transform: scale(.98); transition: opacity .5s ease, transform .5s ease, visibility .5s; }
-.reclame.on { opacity: 1; visibility: visible; transform: none; }
-.reclame .r-sur { margin: 0; font: 800 .74rem var(--body); letter-spacing: .22em; text-transform: uppercase; color: #8f2420; }
-.reclame h3 { margin: 0; font: italic 400 clamp(2.2rem, 6vw, 3.2rem)/1 var(--serif); }
-.reclame .r-slogan { margin: 0; max-width: 46ch; font-size: 1.02rem; line-height: 1.5; }
-.reclame .r-cta { margin-top: 4px; font: 400 1.25rem/1 var(--display); letter-spacing: .06em; color: #f5ead8; background: #8f2420; padding: 9px 16px 7px; border-radius: 4px; text-decoration: none; }
-.reclame .r-cta:hover { background: #2a1a14; }
-.reclame .r-tampon { position: absolute; right: 18px; bottom: 16px; font: 400 1rem/1 var(--display); letter-spacing: .2em; color: rgba(143,36,32,.5); border: 2px solid rgba(143,36,32,.45); border-radius: 4px; padding: 4px 8px 2px; transform: rotate(-8deg); }
-.reclame .r-etoile { position: absolute; top: 14px; right: 18px; width: 92px; height: 92px; display: grid; place-items: center; text-align: center; transform: rotate(12deg);
-  font: 400 1.05rem/1 var(--display); letter-spacing: .04em; color: #fff6e6; background: #e5413a;
-  clip-path: polygon(50% 0, 61% 18%, 82% 10%, 80% 32%, 100% 40%, 85% 56%, 96% 76%, 74% 78%, 68% 100%, 50% 86%, 32% 100%, 26% 78%, 4% 76%, 15% 56%, 0 40%, 20% 32%, 18% 10%, 39% 18%); }
-.r-dots { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
-.r-dots button { width: 10px; height: 10px; padding: 0; border-radius: 50%; border: 0; background: var(--seat); }
-.r-dots button[aria-pressed="true"] { background: var(--bulb); }
-.r-dots { align-items: center; }
-.r-dots button.r-pause { width: auto; height: auto; margin-left: 6px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--seat); background: transparent; color: var(--dim); font: 700 .72rem var(--body); cursor: pointer; }
-.r-dots button.r-pause:hover { color: var(--cream); border-color: rgba(255,207,107,.5); }
-@media (max-width: 600px) { .reclame { padding: 22px 20px 52px; } .reclame .r-etoile { width: 70px; height: 70px; font-size: .85rem; top: 10px; right: 10px; } .reclame h3 { padding-right: 64px; } }
-
-/* La vendeuse d'esquimaux passe dans l'allée de l'entracte. */
-.entracte { position: relative; padding-bottom: 96px; overflow: hidden; }
-.vendeuse { position: absolute; left: 0; bottom: 6px; width: 48px; height: 72px; padding: 0; border: 0; background: none; transform: translateX(-80px); }
-.entracte.vue .vendeuse { animation: passe 14s linear both; }
-.entracte .vendeuse.pause { animation-play-state: paused; }
-@keyframes passe { from { transform: translateX(-80px); } to { transform: translateX(var(--allee, 800px)); } }
-/* La vendeuse : petit chapeau rond, carré court, uniforme rouge à boutons dorés, plateau d'esquimaux. */
-.vendeuse svg, .ouvreuse svg { display: block; width: 100%; height: 100%; overflow: visible; }
-.vendeuse svg *, .ouvreuse svg * { transform-box: view-box; }
-.v-haut { transform-origin: 24px 52px; }
-.v-jambe-g, .o-jambe-g { transform-origin: 22px 52px; }
-.v-jambe-d, .o-jambe-d { transform-origin: 27px 52px; }
-.entracte.vue .vendeuse:not(.pause) .v-haut { animation: dandine .45s ease-in-out infinite alternate; }
-.entracte.vue .vendeuse:not(.pause) .v-jambe-g { animation: pas .45s ease-in-out infinite alternate; }
-.entracte.vue .vendeuse:not(.pause) .v-jambe-d { animation: pas .45s ease-in-out infinite alternate-reverse; }
-@keyframes dandine { to { transform: translateY(-1.5px) rotate(1.2deg); } }
-@keyframes pas { from { transform: rotate(14deg); } to { transform: rotate(-14deg); } }
-/* Les yeux clignent ; à l'arrêt, on respire. */
-.o-haut circle[fill="#2a1a14"], .v-haut circle[fill="#2a1a14"] { transform-box: fill-box; transform-origin: center; }
-.cligne .o-haut circle[fill="#2a1a14"], .cligne .v-haut circle[fill="#2a1a14"] { animation: cligne .3s; }
-.v-haut circle[fill="#2a1a14"] { animation-delay: -2.1s; }
-@keyframes cligne { 40% { transform: scaleY(.1); } }
-.ouvreuse:not(.marche) svg { animation: souffle-o 3.4s ease-in-out infinite alternate; }
-@keyframes souffle-o { to { translate: 0 -.7px; } }
-.entracte .vendeuse.pause .v-haut { animation: crie .5s ease-in-out 2 alternate; }
-@keyframes crie { to { transform: translateY(-2px) rotate(-3deg); } }
-.v-bulle { position: absolute; left: 50%; bottom: calc(100% + 6px); padding: 3px 9px; border-radius: 8px; white-space: nowrap; background: var(--cream); color: var(--ink); font: 800 .72rem var(--body); opacity: 0; transform: translateX(-50%); pointer-events: none; }
-.vendeuse.parle .v-bulle { animation: bulle 2.4s ease forwards; }
-
-/* Le pot de pop-corn : il se vide pendant qu'on lit, on le remplit en cliquant. */
-.pot { position: fixed; left: max(16px, env(safe-area-inset-left)); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 40; width: 56px; height: 70px; padding: 0; border: 0; background: none; overflow: hidden; transition: opacity .3s ease, transform .3s ease; }
-.pot.away { opacity: 0; transform: translateY(14px); pointer-events: none; }
-/* Le pop-corn ne dépasse jamais du pot : au-dessus du bord, il reste dans la largeur de l'ouverture ;
-   en dessous, il suit les flancs du pot (même trapèze que le seau). */
-.p-interieur { position: absolute; inset: 0; clip-path: polygon(5px 0, 51px 0, 51px 31px, 45px 70px, 11px 70px, 5px 31px); }
-.p-mais { position: absolute; left: 6px; right: 6px; top: 7px; height: 28px; transition: transform .5s ease; transform: translateY(calc((1 - var(--niveau, 1)) * 34px));
-  background: radial-gradient(circle at 15% 70%, #fff6e2 0 8px, transparent 8.5px), radial-gradient(circle at 40% 40%, #ffeec6 0 9px, transparent 9.5px), radial-gradient(circle at 65% 65%, #fff8ea 0 8px, transparent 8.5px), radial-gradient(circle at 86% 45%, #ffe7b0 0 8px, transparent 8.5px), radial-gradient(circle at 50% 85%, #fff3dc 0 9px, transparent 9.5px); }
-.p-seau { position: absolute; left: 4px; right: 4px; bottom: 0; height: 40px; z-index: 1; border-radius: 3px; background: repeating-linear-gradient(90deg, #e5413a 0 8px, #f5ead8 8px 16px); clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%); box-shadow: inset 0 3px 0 rgba(0,0,0,.15); }
-.pot.vide .p-seau { animation: secoue .5s ease 2; }
-@keyframes secoue { 25% { transform: rotate(-6deg); } 75% { transform: rotate(6deg); } }
-@media (max-width: 520px) { .pot { transform: scale(.82); transform-origin: 0 100%; } }
-
-/* Le diplôme de projectionniste, quand toutes les étapes sont faites. */
-.diplome-box { display: grid; gap: 10px; justify-items: center; text-align: center; padding: 26px; border-radius: 18px; border: 1px solid rgba(255,207,107,.5); background: radial-gradient(ellipse at 50% 0, rgba(255,207,107,.16), transparent 70%), var(--velvet-2); animation: rise .5s ease both; }
-.diplome-box .titre { margin: 0; font: italic 400 2.2rem/1.1 var(--serif); color: var(--bulb); }
-.diplome-box p { margin: 0; color: #e6d6c8; }
-.diplome-box .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
-.diplome-box input { font: 600 1rem var(--body); padding: 11px 13px; border-radius: 10px; border: 1px dashed var(--bulb); background: #0f080c; color: var(--cream); min-width: 0; width: 220px; }
-@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
-
-/* L'ouvreuse : elle suit la lecture et éclaire l'étape en cours avec sa lampe. */
-.ouvreuse { position: fixed; top: 0; left: calc(50% - 430px - 104px); z-index: 30; width: 50px; height: 86px; cursor: pointer; will-change: transform; }
-.o-haut { transform-origin: 24px 56px; }
-.o-jambe-g { transform-origin: 22px 58px; } .o-jambe-d { transform-origin: 27px 58px; }
-.ouvreuse.marche .o-haut { animation: dandine .3s ease-in-out infinite alternate; }
-.ouvreuse.marche .o-jambe-g { animation: pas .3s ease-in-out infinite alternate; }
-.ouvreuse.marche .o-jambe-d { animation: pas .3s ease-in-out infinite alternate-reverse; }
-.o-lampe { position: absolute; right: -1px; top: 37.5px; width: 3px; height: 5px; border-radius: 2px; background: #fff3cf; box-shadow: 0 0 10px 4px rgba(255,220,150,.75); }
-.o-bulle { position: absolute; left: 50%; bottom: calc(100% + 6px); padding: 3px 9px; border-radius: 8px; white-space: nowrap; background: var(--cream); color: var(--ink); font: 800 .72rem var(--body); opacity: 0; transform: translateX(-50%); pointer-events: none; }
-.ouvreuse.parle .o-bulle { animation: bulle 2.4s ease forwards; }
-.o-faisceau { position: fixed; left: 0; top: 0; z-index: 1; height: 150px; margin-top: -75px; pointer-events: none; transform-origin: 0 50%; opacity: 0; transition: opacity .4s ease; mix-blend-mode: screen;
-  background: linear-gradient(90deg, rgba(255,230,170,.32), rgba(255,230,170,.04)); clip-path: polygon(0 47%, 100% 0, 100% 100%, 0 53%); }
-.o-faisceau.on { opacity: 1; }
-@media (max-width: 1179px) { .ouvreuse, .o-faisceau { display: none; } }
-@media (prefers-reduced-motion: reduce) { .entracte.vue .vendeuse, .vendeuse svg *, .ouvreuse svg *, .pot.vide .p-seau { animation: none !important; } .vendeuse { display: none; } }
-</style>
-${feuilles("scene.css")}
-<style>
-@media (max-width: 520px) { .act > header { grid-template-columns: auto minmax(0, 1fr); } .composte { grid-column: 1 / -1; grid-row: 3; justify-self: start; margin-top: 8px; } .entracte { gap: 14px; } .entracte .titre { font-size: 2.1rem; } }
-@media (max-width: 520px) { .act { padding: 18px; } .act .num { width: 64px; height: 64px; font-size: 2.2rem; } .act h2 { font-size: 1.8rem; } body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); } .reel-btn small { max-width: 16ch; } }
-@media (prefers-reduced-motion: reduce) { body::after, .act .num, .act .num::before, .reel-menu, .choix span.focus::after, .cornet i, .sortie::after, .composte { animation: none !important; } }
-/* Doigt plutôt que souris : des cibles d'au moins 44 px (les points de la réclame gardent leur taille, seule la zone à toucher grandit). */
-@media (hover: none), (pointer: coarse) {
-  .composte { min-height: 44px; }
-  .faq details { padding: 3px 0; }
-  .faq summary, .manual summary { padding-block: 10px; }
-  .rb-gestes label { min-height: 44px; padding-block: 10px; }
-  .reel-menu a { padding: 12px; }
-  .r-dots { gap: 0; }
-  .r-dots button { box-sizing: border-box; width: 30px; height: 30px; padding: 10px; background-clip: content-box; }
-  .r-dots button.r-pause { min-height: 44px; padding: 0 14px; }
-}
-</style>
+${feuilles("polices.css", "guide.css", "apercu.css", "nuvio.css", "reglages.css", "guide-reclames.css", "scene.css", "guide-fin.css")}
 </head>
 <body>
 <div class="valance" aria-hidden="true"></div>
@@ -1102,9 +629,492 @@ ${CREDITS_HTML}
   </button>
 </div>
 
-${scripts("liens.js", "outils.js")}
+<script>const ORIG = ${JSON.stringify(origin)}, ORIGINE = ORIG;</script>
+${scripts("liens.js", "outils.js", "guide.js", "scene.js")}
+<script>${apercuDonnees(origin)}</script>
+${scripts("nuvio.js", "apercu.js", "reglages.js")}
 <script>
-// Onglets d'installation : un clic, ou les flèches (Début, Fin) quand le focus est sur un onglet.
+// Étape 8 : le lien d'affiches de cet appareil, avec ce qui a été choisi en salle 2 (« Tes affiches »).
+if (window.NV) document.getElementById("u-poster").textContent = NV.lienPerso();
+</script>
+${scripts("guide-fin.js")}
+</body>
+</html>`;
+}
+
+// Les styles et les scripts du guide, les mêmes pour tous : servis à part (statique.js), gardés en cache par le
+// navigateur. Dans la page, dans cet ordre : guide.css, apercu.css, nuvio.css, reglages.css, guide-reclames.css,
+// scene.css, guide-fin.css.
+export const GUIDE_CSS = `/* Le programme de la séance : une colonne de lecture, chaque étape est un « acte » numéroté. */
+:root {
+  --foyer-w: 1180px;
+  --velvet: #170c12; --velvet-2: #22121b; --seat: #3d2230; --cream: #f5ead8; --dim: #b9a59c;
+  --bulb: #ffcf6b; --red: #e5413a; --ink: #2a1a14; --green: #5fd39a;
+  --display: "Bebas Neue", Impact, "Arial Narrow", sans-serif;
+  --body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --type: "Courier Prime", "Courier New", ui-monospace, monospace;
+  --serif: "Instrument Serif", Georgia, serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { overflow-x: clip; }
+html, body { margin: 0; }
+body {
+  position: relative; color: var(--cream); font: 16px/1.6 var(--body);
+  background: radial-gradient(ellipse 80% 40% at 50% -5%, rgba(229,65,58,.22), transparent 70%), repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 2px, transparent 2px 46px), var(--velvet);
+  padding: max(104px, calc(env(safe-area-inset-top) + 92px)) max(16px, env(safe-area-inset-right)) calc(48px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+body::after { content: ""; position: fixed; inset: -50%; pointer-events: none; z-index: 50; opacity: .07; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain 1.2s steps(6) infinite; }
+@keyframes grain { 0%{transform:translate(0,0)} 25%{transform:translate(-3%,2%)} 50%{transform:translate(2%,-3%)} 75%{transform:translate(3%,3%)} 100%{transform:translate(0,0)} }
+.valance { position: absolute; inset: 0 0 auto; height: 74px; pointer-events: none;
+  background: radial-gradient(ellipse 34px 30px at 34px 0, #6d1420 0 28px, transparent 29px) 0 46px / 68px 32px repeat-x, repeating-linear-gradient(90deg, rgba(0,0,0,.28) 0 3px, transparent 3px 22px, rgba(255,255,255,.04) 22px 24px, transparent 24px 34px), linear-gradient(#4a0c15, #7a1824 70%, #5a0f1a);
+  -webkit-mask: linear-gradient(#000, #000) top / 100% 48px no-repeat, radial-gradient(ellipse 34px 30px at 34px 0, #000 28px, transparent 29px) 0 46px / 68px 32px repeat-x;
+          mask: linear-gradient(#000, #000) top / 100% 48px no-repeat, radial-gradient(ellipse 34px 30px at 34px 0, #000 28px, transparent 29px) 0 46px / 68px 32px repeat-x;
+  filter: drop-shadow(0 8px 10px rgba(0,0,0,.5)); }
+.valance::after { content: ""; position: absolute; left: 0; right: 0; top: 40px; height: 6px; background: repeating-linear-gradient(90deg, #d9a441 0 6px, #8a5f1a 6px 9px); }
+a { color: var(--bulb); font-weight: 700; text-underline-offset: 3px; }
+:focus-visible { outline: 3px solid var(--bulb); outline-offset: 3px; border-radius: 6px; }
+
+.wrap { max-width: 860px; margin: 0 auto; display: grid; gap: 26px; }
+.hero { position: relative; text-align: center; display: grid; gap: 14px; justify-items: center; }
+.hero .marquee { margin-bottom: 4px; }
+.hero h1 { font-size: clamp(2.6rem, 9vw, 5rem); text-wrap: balance; }
+.hero .tagline { margin: 0; font: italic 400 1.45rem/1.25 var(--serif); color: var(--bulb); }
+.hero p { margin: 0; max-width: 60ch; color: var(--dim); }
+.facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.facts span { font: 700 .82rem var(--body); padding: 7px 12px; border-radius: 99px; border: 1px solid var(--seat); background: var(--velvet-2); color: var(--cream); }
+
+.toc { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 18px; background: var(--velvet-2); border: 1px solid var(--seat); border-radius: 16px; padding: 18px 20px; counter-reset: toc; }
+.toc a { color: var(--cream); font-weight: 600; text-decoration: none; display: flex; gap: 10px; align-items: baseline; padding: 3px 0; }
+.toc a::before { counter-increment: toc; content: counter(toc, decimal-leading-zero); font: 400 1.1rem var(--display); color: var(--bulb); min-width: 2ch; }
+.toc a:hover { color: var(--bulb); }
+
+.act { position: relative; background: var(--velvet-2); border: 1px solid var(--seat); border-radius: 18px; padding: 24px; display: grid; gap: 14px; scroll-margin-top: 20px; overflow: hidden; }
+.act::before { content: ""; position: absolute; inset: 0 0 auto; height: 2px; background: linear-gradient(90deg, transparent, rgba(255,207,107,.5), transparent); }
+.act > header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 16px; align-items: end; }
+/* L'étiquette et le titre restent toujours dans la colonne du milieu, l'un sous l'autre. */
+.act > header .label { grid-column: 2; grid-row: 1; } .act > header h2 { grid-column: 2; grid-row: 2; }
+.act .num { grid-row: span 2; position: relative; isolation: isolate; width: 84px; height: 84px; display: grid; place-items: center; border-radius: 50%;
+  font: 400 2.9rem/1 var(--display); padding-top: 4px; color: var(--bulb); text-shadow: 0 0 20px rgba(255,207,107,.35);
+  background:
+    radial-gradient(circle, transparent 0 57%, rgba(255,207,107,.55) 58% 60%, transparent 61% 68%, rgba(255,207,107,.22) 69% 70%, transparent 71%),
+    linear-gradient(rgba(255,207,107,.16), rgba(255,207,107,.16)) center / 1px 100% no-repeat,
+    linear-gradient(rgba(255,207,107,.16), rgba(255,207,107,.16)) center / 100% 1px no-repeat,
+    var(--velvet); }
+/* Amorce de film : le secteur balaie le cercle une fois, à l'arrivée sur l'étape. */
+.act .num::before { content: ""; position: absolute; inset: 0; border-radius: 50%; z-index: -1; background: conic-gradient(rgba(255,207,107,.32) var(--sweep), transparent 0); }
+.act.rolling .num::before { animation: leader .9s linear; }
+.act.rolling .num { animation: leader-num .9s steps(1); }
+@keyframes leader { from { --sweep: 0deg; } to { --sweep: 360deg; } }
+@keyframes leader-num { 0% { opacity: .35; } 100% { opacity: 1; } }
+.act .label { font: 700 .74rem var(--type); letter-spacing: .14em; text-transform: uppercase; color: #fff; background: var(--red); padding: 3px 8px 2px; border-radius: 3px; justify-self: start; transform: rotate(-2deg); }
+.act h2 { margin: 0; font: 400 2.2rem/1 var(--display); letter-spacing: .03em; text-wrap: balance; }
+.act .lead { margin: 0; font: 400 1.15rem/1.45 var(--serif); color: #d6c3b8; }
+.act p { margin: 0; }
+.sub-h { margin: 6px 0 0; font: 800 .8rem var(--body); letter-spacing: .18em; text-transform: uppercase; color: var(--bulb); }
+.act ol, .act ul { margin: 0; padding-left: 1.3em; display: grid; gap: 7px; }
+.act li::marker { color: var(--bulb); font-weight: 800; }
+.path { font-weight: 800; color: #fff; background: rgba(255,255,255,.06); border-radius: 5px; padding: 0 5px; }
+.opt { font: 800 .66rem var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--ink); background: var(--bulb); border-radius: 4px; padding: 2px 6px; vertical-align: 4px; }
+
+/* Choix de l'appareil : une carte par appareil, avec son icône. */
+.appareils { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; }
+.appareils button { position: relative; display: grid; justify-items: center; gap: 2px; padding: 14px 8px 12px; border-radius: 12px; cursor: pointer; text-align: center;
+  border: 1px solid var(--seat); background: var(--velvet); color: var(--cream); transition: border-color .2s ease, background .2s ease, transform .2s ease; }
+.appareils button:hover { border-color: rgba(255,207,107,.5); transform: translateY(-2px); }
+.appareils svg { width: 30px; height: 30px; margin-bottom: 4px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--bulb); }
+.appareils b { font: 800 .9rem/1.2 var(--body); }
+.appareils small { font-size: .74rem; color: var(--dim); }
+.appareils .claude-dispo { position: absolute; top: 6px; right: 6px; font: normal 800 .58rem var(--body); letter-spacing: .04em; padding: 2px 5px; border-radius: 99px; background: rgba(255,207,107,.14); color: var(--bulb); }
+.appareils button[aria-selected="true"] { background: var(--cream); border-color: var(--cream); color: var(--ink); box-shadow: 0 0 0 3px rgba(255,207,107,.35); }
+.appareils button[aria-selected="true"] svg { color: var(--red); }
+.appareils button[aria-selected="true"] small { color: #7a5a4c; }
+.appareils button[aria-selected="true"] .claude-dispo { background: var(--ink); color: var(--cream); }
+/* À la main ou avec Claude */
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 5px; border-radius: 12px; background: rgba(0,0,0,.28); border: 1px solid var(--seat); }
+.modes button { display: grid; gap: 1px; padding: 9px 10px; border: 0; border-radius: 9px; background: transparent; color: var(--dim); cursor: pointer; text-align: center; }
+.modes button b { font: 800 .92rem var(--body); }
+.modes button small { font-size: .74rem; }
+.modes button[aria-pressed="true"] { background: var(--bulb); color: var(--ink); }
+.mode-pane { display: grid; gap: 10px; }
+@media (max-width: 520px) { .appareils { grid-template-columns: repeat(2, 1fr); } }
+.panel { display: grid; gap: 10px; }
+
+.addons { display: grid; gap: 12px; counter-reset: ad; }
+.addon { border: 1px solid var(--seat); border-radius: 14px; background: var(--velvet); padding: 16px 18px; display: grid; gap: 10px; }
+.addon > header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.addon > header::before { counter-increment: ad; content: counter(ad); font: 400 1.6rem/1 var(--display); color: var(--ink); background: var(--bulb); width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex: none; padding-top: 3px; }
+.addon h3 { margin: 0; font: 800 1.12rem var(--body); }
+.addon .role { font: 700 .72rem var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.addon .role.need { color: var(--bulb); }
+
+.copy { display: grid; grid-template-columns: minmax(0, 1fr) auto; background: #0f080c; border: 1px solid var(--seat); border-radius: 10px; overflow: hidden; }
+.copy code { font: 400 .82rem/1.45 var(--type); padding: 11px 13px; overflow-x: auto; white-space: nowrap; min-width: 0; user-select: all; color: #f0e2cf; }
+.copy button { font: 800 .85rem var(--body); border: 0; background: var(--cream); color: var(--ink); padding: 0 16px; cursor: pointer; min-width: 92px; }
+.copy button:hover { background: var(--bulb); }
+.copy.long code { white-space: normal; word-break: break-all; max-height: 7.5em; overflow-y: auto; }
+/* Blocs de commandes : une commande par ligne. */
+.copy.long code.lignes { white-space: pre-wrap; max-height: none; }
+/* Du PC au téléphone : un QR code à côté de chaque lien, et le lien reçu sur le téléphone. */
+.copy .qr-btn { display: none; min-width: 0; padding: 0 12px; background: #2a1520; color: var(--bulb); border-left: 1px solid var(--seat); }
+.copy .qr-btn:hover { background: #3a1d2b; }
+.copy .qr-btn svg { width: 20px; height: 20px; display: block; }
+.contenu { justify-self: start; font: 800 .86rem var(--body); padding: 8px 14px; border-radius: 99px; border: 1px solid rgba(255,207,107,.45); background: transparent; color: var(--bulb); cursor: pointer; }
+.contenu:hover { background: rgba(255,207,107,.1); }
+/* Copie bloquée par le navigateur : le contenu s'affiche, déjà sélectionné, pour le copier à la main. */
+.contenu-txt { width: 100%; height: 9em; resize: vertical; padding: 11px 13px; border-radius: 10px; border: 1px solid var(--seat); background: #0f080c; color: #f0e2cf; font: 400 .78rem/1.45 var(--type); }
+.vers-tel { display: none; font: 800 .86rem var(--body); padding: 8px 14px; border-radius: 99px; border: 1px solid rgba(255,207,107,.45); background: transparent; color: var(--bulb); cursor: pointer; }
+@media (hover: hover) and (pointer: fine) and (min-width: 700px) {
+  .copy { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .copy .qr-btn { display: block; }
+  .vers-tel { display: inline-flex; align-items: center; gap: 8px; }
+}
+.qr-modal { position: fixed; inset: 0; z-index: 88; display: grid; place-items: center; padding: 16px; background: rgba(5,3,4,.84); animation: rise .25s ease both; }
+.qr-modal .boite { position: relative; display: grid; gap: 12px; justify-items: center; text-align: center; width: min(420px, 100%); padding: 24px; border-radius: 18px; background: var(--velvet-2); border: 1px solid rgba(255,207,107,.35); box-shadow: 0 30px 80px rgba(0,0,0,.7); }
+.qr-modal h2 { margin: 0; font: 400 1.8rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
+.qr-modal .code-qr { width: 270px; height: 270px; padding: 12px; border-radius: 12px; background: #fff; }
+.qr-modal .code-qr svg { width: 100%; height: 100%; display: block; }
+.qr-modal p { margin: 0; color: #e6d6c8; font-size: .95rem; }
+.qr-modal small { color: var(--dim); max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 .78rem var(--type); }
+.qr-modal .fermer { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%; border: 0; background: rgba(255,255,255,.08); color: var(--cream); font: 800 1.1rem/1 var(--body); cursor: pointer; }
+
+/* Le choix de l’appareil : des cartes par famille, repliées sur l’appareil choisi et sa configuration. */
+.choix-appareil { display: grid; gap: 10px; }
+.ca-titre { margin: 0; font: 700 .72rem var(--body); letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
+.ca-liste { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ca-famille { grid-column: 1 / -1; margin: 8px 0 0; font: 800 .74rem var(--body); letter-spacing: .16em; text-transform: uppercase; color: var(--bulb); }
+.ca-famille:first-child { margin-top: 0; }
+.ca-carte { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px;
+  border: 1px solid var(--seat); background: var(--velvet); color: var(--cream); cursor: pointer; transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease; }
+.ca-carte:hover { border-color: rgba(255,207,107,.5); }
+.ca-carte input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.ca-carte:focus-within { outline: 2px solid var(--bulb); outline-offset: 2px; }
+.ca-carte svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--bulb); }
+.ca-carte svg circle { fill: currentColor; stroke: none; }
+.ca-nom { display: grid; gap: 2px; font: 800 .95rem/1.25 var(--body); }
+.ca-nom small { font: 400 .8rem/1.35 var(--body); color: var(--dim); }
+.ca-q { font: normal 700 .78rem var(--type); color: var(--bulb); padding: 3px 7px; border-radius: 6px; border: 1px solid rgba(255,207,107,.35); white-space: nowrap; }
+.ca-carte.on { background: var(--cream); border-color: var(--cream); color: var(--ink); box-shadow: 0 0 0 3px rgba(255,207,107,.35); }
+.ca-carte.on small { color: #6b4c3e; }
+.ca-carte.on svg { color: var(--red); }
+.ca-carte.on .ca-q { color: var(--ink); border-color: rgba(42,26,20,.3); }
+.ca-carte[hidden], .ca-famille[hidden], .ma-conf[hidden] { display: none; }
+.choix-appareil.replie .ca-liste { grid-template-columns: minmax(0, 1fr); }
+.choix-appareil.replie .ca-carte.on { animation: ca-pose .4s cubic-bezier(.16,1,.3,1); }
+.choix-appareil.replie .ca-aide { display: none; }
+@keyframes ca-pose { from { transform: scale(.97); box-shadow: 0 0 0 10px rgba(255,207,107,0); } }
+.ma-conf { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px 14px; border-radius: 12px; border: 1px dashed rgba(255,207,107,.45); animation: rise .3s ease both; }
+.ma-conf dl { margin: 0; display: grid; gap: 8px; }
+.ma-conf dl div { display: grid; grid-template-columns: 8.5em minmax(0, 1fr); gap: 10px; }
+.ma-conf dt { font: 700 .7rem var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); padding-top: 3px; }
+.ma-conf dd { margin: 0; color: var(--cream); }
+.ca-changer { font: 800 .85rem var(--body); padding: 8px 14px; border-radius: 99px; border: 1px solid rgba(255,207,107,.45); background: transparent; color: var(--bulb); cursor: pointer; white-space: nowrap; }
+.ca-changer:hover { background: rgba(255,207,107,.1); }
+@media (max-width: 620px) {
+  .ca-liste { grid-template-columns: minmax(0, 1fr); }
+  .ma-conf { grid-template-columns: minmax(0, 1fr); }
+  .ma-conf dl div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .ca-changer { justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) { .choix-appareil.replie .ca-carte.on, .ma-conf { animation: none; } }
+.tips { display: grid; gap: 8px; }
+.first-run { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px 22px; align-items: center; padding: 18px 20px; border-radius: 14px;
+  background: linear-gradient(135deg, rgba(229,65,58,.14), rgba(229,65,58,.04)); border: 1px solid rgba(229,65,58,.4); color: #eadacd; }
+.first-run p { margin: 0; line-height: 1.55; }
+.first-run .pick { font-weight: 800; color: var(--ink); background: var(--bulb); padding: 1px 8px; border-radius: 5px; white-space: nowrap; }
+.first-run small { grid-column: 1 / -1; display: block; padding-top: 12px; border-top: 1px dashed rgba(255,207,107,.25); color: var(--dim); font-size: .88rem; line-height: 1.6; }
+/* La boîte de dialogue de Nuvio, en miniature : « Avancé » a le focus de la télécommande. */
+.choix { display: grid; gap: 8px; padding: 12px; border-radius: 12px; background: #0f0b14; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); min-width: 170px; }
+.choix span { display: block; padding: 9px 14px; border-radius: 9px; font: 700 .9rem var(--body); color: #8f88a2; background: rgba(255,255,255,.04); }
+.choix span.focus { position: relative; color: #111; background: #fff; box-shadow: 0 0 0 3px var(--bulb), 0 0 6px rgba(255,207,107,.2); }
+.choix span.focus::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; box-shadow: 0 0 22px rgba(255,207,107,.45); animation: halo 2.4s ease-in-out infinite; }
+.choix small { border: 0; padding: 0; grid-column: auto; font: 600 .7rem var(--body); color: #6f6884; text-align: center; }
+@keyframes halo { 50% { opacity: 0; } }
+@media (max-width: 600px) { .first-run { grid-template-columns: 1fr; } .choix { justify-self: start; } }
+.compat-box { border: 1px solid var(--bulb); border-radius: 14px; padding: 16px 18px; display: grid; gap: 12px; background: linear-gradient(180deg, rgba(255,207,107,.08), rgba(255,207,107,.02)); scroll-margin-top: 20px; }
+.compat-box h3 { margin: 0; font: 400 1.5rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
+.compat-box p { margin: 0; color: #e6d6c8; }
+.tag-adapt { font: 800 .66rem var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); background: var(--bulb); border-radius: 4px; padding: 2px 6px; white-space: nowrap; }
+.tips li { color: #e6d6c8; }
+.code { justify-self: start; display: grid; gap: 2px; padding: 12px 22px 10px; border-radius: 12px; background: var(--cream); color: var(--ink); box-shadow: 0 0 0 3px var(--bulb), 0 10px 30px rgba(0,0,0,.4); }
+.code span { font: 700 .7rem var(--body); letter-spacing: .2em; text-transform: uppercase; color: #7a5a4c; }
+.code b { font: 400 3rem/1 var(--display); letter-spacing: .12em; }
+.small { font-size: .88rem; color: var(--dim); }
+.ou-installer { margin: 0; font: 800 1.05rem var(--body); color: var(--cream); }
+.ou-installer small { display: block; font: 400 .88rem var(--body); color: var(--dim); }
+.panel ul { margin-top: 6px; }
+.manual summary { cursor: pointer; color: var(--bulb); font-weight: 700; }
+.manual p { margin: 8px 0 0; color: #d9c8be; }
+.note { border-left: 3px solid var(--bulb); background: rgba(255,207,107,.07); padding: 10px 14px; border-radius: 0 10px 10px 0; color: #e6d6c8; font-size: .95rem; }
+.note.warn { border-color: var(--red); background: rgba(229,65,58,.09); }
+.keyfield { display: grid; gap: 6px; }
+.keyfield span { font: 700 .72rem var(--body); letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
+.keyfield input { font: 600 1rem var(--type); padding: 11px 13px; border-radius: 10px; border: 1px dashed var(--bulb); background: #0f080c; color: var(--cream); }
+.keyfield input, .keyfield select { min-width: 0; width: 100%; }
+.keyfield select { font: 700 1rem var(--body); padding: 11px 13px; border-radius: 10px; border: 1px solid var(--bulb); background: #0f080c; color: var(--cream); cursor: pointer; }
+/* Le trousseau (étape 5) : les clés tapées une fois, reprises partout. */
+.trousseau { display: grid; gap: 10px; padding: 16px 18px; border-radius: 14px; border: 1px solid rgba(255,207,107,.35); background: linear-gradient(180deg, rgba(255,207,107,.08), rgba(255,207,107,.02)); }
+.trousseau p { margin: 0; }
+.trousseau .vers-tel { justify-self: start; }
+.trousseau-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }.etat-cles { min-height: 1.3em; font-weight: 800; font-size: .9rem; color: var(--bulb); }
+.etat-cles:empty { display: none; }
+.etat-cles.erreur { color: #ffe1d8; }
+/* Personnaliser sans quitter le guide : la salle 2 par-dessus, dans un cadre. */
+.perso-actions { margin: 0; }
+.perso-btn { font: 800 .92rem var(--body); padding: 10px 18px; border-radius: 99px; border: 1px solid var(--bulb); background: rgba(255,207,107,.1); color: var(--bulb); cursor: pointer; transition: background-color .2s ease; }
+.perso-btn:hover { background: rgba(255,207,107,.2); }
+.perso-lien { font: inherit; font-weight: 800; padding: 0; border: 0; background: none; color: var(--bulb); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.salle2 { position: fixed; inset: 0; z-index: 92; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--velvet); animation: rise .3s ease both; }
+.s2-barre { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap;
+  padding: max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left)); background: var(--velvet-2); border-bottom: 1px solid rgba(255,207,107,.35); }
+.s2-barre p { margin: 0; display: grid; gap: 2px; min-width: 0; }
+.s2-barre b { font: 400 1.5rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
+.s2-barre span { font-size: .86rem; color: var(--dim); }
+.s2-fini { font: 800 .95rem var(--body); padding: 10px 18px; border-radius: 99px; border: 0; background: var(--bulb); color: var(--ink); cursor: pointer; }
+.salle2 iframe { width: 100%; height: 100%; border: 0; background: var(--velvet); }
+html.s2-ouverte, html.s2-ouverte body { overflow: hidden; }
+@media (max-width: 560px) { .s2-barre { flex-wrap: nowrap; } .s2-barre b { font-size: 1.25rem; } .s2-barre span { display: none; } .s2-fini { padding: 9px 14px; font-size: .86rem; white-space: nowrap; } }
+@media (prefers-reduced-motion: reduce) { .salle2 { animation: none; } }
+/* Installer d'un geste (nuvio://) et consignes selon l'appareil */
+.installer { justify-self: start; font: 800 .88rem var(--body); color: var(--bulb); text-decoration: underline; text-underline-offset: 3px; }
+.installer[hidden] { display: none; }
+.consigne { margin: 0; padding: 10px 14px; border-radius: 10px; background: rgba(255,255,255,.04); border: 1px dashed var(--seat); color: #e6d6c8; font-size: .93rem; }
+.consigne.pret { border-style: solid; border-color: rgba(255,207,107,.45); background: rgba(255,207,107,.07); }
+.cle-ad { display: grid; gap: 6px; }
+.cle-ad p { margin: 0; }
+.copy[hidden], .cle-ad[hidden] { display: none; }
+
+.faq details { border-bottom: 1px solid var(--seat); padding: 12px 0; }
+.faq summary { cursor: pointer; font-weight: 800; }
+.faq details p { margin: 8px 0 0; color: #d9c8be; }
+/* Le pupitre de la cabine (étape 12) : on allume le voyant de l'endroit où ça coince, les autres pannes s'effacent. */
+.pupitre { display: grid; gap: 12px; padding: 18px 20px 16px; border-radius: 14px;
+  background: radial-gradient(circle at 10px 10px, #7a654f 0 2.5px, transparent 3px), radial-gradient(circle at calc(100% - 10px) 10px, #7a654f 0 2.5px, transparent 3px),
+    radial-gradient(circle at 10px calc(100% - 10px), #7a654f 0 2.5px, transparent 3px), radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #7a654f 0 2.5px, transparent 3px), linear-gradient(#2b2226, #1b1418);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), inset 0 0 0 1px rgba(0,0,0,.5), 0 10px 26px rgba(0,0,0,.35); }
+/* L'étiquette de la plaque : du ruban à lettres en relief, collé un peu de travers. */
+.pu-plaque { justify-self: start; margin: 0; padding: 4px 10px 3px; border-radius: 3px; transform: rotate(-1deg); font: 700 .74rem var(--type); letter-spacing: .18em; text-transform: uppercase;
+  color: #f4f0e6; background: #0d0a0b; text-shadow: 0 -1px 0 #000; box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 1px 0 rgba(0,0,0,.6); }
+.pu-voyants { display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr)); gap: 10px; }
+.voyant { display: grid; justify-items: center; gap: 4px; padding: 14px 8px 11px; border-radius: 12px; border: 1px solid #0c090a; cursor: pointer; text-align: center; color: var(--cream);
+  background: linear-gradient(#30272b, #221a1e); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 3px 0 #0c090a; transition: transform .1s ease, box-shadow .1s ease, border-color .2s ease; }
+.voyant:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 1px 0 #0c090a; }
+.voyant b { font: 800 .9rem/1.2 var(--body); }
+.voyant small { font: 400 .74rem var(--type); color: var(--dim); }
+.voyant .lampe { width: 24px; height: 24px; margin-bottom: 4px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #6e3431, #2e1010 70%);
+  box-shadow: 0 0 0 3px #8a6a3a, 0 0 0 4px #000, inset 0 -3px 6px rgba(0,0,0,.5); }
+.voyant[aria-pressed="true"] { border-color: rgba(255,90,74,.55); }
+.voyant[aria-pressed="true"] .lampe { background: radial-gradient(circle at 35% 30%, #ffe1d8, #ff5a4a 45%, #b81f18 78%);
+  box-shadow: 0 0 0 3px #c99a4a, 0 0 0 4px #000, 0 0 18px 5px rgba(255,80,60,.55); animation: allume .6s; }
+/* L'ampoule grésille avant de tenir. */
+@keyframes allume { 0%, 18%, 36% { opacity: .35; } 10%, 26%, 100% { opacity: 1; } }
+.pu-etat { margin: 0; font-size: .9rem; color: var(--dim); }
+.faq details.revient { animation: rise .35s ease both; }
+/* Le grand rembobinage : chaque geste coché remet de la pellicule sur la bobine. */
+.rembobinage { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px 20px; align-items: start; margin-top: 6px; padding: 18px 20px; border-radius: 14px; border: 1px dashed rgba(255,207,107,.4); background: rgba(255,207,107,.04); }
+.rembobinage h3 { margin: 0 0 6px; font: 400 1.6rem/1 var(--display); letter-spacing: .03em; color: var(--bulb); }
+.rb-texte { display: grid; gap: 8px; }
+.rb-bobine { width: 78px; height: 78px; }
+.rb-bobine * { transform-box: view-box; }
+.rb-film { fill: #3a2418; stroke: #6b4a32; stroke-width: 1; transition: r .6s cubic-bezier(.16,1,.3,1); }
+.rb-tourne { fill: none; stroke: var(--bulb); stroke-width: 2.5; stroke-linecap: round; transform-origin: 40px 40px; transition: transform .7s cubic-bezier(.16,1,.3,1); }
+.rb-tourne circle:last-child { fill: var(--velvet); }
+.act .rb-gestes { list-style: none; padding: 0; gap: 2px; }
+.rb-gestes label { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; align-items: start; padding: 5px 0; cursor: pointer; color: #e6d6c8; }
+.rb-gestes input { appearance: none; -webkit-appearance: none; width: 20px; height: 20px; margin: 3px 0 0; display: grid; place-items: center; border-radius: 5px; border: 2px solid var(--bulb); background: transparent; cursor: pointer; }
+.rb-gestes input::after { content: "✓"; font: 800 .8rem/1 var(--body); color: #0e2a1c; opacity: 0; }
+.rb-gestes input:checked { background: var(--green); border-color: var(--green); }
+.rb-gestes input:checked::after { opacity: 1; }
+.rb-gestes input:checked + span { color: var(--dim); text-decoration: line-through; text-decoration-color: rgba(95,211,154,.6); }
+.rb-fin { font: italic 400 1.3rem/1.3 var(--serif); color: var(--green); animation: rise .4s ease both; }
+@media (max-width: 520px) { .pupitre, .rembobinage { padding: 16px; } .rembobinage { grid-template-columns: minmax(0, 1fr); } .rb-bobine { width: 60px; height: 60px; } }
+@media (prefers-reduced-motion: reduce) { .voyant[aria-pressed="true"] .lampe, .faq details.revient, .rb-fin { animation: none; } .rb-film, .rb-tourne { transition: none; } }
+.cta { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { display: inline-block; font: 800 .95rem var(--body); text-decoration: none; padding: 12px 18px; border-radius: 10px; background: var(--bulb); color: var(--ink); }
+.btn.ghost { background: transparent; color: var(--cream); border: 1px solid var(--seat); }
+footer { text-align: center; color: var(--dim); font: italic 400 1.05rem var(--serif); }
+/* La bobine : avance au fil de la lecture, et sert de sommaire. */
+.reel-nav { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 40;
+  display: grid; justify-items: end; gap: 10px; transition: opacity .3s ease, transform .3s ease; }
+.reel-nav.away { opacity: 0; transform: translateY(14px); pointer-events: none; }
+.reel-btn { display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; border-radius: 99px; cursor: pointer; text-align: left;
+  border: 1px solid rgba(255,207,107,.3); background: rgba(28,14,21,.9); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  color: var(--cream); font: 700 .85rem/1.2 var(--body); box-shadow: 0 12px 30px rgba(0,0,0,.5); }
+.reel-btn:hover { border-color: var(--bulb); }
+.reel-btn svg { width: 42px; height: 42px; flex: none; }
+.reel-btn .disc { fill: #4a2a36; stroke: var(--bulb); stroke-width: 1.5; }
+.reel-btn .hole { fill: var(--velvet); }
+.reel-btn .hub { fill: var(--bulb); }
+.reel-btn .spin { transform-origin: 21px 21px; }
+.reel-btn b { font: 400 1.4rem/1 var(--display); color: var(--bulb); letter-spacing: .04em; }
+.reel-btn small { display: block; color: var(--dim); font-weight: 600; max-width: 24ch; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.reel-menu { display: grid; gap: 2px; padding: 8px; min-width: 260px; max-height: min(62vh, 520px); overflow: auto; border-radius: 16px;
+  border: 1px solid rgba(255,207,107,.25); background: rgba(28,14,21,.96); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 20px 50px rgba(0,0,0,.6); transform-origin: 100% 100%; animation: unspool .22s cubic-bezier(.16,1,.3,1); counter-reset: rm; }
+@keyframes unspool { from { opacity: 0; transform: scale(.9) translateY(8px); } }
+.reel-menu a { display: flex; gap: 10px; align-items: baseline; padding: 8px 12px; border-radius: 10px; color: var(--cream); text-decoration: none; font-weight: 600; }
+.reel-menu a::before { counter-increment: rm; content: counter(rm, decimal-leading-zero); font: 400 1.05rem var(--display); color: var(--bulb); min-width: 2ch; }
+.reel-menu a:hover { background: rgba(255,255,255,.06); }
+.reel-menu a.on { background: var(--bulb); color: var(--ink); }
+.reel-menu a.on::before { color: var(--ink); }
+.copy button { transition: background .15s ease, transform .15s ease; }
+.copy button:active { transform: scale(.94); }
+/* Étape faite : un talon de billet qu'on composte. */
+.composte { grid-column: 3; grid-row: 1 / span 2; align-self: center; position: relative; padding: 9px 14px 9px 22px; border: 0; border-radius: 8px; cursor: pointer;
+  font: 800 .82rem var(--body); color: var(--dim); background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--seat); white-space: nowrap; transition: background .2s ease, color .2s ease; }
+.composte::before { content: ""; position: absolute; left: 8px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px currentColor; }
+.composte:hover { color: var(--cream); }
+.composte[aria-pressed="true"] { color: #0e2a1c; background: var(--green); box-shadow: none; animation: punch .35s cubic-bezier(.16,1,.3,1); }
+.composte[aria-pressed="true"]::before { background: var(--velvet-2); box-shadow: none; }
+@keyframes punch { 40% { transform: scale(.9) rotate(-3deg); } }
+.act.fait .num { color: var(--green); text-shadow: 0 0 20px rgba(95,211,154,.35); }
+.toc a.fait::after, .reel-menu a.fait::after { content: "✓"; margin-left: auto; color: var(--green); font-weight: 800; }
+.reel-menu a.on.fait::after { color: var(--ink); }
+.reel-btn .ring { fill: none; stroke: var(--green); stroke-width: 2.2; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 21px 21px; transition: stroke-dasharray .5s ease; }
+.reel-menu .home { border-bottom: 1px dashed rgba(255,207,107,.25); border-radius: 10px 10px 0 0; margin-bottom: 4px; color: var(--bulb); }
+.reel-menu .home::before { content: "↩"; counter-increment: none; }
+.reel-menu .astuce { margin: 6px 12px 4px; font-size: .78rem; color: var(--dim); }
+kbd { font: 700 .75rem var(--type); padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,.08); box-shadow: inset 0 -1px 0 rgba(0,0,0,.4); color: var(--cream); }
+
+/* Entracte, à mi-parcours */
+.entracte { display: flex; align-items: center; gap: 22px; padding: 22px 8px; border-top: 2px dashed rgba(255,207,107,.25); border-bottom: 2px dashed rgba(255,207,107,.25); }
+.entracte p { margin: 0; color: var(--dim); max-width: 46ch; }
+.entracte .titre { font: italic 400 2.6rem/1 var(--serif); color: var(--bulb); text-shadow: 0 0 18px rgba(255,207,107,.45); margin-bottom: 4px; }
+.cornet { position: relative; flex: none; width: 54px; height: 64px; margin-top: 14px; }
+.cornet::before { content: ""; position: absolute; inset: 10px 0 0; background: repeating-linear-gradient(90deg, #e5413a 0 9px, #f5ead8 9px 18px); clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%); border-radius: 3px; }
+.cornet::after { content: ""; position: absolute; left: -2px; right: -2px; top: -2px; height: 22px;
+  background: radial-gradient(circle at 15% 70%, #fff6e2 0 7px, transparent 7.5px), radial-gradient(circle at 40% 40%, #ffeec6 0 8px, transparent 8.5px), radial-gradient(circle at 65% 65%, #fff8ea 0 7px, transparent 7.5px), radial-gradient(circle at 86% 45%, #ffe7b0 0 7px, transparent 7.5px); }
+.cornet i { position: absolute; left: 50%; top: 0; width: 13px; height: 11px; z-index: 1; animation: saute 2.6s cubic-bezier(.3,.6,.4,1) infinite;
+  background: radial-gradient(circle at 30% 38%, #fffaf0 0 3px, transparent 3.6px), radial-gradient(circle at 68% 32%, #fff3dc 0 3.4px, transparent 4px), radial-gradient(circle at 52% 70%, #ffe8b4 0 3.8px, transparent 4.3px); }
+.cornet i:nth-child(2) { animation-delay: .9s; --dx: -22px; }
+.cornet i:nth-child(3) { animation-delay: 1.7s; --dx: 18px; }
+@keyframes saute { 0%, 55% { transform: translate(-50%, 6px) scale(.6); opacity: 0; } 60% { opacity: 1; } 78% { transform: translate(calc(-50% + var(--dx, 6px) * .6), -26px) rotate(160deg); } 100% { transform: translate(calc(-50% + var(--dx, 6px)), 4px) rotate(320deg); opacity: 0; } }
+
+/* Le panneau de sortie de secours : direction la salle 2 (ta programmation) */
+.sortie-wrap { display: flex; justify-content: center; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+.sortie { display: inline-flex; align-items: center; gap: 12px; padding: 10px 18px 10px 12px; border-radius: 8px; text-decoration: none; color: #eafff2;
+  background: linear-gradient(#1f9d5c, #13804a); position: relative; box-shadow: 0 0 0 3px #0c3d25, 0 0 14px rgba(60,220,140,.25), inset 0 1px 0 rgba(255,255,255,.25); }
+.sortie::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; box-shadow: 0 0 26px rgba(60,220,140,.45); animation: halo 4s ease-in-out infinite; }
+.sortie svg { width: 30px; height: 30px; flex: none; }
+.sortie b { display: block; font: 400 1.6rem/1 var(--display); letter-spacing: .12em; }
+.sortie span { display: block; font: 700 .8rem var(--body); opacity: .9; }
+.sortie:hover { box-shadow: 0 0 0 3px #0c3d25, 0 0 40px rgba(60,220,140,.7), inset 0 1px 0 rgba(255,255,255,.25); }
+
+/* Le raccourci vers la salle 2, pour qui a déjà Nuvio */
+.raccourci { display: inline-block; font: 800 .92rem var(--body); text-decoration: none; color: var(--ink); background: var(--bulb); padding: 9px 16px; border-radius: 99px; box-shadow: 0 0 22px rgba(255,207,107,.35); }
+.raccourci:hover { background: #fff1c9; }
+`;
+
+export const GUIDE_RECLAMES_CSS = `/* Réclames d'avant-séance : de fausses pubs d'époque pour les fonctions du site. */
+.reclames { position: relative; display: grid; }
+.reclame { grid-area: 1 / 1; position: relative; display: grid; gap: 8px; justify-items: start; padding: 26px 30px 24px; border-radius: 6px; color: #2a1a14; overflow: hidden;
+  background: radial-gradient(circle, rgba(42,26,20,.09) 1px, transparent 1.5px) 0 0 / 6px 6px, linear-gradient(160deg, #f6ead2, #ead8b6);
+  box-shadow: inset 0 0 0 6px #ead8b6, inset 0 0 0 8px #2a1a14, 0 18px 40px rgba(0,0,0,.45);
+  opacity: 0; visibility: hidden; transform: scale(.98); transition: opacity .5s ease, transform .5s ease, visibility .5s; }
+.reclame.on { opacity: 1; visibility: visible; transform: none; }
+.reclame .r-sur { margin: 0; font: 800 .74rem var(--body); letter-spacing: .22em; text-transform: uppercase; color: #8f2420; }
+.reclame h3 { margin: 0; font: italic 400 clamp(2.2rem, 6vw, 3.2rem)/1 var(--serif); }
+.reclame .r-slogan { margin: 0; max-width: 46ch; font-size: 1.02rem; line-height: 1.5; }
+.reclame .r-cta { margin-top: 4px; font: 400 1.25rem/1 var(--display); letter-spacing: .06em; color: #f5ead8; background: #8f2420; padding: 9px 16px 7px; border-radius: 4px; text-decoration: none; }
+.reclame .r-cta:hover { background: #2a1a14; }
+.reclame .r-tampon { position: absolute; right: 18px; bottom: 16px; font: 400 1rem/1 var(--display); letter-spacing: .2em; color: rgba(143,36,32,.5); border: 2px solid rgba(143,36,32,.45); border-radius: 4px; padding: 4px 8px 2px; transform: rotate(-8deg); }
+.reclame .r-etoile { position: absolute; top: 14px; right: 18px; width: 92px; height: 92px; display: grid; place-items: center; text-align: center; transform: rotate(12deg);
+  font: 400 1.05rem/1 var(--display); letter-spacing: .04em; color: #fff6e6; background: #e5413a;
+  clip-path: polygon(50% 0, 61% 18%, 82% 10%, 80% 32%, 100% 40%, 85% 56%, 96% 76%, 74% 78%, 68% 100%, 50% 86%, 32% 100%, 26% 78%, 4% 76%, 15% 56%, 0 40%, 20% 32%, 18% 10%, 39% 18%); }
+.r-dots { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
+.r-dots button { width: 10px; height: 10px; padding: 0; border-radius: 50%; border: 0; background: var(--seat); }
+.r-dots button[aria-pressed="true"] { background: var(--bulb); }
+.r-dots { align-items: center; }
+.r-dots button.r-pause { width: auto; height: auto; margin-left: 6px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--seat); background: transparent; color: var(--dim); font: 700 .72rem var(--body); cursor: pointer; }
+.r-dots button.r-pause:hover { color: var(--cream); border-color: rgba(255,207,107,.5); }
+@media (max-width: 600px) { .reclame { padding: 22px 20px 52px; } .reclame .r-etoile { width: 70px; height: 70px; font-size: .85rem; top: 10px; right: 10px; } .reclame h3 { padding-right: 64px; } }
+
+/* La vendeuse d'esquimaux passe dans l'allée de l'entracte. */
+.entracte { position: relative; padding-bottom: 96px; overflow: hidden; }
+.vendeuse { position: absolute; left: 0; bottom: 6px; width: 48px; height: 72px; padding: 0; border: 0; background: none; transform: translateX(-80px); }
+.entracte.vue .vendeuse { animation: passe 14s linear both; }
+.entracte .vendeuse.pause { animation-play-state: paused; }
+@keyframes passe { from { transform: translateX(-80px); } to { transform: translateX(var(--allee, 800px)); } }
+/* La vendeuse : petit chapeau rond, carré court, uniforme rouge à boutons dorés, plateau d'esquimaux. */
+.vendeuse svg, .ouvreuse svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.vendeuse svg *, .ouvreuse svg * { transform-box: view-box; }
+.v-haut { transform-origin: 24px 52px; }
+.v-jambe-g, .o-jambe-g { transform-origin: 22px 52px; }
+.v-jambe-d, .o-jambe-d { transform-origin: 27px 52px; }
+.entracte.vue .vendeuse:not(.pause) .v-haut { animation: dandine .45s ease-in-out infinite alternate; }
+.entracte.vue .vendeuse:not(.pause) .v-jambe-g { animation: pas .45s ease-in-out infinite alternate; }
+.entracte.vue .vendeuse:not(.pause) .v-jambe-d { animation: pas .45s ease-in-out infinite alternate-reverse; }
+@keyframes dandine { to { transform: translateY(-1.5px) rotate(1.2deg); } }
+@keyframes pas { from { transform: rotate(14deg); } to { transform: rotate(-14deg); } }
+/* Les yeux clignent ; à l'arrêt, on respire. */
+.o-haut circle[fill="#2a1a14"], .v-haut circle[fill="#2a1a14"] { transform-box: fill-box; transform-origin: center; }
+.cligne .o-haut circle[fill="#2a1a14"], .cligne .v-haut circle[fill="#2a1a14"] { animation: cligne .3s; }
+.v-haut circle[fill="#2a1a14"] { animation-delay: -2.1s; }
+@keyframes cligne { 40% { transform: scaleY(.1); } }
+.ouvreuse:not(.marche) svg { animation: souffle-o 3.4s ease-in-out infinite alternate; }
+@keyframes souffle-o { to { translate: 0 -.7px; } }
+.entracte .vendeuse.pause .v-haut { animation: crie .5s ease-in-out 2 alternate; }
+@keyframes crie { to { transform: translateY(-2px) rotate(-3deg); } }
+.v-bulle { position: absolute; left: 50%; bottom: calc(100% + 6px); padding: 3px 9px; border-radius: 8px; white-space: nowrap; background: var(--cream); color: var(--ink); font: 800 .72rem var(--body); opacity: 0; transform: translateX(-50%); pointer-events: none; }
+.vendeuse.parle .v-bulle { animation: bulle 2.4s ease forwards; }
+
+/* Le pot de pop-corn : il se vide pendant qu'on lit, on le remplit en cliquant. */
+.pot { position: fixed; left: max(16px, env(safe-area-inset-left)); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 40; width: 56px; height: 70px; padding: 0; border: 0; background: none; overflow: hidden; transition: opacity .3s ease, transform .3s ease; }
+.pot.away { opacity: 0; transform: translateY(14px); pointer-events: none; }
+/* Le pop-corn ne dépasse jamais du pot : au-dessus du bord, il reste dans la largeur de l'ouverture ;
+   en dessous, il suit les flancs du pot (même trapèze que le seau). */
+.p-interieur { position: absolute; inset: 0; clip-path: polygon(5px 0, 51px 0, 51px 31px, 45px 70px, 11px 70px, 5px 31px); }
+.p-mais { position: absolute; left: 6px; right: 6px; top: 7px; height: 28px; transition: transform .5s ease; transform: translateY(calc((1 - var(--niveau, 1)) * 34px));
+  background: radial-gradient(circle at 15% 70%, #fff6e2 0 8px, transparent 8.5px), radial-gradient(circle at 40% 40%, #ffeec6 0 9px, transparent 9.5px), radial-gradient(circle at 65% 65%, #fff8ea 0 8px, transparent 8.5px), radial-gradient(circle at 86% 45%, #ffe7b0 0 8px, transparent 8.5px), radial-gradient(circle at 50% 85%, #fff3dc 0 9px, transparent 9.5px); }
+.p-seau { position: absolute; left: 4px; right: 4px; bottom: 0; height: 40px; z-index: 1; border-radius: 3px; background: repeating-linear-gradient(90deg, #e5413a 0 8px, #f5ead8 8px 16px); clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%); box-shadow: inset 0 3px 0 rgba(0,0,0,.15); }
+.pot.vide .p-seau { animation: secoue .5s ease 2; }
+@keyframes secoue { 25% { transform: rotate(-6deg); } 75% { transform: rotate(6deg); } }
+@media (max-width: 520px) { .pot { transform: scale(.82); transform-origin: 0 100%; } }
+
+/* Le diplôme de projectionniste, quand toutes les étapes sont faites. */
+.diplome-box { display: grid; gap: 10px; justify-items: center; text-align: center; padding: 26px; border-radius: 18px; border: 1px solid rgba(255,207,107,.5); background: radial-gradient(ellipse at 50% 0, rgba(255,207,107,.16), transparent 70%), var(--velvet-2); animation: rise .5s ease both; }
+.diplome-box .titre { margin: 0; font: italic 400 2.2rem/1.1 var(--serif); color: var(--bulb); }
+.diplome-box p { margin: 0; color: #e6d6c8; }
+.diplome-box .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+.diplome-box input { font: 600 1rem var(--body); padding: 11px 13px; border-radius: 10px; border: 1px dashed var(--bulb); background: #0f080c; color: var(--cream); min-width: 0; width: 220px; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+
+/* L'ouvreuse : elle suit la lecture et éclaire l'étape en cours avec sa lampe. */
+.ouvreuse { position: fixed; top: 0; left: calc(50% - 430px - 104px); z-index: 30; width: 50px; height: 86px; cursor: pointer; will-change: transform; }
+.o-haut { transform-origin: 24px 56px; }
+.o-jambe-g { transform-origin: 22px 58px; } .o-jambe-d { transform-origin: 27px 58px; }
+.ouvreuse.marche .o-haut { animation: dandine .3s ease-in-out infinite alternate; }
+.ouvreuse.marche .o-jambe-g { animation: pas .3s ease-in-out infinite alternate; }
+.ouvreuse.marche .o-jambe-d { animation: pas .3s ease-in-out infinite alternate-reverse; }
+.o-lampe { position: absolute; right: -1px; top: 37.5px; width: 3px; height: 5px; border-radius: 2px; background: #fff3cf; box-shadow: 0 0 10px 4px rgba(255,220,150,.75); }
+.o-bulle { position: absolute; left: 50%; bottom: calc(100% + 6px); padding: 3px 9px; border-radius: 8px; white-space: nowrap; background: var(--cream); color: var(--ink); font: 800 .72rem var(--body); opacity: 0; transform: translateX(-50%); pointer-events: none; }
+.ouvreuse.parle .o-bulle { animation: bulle 2.4s ease forwards; }
+.o-faisceau { position: fixed; left: 0; top: 0; z-index: 1; height: 150px; margin-top: -75px; pointer-events: none; transform-origin: 0 50%; opacity: 0; transition: opacity .4s ease; mix-blend-mode: screen;
+  background: linear-gradient(90deg, rgba(255,230,170,.32), rgba(255,230,170,.04)); clip-path: polygon(0 47%, 100% 0, 100% 100%, 0 53%); }
+.o-faisceau.on { opacity: 1; }
+@media (max-width: 1179px) { .ouvreuse, .o-faisceau { display: none; } }
+@media (prefers-reduced-motion: reduce) { .entracte.vue .vendeuse, .vendeuse svg *, .ouvreuse svg *, .pot.vide .p-seau { animation: none !important; } .vendeuse { display: none; } }`;
+
+export const GUIDE_FIN_CSS = `@media (max-width: 520px) { .act > header { grid-template-columns: auto minmax(0, 1fr); } .composte { grid-column: 1 / -1; grid-row: 3; justify-self: start; margin-top: 8px; } .entracte { gap: 14px; } .entracte .titre { font-size: 2.1rem; } }
+@media (max-width: 520px) { .act { padding: 18px; } .act .num { width: 64px; height: 64px; font-size: 2.2rem; } .act h2 { font-size: 1.8rem; } body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); } .reel-btn small { max-width: 16ch; } }
+@media (prefers-reduced-motion: reduce) { body::after, .act .num, .act .num::before, .reel-menu, .choix span.focus::after, .cornet i, .sortie::after, .composte { animation: none !important; } }
+/* Doigt plutôt que souris : des cibles d'au moins 44 px (les points de la réclame gardent leur taille, seule la zone à toucher grandit). */
+@media (hover: none), (pointer: coarse) {
+  .composte { min-height: 44px; }
+  .faq details { padding: 3px 0; }
+  .faq summary, .manual summary { padding-block: 10px; }
+  .rb-gestes label { min-height: 44px; padding-block: 10px; }
+  .reel-menu a { padding: 12px; }
+  .r-dots { gap: 0; }
+  .r-dots button { box-sizing: border-box; width: 30px; height: 30px; padding: 10px; background-clip: content-box; }
+  .r-dots button.r-pause { min-height: 44px; padding: 0 14px; }
+}`;
+
+/** Après liens.js et outils.js, avec ORIG (l'adresse du site) écrit dans la page. */
+export const GUIDE_JS = `// Onglets d'installation : un clic, ou les flèches (Début, Fin) quand le focus est sur un onglet.
 // TV par défaut, sans deviner : on lit souvent ce guide sur le téléphone, à côté de la TV.
 const onglets = [...document.querySelectorAll(".appareils [role=tab]")];
 const ouvreOnglet = (b) => {
@@ -1126,7 +1136,6 @@ const choisirMode = (mode) => document.querySelectorAll("[data-panel]").forEach(
 });
 document.querySelectorAll(".modes button").forEach((b) => b.addEventListener("click", () => choisirMode(b.dataset.mode)));
 // ---------- Le trousseau : clés et appareil, gardés dans le navigateur (jamais envoyés au serveur du site) ----------
-const ORIG = ${JSON.stringify(origin)};
 const lit = (k) => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
 const garde = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} };
 // Clés envoyées depuis l'ordinateur par QR code (#cles=…) : rangées sur ce téléphone, puis retirées de l'adresse.
@@ -1293,17 +1302,10 @@ function copierContenu(texte) {
     if (window.ClipboardItem) return navigator.clipboard.write([new ClipboardItem({ "text/plain": texte.then((t) => new Blob([t], { type: "text/plain" })) })]);
     return texte.then((t) => navigator.clipboard.writeText(t));
   } catch (e) { return Promise.reject(e); }
-}
-</script>
-${scripts("scene.js")}
-<script>${apercuDonnees(origin)}</script>
-${scripts("nuvio.js", "apercu.js", "reglages.js")}
-<script>
-// Étape 8 : le lien d'affiches de cet appareil, avec ce qui a été choisi en salle 2 (« Tes affiches »).
-if (window.NV) document.getElementById("u-poster").textContent = NV.lienPerso();
-</script>
-<script>
-// Amorce : le secteur balaie le cercle une fois, la première fois qu'on arrive sur l'étape.
+}`;
+
+/** Après scene.js, nuvio.js, apercu.js et reglages.js. */
+export const GUIDE_FIN_JS = `// Amorce : le secteur balaie le cercle une fois, la première fois qu'on arrive sur l'étape.
 const acts = [...document.querySelectorAll("section.act")];
 const roll = new IntersectionObserver((entries) => entries.forEach((e) => {
   if (e.isIntersecting) { e.target.classList.add("rolling"); roll.unobserve(e.target); }
@@ -1384,7 +1386,6 @@ addEventListener("keydown", (e) => {
 });
 
 // ---------- Du PC au téléphone : QR codes ----------
-const ORIGINE = ${JSON.stringify(origin)};
 const QR_ICONE = '<svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M2 2h7v7H2zm2 2v3h3V4zm7-2h7v7h-7zm2 2v3h3V4zM2 11h7v7H2zm2 2v3h3v-3zm8-2h2v2h-2zm2 2h2v2h-2zm2-2h2v2h-2zm-4 4h2v3h-2zm4 0h2v3h-2zm-2 2h2v1h-2z"/></svg>';
 // chargerQr et qrSvg : outils.js (communs avec la salle 2).
 function montrerQr(titre, texte, cible, detail) {
@@ -1645,8 +1646,4 @@ if (location.hash.indexOf("#lien=") === 0) {
     o.classList.remove("parle"); void o.offsetWidth; o.classList.add("parle");
     secret("ouvreuse"); sfx.click();
   });
-})();
-</script>
-</body>
-</html>`;
-}
+})();`;

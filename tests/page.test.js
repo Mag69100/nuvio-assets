@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { configurePage } from "../worker/page.js";
+import { enLigne } from "./support/en-ligne.mjs";
 import { hallPage } from "../worker/hall.js";
 import { STAGE_JS } from "../worker/stage.js";
 import * as LA from "../worker/lien-affiches.js";
@@ -9,11 +10,11 @@ import { defaults, decodeConfig, PROVIDERS, REGIONS, GENRES, LANGUAGES, SORTS, S
 
 const rows = [{ id: "a", home: true, name: "A", type: "movie" }];
 const KEY = "AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q";
-const page = (copy = false) => configurePage({ copy,
+const page = (copy = false) => enLigne(configurePage({ copy,
   origin: "https://x", cfg: decodeConfig(Buffer.from(JSON.stringify({ k: KEY })).toString("base64url"), rows, []), rows, discover: [],
   providers: PROVIDERS, collections: COLLECTIONS.map((c) => ({ ...c, pos: 0, folders: [] })), defaults: defaults(rows, []),
   regions: REGIONS, genres: GENRES, languages: LANGUAGES, sorts: SORTS, seasons: SEASON_KEYS, maxCustom: MAX_CUSTOM, season: null,
-});
+}));
 
 // Le billet se partage (bouton « Offrir », image du billet) : jamais avec la clé Gemini de l'utilisateur.
 // Le QR « Continuer sur le téléphone », lui, sert à ses propres appareils : il emporte la clé (avec un avertissement).
@@ -63,10 +64,10 @@ test("liens_salle_2_sans_cle", () => {
 test("adresse_de_la_page_relue_par_le_serveur", () => {
   const rows3 = [{ id: "a", home: true, name: "A", type: "movie" }, { id: "b", home: true, name: "B", type: "series" }, { id: "c", home: false, name: "C", type: "movie" }];
   const disc = [{ id: "d1", name: "D1", type: "movie" }, { id: "d2", name: "D2", type: "series" }];
-  const html = configurePage({ origin: "https://x", cfg: decodeConfig("", rows3, disc), rows: rows3, discover: disc,
+  const html = enLigne(configurePage({ origin: "https://x", cfg: decodeConfig("", rows3, disc), rows: rows3, discover: disc,
     providers: PROVIDERS, collections: COLLECTIONS.map((c) => ({ ...c, pos: 0, folders: [] })), defaults: defaults(rows3, disc),
-    regions: REGIONS, genres: GENRES, languages: LANGUAGES, sorts: SORTS, seasons: SEASON_KEYS, maxCustom: MAX_CUSTOM, season: null });
-  const D = JSON.parse(/const D = (.*);\nconst hashDepart/.exec(html)[1]);
+    regions: REGIONS, genres: GENRES, languages: LANGUAGES, sorts: SORTS, seasons: SEASON_KEYS, maxCustom: MAX_CUSTOM, season: null }));
+  const D = JSON.parse(/const D = (.*);\n/.exec(html)[1]);
   const src = /function rowRef[\s\S]*?\nfunction enc\(obj\) \{[\s\S]*?\n\}\n/.exec(html)[0];
   const { compact, enc } = new Function("D", "const same = (a, b) => JSON.stringify(a) === JSON.stringify(b); const baseIds = D.rows.map(r => r.id);\n"
     + src + "\nreturn { compact, enc };")(D);

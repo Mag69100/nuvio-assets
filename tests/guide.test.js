@@ -1,13 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { guidePage, NUVIO_TV_APK } from "../worker/guide.js";
+import { enLigne } from "./support/en-ligne.mjs";
 import { NUVIO_TV_VERSION, NUVIO_JS } from "../worker/nuvio.js";
 import { reglagesHTML, texteReglages, POSTER_URL } from "../worker/reglages.js";
 import { hallPage } from "../worker/hall.js";
 import { copiePage } from "../worker/copie.js";
 
 const O = "https://nuvio-assets.xnzxflix.workers.dev";
-const html = guidePage({ origin: O, season: "" });
+const html = enLigne(guidePage({ origin: O, season: "" }));
 // Le texte tel que le navigateur l'affiche (entités décodées), pour comparer avec les bulles.
 const decode = (s) => s.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
 

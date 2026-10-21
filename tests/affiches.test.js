@@ -4,15 +4,16 @@ import { AFFICHES_URL, POSTER_URL } from "../worker/reglages.js";
 import { DEFAUT_REGLAGES, MEMOIRES, lienAffiches, lireReglages } from "../worker/lien-affiches.js";
 import { guidePage } from "../worker/guide.js";
 import { configurePage } from "../worker/page.js";
+import { enLigne } from "./support/en-ligne.mjs";
 import { defaults, decodeConfig, PROVIDERS, REGIONS, GENRES, LANGUAGES, SORTS, SEASON_KEYS, MAX_CUSTOM, COLLECTIONS } from "../worker/config.js";
 
 const salle2 = () => {
   const rows = [{ id: "a", home: true, name: "A", type: "movie" }];
-  return configurePage({ copy: false,
+  return enLigne(configurePage({ copy: false,
     origin: "https://x", cfg: decodeConfig("", rows, []), rows, discover: [],
     providers: PROVIDERS, collections: COLLECTIONS.map((c) => ({ ...c, pos: 0, folders: [] })), defaults: defaults(rows, []),
     regions: REGIONS, genres: GENRES, languages: LANGUAGES, sorts: SORTS, seasons: SEASON_KEYS, maxCustom: MAX_CUSTOM, season: null,
-  });
+  }));
 };
 
 // Le lien à coller dans Nuvio (Custom Poster Source) : sans réglage, le même pour tout le monde, à l'octet près.
@@ -29,13 +30,13 @@ test("ancienne_cle_tmdb_effacee", async () => {
 });
 
 test("guide_sans_posters_plus_ni_cle_tmdb", () => {
-  const html = guidePage({ origin: "https://x", season: "" });
+  const html = enLigne(guidePage({ origin: "https://x", season: "" }));
   assert.ok(html.includes(POSTER_URL.replace(/&/g, "&amp;")) || html.includes(POSTER_URL));
   assert.doesNotMatch(html, /TA_CLE_TMDB|tmdb-key-8|PostersPlus|postersplus/);
 });
 
 test("regie_ouvre_depuis_le_guide", () => {
-  assert.match(guidePage({ origin: "https://x", season: "" }), /https:\/\/x\/configure#regie/);
+  assert.match(enLigne(guidePage({ origin: "https://x", season: "" })), /https:\/\/x\/configure#regie/);
 });
 
 // Le script commun des pages embarque le module du lien (creerLienAffiches) : même lien qu'au serveur.

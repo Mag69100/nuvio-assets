@@ -13,9 +13,11 @@ export function creerLienAffiches() {
   const copie = (r) => JSON.parse(JSON.stringify(r));
 
   const DEFAUT_REGLAGES = geler({
-    statut: { on: true, style: "texte", episode: false, forme: "date" },
+    statut: { on: true, style: "texte", episode: false, forme: "date", fin: false, avance: false },
     tendance: { on: true, style: "fleche" },
     qualite: { on: true, montrer: "plus", style: "texte" },
+    // Langue des sources (VF, MULTI, VOSTFR, VO), sous la qualité.
+    langue: { on: false },
     // Badges du haut : « auto » = le style propre à chaque badge (ci-dessus) ; sinon un style commun.
     haut: { inverse: false, style: "auto", forme: "arrondi", opacite: "l", couleur: "blanc", fond: "", coinStatut: "auto", coinQualite: "auto" },
     bandeau: { on: false, porte: "statut", coin: "d" },
@@ -28,12 +30,14 @@ export function creerLienAffiches() {
     plateforme: { on: false, place: "ligne" },
     ligne: { ordre: "gna", barre: "aucune" },
     texte: { taille: 1, sep: "point", haut: 1, police: "inter", couleur: "", casse: "normal", espace: "normal", ombre: "normale" },
-    infos: { ligne2: "aucune", culte: false },
+    infos: { ligne2: "aucune", culte: false, saga: false },
     image: { source: "sanstexte", lum: 1, contraste: 1, satur: 1, filtre: "aucun", grain: false, cadre: "aucun", cadreC: "" },
     // opacite et taille : réglage fin du fondu (0 = pas réglé : on garde force et hauteur en crans).
     fondu: { on: true, couleur: "noir", force: "m", flou: false, hauteur: "normal", teinte: "", opacite: 0, taille: 0 },
     ambiance: { voile: "m", vignette: false, accent: "or", accentC: "" },
     sortie: { nb: true, cacherNote: true },
+    // Habillage de la saison (Halloween, Noël…) sur les films de la rangée de saison.
+    saison: { on: false },
   });
 
   // Tailles réglables à la main : de 60 % à 140 % par pas de 5 %, une lettre par cran (a = 0,6, i = 1, q = 1,4).
@@ -66,15 +70,18 @@ export function creerLienAffiches() {
   const titreOn = (r) => r.titre.on;
   const noteOn = (r) => r.titre.on && r.note.on;
   // Un badge en haut (statut, tendance, qualité, ou la plateforme en coin) : les réglages des badges servent.
-  const hautOn = (r) => r.statut.on || r.tendance.on || r.qualite.on || (r.plateforme.on && r.plateforme.place === "coin") || r.infos.culte;
+  const hautOn = (r) => r.statut.on || r.tendance.on || r.qualite.on || (r.plateforme.on && r.plateforme.place === "coin") || r.infos.culte
+    || r.langue.on || r.infos.saga;
   const styleCommun = (r) => hautOn(r) && r.haut.style !== "auto";
   // Du texte est écrit sur l'affiche (ligne du bas ou badges) : casse, espacement et ombre servent.
   const texteOn = (r) => r.titre.on || hautOn(r) || r.infos.culte;
   // Coins des blocs du haut : 1 haut gauche, 2 haut droite, 3 bas gauche, 4 bas droite.
   const COINS = Object.freeze({ 1: "hg", 2: "hd", 3: "bg", 4: "bd" });
-  // La couleur d'accent sert à l'étoile, à la flèche ou au ruban de tendance, au bandeau, à la barre fine, au texte « accent » des badges.
+  // La couleur d'accent sert à l'étoile, à la flèche ou au ruban de tendance, au bandeau, à la barre fine, au texte « accent » des badges,
+  // à la barre d'avancement d'une série.
   const accentOn = (r) => r.tendance.on || (r.bandeau.on && (r.statut.on || r.tendance.on))
-    || (r.titre.on && ((r.note.on && r.note.style === "etoile") || r.ligne.barre === "fine")) || (styleCommun(r) && r.haut.couleur === "or") || r.infos.culte;
+    || (r.titre.on && ((r.note.on && r.note.style === "etoile") || r.ligne.barre === "fine")) || (styleCommun(r) && r.haut.couleur === "or") || r.infos.culte
+    || (r.statut.on && r.statut.avance);
   const CODES = [
     ["S", "statut", "on", { 0: false }],
     ["s", "statut", "style", { e: "etiquette" }, (r) => r.statut.on],
@@ -150,10 +157,17 @@ export function creerLienAffiches() {
     ["3b", "infos", "culte", { 1: true }],
     ["3c", "statut", "episode", { 1: true }, (r) => r.statut.on],
     ["3d", "statut", "forme", { c: "compte" }, (r) => r.statut.on],
-    ["3e", "haut", "coinStatut", COINS, (r) => r.statut.on || r.tendance.on || r.infos.culte],
+    ["3e", "haut", "coinStatut", COINS, (r) => r.statut.on || r.tendance.on || r.infos.culte || r.infos.saga],
     ["1h", "fondu", "opacite", FORCES_FONDU, (r) => r.titre.on && r.fondu.on && r.fondu.opacite > 0],
     ["1i", "fondu", "taille", HAUTEURS_FONDU, (r) => r.titre.on && r.fondu.on && r.fondu.taille > 0],
-    ["3f", "haut", "coinQualite", COINS, (r) => r.qualite.on || (r.plateforme.on && r.plateforme.place === "coin")],
+    ["3f", "haut", "coinQualite", COINS, (r) => r.qualite.on || (r.plateforme.on && r.plateforme.place === "coin") || r.langue.on],
+    // Options ajoutées ensuite, toutes éteintes par défaut : langue des sources, fin et avancement d'une série, rang dans
+    // la saga, habillage de la saison.
+    ["3g", "langue", "on", { 1: true }],
+    ["3h", "statut", "fin", { 1: true }, (r) => r.statut.on],
+    ["3i", "statut", "avance", { 1: true }, (r) => r.statut.on],
+    ["3j", "infos", "saga", { 1: true }],
+    ["3k", "saison", "on", { 1: true }],
   ];
 
   /** Les styles tout prêts de la régie (« mémoires »). */

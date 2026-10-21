@@ -43,6 +43,7 @@ const CHOIX = {
   "statut.episode": [false, true], "statut.forme": ["date", "compte"], "haut.coinStatut": ["auto", "hg", "hd", "bg", "bd"], "haut.coinQualite": ["auto", "hg", "hd", "bg", "bd"],
   "ambiance.voile": ["0", "s", "m", "l"], "ambiance.vignette": [false, true], "ambiance.accent": ["or", "blanc", "rouge", "bleu", "affiche"],
   "sortie.nb": [true, false], "sortie.cacherNote": [true, false],
+  "langue.on": [false, true], "statut.fin": [false, true], "statut.avance": [false, true], "infos.saga": [false, true], "saison.on": [false, true],
 };
 
 test("aller_retour", () => {
@@ -256,4 +257,24 @@ test("importer_un_lien", async () => {
   assert.equal(reglagesDuLien("%E0%A4%A"), null);
   // Autre chose qu'un lien d'affiches : refusé.
   for (const x of ["", "bonjour", "https://exemple.com/?s=1.T0", "https://posters.example/{type}/{id}?s=1.T0"]) assert.equal(reglagesDuLien(x), null, x);
+});
+
+// Options au choix (langue des sources, fin et avancement d'une série, saga, habillage de la saison) : éteintes par
+// défaut, donc aucun lien existant ne change ; chacune un code v3, écrit dans le même ordre.
+test("options_au_choix", () => {
+  const d = DEFAUT_REGLAGES;
+  assert.deepEqual([d.langue.on, d.statut.fin, d.statut.avance, d.infos.saga, d.saison.on], [false, false, false, false, false]);
+  const x = lire("s=1.3k13j13i13h13g1");
+  assert.deepEqual([x.langue.on, x.statut.fin, x.statut.avance, x.infos.saga, x.saison.on], [true, true, true, true, true]);
+  assert.equal(ecrireReglages(x), "3g13h13i13j13k1");
+  for (const m of Object.values(MEMOIRES)) assert.ok(!/3[g-k]/.test(ecrireReglages(m)), "aucun style tout prêt ne les allume");
+  // Sans statut, ni fin ni avancement ; la langue et la saga sont des badges du haut (style commun, coins).
+  assert.equal(ecrit("s=1.S03h13i1"), "S0");
+  assert.equal(ecrit("s=1.S0T0Q0Hv3g1"), "S0T0Q0Hv3g1");
+  assert.equal(ecrit("s=1.S0T0Q0Hv3j1"), "S0T0Q0Hv3j1");
+  assert.equal(ecrit("s=1.S0T0Q03f13g1"), "S0T0Q03f13g1");
+  assert.equal(ecrit("s=1.S0T0Q03e23j1"), "S0T0Q03e23j1");
+  // La barre d'avancement prend la couleur d'accent.
+  assert.equal(ecrit("s=1.S0T0Q0L0Zr"), "S0T0Q0L0");
+  assert.equal(ecrit("s=1.T0Q0L0Zr3i1"), "T0Q0L0Zr3i1");
 });

@@ -387,3 +387,17 @@ test("statut_en_vo_seulement", () => {
   const vf = contenu(recent, { ...extra, quality: { uhd: false, extra: null, vf: true, sources: 8 } });
   assert.deepEqual([vf.statut, vf.gris], ["NOUVEAU", false]);
 });
+
+// Badge Langue (3g1) : la langue lue dans les sources ; rien sans sources, rien sans le réglage (ETag d'avant).
+test("langue_des_sources", () => {
+  const q = (langue) => ({ ...plein, quality: { uhd: true, extra: "DV", vf: langue === "vf" || langue === "multi", sources: 5, langue } });
+  assert.equal(contenu(facts, q("multi"), "poster", reglages("3g1")).langue, "MULTI");
+  assert.equal(contenu(facts, q("vf"), "poster", reglages("3g1")).langue, "VF");
+  assert.equal(contenu(facts, q("vostfr"), "poster", reglages("3g1")).langue, "VOSTFR");
+  assert.equal(contenu(facts, q("vo"), "poster", reglages("3g1")).langue, "VO");
+  assert.equal(contenu(facts, q(null), "poster", reglages("3g1")).langue, undefined);
+  assert.equal(contenu(facts, extra, "poster", reglages("3g1")).langue, undefined);
+  assert.equal("langue" in contenu(facts, q("vf")), false);
+  // Sans le badge qualité, la langue reste.
+  assert.equal(contenu(facts, q("vf"), "poster", reglages("Q03g1")).langue, "VF");
+});

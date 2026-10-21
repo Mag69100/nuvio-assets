@@ -132,6 +132,8 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       return new Response(null, { status: 308, headers: { ...CORS, ...CANONIQUE, Location: `/${type}/${shape}/${id}.jpg${normales ? "?" + normales : ""}` } });
     }
     const tendance = reglages.tendance.on, qualite = reglages.qualite.on && env.QUALITE !== "off";
+    // Langue des sources (réglage Langue) : lue avec la qualité, chez Torrentio.
+    const langue = reglages.langue.on && env.QUALITE !== "off";
     // Note IMDb : pour la note affichée, ou pour le badge « Incontournable ».
     const noteImdb = (reglages.titre.on && reglages.note.on && reglages.note.source !== "tmdb") || reglages.infos.culte;
     // Les autres notes ne sont demandées que si elles seront dessinées (pas avec la note en grand chiffre).
@@ -171,10 +173,10 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       // par ETag, qui finit presque toujours en 304 sans rien dessiner).
       const brouillon = posterContent(facts, {}, shape, reglages, aujourdhui);
       // Les sources (lues avec la qualité) disent si le titre est en VF : lues aussi sans le badge, pour un titre récent.
-      const lireSources = qualite || (env.QUALITE !== "off" && sourcesUtiles(facts, aujourdhui));
+      const lireSources = qualite || langue || (env.QUALITE !== "off" && sourcesUtiles(facts, aujourdhui));
       if (!brouillon) return absent();
       const images = fetchImages(fetchImpl);
-      const peutDessiner = brouillon.full || brouillon.statut || brouillon.gris || brouillon.bandeau || brouillon.coin || tendance || qualite
+      const peutDessiner = brouillon.full || brouillon.statut || brouillon.gris || brouillon.bandeau || brouillon.coin || tendance || qualite || langue
         || reglages.infos.culte || !!brouillon.styles.retouche || !!brouillon.styles.cadre;
       // Pas encore sorti avec la note cachée : les autres notes ne seraient pas dessinées non plus.
       const notesUtiles = autresNotes && !(reglages.sortie.cacherNote && !etatSortie(facts, aujourdhui).sorti);
@@ -193,7 +195,8 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const content = posterContent(facts, { imdbRating, rank: place, quality, notes }, shape, reglages, aujourdhui);
       // Rien à poser ni à griser : l'appli va chercher l'image directement chez TMDB, sans la redessiner ici.
       const retouchee = !!(content.styles.retouche || content.styles.cadre);
-      if (!content.full && !content.rank && !content.quality && !content.statut && !content.gris && !content.bandeau && !content.coin && !content.culte && !retouchee) {
+      if (!content.full && !content.rank && !content.quality && !content.statut && !content.gris && !content.bandeau && !content.coin && !content.culte && !retouchee
+        && !content.langue) {
         return new Response(null, { status: 302, headers: { ...CORS, ...cacheDe({ enRetard, place }), Location: imageUrls(content)[0] } });
       }
       const etag = `"${contentKey(content)}"`;

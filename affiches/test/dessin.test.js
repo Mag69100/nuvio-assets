@@ -577,6 +577,21 @@ test("titre_ecrit_sans_logo", async () => {
   assert.notDeepEqual(await draw({ ...oswald, titreInter: true }, f), await draw(oswald, f));
 });
 
+// Badge Langue : sous la qualité (en haut à droite), dans chaque style de badges.
+test("badge_langue", async () => {
+  const sans = await draw({ ...seul, line: null, quality: { extra: null } }, f);
+  const avec = await draw({ ...seul, line: null, quality: { extra: null }, langue: "VOSTFR" }, f);
+  assert.ok(await difference(sans, avec, [240, 40, 160, 50]) > 60, "pas de badge sous la qualité");
+  assert.ok(await difference(sans, avec, [0, 0, 200, 600]) === 0, "badge ailleurs qu'à droite");
+  // Seul (sans qualité) : à la place de la qualité, en haut à droite.
+  const seulLangue = await draw({ ...seul, line: null, langue: "VF" }, f);
+  assert.ok(await compte(seulLangue, [300, 10, 100, 40], blanc) > 20, "pas de badge en haut à droite");
+  for (const style of ["plein", "verre", "contour"]) {
+    await draw({ ...seul, line: null, langue: "MULTI", styles: { ...STYLES, badges: { style, forme: "pilule", opacite: "m", couleur: "blanc" } } }, f);
+  }
+  await draw({ ...seul, line: null, langue: "VO", styles: { ...STYLES, qualite: "pastille" } }, f);
+});
+
 // La petite ligne en Inter quand la police choisie n'a pas toutes ses lettres.
 test("ligne2_en_inter", async () => {
   const c = { ...base, line: null, line2: "Un film de Nuri Bilge Ceylan Ş", styles: { ...STYLES, police: "condensee" } };

@@ -5,20 +5,20 @@ import { parseQuality, qualityOf, resetMemo, tailleMemo } from "../lib/qualite.j
 beforeEach(() => resetMemo());
 
 test("4K DV : DV passe avant HDR", () => {
-  assert.deepEqual(parseQuality([{ name: "Torrentio\n4k DV | HDR" }, { name: "Torrentio\n1080p" }]), { uhd: true, extra: "DV", fhd: true, hdr10p: false, atmos: false, vf: false, sources: 2 });
+  assert.deepEqual(parseQuality([{ name: "Torrentio\n4k DV | HDR" }, { name: "Torrentio\n1080p" }]), { uhd: true, extra: "DV", fhd: true, hdr10p: false, atmos: false, vf: false, sources: 2, langue: "vo" });
 });
 
 test("4K HDR", () => {
-  assert.deepEqual(parseQuality([{ name: "Torrentio\n4k HDR10+" }]), { uhd: true, extra: "HDR", fhd: false, hdr10p: true, atmos: false, vf: false, sources: 1 });
+  assert.deepEqual(parseQuality([{ name: "Torrentio\n4k HDR10+" }]), { uhd: true, extra: "HDR", fhd: false, hdr10p: true, atmos: false, vf: false, sources: 1, langue: "vo" });
 });
 
 test("4K seul", () => {
-  assert.deepEqual(parseQuality([{ title: "Film.2024.2160p.WEB-DL.mkv" }]), { uhd: true, extra: null, fhd: false, hdr10p: false, atmos: false, vf: false, sources: 1 });
+  assert.deepEqual(parseQuality([{ title: "Film.2024.2160p.WEB-DL.mkv" }]), { uhd: true, extra: null, fhd: false, hdr10p: false, atmos: false, vf: false, sources: 1, langue: "vo" });
 });
 
 test("HDR hors 4K ignoré", () => {
-  assert.deepEqual(parseQuality([{ name: "Torrentio\n1080p HDR" }]), { uhd: false, extra: null, fhd: true, hdr10p: false, atmos: false, vf: false, sources: 1 });
-  assert.deepEqual(parseQuality([]), { uhd: false, extra: null, fhd: false, hdr10p: false, atmos: false, vf: false, sources: 0 });
+  assert.deepEqual(parseQuality([{ name: "Torrentio\n1080p HDR" }]), { uhd: false, extra: null, fhd: true, hdr10p: false, atmos: false, vf: false, sources: 1, langue: "vo" });
+  assert.deepEqual(parseQuality([]), { uhd: false, extra: null, fhd: false, hdr10p: false, atmos: false, vf: false, sources: 0, langue: null });
 });
 
 const reponse = (streams) => async () => new Response(JSON.stringify({ streams }));
@@ -26,7 +26,7 @@ const reponse = (streams) => async () => new Response(JSON.stringify({ streams }
 test("URL film", async () => {
   const calls = [];
   const f = async (u) => { calls.push(String(u)); return reponse([{ name: "4k" }])(); };
-  assert.deepEqual(await qualityOf("movie", "tt1", null, f), { uhd: true, extra: null, fhd: false, hdr10p: false, atmos: false, vf: false, sources: 1 });
+  assert.deepEqual(await qualityOf("movie", "tt1", null, f), { uhd: true, extra: null, fhd: false, hdr10p: false, atmos: false, vf: false, sources: 1, langue: "vo" });
   assert.equal(calls[0], "https://torrentio.strem.fun/language=french/stream/movie/tt1.json");
 });
 
@@ -66,19 +66,19 @@ test("erreur HTTP : null", async () => {
 test("relais : qualité lue via le cache partagé", async () => {
   const calls = [];
   const f = async (u) => { calls.push(String(u)); return new Response(JSON.stringify({ uhd: true, extra: "HDR" })); };
-  assert.deepEqual(await qualityOf("series", "tt2", 3, f, "https://affiches.test"), { uhd: true, extra: "HDR", fhd: false, hdr10p: false, atmos: false, vf: null, sources: null });
+  assert.deepEqual(await qualityOf("series", "tt2", 3, f, "https://affiches.test"), { uhd: true, extra: "HDR", fhd: false, hdr10p: false, atmos: false, vf: null, sources: null, langue: null });
   assert.deepEqual(calls, ["https://affiches.test/qualite/series/tt2:3:1.json?v=3"]);
 });
 
 // Qualité v2 : 1080p (quand il n'y a pas de 4K), HDR10+ (en 4K) et Dolby Atmos (toute résolution).
 test("qualite_v2", async () => {
-  assert.deepEqual(parseQuality([{ name: "Torrentio\n4k", title: "Film 2160p HDR10+ DDP5.1 Atmos" }, { name: "Torrentio\n1080p" }]), { uhd: true, extra: "HDR", fhd: true, hdr10p: true, atmos: true, vf: false, sources: 2 });
-  assert.deepEqual(parseQuality([{ name: "Torrentio\n1080p", title: "Film.1080p.TrueHD.Atmos" }]), { uhd: false, extra: null, fhd: true, hdr10p: false, atmos: true, vf: false, sources: 1 });
+  assert.deepEqual(parseQuality([{ name: "Torrentio\n4k", title: "Film 2160p HDR10+ DDP5.1 Atmos" }, { name: "Torrentio\n1080p" }]), { uhd: true, extra: "HDR", fhd: true, hdr10p: true, atmos: true, vf: false, sources: 2, langue: "vo" });
+  assert.deepEqual(parseQuality([{ name: "Torrentio\n1080p", title: "Film.1080p.TrueHD.Atmos" }]), { uhd: false, extra: null, fhd: true, hdr10p: false, atmos: true, vf: false, sources: 1, langue: "vo" });
   // HDR10+ hors 4K ne compte pas.
   assert.equal(parseQuality([{ name: "1080p HDR10+" }]).hdr10p, false);
   // Relais au nouveau format : les champs suivent ; ancien format (gardé au CDN) : false.
   const neuf = async () => new Response(JSON.stringify({ uhd: false, extra: null, fhd: true, hdr10p: false, atmos: true }));
-  assert.deepEqual(await qualityOf("movie", "tt8", null, neuf, "https://affiches.test"), { uhd: false, extra: null, fhd: true, hdr10p: false, atmos: true, vf: null, sources: null });
+  assert.deepEqual(await qualityOf("movie", "tt8", null, neuf, "https://affiches.test"), { uhd: false, extra: null, fhd: true, hdr10p: false, atmos: true, vf: null, sources: null, langue: null });
 });
 
 test("relais en panne : null", async () => {
@@ -95,7 +95,7 @@ test("mémoire : un seul appel par titre", async () => {
   let n = 0;
   const f = async () => { n++; return reponse([{ name: "4k DV" }])(); };
   await qualityOf("movie", "tt5", null, f);
-  assert.deepEqual(await qualityOf("movie", "tt5", null, f), { uhd: true, extra: "DV", fhd: false, hdr10p: false, atmos: false, vf: false, sources: 1 });
+  assert.deepEqual(await qualityOf("movie", "tt5", null, f), { uhd: true, extra: "DV", fhd: false, hdr10p: false, atmos: false, vf: false, sources: 1, langue: "vo" });
   assert.equal(n, 1);
 });
 
@@ -113,6 +113,33 @@ test("vf_dans_les_sources", () => {
   assert.equal(vf("Frenchie.2026.1080p"), false);
   assert.equal(parseQuality([]).sources, 0);
   assert.equal(parseQuality([{ name: "a" }, { name: "b" }]).sources, 2);
+});
+
+// Langue des sources (badge « Langue ») : MULTI avec la VF, VF seule, VOSTFR, sinon VO ; toujours d'accord avec vf.
+test("langue_des_sources", () => {
+  const langue = (...titres) => parseQuality(titres.map((title) => ({ name: "Torrentio\n1080p", title }))).langue;
+  assert.equal(langue("Bad.Apples.2025.MULTi.VFF.2160p.WEB.H265.mkv", "Film.2025.FRENCH.1080p"), "multi");
+  assert.equal(langue("Film 2026 1080p WEBRip\nMulti Audio / 🇬🇧 / 🇫🇷"), "multi");
+  assert.equal(langue("Film.2026.TRUEFRENCH.1080p.WEB", "Film.2026.1080p.VOSTFR"), "vf");
+  for (const t of ["FRENCH", "VFF", "VFQ", "VFI", "VF2", "TRUEFRENCH"]) assert.equal(langue(`Film.2026.${t}.1080p`), "vf", t);
+  assert.equal(langue("Film.2026.1080p.VOSTFR.WEB", "Film.2026.1080p.WEB"), "vostfr");
+  assert.equal(langue("Film.2026.SUBFRENCH.1080p"), "vostfr");
+  // MULTI sans la VF (« Multi Audio » espagnol), drapeaux seuls : de la VO.
+  assert.equal(langue("Film.2026.1080p.WEBRip\nMulti Audio / 🇬🇧 / 🇪🇸", "Film.2026.MULTI.1080p"), "vo");
+  assert.equal(langue("Film 2026 1080p AMZN WEB-DL\n🇬🇧 / 🇯🇵 / 🇫🇷"), "vo");
+  assert.equal(parseQuality([]).langue, null);
+  for (const t of ["Film.MULTi.VFF.1080p", "Film.FRENCH.1080p", "Film.VOSTFR.1080p", "Film.1080p"]) {
+    const q = parseQuality([{ title: t }]);
+    assert.equal(q.vf, ["multi", "vf"].includes(q.langue), t);
+  }
+});
+
+test("relais_avec_la_langue", async () => {
+  const f = async () => new Response(JSON.stringify({ uhd: false, extra: null, fhd: true, hdr10p: false, atmos: false, vf: true, sources: 3, langue: "multi" }));
+  assert.equal((await qualityOf("movie", "tt11", null, f, "https://affiches.test")).langue, "multi");
+  // Valeur inconnue : pas de langue.
+  const g = async () => new Response(JSON.stringify({ uhd: false, extra: null, vf: false, sources: 3, langue: "klingon" }));
+  assert.equal((await qualityOf("movie", "tt12", null, g, "https://affiches.test")).langue, null);
 });
 
 test("relais_v3_avec_la_vf", async () => {

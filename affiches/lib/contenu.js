@@ -31,6 +31,7 @@ export const GENRES_COMPLETS = {
   10768: "Guerre & Politique",
 };
 const LIBELLES_STATUT = { bientot: "BIENTÔT", salle: "AU CINÉMA", nouveau: "NOUVEAU", saison: "NOUVELLE SAISON" };
+const LIBELLES_LANGUE = { multi: "MULTI", vf: "VF", vostfr: "VOSTFR", vo: "VO" };
 const MOIS = ["JANV.", "FÉVR.", "MARS", "AVR.", "MAI", "JUIN", "JUIL.", "AOÛT", "SEPT.", "OCT.", "NOV.", "DÉC."];
 const DEBUTS = { dispo: "DISPO LE", cinema: "SORTIE LE", sortie: "SORTIE LE" };
 
@@ -239,6 +240,8 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
   const noteCulte = Number(imdbRating || (facts.vote && facts.vote.average) || 0);
   if (r.infos.culte && noteCulte >= 8 && facts.vote && facts.vote.count >= 3000) content.culte = true;
   // Clés ajoutées seulement quand elles servent (même raison : l'ETag des autres affiches ne bouge pas).
+  // Langue des sources (réglage Langue), sous la qualité ; rien sans sources lues.
+  if (r.langue.on && quality && LIBELLES_LANGUE[quality.langue]) content.langue = LIBELLES_LANGUE[quality.langue];
   if (bandeau) content.bandeau = bandeau;
   if (libelle && libelle2) content.statut2 = libelle2;
   if (plateforme && r.plateforme.place === "coin") content.coin = plateforme;

@@ -206,6 +206,20 @@ function badgeCulte(t, accent, b) {
   [h("div", { display: "flex", marginRight: t * 0.2 }, svg(t * 0.55, "0 0 24 24", ETOILE, b ? b.color : accent)), h("span", {}, "INCONTOURNABLE")]);
 }
 
+/**
+ * Petit badge d'information (langue des sources, rang dans la saga) : le style commun des badges s'il est choisi
+ * (plein, verre, contour), sinon un contour blanc fin sur un léger voile ; avec la qualité en pastille, une pastille.
+ */
+function badgeInfo(texte, t, b, ombre, pastille = false) {
+  const taille = { fontSize: t * 0.52, fontWeight: 800, letterSpacing: t * 0.06 };
+  return h("div", b
+    ? { ...b, ...taille }
+    : pastille
+      ? { display: "flex", alignItems: "center", background: "rgba(255,255,255,0.92)", color: ENCRE, borderRadius: 6, padding: `${t * 0.08}px ${t * 0.3}px`, ...taille }
+      : { display: "flex", alignItems: "center", border: "1.5px solid rgba(255,255,255,0.85)", color: "#fff", borderRadius: t * 0.18, padding: `${t * 0.06}px ${t * 0.3}px`,
+        background: "rgba(0,0,0,0.35)", textShadow: ombre, ...taille }, texte);
+}
+
 /** Barre fine : un trait à la couleur d'accent juste au-dessus de la ligne du bas. */
 function barreFine(content, m, [w], accent) {
   const t = m.texte * (m.ligne || 1) * (Number(content.styles.texte) || 1), large = Math.round(w * 0.22);
@@ -295,6 +309,7 @@ function blocQualite(content, m, accent, place, descente, images) {
         ? { display: "flex", alignItems: "center", background: "rgba(255,255,255,0.92)", color: ENCRE, borderRadius: 6, padding: "3px 9px", fontSize: t * 0.85, fontWeight: 800 }
         : { display: "flex", alignItems: "center", fontSize: t, fontWeight: 800, color: "#fff", textShadow: m.ombre }, q));
   }
+  if (content.langue) pile.push(badgeInfo(content.langue, t, b, m.ombre, !b && st.qualite === "pastille"));
   if (content.coin && images[content.coin]) pile.push(img(images[content.coin], Math.round(t * 1.45), { borderRadius: t * 0.3 }));
   if (!pile.length) return null;
   return h("div", { position: "absolute", ...positionBloc(m, place, descente), display: "flex", flexDirection: "column", alignItems: cote === "left" ? "flex-start" : "flex-end", gap: t * 0.3 }, pile);
@@ -386,7 +401,8 @@ const teinteVive = (hsl) => hex({ hue: hsl.hue, s: Math.max(0.55, Math.min(1, hs
 /** Dégradés : fondu du bas, voile du haut sous les badges, vignette sur les bords. */
 function calqueDegrades(content, [w, hgt], teinte) {
   const st = content.styles, fondu = content.full && st.fondu;
-  const voile = VOILE[st.voile ?? "m"], haut = voile > 0 && !!(content.statut || content.rank || content.quality || content.bandeau || content.coin || content.culte);
+  const voile = VOILE[st.voile ?? "m"], haut = voile > 0 && !!(content.statut || content.rank || content.quality || content.bandeau || content.coin || content.culte
+    || content.langue);
   if (!fondu && !haut && !st.vignette && !st.cadre) return null;
   const hb = Math.round(hgt * ((fondu && fondu.taille) || HAUTEUR_FONDU[(fondu && fondu.hauteur) || "normal"])), hh = Math.round(hgt * 0.22);
   // Couleur du fondu : celle du nuancier si elle est choisie, sinon les couleurs de l'affiche ou le noir.

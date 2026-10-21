@@ -551,3 +551,20 @@ test("sources_lues_pour_un_titre_recent", async () => {
   await makeHandler({ fetchImpl: vieux, env })(req("type=movie&shape=poster&id=tt15239678&s=1.Q0"));
   assert.ok(!vieux.calls.some((u) => u.includes("/qualite/")));
 });
+
+// Badge Langue : les sources sont lues pour lui, même sans le badge de qualité ni titre récent ; pas avec QUALITE=off.
+test("langue_lue_dans_les_sources", async () => {
+  const multi = () => internet({ torrentio: async () => json({ streams: [{ name: "Torrentio\n1080p", title: "Dune.Part.Two.2024.MULTi.VFF.1080p" }] }) });
+  const f = multi();
+  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.Q03g1"));
+  assert.equal(res.status, 200);
+  assert.ok(f.calls.some((u) => u.includes("/qualite/movie/tt15239678.json")), f.calls.join("\n"));
+  const sans = await makeHandler({ fetchImpl: multi(), env })(req("type=movie&shape=poster&id=tt15239678&s=1.Q0"));
+  assert.notEqual(res.headers.get("ETag"), sans.headers.get("ETag"));
+  // Rien d'autre à poser que la langue : l'affiche est quand même dessinée.
+  const seule = await makeHandler({ fetchImpl: multi(), env })(req("type=movie&shape=poster&id=tt15239678&s=1.S0T0Q0L0B03g1"));
+  assert.equal(seule.status, 200);
+  const off = multi();
+  await makeHandler({ fetchImpl: off, env: { ...env, QUALITE: "off" } })(req("type=movie&shape=poster&id=tt15239678&s=1.Q03g1"));
+  assert.ok(!off.calls.some((u) => u.includes("/qualite/")));
+});

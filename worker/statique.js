@@ -15,6 +15,7 @@ import { QRCODE_JS } from "./tiers/qrcode.js";
 import { outilsJs } from "./outils.js";
 import { SALLE2_CSS, SALLE2_FIN_CSS, SALLE2_JS, HOTE_JS } from "./page.js";
 import { GUIDE_CSS, GUIDE_RECLAMES_CSS, GUIDE_FIN_CSS, GUIDE_JS, GUIDE_FIN_JS } from "./guide.js";
+import { VERIFS_CSS, VERIFS_JS } from "./guide-verifs.js";
 
 // Construits au premier besoin : les pages importent ce fichier, et lui importe leurs styles et leurs scripts.
 let fichiers = null;
@@ -27,6 +28,7 @@ const FICHIERS = () => fichiers || (fichiers = {
   "salle2.css": SALLE2_CSS, "salle2-fin.css": SALLE2_FIN_CSS, "salle2.js": SALLE2_JS, "salle2-hote.js": HOTE_JS,
   "guide.css": GUIDE_CSS, "guide-reclames.css": GUIDE_RECLAMES_CSS, "guide-fin.css": GUIDE_FIN_CSS,
   "guide.js": GUIDE_JS, "guide-fin.js": GUIDE_FIN_JS,
+  "guide-verifs.css": VERIFS_CSS, "guide-verifs.js": VERIFS_JS,
   // qrcode-generator 1.4.4 (licence MIT, en tête du fichier), tel que publié sur npm.
   "qrcode.js": QRCODE_JS,
   // Ceux-là citent d'autres fichiers d'ici, avec leur empreinte.

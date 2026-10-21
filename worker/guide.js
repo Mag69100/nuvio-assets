@@ -44,6 +44,7 @@ import { APPAREILS, installUrl } from "./liens.js";
 import { feuilles, scripts } from "./statique.js";
 import { esc } from "./outils-serveur.js";
 import { pannesHTML } from "./pannes.js";
+import { seanceHTML } from "./guide-verifs.js";
 
 const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>`;
 const copyBox = (id, value) => `<div class="copy"><code id="${id}">${esc(value)}</code><button type="button" data-copy="${id}">Copier</button></div>`;
@@ -196,7 +197,7 @@ ${STAGE_HEAD}
 <meta property="og:title" content="Nuvio en français, de A à Z">
 <meta property="og:image" content="${LOGO}">
 <link rel="icon" href="${LOGO}">
-${feuilles("polices.css", "guide.css", "apercu.css", "nuvio.css", "reglages.css", "guide-reclames.css", "scene.css", "guide-fin.css")}
+${feuilles("polices.css", "guide.css", "apercu.css", "nuvio.css", "reglages.css", "guide-reclames.css", "scene.css", "guide-fin.css", "guide-verifs.css")}
 </head>
 <body>
 <div class="valance" aria-hidden="true"></div>
@@ -448,6 +449,7 @@ ${secretsHTML("guide")}
         <p class="perso-actions"><button type="button" class="perso-btn" data-perso-ouvrir>Personnaliser mon catalogue</button></p>
         ${addonBox("u-cat", manifest)}
         <p class="small perso" data-perso hidden>C'est ton lien perso, repris de ta programmation. <button type="button" class="perso-lien" data-perso-ouvrir>Le modifier</button> · <button type="button" class="perso-lien" data-perso-retour>Revenir au lien conseillé</button></p>
+        ${seanceHTML()}
       </article>
       <article class="addon">
         <header><h3>Lumio</h3><span class="role need">Débrideur</span></header>
@@ -628,7 +630,7 @@ ${scripts("nuvio.js", "apercu.js", "reglages.js")}
 // Étape 8 : le lien d'affiches de cet appareil, avec ce qui a été choisi en salle 2 (« Tes affiches »).
 if (window.NV) document.getElementById("u-poster").textContent = NV.lienPerso();
 </script>
-${scripts("guide-fin.js")}
+${scripts("guide-fin.js", "guide-verifs.js")}
 </body>
 </html>`;
 }

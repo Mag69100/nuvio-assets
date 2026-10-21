@@ -1007,6 +1007,9 @@ export const STAGE_JS = String.raw`
   if (root.dataset.saison === "halloween") LISTE.push(["colonie", "Réveiller la colonie de chauves-souris", "Elles volent au-dessus de toi."]);
   let trouves = [];
   try { trouves = JSON.parse(store.get("secrets") || "[]"); } catch (e) {}
+  // Une valeur abîmée (autre version, extension) ne doit pas casser toute la salle.
+  if (!Array.isArray(trouves)) trouves = [];
+  trouves = trouves.filter((x) => typeof x === "string");
   const tBtn = document.getElementById("trophees"), tPanel = document.getElementById("trophees-panel");
   // Les salles (thèmes) se débloquent avec les secrets.
   // Chaque salle change le décor ET apporte une rangée à ajouter dans Nuvio (rangée sur mesure).
@@ -1036,6 +1039,8 @@ export const STAGE_JS = String.raw`
   };
   let album = [];
   try { album = JSON.parse(store.get("billets") || "[]"); } catch (e) {}
+  if (!Array.isArray(album)) album = [];
+  album = album.filter((b) => b && typeof b === "object" && b.id);
   let onglet = "secrets";
   const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const nTrouves = () => LISTE.filter(([id]) => trouves.includes(id)).length;

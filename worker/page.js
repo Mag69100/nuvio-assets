@@ -1018,6 +1018,10 @@ window.hashDepart = hashDepart;
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const state = clone(D.cfg);
 const $ = (id) => document.getElementById(id);
+// Les effets de la salle (scene.js : pop-corn, sons, messages) sont un plus : s'ils manquent (script pas
+// chargé, bloqué), l'action qui vient de réussir ne doit pas passer pour un échec.
+const effet = (nom, ...args) => { try { if (typeof window[nom] === "function") window[nom](...args); } catch (e) {} };
+const bruit = (nom) => { try { if (window.sfx && typeof window.sfx[nom] === "function") window.sfx[nom](); } catch (e) {} };
 // Écran tactile : on n'y donne jamais le focus à un champ de nous-mêmes (ça ouvrirait le clavier).
 const tactile = matchMedia("(hover: none), (pointer: coarse)").matches;
 const same =(a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -1922,7 +1926,7 @@ $("g-unreleased").addEventListener("change", () => { state.u = !$("g-unreleased"
 
 function copy(btn, node, label) {
   const ok = () => {
-    btn.textContent = "Copié ✓"; setTimeout(() => btn.textContent = label, 1500); popcorn(btn); sfx.punch(); bravo();
+    btn.textContent = "Copié ✓"; setTimeout(() => btn.textContent = label, 1500); effet("popcorn", btn); bruit("punch"); effet("bravo");
     const t = $("ticket"); t.classList.remove("torn"); void t.offsetWidth; t.classList.add("torn"); setTimeout(() => t.classList.remove("torn"), 1700);
   };
   const fallback = () => { const r = document.createRange(); r.selectNodeContents(node); const s = getSelection(); s.removeAllRanges(); s.addRange(r); btn.textContent = "Sélectionné"; setTimeout(() => btn.textContent = label, 1500); };
@@ -1941,13 +1945,13 @@ $("copy-collections-contenu").addEventListener("click", (e) => {
       ? navigator.clipboard.write([new ClipboardItem({ "text/plain": texte.then((t) => new Blob([t], { type: "text/plain" })) })])
       : texte.then((t) => navigator.clipboard.writeText(t));
   } catch (err) { ecrit = Promise.reject(err); }
-  ecrit.then(() => { zone.hidden = true; btn.textContent = "Contenu copié ✓"; setTimeout(() => btn.textContent = "Copier le contenu (PC/TEL)", 1500); popcorn(btn); }, () => texte.then((t) => {
+  ecrit.then(() => { zone.hidden = true; btn.textContent = "Contenu copié ✓"; setTimeout(() => btn.textContent = "Copier le contenu (PC/TEL)", 1500); effet("popcorn", btn); }, () => texte.then((t) => {
     // Copie bloquée : le contenu s'affiche dans le billet, sélectionné, prêt à copier à la main.
     zone.value = t; zone.hidden = false; zone.focus(); zone.select();
-    toast("Copie bloquée par le navigateur : le contenu est affiché et sélectionné, copie-le (appui long → Copier, ou Ctrl+C).", true);
+    effet("toast", "Copie bloquée par le navigateur : le contenu est affiché et sélectionné, copie-le (appui long → Copier, ou Ctrl+C).", true);
   }, () => {
     window.open(url, "_blank", "noopener");
-    toast("Contenu introuvable : le lien s'ouvre dans un onglet, sélectionne tout et copie.", true);
+    effet("toast", "Contenu introuvable : le lien s'ouvre dans un onglet, sélectionne tout et copie.", true);
   }));
 });
 $("dock-copy").addEventListener("click", e => copy(e.currentTarget, $("u-manifest"), "Copier mon lien"));
@@ -2049,8 +2053,8 @@ $("fixe-creer").addEventListener("click", async (e) => {
     if (!r.ok || !j.id) throw new Error(j.error || "Création impossible : réessaie dans un instant.");
     fixeGarde(j.id, j.modif);
     fixe = { id: j.id, modif: j.modif }; segDepart = dernierEnvoye = seg; etatFixe = "ok";
-    update(); popcorn(btn); sfx.punch();
-    toast("Ton lien fixe est prêt : installe-le une fois, ensuite « Actualiser les addons » dans Nuvio suffit.");
+    update(); effet("popcorn", btn); bruit("punch");
+    effet("toast", "Ton lien fixe est prêt : installe-le une fois, ensuite « Actualiser les addons » dans Nuvio suffit.");
   } catch (err) {
     fixeErreur(err && err.message && !/fetch|network/i.test(err.message) ? err.message : "Création impossible : vérifie ta connexion.");
   }
@@ -2058,8 +2062,8 @@ $("fixe-creer").addEventListener("click", async (e) => {
 });
 $("fixe-modif").addEventListener("click", async (e) => {
   const btn = e.currentTarget, label = btn.textContent;
-  try { await navigator.clipboard.writeText(lienModif()); btn.textContent = "Copié ✓"; toast("Lien de modification copié : ouvre-le dans le navigateur de l'autre appareil. Dans Nuvio, c'est toujours le lien du billet."); }
-  catch (err) { toast("Copie impossible : ouvre cette page sur l'autre appareil avec le QR code « Continuer sur le téléphone ».", true); }
+  try { await navigator.clipboard.writeText(lienModif()); btn.textContent = "Copié ✓"; effet("toast", "Lien de modification copié : ouvre-le dans le navigateur de l'autre appareil. Dans Nuvio, c'est toujours le lien du billet."); }
+  catch (err) { effet("toast", "Copie impossible : ouvre cette page sur l'autre appareil avec le QR code « Continuer sur le téléphone ».", true); }
   setTimeout(() => { btn.textContent = label; }, 2200);
 });
 
@@ -2094,13 +2098,13 @@ $("qr-btn").addEventListener("click", () => {
   const open = $("qr").hidden;
   $("qr").hidden = !open; $("qr-btn").setAttribute("aria-expanded", String(open));
   if (open) drawQr();
-  sfx.click();
+  bruit("click");
 });
 $("share-btn").addEventListener("click", async (e) => {
   const btn = e.currentTarget, label = btn.textContent;
   const data = { title: state.n + ", ma programmation Nuvio", text: "Ouvre ce lien pour avoir les mêmes rangées que moi dans Nuvio.", url: shareUrl };
-  if (navigator.share) { try { await navigator.share(data); popcorn(btn); } catch (err) {} return; }
-  try { await navigator.clipboard.writeText(shareUrl); btn.textContent = "Lien copié ✓"; popcorn(btn); } catch (err) { btn.textContent = "Copie impossible"; toast("Copie impossible : sélectionne le lien et copie-le à la main.", true); }
+  if (navigator.share) { try { await navigator.share(data); effet("popcorn", btn); } catch (err) {} return; }
+  try { await navigator.clipboard.writeText(shareUrl); btn.textContent = "Lien copié ✓"; effet("popcorn", btn); } catch (err) { btn.textContent = "Copie impossible"; effet("toast","Copie impossible : sélectionne le lien et copie-le à la main.", true); }
   setTimeout(() => { btn.textContent = label; }, 1800);
 });
 // Le billet en image (1080 × 1350), à garder ou à envoyer.
@@ -2173,8 +2177,8 @@ $("img-btn").addEventListener("click", async (e) => {
     const file = new File([blob], "billet-nuvio.png", { type: "image/png" });
     if (matchMedia("(pointer: coarse)").matches && navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: state.n });
     else { const a = el("a", { href: URL.createObjectURL(blob), download: "billet-nuvio.png" }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
-    btn.textContent = "Billet imprimé ✓"; popcorn(btn); if (window.sfx) sfx.punch();
-  } catch (err) { btn.textContent = "Impression impossible"; toast("Impression du billet impossible : réessaie, ou fais une capture d'écran.", true); }
+    btn.textContent = "Billet imprimé ✓"; effet("popcorn", btn); bruit("punch");
+  } catch (err) { btn.textContent = "Impression impossible"; effet("toast","Impression du billet impossible : réessaie, ou fais une capture d'écran.", true); }
   btn.disabled = false;
   setTimeout(() => { btn.textContent = label; }, 2000);
 });

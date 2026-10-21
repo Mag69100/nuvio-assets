@@ -380,6 +380,11 @@ ${copy ? HOTE_HTML : ""}
         <div class="regie-tete">
           <p class="regie-legende" id="regie-legende"></p>
           <div class="seg" id="regie-format" role="group" aria-label="Forme de l'affiche"></div>
+          <div class="regie-choix">
+            <input type="search" id="regie-q" placeholder="Essayer sur un titre : film, série, animé…" aria-label="Essayer les réglages sur un titre de ton choix" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="regie-propositions" autocomplete="off" spellcheck="false" enterkeyhint="search">
+            <button type="button" class="regie-retirer" id="regie-retirer" hidden>Retirer mon titre</button>
+            <ul id="regie-propositions" role="listbox" aria-label="Titres trouvés" hidden></ul>
+          </div>
         </div>
         <figure class="regie-plateau" id="regie-plateau"><img id="regie-grande" alt=""></figure>
         <div class="regie-coulisses" id="regie-coulisses" role="group" aria-label="D'autres films avec les mêmes réglages"></div>
@@ -761,6 +766,22 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .regie-tete { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .regie-legende { margin: 0; color: var(--dim); font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .regie-tete .seg button { padding: 6px 12px; font-size: .8rem; }
+/* Le titre de son choix : une ligne sous l'en-tête, la liste des titres trouvés par-dessus la grande affiche. */
+.regie-tete { flex-wrap: wrap; }
+.regie-legende { flex: 1 1 0; min-width: 0; }
+.regie-choix { position: relative; flex: 1 1 100%; display: flex; gap: 8px; align-items: center; }
+.regie-choix input { flex: 1; min-width: 0; font: 500 .85rem/1.2 var(--body); padding: 8px 12px; color: #fff6e6; background: rgba(0,0,0,.35); border: 1px solid var(--seat); border-radius: 99px; }
+.regie-choix input:focus-visible { outline: 2px solid var(--bulb); outline-offset: 2px; }
+.regie-retirer { flex: none; font: 600 .75rem/1 var(--body); padding: 8px 12px; color: var(--dim); background: none; border: 1px solid var(--seat); border-radius: 99px; cursor: pointer; }
+.regie-retirer:hover, .regie-retirer:focus-visible { color: var(--cream); border-color: var(--dim); }
+#regie-propositions { position: absolute; z-index: 5; top: calc(100% + 6px); left: 0; right: 0; max-height: min(360px, 55vh); overflow-y: auto; margin: 0; padding: 6px; list-style: none;
+  background: #1b1216; border: 1px solid var(--seat); border-radius: 12px; box-shadow: 0 18px 40px rgba(0,0,0,.6); }
+#regie-propositions li { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; cursor: pointer; color: var(--cream); font: 500 .85rem/1.25 var(--body); }
+#regie-propositions li[aria-selected="true"], #regie-propositions li:hover { background: rgba(255,207,107,.12); }
+#regie-propositions li.vide { cursor: default; color: var(--dim); }
+#regie-propositions img, #regie-propositions .sans { flex: none; width: 34px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 4px; background: #2a1d22; }
+#regie-propositions small { display: block; color: var(--dim); font-size: .72rem; }
+@media (pointer: coarse) { .regie-choix input, .regie-retirer { min-height: 44px; } #regie-propositions li { min-height: 52px; } }
 /* La grande affiche prend toute la place, en gardant ses proportions (2:3 ou 16:9) : largeur bornée par la largeur ET la hauteur du plateau. */
 .regie-plateau { margin: 0; min-height: 0; display: flex; justify-content: center; align-items: center; container-type: size; }
 .regie-plateau img { display: block; width: min(100cqw, calc(100cqh * 2 / 3)); height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; background: #1b1418; box-shadow: 0 0 60px rgba(255,220,150,.18); transition: opacity .25s ease; }
@@ -1766,7 +1787,7 @@ function regieApercus() {
 // Vignettes des styles tout prêts : une vraie petite affiche du premier titre de démonstration dans chaque style
 // (les mêmes pour tout le monde : gardées par le CDN, 7 dessins par jour en tout).
 function regieVignettes() {
-  const t = regieTitres[0];
+  const t = regieDemo[0];
   if (!t) return;
   document.querySelectorAll("#regie-memoires [data-memoire]").forEach((b) => {
     const img = b.querySelector("img"), src = NV.ppSrc(t, "poster", LA.MEMOIRES[b.dataset.memoire]);
@@ -1777,7 +1798,7 @@ function regieVignettes() {
 // Les 6 titres de démonstration : pris dans les catalogues de l'addon pour être toujours à jour (tendance,
 // pas encore sorti, en salle, série), plus deux titres fixes (un film en 4K, un film au logo travaillé).
 async function regieCharge() {
-  if (regieTitres.length) return;
+  if (regieDemo.length) return;
   const premier = async (type, id, genre, legende) => {
     try {
       const d = await fetchJSON(NV_ORIG + "/catalog/" + type + "/" + id + "/genre=" + encodeURIComponent(genre) + ".json");
@@ -1792,13 +1813,108 @@ async function regieCharge() {
     premier("series", "series-tendances", "Aujourd'hui", "Série tendance"),
   ]);
   const fixes = [{ id: "tt1375666", type: "movie", name: "Inception", legende: "En 4K" }, { id: "tt15239678", type: "movie", name: "Dune : Deuxième partie", legende: "Logo fin" }];
-  regieTitres = [...lus.filter(Boolean), ...fixes].slice(0, 6);
+  regieDemo = [...lus.filter(Boolean), ...fixes].slice(0, 6);
+  regieCoulisses();
+  regieVignettes();
+}
+
+// Le titre de son choix (« Essayer sur un titre ») : gardé sur l'appareil, en tête des coulisses et sur la grande
+// affiche. Les vignettes des styles restent sur le premier titre de démonstration (les mêmes pour tout le monde,
+// gardées par le CDN) ; seules la scène et les coulisses dessinent ce titre-là.
+const REGIE_TITRE = "regie-titre";
+let regieDemo = [];
+let regieMonTitre = (() => {
+  try {
+    const t = JSON.parse(localStorage.getItem(REGIE_TITRE) || "null");
+    if (!t || !/^(tt\\d+|tmdb:\\d+)$/.test(String(t.id)) || (t.type !== "movie" && t.type !== "series")) return null;
+    return { id: String(t.id), type: t.type, name: String(t.name || "").slice(0, 120), imdb_id: /^tt\\d+$/.test(t.imdb_id || "") ? t.imdb_id : undefined };
+  } catch (e) { return null; }
+})();
+function regieCoulisses() {
+  regieTitres = regieMonTitre ? [{ ...regieMonTitre, legende: "Ton choix" }, ...regieDemo.slice(0, 5)] : regieDemo.slice(0, 6);
+  if (regieChoisi >= regieTitres.length) regieChoisi = 0;
   const c = $("regie-coulisses");
   c.textContent = "";
   regieTitres.forEach((t, i) => c.append(el("button", { type: "button", "aria-pressed": "false", "aria-label": "Voir " + (t.name || "ce titre") + " en grand",
     onclick: () => { regieChoisi = i; regieApercus(); } }, el("img", { alt: "" }), el("span", { text: t.legende }))));
-  regieVignettes();
+  $("regie-retirer").hidden = !regieMonTitre;
 }
+function regieGardeTitre() {
+  try { if (regieMonTitre) localStorage.setItem(REGIE_TITRE, JSON.stringify(regieMonTitre)); else localStorage.removeItem(REGIE_TITRE); } catch (e) {}
+}
+$("regie-retirer").addEventListener("click", () => {
+  regieMonTitre = null; regieGardeTitre(); regieChoisi = 0; regieCoulisses(); regieApercus();
+  $("regie-q").focus();
+});
+
+// La recherche : films et séries (les animés en font partie) par la recherche de l'addon, comme dans Nuvio.
+// Dès 3 lettres, après une courte pause : chaque recherche nouvelle coûte une vingtaine d'appels TMDB.
+(() => {
+  const q = $("regie-q"), liste = $("regie-propositions");
+  let actif = -1, props = [], attente = 0, enCours = null;
+  const ferme = () => { liste.hidden = true; q.setAttribute("aria-expanded", "false"); q.removeAttribute("aria-activedescendant"); actif = -1; };
+  const surligne = (i) => {
+    actif = i;
+    [...liste.children].forEach((li, k) => li.setAttribute("aria-selected", String(k === i)));
+    const li = liste.children[i];
+    if (li && li.id) { q.setAttribute("aria-activedescendant", li.id); li.scrollIntoView({ block: "nearest" }); } else q.removeAttribute("aria-activedescendant");
+  };
+  const prend = (m) => {
+    regieMonTitre = { id: m.id, type: m.type, name: m.name, imdb_id: m.imdb_id };
+    regieGardeTitre();
+    regieChoisi = 0; regieCoulisses(); regieApercus();
+    q.value = ""; ferme();
+    if (window.sfx) sfx.click();
+  };
+  const petite = (u) => String(u || "").replace(/\\/t\\/p\\/(w\\d+|original)\\//, "/t/p/w92/");
+  const remplit = (metas) => {
+    liste.textContent = ""; props = metas;
+    if (!metas.length) liste.append(el("li", { class: "vide", role: "option", "aria-disabled": "true", text: "Aucun titre trouvé : essaie un autre nom." }));
+    metas.forEach((m, i) => {
+      const li = el("li", { id: "regie-prop-" + i, role: "option", "aria-selected": "false" },
+        m.poster ? el("img", { alt: "", loading: "lazy", src: petite(m.poster) }) : el("span", { class: "sans" }),
+        el("span", null, el("b", { text: m.name }), el("small", { text: (m.type === "series" ? "Série" : "Film") + (m.annee ? " · " + m.annee : "") })));
+      li.addEventListener("mousedown", (e) => e.preventDefault());
+      li.addEventListener("click", () => prend(m));
+      liste.append(li);
+    });
+    liste.hidden = false; q.setAttribute("aria-expanded", "true"); actif = -1;
+  };
+  const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+  const cherche = (texte) => {
+    if (enCours) enCours.abort();
+    const ctl = enCours = new AbortController();
+    const un = (type, cat) => fetch(NV_ORIG + "/catalog/" + type + "/" + cat + "/search=" + encodeURIComponent(texte) + ".json", { signal: ctl.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => ((d && d.metas) || []).filter((m) => m && m.name && /^(tt\\d+|tmdb:\\d+)$/.test(String(m.id)))
+        .map((m) => ({ id: String(m.id), type, name: m.name, imdb_id: m.imdb_id, poster: m.poster, annee: (/^\\d{4}/.exec(m.releaseInfo || "") || [""])[0] })))
+      .catch((e) => { if (e && e.name === "AbortError") throw e; return []; });
+    Promise.all([un("movie", "recherche-films"), un("series", "recherche-series")]).then(([films, series]) => {
+      if (ctl !== enCours) return;
+      // La liste dont le premier titre ressemble le plus à la recherche passe d'abord, puis les deux alternent.
+      const n = norm(texte), proche = (l) => { const t = l.length ? norm(l[0].name) : ""; return !t ? 0 : t === n ? 3 : t.startsWith(n) ? 2 : t.includes(n) ? 1 : 0; };
+      const [a, b] = proche(series) > proche(films) ? [series, films] : [films, series];
+      const tout = [];
+      for (let i = 0; i < 6; i++) { if (a[i]) tout.push(a[i]); if (b[i]) tout.push(b[i]); }
+      remplit(tout.slice(0, 10));
+    }).catch(() => {});
+  };
+  q.addEventListener("input", () => {
+    clearTimeout(attente);
+    const t = q.value.trim();
+    if (t.length < 3) { if (enCours) enCours.abort(); ferme(); return; }
+    attente = setTimeout(() => cherche(t), 400);
+  });
+  q.addEventListener("keydown", (e) => {
+    const n = liste.hidden ? 0 : props.length;
+    if (e.key === "ArrowDown" && n) { e.preventDefault(); surligne((actif + 1) % n); }
+    else if (e.key === "ArrowUp" && n) { e.preventDefault(); surligne((actif - 1 + n) % n); }
+    else if (e.key === "Enter" && n) { e.preventDefault(); prend(props[actif >= 0 ? actif : 0]); }
+    // Échap ferme d'abord la liste, sans fermer la régie.
+    else if (e.key === "Escape" && !liste.hidden) { e.preventDefault(); e.stopPropagation(); ferme(); }
+  });
+  q.addEventListener("blur", () => setTimeout(ferme, 150));
+})();
 
 function regieOuvre(declencheur) {
   regieDeclencheur = declencheur || null;

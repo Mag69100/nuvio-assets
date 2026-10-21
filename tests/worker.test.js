@@ -661,3 +661,113 @@ test("prochainement_pages_pleines_et_fiches_lues_une_fois", async () => {
   const lectures = calls.filter((u) => /\/movie\/\d+\?/.test(u)).map((u) => /\/movie\/(\d+)\?/.exec(u)[1]);
   assert.equal(lectures.length, new Set(lectures).size, "une fiche lue deux fois");
 });
+
+// Rangées « Dispo depuis peu », « Bientôt dispo », « Prochainement » et fiche : la VF lue dans les sources (service
+// d'affiches, /vf.json, un seul appel par page) décide, comme sur les affiches ; sans réponse, les dates.
+const sourcesDe = (table) => (u) => {
+  const v = new URL(u).searchParams.get("v") || "";
+  return new Response(JSON.stringify(Object.fromEntries(v.split(",").map((id) => [id, table[id.replace("movie/", "")] ?? null]))));
+};
+const filmVod = (n, langue, dates, fr) => ({ id: n, imdb_id: "tt" + (900 + n), original_language: langue,
+  release_dates: { results: dates.map(([pays, type, d]) => ({ iso_3166_1: pays, release_dates: [{ type, release_date: d + "T00:00:00.000Z" }] })) },
+  ...(fr ? { "watch/providers": { results: { FR: { flatrate: [{ provider_name: "Netflix" }] } } } } : {}) });
+
+test("dispo_depuis_peu_selon_les_sources", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const lus = { tt901: { vf: false, sources: 30 }, tt902: { vf: true, sources: 12 } };
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/vf.json")) return sourcesDe(lus)(u);
+    if (u.includes("/discover/movie") && new URL(u).searchParams.get("with_release_type") === "4") return new Response(JSON.stringify({ results: [
+      { id: 1, title: "VO seulement", original_language: "en", release_date: jour(-60), popularity: 9 },
+      { id: 2, title: "VF trouvée", original_language: "en", release_date: jour(-60), popularity: 8 },
+      { id: 3, title: "Pas lu", original_language: "en", release_date: jour(-60), popularity: 7 },
+    ], page: 1, total_pages: 1 }));
+    // 1 : les dates disent VF (Québec) mais les sources non ; 2 : les dates disent non, les sources oui ; 3 : pas lu → dates (VF).
+    const m = /\/movie\/(\d)\?/.exec(u);
+    if (m && m[1] === "1") return new Response(JSON.stringify(filmVod(1, "en", [["US", 4, jour(-5)], ["CA", 3, jour(-60)]])));
+    if (m && m[1] === "2") return new Response(JSON.stringify(filmVod(2, "en", [["US", 4, jour(-5)]])));
+    if (m && m[1] === "3") return new Response(JSON.stringify(filmVod(3, "en", [["US", 4, jour(-5)], ["CA", 3, jour(-60)]])));
+    return new Response(JSON.stringify({ results: [] }));
+  };
+  const { metas } = await (await get("/catalog/movie/accueil-vod-semaine.json")).json();
+  assert.deepEqual(metas.map((m) => m.name).sort(), ["Pas lu", "VF trouvée"]);
+  assert.equal(calls.filter((u) => u.includes("/vf.json")).length, 1, "un seul appel pour la page");
+  assert.ok(calls.some((u) => u.includes("/vf.json") && u.includes("movie%2Ftt901") || u.includes("movie/tt901")));
+  assert.ok(!metas.some((m) => "_vf" in m || "_dejaVf" in m));
+});
+
+test("bientot_dispo_et_prochainement_selon_les_sources", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const lus = { tt901: { vf: true, sources: 12 }, tt902: { vf: false, sources: 20 } };
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/vf.json")) return sourcesDe(lus)(u);
+    if (u.includes("/discover/movie") && new URL(u).searchParams.get("with_release_type") === "4") return new Response(JSON.stringify({ results: [
+      { id: 1, title: "Déjà en VF", original_language: "en", release_date: jour(-40), popularity: 9 },
+      { id: 2, title: "VO seulement", original_language: "en", release_date: jour(-40), popularity: 8 },
+    ], page: 1, total_pages: 1 }));
+    if (u.includes("/movie/upcoming")) return new Response(JSON.stringify({ results: [
+      { id: 1, title: "Déjà en VF", original_language: "en", release_date: jour(7) },
+      { id: 2, title: "VO seulement", original_language: "en", release_date: jour(7) },
+    ], page: 1, total_pages: 1 }));
+    const m = /\/movie\/(\d)\?/.exec(u);
+    if (m) return new Response(JSON.stringify(filmVod(Number(m[1]), "en", [["US", 4, jour(6)], ["FR", 3, jour(7)]])));
+    return new Response(JSON.stringify({ results: [] }));
+  };
+  const bientot = (await (await get("/catalog/movie/accueil-vod-bientot.json")).json()).metas;
+  assert.deepEqual(bientot.map((m) => m.name), ["VO seulement"]);
+  const prochainement = (await (await get("/catalog/movie/films-cinema/genre=Prochainement.json")).json()).metas;
+  assert.deepEqual(prochainement.map((m) => m.name), ["VO seulement"]);
+});
+
+test("fiche_selon_les_sources", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const lus = { tt9001: { vf: true, sources: 12 }, tt9002: { vf: false, sources: 20 } };
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/vf.json")) return sourcesDe(lus)(u);
+    const m = /\/movie\/(800[12])\?/.exec(u);
+    if (m) return new Response(JSON.stringify({ id: Number(m[1]), title: "Film " + m[1], imdb_id: "tt900" + m[1].slice(3), release_date: jour(-40), original_language: "nl",
+      release_dates: { results: [{ iso_3166_1: "NL", release_dates: [{ type: 3, release_date: jour(-40) + "T00:00:00.000Z" }] }] } }));
+    return new Response("{}");
+  };
+  const vf = (await (await get("/meta/movie/tmdb:8001.json")).json()).meta;
+  assert.match(vf.description || "", /Déjà dispo/);
+  const vo = (await (await get("/meta/movie/tmdb:8002.json")).json()).meta;
+  assert.match(vo.description || "", /Dispo en VO/);
+});
+
+// Les Diables (1971) ressort au cinéma : ses sources ont de la VF (vieux film), mais une ressortie reste dans
+// « Prochainement ». Les sources ne jugent que les films récents (moins d'un an), comme sur les affiches.
+test("prochainement_garde_les_ressorties", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/vf.json")) return sourcesDe({ tt907: { vf: true, sources: 25 } })(u);
+    if (u.includes("/movie/upcoming")) return new Response(JSON.stringify({ results: [{ id: 7, title: "Les Diables", original_language: "en", release_date: jour(14) }], page: 1, total_pages: 1 }));
+    if (/\/movie\/7\?/.test(u)) return new Response(JSON.stringify(filmVod(7, "en", [["GB", 3, "1971-07-16"], ["FR", 3, jour(14)]])));
+    return new Response(JSON.stringify({ results: [] }));
+  };
+  const { metas } = await (await get("/catalog/movie/films-cinema/genre=Prochainement.json")).json();
+  assert.deepEqual(metas.map((m) => m.name), ["Les Diables"]);
+});
+
+// Buddy : sorti chez soi aux États-Unis (date connue), sources sans VF : « Dispo en VO depuis le … ».
+test("fiche_vo_avec_date_connue", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/vf.json")) return sourcesDe({ tt9003: { vf: false, sources: 43 } })(u);
+    if (/\/movie\/8003\?/.test(u)) return new Response(JSON.stringify({ id: 8003, title: "Buddy", imdb_id: "tt9003", release_date: jour(-60), original_language: "en",
+      release_dates: { results: [{ iso_3166_1: "US", release_dates: [{ type: 4, release_date: jour(-8) + "T00:00:00.000Z" }] }] } }));
+    return new Response("{}");
+  };
+  const m = (await (await get("/meta/movie/tmdb:8003.json")).json()).meta;
+  assert.match(m.description || "", /Dispo en VO depuis le/);
+});

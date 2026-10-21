@@ -5,6 +5,7 @@
     { "source": "/qualite/:type/:video.json", "destination": "/api/qualite?type=:type&video=:video" },
     { "source": "/tendances/:type.json", "destination": "/api/tendances?type=:type" },
     { "source": "/notes/:imdb.json", "destination": "/api/notes?imdb=:imdb" },
+    { "source": "/vf.json", "destination": "/api/vf" },
     { "source": "/:type/:shape/:id.jpg", "destination": "/api/affiche?type=:type&shape=:shape&id=:id" }
   ],
   "functions": {

@@ -1,8 +1,8 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { titleFacts, tmdbIdDe, tailleMemo, resetMemo as resetTmdb } from "../lib/tmdb.js";
-import { ratingOf, decodeRatings, resetMemo as resetNotes } from "../lib/notes.js";
-import { trendingRank, photoTendances, prochaineBascule, secondesAvantBascule, resetMemo as resetTendances } from "../lib/tendances.js";
+import { ratingOf, lireNoteImdb, decodeRatings, resetMemo as resetNotes } from "../lib/notes.js";
+import { trendingRank, lireRang, photoTendances, prochaineBascule, secondesAvantBascule, resetMemo as resetTendances } from "../lib/tendances.js";
 
 const env = { TMDB_API_KEY: "k" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json" } });
@@ -242,6 +242,19 @@ test("notes illisibles : pas de note", async () => {
   assert.equal(await ratingOf("tt0000003", f), undefined);
 });
 
+// Le fichier qui manque (illisible, ou pas encore lu après le délai donné) est signalé : l'affiche prend le cache court.
+// Lent : on n'attend pas, mais la lecture continue et sert ensuite.
+test("notes_imdb_manquantes_signalees", async () => {
+  resetNotes();
+  assert.deepEqual(await lireNoteImdb("tt0000003", async () => new Response("", { status: 503 }), 100), { note: undefined, manque: true });
+  resetNotes();
+  const lent = async () => { await new Promise((ok) => setTimeout(ok, 300)); return new Response(binNotes([[3, 79]])); };
+  assert.deepEqual(await lireNoteImdb("tt0000003", lent, 50), { note: undefined, manque: true });
+  await new Promise((ok) => setTimeout(ok, 400));
+  assert.deepEqual(await lireNoteImdb("tt0000003", lent, 50), { note: "7.9", manque: false });
+  assert.deepEqual(await lireNoteImdb("tt0000004", lent, 50), { note: undefined, manque: false });
+});
+
 // La photo du jour : les 60 premiers des tendances (3 pages TMDB), sans doublon. Le N° des affiches s'arrête
 // à 20 ; les suivants, presque classés, ont seulement un cache qui s'arrête au changement de photo.
 test("tendances", async () => {
@@ -282,6 +295,11 @@ test("bascule_quotidienne", () => {
 test("tendances en panne : null sans erreur", async () => {
   const f = async () => { throw new Error("réseau"); };
   assert.equal(await trendingRank(env, "movie", 1, f), null);
+  // Photo illisible : signalée (cache court), à la différence d'un titre absent de la photo.
+  resetTendances();
+  assert.deepEqual(await lireRang(env, "movie", 1, f), { rang: null, illisible: true });
+  resetTendances();
+  assert.deepEqual(await lireRang(env, "movie", 9, async () => json({ ids: [7, 8] }), "https://affiches.test"), { rang: null, illisible: false });
 });
 
 // Revue : langues d'origine demandées à TMDB seulement quand un réglage s'en sert ; les plateformes, toujours pour

@@ -5,18 +5,20 @@
  * Caches : Nuvio garde l'image une semaine (puis revérifie l'ETag) ; le CDN de Vercel aussi, et la redessine en
  * arrière-plan ensuite, ce qui tient dans les limites de l'offre gratuite.
  * Vitesse : les images sont téléchargées pendant qu'on lit les notes et la qualité, et on n'attend pas
- * Torrentio plus d'1 s ; sans réponse, l'affiche part sans badge, avec un cache court pour l'avoir ensuite.
+ * Torrentio plus d'1 s ; sans réponse, l'affiche part sans badge, avec un cache court pour l'avoir ensuite. De même
+ * sans le fichier des notes IMDb (pas attendu plus d'1,5 s), sans photo des tendances, ou si une image sans texte n'a
+ * pas pu être vérifiée : une donnée qui manque pour une panne passagère n'est jamais gardée des jours.
  */
 import { titleFacts } from "../lib/tmdb.js";
-import { ratingOf } from "../lib/notes.js";
-import { trendingRank, secondesAvantBascule } from "../lib/tendances.js";
+import { lireNoteImdb } from "../lib/notes.js";
+import { lireRang, secondesAvantBascule } from "../lib/tendances.js";
 import { qualityOf } from "../lib/qualite.js";
 import { posterContent, contentKey } from "../lib/contenu.js";
 import { etatSortie, sourcesUtiles } from "../lib/statut.js";
 import { lireReglages, lireReglagesPaysage, ecrireReglages } from "../lib/lien-affiches.js";
 import { notesPlus } from "../lib/notes-plus.js";
 import { draw, imageUrls } from "../lib/dessin.js";
-import { sansTexte } from "../lib/texte.js";
+import { choisirSansTexte } from "../lib/texte.js";
 import { jourParis, secondesAvantMinuitParis } from "../lib/jour.js";
 import { disjoncteurDe } from "../lib/disjoncteur.js";
 
@@ -52,6 +54,8 @@ const SURCHARGE = { "Cache-Control": "public, max-age=600", "Vercel-CDN-Cache-Co
 const SECOURS = { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" };
 const CORS = { "Access-Control-Allow-Origin": "*" };
 const ATTENTE_QUALITE_MS = 1000;
+// Fichier des notes IMDb pas encore lu (instance qui démarre) : pas attendu plus longtemps (il peut prendre 8 s).
+const ATTENTE_NOTES_MS = 1500;
 
 const absent = () => new Response(null, { status: 404, headers: { ...CORS, ...ABSENT } });
 const panne = () => new Response(null, { status: 502, headers: { ...CORS, "Cache-Control": "no-store" } });
@@ -135,9 +139,9 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
     try {
       // Notes IMDb et tendances ne dépendent pas du titre : sur une instance qui démarre, on les charge
       // pendant que TMDB répond (elles sont ensuite gardées en mémoire).
-      if (noteImdb) ratingOf("tt0", fetchImpl).catch(() => {});
+      if (noteImdb) lireNoteImdb("tt0", fetchImpl, 0).catch(() => {});
       const relais = new URL(request.url).origin;
-      if (tendance) trendingRank(env, type, 0, fetchImpl, relais).catch(() => {});
+      if (tendance) lireRang(env, type, 0, fetchImpl, relais).catch(() => {});
       let facts = await titleFacts(env, { type, id, imdb }, fetchImpl, { plateforme: reglages.plateforme.on, vo: reglages.titre.on && reglages.titre.langue === "vo", credits: reglages.titre.on && reglages.infos.ligne2 === "realisateur" });
       if (!facts) return absent();
       // Trop de dessins sur cette instance (robot, liens au hasard) : l'affiche d'origine, sans rien analyser ni
@@ -152,10 +156,14 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       // L'image « sans texte » porte notre logo : on vérifie qu'elle n'a vraiment pas de texte (TMDB y range
       // parfois des affiches étrangères). Aucune de propre : l'affiche normale, sans logo ni ligne du bas.
       // L'image du film recadrée (réglage « Image ») vient des fonds, vérifiés de la même façon.
+      // Une candidate pas lue (panne passagère) : le choix peut changer, cache court.
+      let imageIncertaine = false;
       if (reglages.titre.on) {
         const fond = shape === "landscape" || reglages.image.source === "fond";
         const [cle, liste] = fond ? ["textlessBackdrop", facts.textlessBackdrops] : ["textlessPoster", facts.textlessPosters];
-        facts = { ...facts, [cle]: await sansTexte(liste, fetchImpl) };
+        const { chemin, incertain } = await choisirSansTexte(liste, fetchImpl);
+        facts = { ...facts, [cle]: chemin };
+        imageIncertaine = incertain;
       }
       // Le jour à Paris, le même pour tout le calcul (statut, sources utiles).
       const aujourdhui = jourParis();
@@ -171,15 +179,17 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       // Pas encore sorti avec la note cachée : les autres notes ne seraient pas dessinées non plus.
       const notesUtiles = autresNotes && !(reglages.sortie.cacherNote && !etatSortie(facts, aujourdhui).sorti);
       if (peutDessiner && !request.headers.get("If-None-Match")) imageUrls(brouillon).forEach((u) => images(u).catch(() => {}));
-      const [imdbRating, place, { enRetard: qualiteEnRetard, quality }, notes] = await Promise.all([
-        noteImdb && facts.imdbId ? ratingOf(facts.imdbId, fetchImpl) : undefined,
-        tendance ? trendingRank(env, type, facts.tmdbId, fetchImpl, relais) : null,
+      const [{ note: imdbRating, manque: imdbManque }, { rang: place, illisible: photoIllisible }, { enRetard: qualiteEnRetard, quality }, notes] = await Promise.all([
+        noteImdb && facts.imdbId ? lireNoteImdb(facts.imdbId, fetchImpl, ATTENTE_NOTES_MS) : { note: undefined, manque: false },
+        tendance ? lireRang(env, type, facts.tmdbId, fetchImpl, relais) : { rang: null, illisible: false },
         lireSources ? qualiteATemps(type, facts, fetchImpl, relais, env.RELAIS_KEY) : { enRetard: false, quality: null },
         notesUtiles && facts.imdbId ? notesPlus(facts.imdbId, fetchImpl, relais, env.RELAIS_KEY) : undefined,
       ]);
+      // Une donnée qui manque pour une panne passagère (fichier IMDb pas lu : note TMDB en attendant ; photo des
+      // tendances illisible : pas de N° ; image sans texte pas vérifiée) : cache court, pour l'avoir ensuite.
       // Notes des autres sites demandées mais pas lues (quota, panne) : cache normal sans elles (le relais garde
       // l'échec une heure ; un cache court ferait redessiner sans fin pendant toute la panne).
-      const enRetard = qualiteEnRetard;
+      const enRetard = qualiteEnRetard || imdbManque || photoIllisible || imageIncertaine;
       const content = posterContent(facts, { imdbRating, rank: place, quality, notes }, shape, reglages, aujourdhui);
       // Rien à poser ni à griser : l'appli va chercher l'image directement chez TMDB, sans la redessiner ici.
       const retouchee = !!(content.styles.retouche || content.styles.cadre);

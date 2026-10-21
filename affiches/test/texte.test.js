@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import sharp from "sharp";
 import satori from "satori";
-import { lignesDeTexte, sansTexte, resetMemo } from "../lib/texte.js";
+import { lignesDeTexte, sansTexte, choisirSansTexte, resetMemo } from "../lib/texte.js";
 
 beforeEach(() => resetMemo());
 
@@ -47,6 +47,29 @@ test("sans_texte_choisit_la_premiere_propre", async () => {
   assert.equal(await sansTexte([], f), null);
   // Image injoignable : écartée, comme une image à texte.
   assert.equal(await sansTexte(["/absente.jpg", "/propre.jpg"], f), "/propre.jpg");
+});
+
+// Image pas lue (réseau, TMDB en panne) : ni gardée en mémoire (on réessaiera), ni comptée comme « avec texte » pour
+// de bon ; le choix est incertain, et l'affiche prend le cache court.
+test("sans_texte_panne_passagere_pas_gardee", async () => {
+  let panne = true;
+  const calls = [];
+  const f = async (url) => {
+    calls.push(String(url));
+    if (panne) throw new Error("réseau");
+    return new Response(SANS);
+  };
+  assert.deepEqual(await choisirSansTexte(["/a.jpg"], f), { chemin: null, incertain: true });
+  panne = false;
+  assert.deepEqual(await choisirSansTexte(["/a.jpg"], f), { chemin: "/a.jpg", incertain: false });
+  assert.equal(calls.length, 2);
+  // TMDB en panne (5xx) : incertain aussi ; image absente (404) : écartée pour de bon, sans incertitude.
+  const g = async (url) => (String(url).includes("/panne") ? new Response(null, { status: 503 }) : String(url).includes("/propre") ? new Response(SANS) : new Response(null, { status: 404 }));
+  assert.deepEqual(await choisirSansTexte(["/panne.jpg", "/propre.jpg"], g), { chemin: "/propre.jpg", incertain: true });
+  assert.deepEqual(await choisirSansTexte(["/absente.jpg", "/propre.jpg"], g), { chemin: "/propre.jpg", incertain: false });
+  // Une image illisible (pas une image) : écartée et gardée.
+  const h = async () => new Response("pas une image");
+  assert.deepEqual(await choisirSansTexte(["/casse.jpg"], h), { chemin: null, incertain: false });
 });
 
 test("sans_texte_garde_en_memoire", async () => {

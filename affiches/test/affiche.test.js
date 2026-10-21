@@ -46,7 +46,7 @@ function internet({ detail = json(film), torrentio } = {}) {
     if (u.includes("/trending/")) return json({ results: [] });
     if (u.includes("api.themoviedb.org") && (u.includes("/movie/") || u.includes("/tv/"))) return detail.clone();
     if (u.includes("image.tmdb.org")) return new Response(u.endsWith(".png") ? PNG : u.includes("/texte") ? TEXTE : JPG);
-    if (u.includes("imdb-ratings.bin")) return new Response("", { status: 404 });
+    if (u.includes("imdb-ratings.bin")) return new Response(new Uint8Array(4));   // fichier des notes IMDb, vide
     return new Response("?", { status: 404 });
   };
   f.calls = calls;
@@ -189,6 +189,42 @@ test("Torrentio en échec : cache normal sans badge", async () => {
   const muet = async (url, opts) => (String(url).includes("/qualite/") ? new Response("", { status: 500 }) : base(url, opts));
   const res2 = await makeHandler({ fetchImpl: muet, env })(req("type=movie&shape=poster&id=tt15239678"));
   assert.equal(res2.headers.get("Cache-Control"), "public, max-age=604800");
+});
+
+// Une donnée qui manque pour une panne passagère n'est jamais gardée des jours : cache court, puis l'affiche complète.
+const court = (res) => res.headers.get("Vercel-CDN-Cache-Control") === "max-age=600, stale-while-revalidate=3600";
+const avecPanne = (motif, reponse) => { const base = internet(); return async (url, opts) => (String(url).includes(motif) ? reponse(url, opts) : base(url, opts)); };
+
+test("fichier des notes IMDb illisible : note TMDB, cache court", async () => {
+  const res = await makeHandler({ fetchImpl: avecPanne("imdb-ratings.bin", () => new Response("", { status: 503 })), env })(req("type=movie&shape=poster&id=tt15239678&s=1.T0Q0"));
+  assert.equal(res.status, 200);
+  assert.ok(court(res), res.headers.get("Vercel-CDN-Cache-Control"));
+});
+
+// Instance qui démarre : le fichier des notes (8 s au pire) n'est pas attendu plus d'1,5 s ; la lecture continue.
+test("fichier des notes IMDb lent : pas attendu, cache court", async () => {
+  const t0 = Date.now();
+  const lent = () => new Promise((ok) => setTimeout(() => ok(new Response(new Uint8Array(4))), 2500));
+  const res = await makeHandler({ fetchImpl: avecPanne("imdb-ratings.bin", lent), env })(req("type=movie&shape=poster&id=tt15239678&s=1.T0Q0"));
+  assert.equal(res.status, 200);
+  assert.ok(Date.now() - t0 < 2300, `trop long : ${Date.now() - t0} ms`);
+  assert.ok(court(res), res.headers.get("Vercel-CDN-Cache-Control"));
+});
+
+test("photo des tendances illisible : sans N°, cache court", async () => {
+  const res = await makeHandler({ fetchImpl: avecPanne("/tendances/", () => new Response("", { status: 503 })), env })(req("type=movie&shape=poster&id=tt15239678&s=1.Q0"));
+  assert.equal(res.status, 200);
+  assert.ok(court(res), res.headers.get("Vercel-CDN-Cache-Control"));
+});
+
+test("image sans texte pas vérifiée (réseau) : cache court", async () => {
+  // Seule candidate pas vérifiée : l'affiche d'origine (rien d'autre à poser ici), mais pas pour une semaine.
+  const res = await makeHandler({ fetchImpl: avecPanne("/w342/", () => Promise.reject(new Error("réseau"))), env })(req("type=movie&shape=poster&id=tt15239678&s=1.Q0"));
+  assert.equal(res.status, 302);
+  assert.ok(court(res), res.headers.get("Vercel-CDN-Cache-Control"));
+  // Le réseau revenu, la même instance vérifie l'image (l'échec n'a pas été gardé) et dessine l'affiche avec son logo.
+  const ok = await makeHandler({ fetchImpl: internet(), env })(req("type=movie&shape=poster&id=tt15239678&s=1.Q0"));
+  assert.equal(ok.status, 200);
 });
 
 test("images téléchargées pendant qu'on attend Torrentio", async () => {

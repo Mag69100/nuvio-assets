@@ -568,6 +568,27 @@ test("prochainement_sans_les_films_deja_dispo", async () => {
   assert.deepEqual(metas.map((m) => m.name), ["Pas encore"]);
 });
 
+// Sur une plateforme en France (Netflix…) sans aucune date francophone chez TMDB : VF disponible, donc retiré aussi.
+test("prochainement_sans_les_films_sur_une_plateforme_francophone", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const dates = (...l) => ({ results: l.map(([pays, type, d]) => ({ iso_3166_1: pays, release_dates: [{ type, release_date: d + "T00:00:00.000Z" }] })) });
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/movie/upcoming")) return new Response(JSON.stringify({ results: [
+      { id: 1, title: "Sur Netflix", original_language: "es", release_date: jour(7) },
+      { id: 2, title: "Sur Netflix US", original_language: "es", release_date: jour(7) },
+    ], page: 1, total_pages: 1 }));
+    const netflix = (pays) => ({ results: { [pays]: { flatrate: [{ provider_name: "Netflix" }] } } });
+    if (/\/movie\/1\?/.test(u)) return new Response(JSON.stringify({ release_dates: dates(["US", 4, jour(-4)]), "watch/providers": netflix("FR") }));
+    if (/\/movie\/2\?/.test(u)) return new Response(JSON.stringify({ release_dates: dates(["US", 4, jour(-4)]), "watch/providers": netflix("US") }));
+    return new Response("{}");
+  };
+  const { metas } = await (await get("/catalog/movie/films-cinema/genre=Prochainement.json")).json();
+  assert.deepEqual(metas.map((m) => m.name), ["Sur Netflix US"]);
+  assert.ok(calls.some((u) => /\/movie\/1\?/.test(u) && /append_to_response=[^&]*watch/.test(decodeURIComponent(u))), "plateformes pas demandées");
+});
+
 test("prochainement_pages_pleines_et_fiches_lues_une_fois", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   const film = (id) => ({ id, title: "Film " + id, original_language: "en", release_date: jour(10) });

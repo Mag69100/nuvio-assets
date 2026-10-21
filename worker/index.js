@@ -275,7 +275,8 @@ async function extraInfo(env, kind, tmdbId) {
   url.search = new URLSearchParams({
     api_key: env.TMDB_API_KEY, language: "fr-FR", include_image_language: "fr,en,null", include_video_language: "fr,en",
     // Vidéos : la bande-annonce de l'accueil (Nuvio la prend dans la rangée, sans ouvrir la fiche).
-    append_to_response: movie ? "release_dates,images,videos" : "external_ids,images,videos",
+    // Plateformes (films) : en France, Belgique… = VF disponible, même sans date francophone (likelyVf).
+    append_to_response: movie ? "release_dates,images,videos,watch/providers" : "external_ids,images,videos",
   });
   // Sans réponse (limite d'appels de Cloudflare…) : le titre s'affiche quand même, sans ces infos.
   const j = await fetch(url, { cf: { cacheTtl: 86400, cacheEverything: true } })
@@ -286,6 +287,7 @@ async function extraInfo(env, kind, tmdbId) {
   return {
     imdb: (movie ? j.imdb_id : j.external_ids && j.external_ids.imdb_id) || null,
     releases: movie ? (j.release_dates && j.release_dates.results) || [] : null,
+    plateformeFr: movie && plateformeFrancophone(j["watch/providers"]),
     episode: movie ? null : { next: j.next_episode_to_air, last: j.last_episode_to_air, counts: seasonCounts(j.seasons), status: j.status },
     logo: logo ? `${IMG}w500${logo.file_path.replace(/\.svg$/, ".png")}` : undefined,
     backdrop: backdrop ? backdrop.file_path : null,
@@ -402,16 +404,25 @@ function releaseDates(releases, types, countries) {
  */
 const firstDigital = (releases) => releaseDates(releases, [4])[0] || "";
 
+const FRANCOPHONES = ["FR", "BE", "CH", "LU", "CA"];
+
+/** Sur une plateforme (abonnement, gratuit, pub, location, achat) d'un pays francophone (watch/providers TMDB). */
+function plateformeFrancophone(wp) {
+  const r = (wp && wp.results) || {};
+  return FRANCOPHONES.some((p) => ["flatrate", "free", "ads", "rent", "buy"].some((k) => ((r[p] || {})[k] || []).length > 0));
+}
+
 /**
  * Indice de VF : le film a une sortie (salle ou numérique) dans un pays francophone, ou il
- * est français. Les petits films sortis directement en VOD aux États-Unis n'ont souvent
- * aucune piste française.
+ * est français, ou il est sur une plateforme d'un pays francophone (films Netflix sortis partout
+ * le même jour, sans date francophone chez TMDB). Les petits films sortis directement en VOD
+ * aux États-Unis n'ont souvent aucune piste française.
  */
-function likelyVf(releases, originalLanguage, today) {
-  if (originalLanguage === "fr") return true;
+function likelyVf(releases, originalLanguage, today, plateformeFr = false) {
+  if (originalLanguage === "fr" || plateformeFr) return true;
   // Le doublage est fait pour la sortie francophone : tant que le film n'est sorti nulle part
   // en France, Belgique, Suisse ou au Canada, il n'y a en général pas encore de VF.
-  const first = releaseDates(releases, [2, 3, 4, 5], ["FR", "BE", "CH", "LU", "CA"])[0];
+  const first = releaseDates(releases, [2, 3, 4, 5], FRANCOPHONES)[0];
   return Boolean(first && first <= today);
 }
 
@@ -514,7 +525,7 @@ async function toMetas(env, ctx, results, kind, opts, today) {
       ...catalogTrailers(infos[i].trailers || [], vfIndex[`${kind}:${ids[i]}`]),
       _digital: firstDigital(infos[i].releases),
       _guess: digitalGuess(infos[i].releases),
-      _vf: likelyVf(infos[i].releases, it.original_language, today),
+      _vf: likelyVf(infos[i].releases, it.original_language, today, infos[i].plateformeFr),
     };
     return meta;
   });
@@ -660,6 +671,8 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
       const infos = await Promise.all(liste.map((it) => extraInfo(env, "movie", it.id)));
       return liste.map((it, i) => [it, infos[i]]).filter(([it, info]) => {
         const r = info.releases, dispo = r ? firstDigital(r) : "";
+        // Sur une plateforme francophone : regardable aujourd'hui, même sans date numérique connue.
+        if (info.plateformeFr) return false;
         return !(dispo && dispo <= today && likelyVf(r, it.original_language, today));
       });
     };

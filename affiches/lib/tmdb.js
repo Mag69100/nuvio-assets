@@ -64,6 +64,16 @@ function plateformeDe(d) {
   return liste.length ? { name: liste[0].provider_name || "", logo: liste[0].logo_path } : null;
 }
 
+/**
+ * Le film est-il sur une plateforme (abonnement, gratuit, pub, location, achat) en France, Belgique, Suisse,
+ * au Luxembourg ou au Canada ? Il y est alors en VF, même sans date de sortie francophone chez TMDB
+ * (films Netflix sortis partout le même jour). Sert au statut (lib/statut.js).
+ */
+function plateformeFrancophone(d) {
+  const r = (d["watch/providers"] || {}).results || {};
+  return ["FR", "BE", "CH", "LU", "CA"].some((p) => ["flatrate", "free", "ads", "rent", "buy"].some((k) => ((r[p] || {})[k] || []).length > 0));
+}
+
 const first = (list, langs) => {
   for (const lang of langs) {
     const it = (list || []).find((x) => x.iso_639_1 === lang);
@@ -83,8 +93,9 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
   const d = await tmdbGet(env, `/${type === "series" ? "tv" : "movie"}/${tmdbId}`, {
     // Films : les dates de sortie détaillées servent au statut (« En salle », « Nouveau »…) et à l'âge conseillé ;
     // séries : les classifications par pays, pour l'âge.
-    // Plateformes (watch/providers) pour le logo de plateforme ; logos dans les langues d'origine courantes.
-    language: "fr-FR", append_to_response: (type === "series" ? "images,external_ids,content_ratings" : "images,external_ids,release_dates") + (options.plateforme ? ",watch/providers" : "") + (options.credits && type !== "series" ? ",credits" : ""),
+    // Plateformes (watch/providers) : toujours pour un film (VF disponible ?), pour une série seulement pour le logo
+    // de plateforme ; logos dans les langues d'origine courantes.
+    language: "fr-FR", append_to_response: (type === "series" ? "images,external_ids,content_ratings" : "images,external_ids,release_dates") + (options.plateforme || type !== "series" ? ",watch/providers" : "") + (options.credits && type !== "series" ? ",credits" : ""),
     include_image_language: options.vo ? LANGUES_IMAGES : "fr,en,null",
   }, fetchImpl);
   if (!d) return null;
@@ -121,6 +132,7 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
     releases: type === "series" ? [] : (d.release_dates && d.release_dates.results) || [],
     releaseDate: type === "series" ? "" : d.release_date || "",
     originalLanguage: d.original_language || "",
+    plateformeFrancophone: type !== "series" && plateformeFrancophone(d),
     age: ageDe(type, d),
     firstAir: type === "series" ? d.first_air_date || "" : "",
     seasons: type === "series" ? (d.seasons || []).map((s) => ({ season_number: s.season_number, air_date: s.air_date || "" })) : [],

@@ -403,7 +403,8 @@ test("revue_bandeau_statut_cache_court", async () => {
 });
 
 // Revue : les autres notes ne sont pas demandées quand elles ne seraient pas dessinées (note en grand chiffre,
-// ou titre pas encore sorti avec la note cachée) ; la plateforme fait demander les plateformes à TMDB.
+// ou titre pas encore sorti avec la note cachée) ; la plateforme fait demander les plateformes à TMDB (un film les
+// demande toujours, pour la VF : test faits « plateforme_francophone »).
 test("revue_notes_et_plateformes_seulement_si_utiles", async () => {
   const grand = internet();
   await makeHandler({ fetchImpl: grand, env })(req("type=movie&shape=poster&id=tt15239678&s=1.egR1"));
@@ -414,9 +415,6 @@ test("revue_notes_et_plateformes_seulement_si_utiles", async () => {
   const plat = internet();
   await makeHandler({ fetchImpl: plat, env })(req("type=movie&shape=poster&id=tt15239678&s=1.P1"));
   assert.ok(plat.calls.some((u) => u.includes("watch%2Fproviders") || u.includes("watch/providers")), plat.calls.join("\n"));
-  const rien = internet();
-  await makeHandler({ fetchImpl: rien, env })(req("type=movie&shape=poster&id=tt15239678"));
-  assert.ok(!rien.calls.some((u) => u.includes("watch%2Fproviders") || u.includes("watch/providers")));
 });
 
 // Revue : bandeau seul (le statut dans le coin, rien d'autre) : dessiné, pas renvoyé vers TMDB.

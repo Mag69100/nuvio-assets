@@ -38,7 +38,7 @@ test("tt id résolu par /find", async () => {
   assert.ok(f.calls[0].includes("/find/tt15239678") && f.calls[0].includes("external_source=imdb_id"));
   const detail = new URL(f.calls[1]);
   assert.equal(detail.pathname, "/3/movie/693134");
-  assert.equal(detail.searchParams.get("append_to_response"), "images,external_ids,release_dates");
+  assert.equal(detail.searchParams.get("append_to_response"), "images,external_ids,release_dates,watch/providers");
   assert.equal(detail.searchParams.get("include_image_language"), "fr,en,null");
   assert.equal(detail.searchParams.get("language"), "fr-FR");
   assert.equal(facts.tmdbId, 693134);
@@ -85,7 +85,7 @@ test("dates pour le statut", async () => {
   const avecDates = { ...movie, original_language: "en", release_dates: { results: [{ iso_3166_1: "FR", release_dates: [{ type: 3, release_date: "2024-02-28T00:00:00.000Z" }] }] } };
   const f = fauxFetch([["/movie/693134", json(avecDates)]]);
   const facts = await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, f);
-  assert.equal(new URL(f.calls[0]).searchParams.get("append_to_response"), "images,external_ids,release_dates");
+  assert.equal(new URL(f.calls[0]).searchParams.get("append_to_response"), "images,external_ids,release_dates,watch/providers");
   assert.deepEqual(facts.releases, avecDates.release_dates.results);
   assert.equal(facts.releaseDate, "2024-02-27");
   assert.equal(facts.originalLanguage, "en");
@@ -111,6 +111,16 @@ test("age_conseille_france", async () => {
   assert.equal(new URL(fs.calls[0]).searchParams.get("append_to_response"), "images,external_ids,content_ratings");
   assert.equal(s.age, "16");
   assert.equal((await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fauxFetch([["/tv/94605", json({ ...serie, content_ratings: { results: [{ iso_3166_1: "FR", rating: "TP" }] } })]]))).age, null);
+});
+
+// Sur une plateforme (abonnement, gratuit, pub, location, achat) d'un pays francophone : VF disponible.
+test("plateforme_francophone", async () => {
+  const sur = (results) => titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, fauxFetch([["/movie/693134", json({ ...movie, "watch/providers": { results } })]]));
+  assert.equal((await sur({ FR: { flatrate: [{ provider_name: "Netflix" }] } })).plateformeFrancophone, true);
+  assert.equal((await sur({ CA: { rent: [{ provider_name: "Apple TV" }] } })).plateformeFrancophone, true);
+  assert.equal((await sur({ US: { flatrate: [{ provider_name: "Disney Plus" }] }, DE: { flatrate: [{ provider_name: "Disney Plus" }] } })).plateformeFrancophone, false);
+  assert.equal((await sur({ FR: { link: "https://…" } })).plateformeFrancophone, false);
+  assert.equal((await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, fauxFetch([["/movie/693134", json(movie)]]))).plateformeFrancophone, false);
 });
 
 // Régie v2 : durée, saisons, logo dans chaque langue (français, anglais, langue d'origine), plateforme en France.
@@ -239,12 +249,13 @@ test("tendances en panne : null sans erreur", async () => {
   assert.equal(await trendingRank(env, "movie", 1, f), null);
 });
 
-// Revue : plateformes et langues d'origine demandées à TMDB seulement quand un réglage s'en sert.
+// Revue : langues d'origine demandées à TMDB seulement quand un réglage s'en sert ; les plateformes, toujours pour
+// un film (elles disent s'il est en France, donc en VF : lib/statut.js).
 test("revue_tmdb_selon_les_reglages", async () => {
   const f = fauxFetch([["/movie/693134", json(movie)]]);
   await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, f);
   const q = new URL(f.calls[0]).searchParams;
-  assert.equal(q.get("append_to_response"), "images,external_ids,release_dates");
+  assert.equal(q.get("append_to_response"), "images,external_ids,release_dates,watch/providers");
   assert.equal(q.get("include_image_language"), "fr,en,null");
   const g = fauxFetch([["/movie/693134", json(movie)]]);
   await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, g, { plateforme: true });

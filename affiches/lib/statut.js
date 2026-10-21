@@ -3,7 +3,8 @@
  * au-dessus de son rang (« Bientôt », « En salle », « Nouveau », « Nouvelle saison ») ?
  * Mêmes règles que les rangées de l'addon (worker/index.js : firstDigital, digitalGuess, likelyVf) :
  * - chez soi = première sortie numérique, vidéo ou télé, où que ce soit (les sources suivent), sinon salle + 45 jours ;
- * - VF probable = film français, ou déjà sorti en France, Belgique, Suisse, Luxembourg ou au Canada ;
+ * - VF probable = film français, ou déjà sorti en France, Belgique, Suisse, Luxembourg ou au Canada, ou sur une
+ *   plateforme d'un de ces pays (facts.plateformeFrancophone : films Netflix sans date francophone chez TMDB) ;
  * - sorti = chez soi ET VF probable. Pas sorti : noir et blanc et note cachée sur l'affiche (réglage « Pas sorti »).
  */
 const NOUVEAU_JOURS = 30, SALLE_JOURS = 45;
@@ -35,8 +36,10 @@ function sortieFilm(facts, today) {
   const chezSoiConnu = releaseDates(facts.releases, [4, 5, 6])[0] || "";
   const chezSoi = chezSoiConnu || (salleMonde ? ajoute(salleMonde, SALLE_JOURS) : "");
   const vf = facts.originalLanguage === "fr" ? chezSoi : releaseDates(facts.releases, [2, 3, 4, 5, 6], FRANCOPHONES)[0] || "";
-  // Disponible en VF le jour où les deux sont réunis.
-  const dispo = chezSoi && vf ? (chezSoi > vf ? chezSoi : vf) : "";
+  // Disponible en VF le jour où les deux sont réunis. Sur une plateforme francophone : disponible aujourd'hui au
+  // plus tard (depuis sa sortie chez soi si on la connaît).
+  const reunis = chezSoi && vf ? (chezSoi > vf ? chezSoi : vf) : "";
+  const dispo = facts.plateformeFrancophone && !(reunis && reunis <= today) ? (chezSoi && chezSoi <= today ? chezSoi : today) : reunis;
   if (dispo && dispo <= today) return { sorti: true, statut: dispo >= ajoute(today, -NOUVEAU_JOURS) ? "nouveau" : null };
   // Pas encore chez soi en VF : « En salle » s'il est au cinéma en France, sinon « Bientôt », avec la date
   // à venir la plus utile (comme les rangées) : dispo chez soi, sortie au cinéma en France, ou sortie ailleurs.

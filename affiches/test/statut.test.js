@@ -33,6 +33,19 @@ test("VF : sorti au Québec → VF probable", () => {
   assert.equal(etatSortie(film([pays("US", [4, jours(-60)]), pays("CA", [3, jours(-100)])]), AUJ).sorti, true);
 });
 
+// « On va s'arrêter là » (Netflix) : sorti partout en streaming, sur Netflix France, mais aucune date
+// francophone chez TMDB. Sur une plateforme d'un pays francophone = VF disponible.
+test("VF : sur une plateforme en France sans date francophone → sorti", () => {
+  const f = { ...film([pays("AR", [1, jours(-12)], [4, jours(-4)]), pays("US", [4, jours(-4)])], jours(-12), "es"), plateformeFrancophone: true };
+  assert.deepEqual(etatSortie(f, AUJ), { sorti: true, statut: "nouveau" });
+  assert.equal(etatSortie({ ...f, plateformeFrancophone: false }, AUJ).sorti, false);
+  // Sans aucune date de sortie chez soi connue : disponible quand même (elle y est).
+  assert.equal(etatSortie({ ...film([pays("AR", [1, jours(-12)])], jours(-12), "es"), plateformeFrancophone: true }, AUJ).sorti, true);
+  // Plus tard en France qu'ailleurs : « Nouveau » compté depuis la date française.
+  const tard = { ...film([pays("US", [4, jours(-40)]), pays("FR", [4, jours(-10)])]), plateformeFrancophone: true };
+  assert.deepEqual(etatSortie(tard, AUJ), { sorti: true, statut: "nouveau" });
+});
+
 test("film : rien de sorti → bientôt", () => {
   assert.equal(statutDe(film(sorties([3, jours(30)]), jours(30)), AUJ), "bientot");
 });

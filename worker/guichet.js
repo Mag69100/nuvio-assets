@@ -311,10 +311,11 @@ export const GUICHET_JS = "var __name = function (f) { return f; };\nconst PROG 
 // Découvrir, collections), mais garde le nom, le pays, la clé Gemini et le jeton d'alerte ; « Annuler » 10 secondes.
 {
   const boite = $("guichet"), form = $("guichet-form");
-  let declencheur = null, fond = [], pas = 0;
+  let declencheur = null, fond = [], pas = 0, seul = false;
   const vue = (questions) => { $("guichet-accueil").hidden = questions; form.hidden = !questions; };
-  function ouvre(questions, depuis) {
-    declencheur = depuis || null;
+  // seul : ouvert de lui-même (première visite) ; refermé, le focus va au bandeau sans faire défiler la page.
+  function ouvre(questions, depuis, deLuiMeme) {
+    declencheur = depuis || null; seul = !!deLuiMeme;
     boite.hidden = false;
     document.body.classList.add("regie-ouverte");
     // Fenêtre modale : le reste de la page est inerte tant qu'elle est ouverte (les messages restent lisibles).
@@ -326,7 +327,7 @@ export const GUICHET_JS = "var __name = function (f) { return f; };\nconst PROG 
     boite.hidden = true;
     document.body.classList.remove("regie-ouverte");
     fond.forEach((n) => { n.inert = false; }); fond = [];
-    if (declencheur && declencheur.isConnected) declencheur.focus();
+    if (declencheur && declencheur.isConnected) declencheur.focus({ preventScroll: seul });
   }
   function montreQuestions(n) {
     vue(true); pas = n;
@@ -380,6 +381,6 @@ export const GUICHET_JS = "var __name = function (f) { return f; };\nconst PROG 
   premiere = premiere && !D.fixed && !hashDepart && !document.documentElement.classList.contains("dans-guide")
     && !Object.keys(compact({ ...state, n: D.defaults.n, k: "", al: "" })).length;
   marque();
-  if (premiere) addEventListener("load", () => setTimeout(() => { if ($("regie").hidden && boite.hidden) ouvre(false, $("depart-questions")); }, 700));
+  if (premiere) addEventListener("load", () => setTimeout(() => { if ($("regie").hidden && boite.hidden) ouvre(false, $("depart-questions"), true); }, 700));
 }
 `;

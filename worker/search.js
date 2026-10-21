@@ -15,6 +15,7 @@
  *   - titres composés, au singulier comme au pluriel : « monstre » → les 4 séries Monstre
  *   - année : « dune 2021 » ; suites : « dune 2 », « star wars 4 », « jurassic world 2 »
  *   - acteurs et réalisateurs : « nolan », « omar sy » ; studios et plateformes : « pixar », « netflix »
+ *   - plusieurs personnes ensemble : « pacino de niro », « tom hanks et meg ryan », « scorsese de niro »
  */
 
 // Sigles et surnoms courants → titre à chercher. Clés en minuscules, sans accents ni ponctuation.
@@ -383,6 +384,166 @@ export function filmography(person, credits, kind) {
     .sort((a, b) => famous.has(b.id) - famous.has(a.id) || lead(b) - lead(a) || byPop(a, b));
 }
 
+/** Votes du titre phare le plus vu d'une personne (« known_for » de la recherche de personnes). */
+const topVotes = (p) => Math.max(0, ...(p.known_for || []).map((k) => k.vote_count || 0));
+/** Acteur, réalisateur ou scénariste assez connu pour que la requête le désigne. */
+const knownPerson = (p) => ["Acting", "Directing", "Writing"].includes(p.known_for_department)
+  && ((p.popularity || 0) >= PERSON_POP || topVotes(p) >= PERSON_VOTES);
+
+// ---------- plusieurs personnes ensemble ----------
+// Prénoms courants (sans accents) : un prénom commence un nom (« tom hanks meg ryan » → Tom Hanks + Meg Ryan) et,
+// seul, n'est pas une personne : « tom et jerry », « harry et sally », « thelma et louise » restent des titres.
+const FIRST_NAMES = new Set(`
+  aaron adam adele adrien adrian agnes al alain alan albert alec alejandro alessandro alex alexander alexandra alexandre
+  alfred alfredo alice alicia alison amanda amber amy ana andre andrea andrew andy angela angelina anna anne annie
+  anthony antoine antonio anya ariana arnold ashley audrey ava barbara ben benedict benicio benjamin benoit bernard
+  bette bill billy blake bob bonnie brad bradley brendan brian brie brigitte bruce bruno bryan cameron camille carey
+  carl carole caroline cary cate catherine cecile charles charlie charlize charlotte chris christian christina
+  christine christoph christopher chuck cillian claire clara claude claudia clint clyde colin cyril daisy damien
+  dan daniel danny david dakota demi denis dennis denzel diane dominique don donald dustin dwayne ed eddie edward
+  elisabeth elizabeth ella elle elodie elsa emilia emily emma emmanuel emmanuelle eric ethan eva eve fabrice fanny
+  florence francis francois frank frankie fred gabriel gael gary gene george georges gerard gilles gillian glenn
+  grace greta guillaume guillermo gwyneth hal harrison harry heath helen helena henry hugh hugo isabelle isaac jack
+  jackie jacques jake james jamie jane jared jason javier jean jeanne jeff jeffrey jennifer jenna jeremy jerry jesse
+  jessica jim jimmy joan joaquin jodie joe joel johnny john jonah jonathan jordan jose joseph josh jude jules julia
+  julian julianne julie juliette justin karin kate katherine keanu keira ken kevin kiefer kim kirsten kristen kurt
+  lambert lana laura laurence laurent lea leonardo leo liam lily linda lindsay lisa louis louise luc lucas lucy luke
+  mads maggie marcel margot maria marie marilyn marion mark martin mary mathieu matt matthew max meg mel melanie
+  meryl michael michel michelle mickey mila miles milla mira monica morgan nathalie natalie nicolas nicole nick
+  oliver olivia omar orlando owen pamela pascal patrick paul pedro penelope peter philip philippe pierce pierre quentin
+  rachel ralph ray reese richard rick ridley riz robert robin roger romain romeo ron rosamund russell ruth ryan
+  salma sam samuel sandra sarah scarlett sean sebastien sergio sharon sigourney simon sofia sophie sophia stanley
+  stephane stephen steve steven susan sylvester sylvie tessa thelma thierry thomas tilda tim timothee tobey tom
+  tommy tony uma val valerie vanessa victor vin vincent viola virginie walter wes whoopi will willem william woody
+  yves zac zach zoe morty
+`.split(/\s+/).filter(Boolean));
+// Particules d'un nom de famille (« de niro », « del toro », « van damme », « de la rocha », « von trier »).
+const PARTICLES = new Set(["de", "di", "da", "del", "della", "van", "von", "dos", "mc"]);
+const PARTICLE_NEXT = new Set(["la", "le", "der", "den", "los"]);
+// Mots qui ne sont pas des noms : la requête est alors un titre (« la haine », « kramer contre kramer »).
+const NOT_NAME = new Set(`le la les l un une des du de d au aux en sur sous dans pour par the a an of in on at to qui que
+  ou mon ma mes ton ta tes son sa ses ce ces cette il elle je tu nous vous ils film films movie serie series saison
+  season partie part contre vs versus chez sans est pas plus tout tous vie mort nuit jour monde amour guerre`.split(/\s+/));
+const JOIN = new Set(["et", "and", "avec", "with"]);
+const RARE_WORD = 3;          // nom de famille seul : mot (presque) absent des titres connus
+const PEOPLE_SEARCHES = 4;    // recherches de personnes au plus pour une requête à plusieurs noms
+
+/** Mots d'un nom → morceaux : particule rattachée au mot qui suit, initiale au mot d'avant. null : pas des noms. */
+function nameTokens(words) {
+  const out = [];
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    if (PARTICLES.has(w) && i + 1 < words.length) {
+      const parts = [w];
+      let j = i + 1;
+      while (PARTICLE_NEXT.has(words[j]) && j + 1 < words.length) parts.push(words[j++]);
+      if (NOT_NAME.has(words[j]) || /\d/.test(words[j])) return null;
+      parts.push(words[j]);
+      out.push({ text: parts.join(" "), particle: true });
+      i = j;
+      continue;
+    }
+    if (w.length === 1 && /[a-z]/.test(w) && out.length && out[out.length - 1].first && i + 1 < words.length) {
+      out[out.length - 1].text += ` ${w}`;  // initiale après un prénom : « samuel l jackson », « michael j fox »
+      continue;
+    }
+    if (/\d/.test(w) || NOT_NAME.has(w) || w.length === 1) return null;
+    out.push({ text: w, first: FIRST_NAMES.has(w) });
+  }
+  return out;
+}
+
+/** Vraisemblance d'un découpage en noms (plus c'est haut, mieux c'est), null s'il est exclu. */
+function splitScore(segs, vocab) {
+  let s = segs.length === 3 ? -1 : 0, named = false;
+  for (const seg of segs) {
+    if (seg.length === 1) {
+      if (seg[0].first) return null;     // un prénom seul n'est pas une personne (« tom et jerry »)
+      s += 0.5;
+      named = named || !!seg[0].particle;
+      continue;
+    }
+    // Prénom(s) + nom : « tom hanks », « jean paul belmondo », « tommy lee jones » ; que des prénoms (« jean paul »,
+    // « meg ryan ») : possible, sans plus ; trois morceaux sans prénom devant : peu probable.
+    let k = 0;
+    while (k < seg.length && seg[k].first) k++;
+    const rest = seg.length - k;
+    if (k) { s += rest === 1 ? 2 : rest === 2 ? 1.5 : 0; named = true; } else if (seg.length === 3) s -= 0.5;
+    // Un prénom après le nom commence plutôt un autre nom (« tom hanks meg » + « ryan » : peu probable).
+    for (let i = k + 1; i < seg.length; i++) if (seg[i].first) s -= 1.5;
+  }
+  // Rien que des noms de famille (« dicaprio winslet ») : seulement des mots presque absents des titres connus,
+  // pour ne pas chercher deux personnes à chaque titre de deux mots (« star wars », « fight club »).
+  const weight = (w) => (vocab && vocab.weights.get(w)) || 0;
+  if (!named && !(vocab && segs.flat().every((t) => t.text.length >= 4 && weight(t.text) <= RARE_WORD))) return null;
+  return s;
+}
+
+/**
+ * Découpages possibles d'une requête en 2 ou 3 noms de personnes, du plus vraisemblable au moins vraisemblable :
+ * « pacino de niro » → [["pacino", "de niro"]], « de niro et pacino » → [["de niro", "pacino"]],
+ * « leonardo dicaprio kate winslet » → [["leonardo dicaprio", "kate winslet"]]. Au plus PEOPLE_SEARCHES noms
+ * différents en tout (une recherche TMDB chacun). [] : pas une requête de plusieurs personnes.
+ */
+export function personSplits(query, vocab) {
+  const words = norm(String(query || "").replace(/[,+&]/g, " et ")).split(" ").filter(Boolean);
+  if (words.length < 2 || words.length > 9) return [];
+  const groups = [[]];
+  for (const w of words) { if (JOIN.has(w)) groups.push([]); else groups[groups.length - 1].push(w); }
+  const text = (seg) => seg.map((t) => t.text).join(" ");
+  // « de niro et pacino », « tom hanks, meg ryan » : les noms sont déjà séparés.
+  if (groups.length > 1) {
+    if (groups.length > 3) return [];
+    const segs = groups.map((g) => (g.length ? nameTokens(g) : null));
+    if (segs.some((t) => !t || !t.length || t.length > 3 || (t.length === 1 && t[0].first))) return [];
+    return [segs.map(text)];
+  }
+  const toks = nameTokens(words);
+  if (!toks || toks.length < 2 || toks.length > 6) return [];
+  const splits = [];
+  const walk = (start, acc) => {
+    if (start === toks.length) { if (acc.length >= 2) splits.push(acc); return; }
+    if (acc.length === 3) return;
+    for (let n = 1; n <= 3 && start + n <= toks.length; n++) walk(start + n, [...acc, toks.slice(start, start + n)]);
+  };
+  walk(0, []);
+  const scored = splits.map((segs) => ({ segs, s: splitScore(segs, vocab) })).filter((x) => x.s !== null)
+    .sort((a, b) => b.s - a.s || a.segs.length - b.segs.length);   // à égalité : deux personnes plutôt que trois
+  const out = [], names = new Set();
+  for (const { segs, s } of scored) {
+    if (s < scored[0].s - 1) break;      // seulement les découpages presque aussi vraisemblables que le meilleur
+    const texts = segs.map(text);
+    if (new Set([...names, ...texts]).size > PEOPLE_SEARCHES) continue;
+    texts.forEach((t) => names.add(t));
+    out.push(texts);
+  }
+  return out;
+}
+
+/** La personne que désigne ce nom parmi les résultats TMDB (« deniro » attaché vaut « De Niro »), sinon null. */
+function findPerson(q, list) {
+  const compact = q.replace(/ /g, "");
+  return (list || []).slice(0, 5).find((p) => knownPerson(p)
+    && (personMatch(q, p.name) || (!q.includes(" ") && q.length >= 5 && norm(p.name).replace(/ /g, "").endsWith(compact)))) || null;
+}
+
+// Rôles qui ne comptent pas pour « ensemble » : images d'archives, rôle non crédité (De Niro, voix non créditée
+// dans Scarface ; les montages faits d'archives de tous les acteurs).
+const NOT_TOGETHER = /uncredited|non cr[ée]dit[ée]|archive/i;
+
+/**
+ * Titres où ces personnes se retrouvent, les plus connus d'abord : ceux communs à leurs filmographies (un appel
+ * TMDB par personne, le même que pour une personne seule, donc souvent déjà en cache). Rôles joués pour un acteur,
+ * réalisés (ou écrits) pour un réalisateur (ou un scénariste) : « scorsese de niro » → les films de Scorsese avec
+ * De Niro. Pas « discover » avec with_cast : il compte les rôles non crédités et les images d'archives.
+ */
+export async function jointWorks(people, kind, api) {
+  const credits = await Promise.all(people.map((p) => api(`/person/${p.id}/${kind === "series" ? "tv" : "movie"}_credits`)));
+  const lists = people.map((p, i) => filmography(p, credits[i] || {}, kind).filter((c) => !NOT_TOGETHER.test(c.character || "")));
+  const others = lists.slice(1).map((l) => new Set(l.map((c) => c.id)));
+  return dedupe(usable(lists[0].filter((c) => others.every((ids) => ids.has(c.id))))).sort((a, b) => fame(b) - fame(a));
+}
+
 // ---------- classement ----------
 const GOOD = 0.75;      // ressemblance d'un titre qui correspond vraiment à la requête
 const KEEP = 0.5;       // en dessous, le titre n'a pas grand-chose à voir
@@ -394,6 +555,7 @@ const PERSON_POP = 2;     // popularité TMDB d'une personne connue…
 const PERSON_VOTES = 1000; // …ou un de ses titres phares avec au moins autant de votes
 const PERSON_MAX = 15;    // films de la personne en tête, puis les titres qui correspondent
 const FAMOUS = 300;       // un titre exact avec autant de votes l'emporte sur un studio (ou une personne peu connue)
+const STRONG_VOTES = 100; // titre qui correspond à la requête gardé devant les titres de plusieurs personnes
 const HEAD_MAX = 15;
 
 const usable = (list) => (list || []).filter((it) => it && it.poster_path && it.vote_count > 0);
@@ -489,9 +651,12 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   if (alias) forms.push({ q: alias, pen: PEN_DERIVED });
   if (ym) forms.push({ q: ym[1], pen: PEN_DERIVED });
   if (fixed) forms.push({ q: fixed, pen: PEN_FIXED });
+  // « pacino de niro », « tom hanks et meg ryan » : chaque nom cherché à part (au plus PEOPLE_SEARCHES).
+  const splits = api && !alias && !ym && !sq && !studio ? personSplits(main, vocab) : [];
+  const names = [...new Set(splits.flat())];
 
   const none = Promise.resolve(null);
-  const [rawRes, cleanRes, aliasRes, yearRes, fixedRes, pluralRes, enRes, people, sagas, studioRes, otherRes] = await Promise.all([
+  const [rawRes, cleanRes, aliasRes, yearRes, fixedRes, pluralRes, enRes, people, sagas, studioRes, otherRes, ...namesRes] = await Promise.all([
     search(raw, 1),
     clean ? search(clean, 1) : none,
     alias ? search(alias, 1) : none,
@@ -509,6 +674,7 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
     }) : none,
     // La même requête dans l'autre type : « ted lasso » dans Films est une série connue.
     api && !sq && !studio ? api(`/search/${kind === "series" ? "movie" : "tv"}`, { query: main, include_adult: "false" }) : none,
+    ...names.map((n) => api("/search/person", { query: n, include_adult: "false" })),
   ]);
   const results = (d) => (d && d.results) || [];
   const exactVotesIn = (list) => Math.max(0, ...list.filter((it) => titleMatch(main, it)).map((it) => it.vote_count || 0));
@@ -530,11 +696,18 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   const otherVotes = exactVotesIn(usable(results(otherRes)));
   const otherKind = otherVotes >= FAMOUS && otherVotes > exactVotes;
 
+  // Plusieurs personnes ensemble : le premier découpage dont chaque nom désigne une personne connue (toutes
+  // différentes), puis les titres où elles se retrouvent. Rien en commun : la recherche habituelle.
+  const found = new Map(names.map((n, i) => [n, findPerson(n, results(namesRes[i]))]));
+  const together = splits.map((s) => s.map((n) => found.get(n)))
+    .find((ps) => ps.every(Boolean) && new Set(ps.map((p) => p.id)).size === ps.length);
+  const joint = together ? (await jointWorks(together, kind, api)).slice(0, HEAD_MAX) : [];
+
   // Toujours rien de proche : débuts de mots que TMDB reconnaît (« inters » → Interstellar).
   const best = Math.max(0, ...pool.map((it) => text.get(it.id)));
   const good = pool.filter((it) => text.get(it.id) >= GOOD).length;
   let fallback = [];
-  if (!sq && !studio && !otherKind && (best < GOOD || (good < 3 && best < EXACT))) {
+  if (!sq && !studio && !otherKind && !joint.length && (best < GOOD || (good < 3 && best < EXACT))) {
     fallback = fallbackQueries(fixed || main);
     const more = usable((await Promise.all(fallback.map((s) => search(s, 1)))).flatMap(results));
     scoreAll(more);
@@ -580,11 +753,8 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   // « Spielberg » (300 votes) ne cache pas les films de Spielberg, mais Super Mario Bros.
   // (11 000 votes) passe devant le chanteur Mario (titres phares à 4 000 votes).
   const nearVotes = Math.max(0, ...pool.filter((it) => text.get(it.id) >= 0.7).map((it) => it.vote_count || 0));
-  const topVotes = (p) => Math.max(0, ...(p.known_for || []).map((k) => k.vote_count || 0));
-  if (people) {
-    const person = results(people).slice(0, 5).find((p) => ["Acting", "Directing", "Writing"].includes(p.known_for_department)
-      && personMatch(main, p.name)
-      && ((p.popularity || 0) >= PERSON_POP || topVotes(p) >= PERSON_VOTES)
+  if (people && !joint.length) {
+    const person = results(people).slice(0, 5).find((p) => knownPerson(p) && personMatch(main, p.name)
       && Math.max(exactVotes, otherVotes) < Math.max(FAMOUS, 0.1 * topVotes(p))
       && nearVotes < Math.max(FAMOUS, 2 * topVotes(p)));
     if (person) {
@@ -592,6 +762,15 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
       const films = dedupe(usable(filmography(person, credits, kind))).slice(0, PERSON_MAX);
       if (films.length) { head = films; headKind = `personne ${person.name}`; }
     }
+  }
+
+  // Un titre qui est la requête et assez vu reste devant (« bonnie and clyde », « frost nixon ») ; un titre qui
+  // commence par elle, s'il est très connu.
+  const strongTitles = () => pool.filter((it) => (titleMatch(raw, it) && it.vote_count >= STRONG_VOTES)
+    || (scoreOf(raw, it) >= EXACT && it.vote_count >= FAMOUS)).sort((a, b) => fame(b) - fame(a));
+  if (joint.length) {
+    head = dedupe([...strongTitles(), ...joint]);
+    headKind = `ensemble ${together.map((p) => p.name).join(" + ")}`;
   }
 
   const out = dedupe([...head, ...ranked]).slice(0, FIRST_PAGE);
@@ -604,7 +783,7 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   if (trace) {
     Object.assign(trace, {
       forms, fixed, variant, alias: alias || null, year: ym ? ym[2] : null, sequel: sq, sagaBase, studio: studio || null,
-      fallback, head: headKind, otherKind,
+      fallback, head: headKind, otherKind, people: splits,
       results: out.map((it) => ({
         name: it.title || it.name, original: it.original_title || it.original_name, en: it.en_title, year: yearOf(it),
         votes: it.vote_count, text: text.has(it.id) ? +text.get(it.id).toFixed(3) : null,

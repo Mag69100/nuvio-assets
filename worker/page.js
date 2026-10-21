@@ -476,47 +476,52 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .regie-coulisses button[aria-pressed="true"] img { outline-color: var(--bulb); opacity: 1; }
 .regie-coulisses span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* La console : styles tout prêts (grille), onglets par zone de l'affiche, une ligne par élément avec son
-   interrupteur ; les réglages d'un élément s'ouvrent juste dessous, un seul à la fois. */
-.regie-console { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: auto; padding: 12px 14px; background: linear-gradient(#262025, #17121a); border-left: 3px solid #3a2f36; }
-.regie-memoires { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-.regie-memoires button { border: 1.5px solid #4a3d45; border-radius: 8px; padding: 6px 4px; background: #1b1519; color: #d8cab2; font: 400 .98rem/1 var(--display); letter-spacing: .05em; cursor: pointer; white-space: nowrap; }
-.regie-memoires button:hover { border-color: #7a6670; }
-.regie-memoires button[aria-pressed="true"] { background: var(--bulb); border-color: var(--bulb); color: #1a1208; }
-.regie-memoires .perso { display: grid; place-items: center; border: 1.5px dashed #7a6670; border-radius: 8px; color: var(--bulb); font: 400 .98rem/1 var(--display); letter-spacing: .05em; }
-.regie-memoires .perso[hidden] { display: none; }
+/* La console : styles tout prêts en vignettes (vraies petites affiches), 6 onglets, une carte par élément (icône,
+   nom, interrupteur, choix principaux visibles ; réglages fins dans « Plus de réglages », un seul ouvert). */
+.regie-console { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: auto; padding: 12px 14px; background: linear-gradient(#231d22, #161117); border-left: 3px solid #3a2f36; }
+.regie-memoires { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.regie-memoires button { display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; padding: 3px; border: 1.5px solid transparent; border-radius: 9px; background: none; color: #d8cab2; font: 600 .62rem/1.1 system-ui, sans-serif; cursor: pointer; }
+.regie-memoires img { display: block; width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 6px; background: #2a2126; }
+.regie-memoires span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+.regie-memoires button:hover { border-color: #5a4a53; }
+.regie-memoires button[aria-pressed="true"] { border-color: var(--bulb); color: var(--bulb); background: rgba(255,207,107,.08); }
+.regie-perso { margin: -4px 0 0; color: var(--bulb); font: 600 .72rem system-ui, sans-serif; }
+.regie-perso[hidden], .regie-cible[hidden] { display: none; }
 .regie-cible { margin: 0; padding: 5px 10px; border-radius: 8px; background: rgba(255,207,107,.12); color: var(--bulb); font: 600 .78rem system-ui, sans-serif; }
-.regie-cible[hidden] { display: none; }
 .regie-onglets { display: flex; border-bottom: 1px solid #3a2f36; }
-.regie-onglets button { flex: 1; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; color: #c2b4a6; font: 600 .8rem system-ui, sans-serif; padding: 8px 2px; cursor: pointer; }
+.regie-onglets button { flex: 1; min-width: 0; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; color: #c2b4a6; font: 600 .74rem system-ui, sans-serif; padding: 8px 0; cursor: pointer; white-space: nowrap; }
+.regie-onglets button:hover { color: var(--cream); }
 .regie-onglets button[aria-selected="true"] { color: var(--cream); border-bottom-color: var(--bulb); }
-.regie-voies { display: flex; flex-direction: column; }
-.regie-voies .ligne { border-bottom: 1px solid #2c2328; }
-.regie-voies .ligne-tete { display: flex; align-items: center; gap: 8px; }
-.regie-voies .ligne-nom { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; border: 0; background: none; color: var(--cream); padding: 6px 2px; cursor: pointer; text-align: left; font: inherit; }
-.regie-voies .pastille { width: 28px; height: 28px; flex: none; border-radius: 8px; display: grid; place-items: center; background: #33292f; color: var(--bulb); font: 800 .66rem system-ui, sans-serif; }
-.regie-voies .ligne-txt { flex: 1; min-width: 0; }
-.regie-voies .ligne-txt b { display: block; font-size: .82rem; }
-.regie-voies .ligne-txt small { display: block; font-size: .7rem; color: #c2b4a6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.regie-voies .chevron { color: #c2b4a6; width: 12px; text-align: center; }
-.regie-voies .eteinte .pastille { color: #9a8b92; background: #241d22; }
-.regie-voies .eteinte .ligne-txt b { color: #c2b4a6; }
-.regie-voies .ouverte .ligne-txt b { color: var(--bulb); }
-.regie-voies.une-ouverte .ligne:not(.ouverte) .ligne-txt small { display: none; }
-.regie-voies.une-ouverte .ligne:not(.ouverte) .ligne-nom { padding: 3px 2px; }
-.regie-voies.une-ouverte .ligne:not(.ouverte) .pastille { width: 24px; height: 24px; }
+.regie-voies { display: flex; flex-direction: column; gap: 6px; }
+.regie-voies .carte { display: grid; gap: 7px; padding: 8px 10px; border-radius: 12px; background: #1d171b; border: 1px solid #30272d; }
+.regie-voies .carte.ouverte { border-color: #5a4a53; }
+.regie-voies .carte-tete { display: flex; align-items: center; gap: 9px; }
+.regie-voies .carte-icone { width: 28px; height: 28px; flex: none; border-radius: 8px; display: grid; place-items: center; background: #2a2126; }
+.regie-voies .carte-icone svg { width: 17px; height: 17px; fill: none; stroke: var(--bulb); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.regie-voies .carte-tete b { flex: 1; min-width: 0; font-size: .82rem; color: var(--cream); }
+.regie-voies .eteinte .carte-icone svg { stroke: #8d7f86; }
+.regie-voies .eteinte .carte-tete b { color: #b9aa97; }
+.regie-voies .carte-corps { display: grid; gap: 6px; }
+.regie-voies .carte-fin { border-top: 1px dashed #3a2f36; padding-top: 7px; }
+.regie-voies .carte-plus { justify-self: start; border: 0; background: none; color: var(--bulb); font: 600 .7rem system-ui, sans-serif; padding: 0; cursor: pointer; }
+.regie-voies .carte-plus::after { content: " ›"; }
+.regie-voies .carte-plus[aria-expanded="true"]::after { content: " ‹"; }
+.regie-voies .carte.repliee { padding-top: 5px; padding-bottom: 5px; }
+.regie-console.reglage-ouvert .regie-memoires img { display: none; }
+.regie-console.reglage-ouvert .regie-memoires span { display: block; padding: 4px 0; }
+.regie-console.reglage-ouvert .regie-memoires button { border-color: #3a2f36; }
 .regie-console .interrupteur { width: 36px; height: 20px; flex: none; border: 0; border-radius: 99px; background: #4a3d45; position: relative; cursor: pointer; padding: 0; }
 .regie-console .interrupteur::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #d8cab2; transition: transform .15s ease; }
 .regie-console .interrupteur[aria-checked="true"] { background: var(--bulb); }
 .regie-console .interrupteur[aria-checked="true"]::after { transform: translateX(16px); background: #1a1208; }
-.regie-voies .ligne-corps { display: grid; gap: 7px; margin: 0 0 8px; padding: 9px 10px; border-radius: 10px; background: #1d171b; border: 1px solid #4a3d45; }
-.regie-console .choix { display: grid; grid-template-columns: 78px 1fr; align-items: center; gap: 8px; }
+.regie-console .choix { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 8px; }
 .regie-console .choix > span { font: 700 .6rem system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #c2b4a6; }
 .regie-console .puces { display: flex; flex-wrap: wrap; gap: 4px; }
-.regie-console .puces button { border: 1px solid #4a3d45; border-radius: 99px; padding: 3px 9px; background: transparent; color: var(--cream); font: 600 .72rem system-ui, sans-serif; cursor: pointer; }
+.regie-console .puces button { border: 1px solid #4a3d45; border-radius: 99px; padding: 3px 9px; background: transparent; color: var(--cream); font: 600 .7rem system-ui, sans-serif; cursor: pointer; }
 .regie-console .puces button:hover { border-color: #7a6670; }
 .regie-console .puces button[aria-pressed="true"] { background: var(--cream); color: var(--ink); border-color: var(--cream); }
 .regie-console .curseur { display: flex; align-items: center; gap: 8px; }
+.regie-console .curseur output { font: 700 .74rem system-ui, sans-serif; width: 5ch; text-align: right; color: var(--cream); font-variant-numeric: tabular-nums; }
 /* Curseurs dessinés à la main : piste fine, partie remplie dorée jusqu'au bouton (--rempli), bouton rond doré. */
 .regie-console .curseur input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; min-width: 0; height: 18px; margin: 0; background: transparent; cursor: pointer; }
 .regie-console .curseur input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 99px; background: linear-gradient(90deg, var(--bulb) var(--rempli, 50%), #4a3d45 var(--rempli, 50%)); }
@@ -527,7 +532,12 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .regie-console .curseur input[type=range]:focus-visible { outline: none; }
 .regie-console .curseur input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px #1d171b, 0 0 0 5px var(--cream); }
 .regie-console .curseur input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px #1d171b, 0 0 0 5px var(--cream); }
-.regie-console .curseur output { font: 700 .74rem system-ui, sans-serif; width: 5ch; text-align: right; color: var(--cream); font-variant-numeric: tabular-nums; }
+/* Nuancier : 36 pastilles et « Par défaut » (rayée), sur deux rangs. */
+.regie-console .nuancier { display: grid; grid-template-columns: repeat(19, minmax(0, 1fr)); gap: 4px; }
+.regie-console .nuancier button { aspect-ratio: 1; min-width: 0; padding: 0; border-radius: 50%; border: 1px solid rgba(255,255,255,.18); cursor: pointer; }
+.regie-console .nuancier button.defaut { background: linear-gradient(135deg, #2a2126 44%, #e5484d 44% 56%, #2a2126 56%); }
+.regie-console .nuancier button[aria-pressed="true"] { outline: 2px solid var(--cream); outline-offset: 1px; }
+.regie-console .nuancier button:focus-visible { outline: 2px solid var(--bulb); outline-offset: 1px; }
 .regie-console .regie-note { margin: 0; font-size: .72rem; color: #c2b4a6; }
 .regie-paysage { display: grid; gap: 10px; padding-top: 10px; }
 .regie-paysage .btn { justify-self: start; }
@@ -541,10 +551,11 @@ body.regie-ouverte { overflow: hidden; }
 /* Écran peu haut (portable en 1280×720) : console resserrée. */
 @media (max-height: 760px) and (min-width: 761px) {
   .regie-console { gap: 6px; padding: 10px 12px; }
-  .regie-memoires button { padding: 5px 4px; }
+  .regie-memoires span { display: none; }
+  .regie-voies { gap: 5px; }
+  .regie-voies .carte { padding: 6px 9px; gap: 5px; }
+  .regie-voies .carte-icone { width: 24px; height: 24px; }
   .regie-cible { padding: 2px 8px; font-size: .72rem; }
-  .regie-voies .ligne-nom { padding: 4px 2px; }
-  .regie-voies .pastille { width: 26px; height: 26px; }
 }
 /* Téléphone : tout s'empile et défile (l'écran est trop petit pour tout montrer d'un coup). */
 @media (max-width: 760px) {
@@ -944,11 +955,12 @@ ${copy ? HOTE_HTML : ""}
       </div>
       <div class="regie-console">
         <div class="regie-memoires" id="regie-memoires" role="group" aria-label="Styles tout prêts">
-          <button type="button" data-memoire="maison">Maison</button><button type="button" data-memoire="essentiel">Essentiel</button><button type="button" data-memoire="noteSeule">Note seule</button><button type="button" data-memoire="cine">Ciné</button><button type="button" data-memoire="postersPlus">Posters+</button><button type="button" data-memoire="plateforme">Plateforme</button><button type="button" data-memoire="nue">Nue</button><span class="perso" id="regie-perso" hidden>Perso</span>
+          <button type="button" data-memoire="maison" aria-label="Style Maison"><img alt=""><span>Maison</span></button><button type="button" data-memoire="essentiel" aria-label="Style Essentiel"><img alt=""><span>Essentiel</span></button><button type="button" data-memoire="noteSeule" aria-label="Style Note seule"><img alt=""><span>Note seule</span></button><button type="button" data-memoire="cine" aria-label="Style Ciné"><img alt=""><span>Ciné</span></button><button type="button" data-memoire="postersPlus" aria-label="Style Posters+"><img alt=""><span>Posters+</span></button><button type="button" data-memoire="plateforme" aria-label="Style Plateforme"><img alt=""><span>Plateforme</span></button><button type="button" data-memoire="nue" aria-label="Style Nue"><img alt=""><span>Nue</span></button>
         </div>
+        <p class="regie-perso" id="regie-perso" hidden>Réglages perso : choisis un style pour repartir de lui.</p>
         <p class="regie-cible" id="regie-cible" hidden>Tu règles les images en paysage.</p>
-        <div class="regie-onglets" id="regie-onglets" role="tablist" aria-label="Réglages par zone de l'affiche">
-          <button type="button" role="tab" id="onglet-haut" data-onglet="haut" aria-selected="true" aria-controls="regie-voies">En haut</button><button type="button" role="tab" id="onglet-infos" data-onglet="infos" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Titre &amp; infos</button><button type="button" role="tab" id="onglet-image" data-onglet="image" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Image</button><button type="button" role="tab" id="onglet-paysage" data-onglet="paysage" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Paysage</button>
+        <div class="regie-onglets" id="regie-onglets" role="tablist" aria-label="Réglages par partie de l'affiche">
+          <button type="button" role="tab" id="onglet-haut" data-onglet="haut" aria-selected="true" aria-controls="regie-voies">Haut</button><button type="button" role="tab" id="onglet-titre" data-onglet="titre" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Titre</button><button type="button" role="tab" id="onglet-infos" data-onglet="infos" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Infos</button><button type="button" role="tab" id="onglet-image" data-onglet="image" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Image</button><button type="button" role="tab" id="onglet-couleurs" data-onglet="couleurs" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Couleurs</button><button type="button" role="tab" id="onglet-paysage" data-onglet="paysage" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Paysage</button>
         </div>
         <div class="regie-voies" id="regie-voies" role="tabpanel" aria-labelledby="onglet-haut"></div>
       </div>
@@ -1243,22 +1255,33 @@ drawPP();
 // ---------- La régie : le configurateur d'affiches, en fenêtre ----------
 // Les réglages (LA, worker/lien-affiches.js) sont gardés dans ce navigateur et écrits dans le lien « Affiches »
 // du billet. La scène montre de vraies affiches (une grande, six en coulisses), redessinées après chaque rafale.
-// La console : 7 styles tout prêts, puis 4 onglets ; chaque élément est une ligne (interrupteur à droite) dont
-// les réglages s'ouvrent dessous, un seul à la fois. Onglet Paysage : réglages à part pour le paysage.
+// La console : les styles tout prêts en vignettes, puis 6 onglets ; chaque élément est une carte (icône, nom,
+// interrupteur, choix principaux visibles) avec ses réglages fins dans « Plus de réglages » (un seul ouvert).
 const NOMS_MEMOIRES = { maison: "Maison", essentiel: "Essentiel", noteSeule: "Note seule", cine: "Ciné", postersPlus: "Posters+", plateforme: "Plateforme", nue: "Nue" };
 const ONGLETS = {
-  haut: ["statut", "tendance", "qualite", "bandeau", "badges"],
-  infos: ["titre", "note", "genre", "annee", "duree", "age", "plateforme", "ligne"],
-  image: ["image", "fondu", "ambiance", "accent", "sortie"],
+  haut: ["statut", "tendance", "qualite", "culte", "bandeau", "badges"],
+  titre: ["titre", "texte", "ligne", "ligne2"],
+  infos: ["note", "genre", "annee", "duree", "age", "plateforme"],
+  image: ["image", "retouche", "fondu", "ambiance", "cadre", "sortie"],
+  couleurs: ["c-accent", "c-texte", "c-badges", "c-fondu", "c-cadre"],
   paysage: [],
 };
-// Nom, pastille et interrupteur (false : un élément qui se règle mais ne s'éteint pas).
-const VOIES = {
-  statut: ["Statut", "Nv"], tendance: ["Tendance", "↗"], qualite: ["Qualité", "4K"], bandeau: ["Bandeau en coin", "◤"], badges: ["Style des badges", "▢", false],
-  titre: ["Titre", "Aa"], note: ["Notes", "★"], genre: ["Genre", "G"], annee: ["Année", "20"], duree: ["Durée, saisons", "2h"], age: ["Âge", "-12"],
-  plateforme: ["Plateforme", "▶"], ligne: ["Ligne du bas", "≡", false],
-  image: ["Image", "▣", false], fondu: ["Fondu", "▼"], ambiance: ["Dégradés, vignette", "◐", false], accent: ["Couleur d'accent", "●", false], sortie: ["Pas sorti", "N&B"],
+// Icônes dessinées (traits de 24×24), une par élément.
+const ICONES = {
+  statut: "M3 7l9-4 9 4v10l-9 4-9-4z M12 3v18", tendance: "M4 17L10 11l4 4 6-8 M14 7h6v6", qualite: "M3 6h18v12H3z M7 10v4 M7 12h3 M10 10v4 M14 10l3 4 M17 10l-3 4",
+  culte: "M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z", bandeau: "M14 3h7v7 M4 20L20 4", badges: "M4 6h7v5H4z M13 6h7v5h-7z M4 13h7v5H4z",
+  titre: "M5 5h14 M12 5v14 M8 19h8", texte: "M4 19l5-14 5 14 M6 14h6 M15 19c0-3 5-3 5 0v-5c0-2-4-2-5 0", ligne: "M4 8h16 M4 12h16 M4 16h10", ligne2: "M4 9h16 M7 14h10 M9 18h6",
+  note: "M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z", genre: "M4 5h16v14H4z M4 9h16 M9 9v10", annee: "M4 6h16v14H4z M4 10h16 M8 3v5 M16 3v5",
+  duree: "M12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16z M12 8v4l3 2", age: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z M10 12h4", plateforme: "M4 5h16v12H4z M10 9l4 2-4 2z M8 21h8",
+  image: "M4 5h16v14H4z M4 15l5-5 4 4 3-3 4 4 M15 9h.01", retouche: "M5 6h14 M5 12h14 M5 18h14 M9 4v4 M15 10v4 M11 16v4", fondu: "M4 4h16v16H4z M4 12h16 M4 16h16 M4 19h16",
+  ambiance: "M12 4a8 8 0 1 0 0 16z M12 4a8 8 0 0 1 0 16", cadre: "M4 4h16v16H4z M8 8h8v8H8z", sortie: "M4 12c3-5 13-5 16 0-3 5-13 5-16 0z M12 10a2 2 0 1 0 0 4 M4 4l16 16",
+  couleur: "M12 3c4 5 7 8 7 11a7 7 0 0 1-14 0c0-3 3-6 7-11z",
 };
+// Les 36 couleurs du nuancier (même ordre que LA.PALETTE), pour les lecteurs d'écran.
+const NOMS_COULEURS = ["blanc", "gris clair", "gris", "gris moyen", "gris foncé", "noir", "jaune pâle", "or", "ocre", "orange", "orange brûlé", "cuivre",
+  "rose pâle", "rose", "rouge", "carmin", "bordeaux", "lie-de-vin", "lilas", "violet", "pourpre", "bleu", "bleu roi", "bleu nuit",
+  "ciel", "turquoise", "sarcelle", "vert", "vert forêt", "vert sapin", "crème", "sable", "caramel", "brun", "chocolat", "ébène"];
+const COULEURS = Object.keys(LA.PALETTE);
 const PLACES = { auto: "", gauche: " · à gauche", centre: " · au centre" };
 const pct = (v) => Math.round(Number(v) * 100) + " %";
 const SEPS = { point: "·", barre: "|", puce: "•" };
@@ -1273,37 +1296,8 @@ function lienAffichesMaj() {
   $("aff-resume").innerHTML = "";
   $("aff-resume").append("Style en cours : ", el("b", { text: m ? NOMS_MEMOIRES[m] : "perso" }), NV.reglages.affichesPaysage ? " (paysage à part)." : ".");
 }
-const allumee = (r, v) => (VOIES[v][2] === false ? null : v === "sortie" ? r.sortie.nb : r[v].on);
-const sansEffet = (r, v) => !r.titre.on && ["note", "genre", "annee", "duree", "age", "ligne", "fondu", "image"].includes(v);
-function resume(r, v) {
-  if (v === "sortie") return r.sortie.nb ? "Noir et blanc" : "En couleur";
-  const toujours = {
-    badges: () => ({ auto: "Chacun son style", plein: "Plein", verre: "Verre dépoli", contour: "Contour" })[r.haut.style] + " · " + pct(r.texte.haut) + (r.haut.inverse ? " · côtés inversés" : ""),
-    ligne: () => ({ gna: "Genre · Note · Année", nga: "Note · Genre · Année", agn: "Année · Genre · Note" })[r.ligne.ordre] + ({ aucune: "", verre: " · verre", fine: " · barre" })[r.ligne.barre],
-    image: () => ({ sanstexte: "Sans texte + logo", officielle: "Affiche officielle", fond: "Image du film" })[r.image.source],
-    ambiance: () => "Voile " + ({ 0: "aucun", s: "léger", m: "moyen", l: "fort" })[r.ambiance.voile] + (r.ambiance.vignette ? " · vignette" : ""),
-    accent: () => ({ or: "Or", blanc: "Blanc", rouge: "Rouge", bleu: "Bleu", affiche: "Couleur de l'affiche" })[r.ambiance.accent],
-  };
-  if (toujours[v]) return toujours[v]();
-  if (!r[v].on) return "Éteint";
-  const autres = ["rt", "mc", "lb"].filter((k) => r.note[k]).map((k) => ({ rt: "RT", mc: "MC", lb: "LB" })[k]);
-  return {
-    statut: () => (r.statut.style === "etiquette" ? "Étiquette" : "Texte discret") + " · dates",
-    tendance: () => (r.tendance.style === "ruban" ? "Ruban" : "↗ N°4"),
-    qualite: () => ({ "4k": "4K seul", plus: "4K · DV · HDR", tout: "4K · 1080p · Atmos" })[r.qualite.montrer] + (r.qualite.style === "pastille" ? " · pastille" : ""),
-    bandeau: () => (r.bandeau.porte === "tendance" ? "N° de tendance" : "Statut") + (r.bandeau.coin === "g" ? " · à gauche" : " · à droite"),
-    titre: () => ({ fr: "Logo français", en: "Logo anglais", vo: "Logo d'origine" })[r.titre.langue] + " · " + pct(r.titre.taille) + PLACES[r.titre.place],
-    note: () => [r.note.source === "tmdb" ? "TMDB" : "IMDb"].concat(autres).join(" + ") + (r.note.couleur !== "non" ? " · couleur" : ""),
-    genre: () => (r.genre.forme === "complet" ? "Complet" : "Court"),
-    annee: () => "Allumée",
-    duree: () => "2 h 46, 3 saisons",
-    age: () => "-10, -12, -16, -18",
-    plateforme: () => "Netflix, Prime Video… · " + (r.plateforme.place === "coin" ? "en coin" : "dans la ligne"),
-    fondu: () => (r.fondu.couleur === "affiche" ? "Couleurs" : "Noir") + " · " + ({ s: "léger", m: "moyen", l: "fort" })[r.fondu.force] + (r.fondu.flou ? " · flou" : ""),
-  }[v]();
-}
 
-// Les réglages d'un élément : des choix (puces) et, pour les tailles, un curseur.
+// ---- Les contrôles ----
 function choix(titre, options, actuel, choisir) {
   const d = el("div", { class: "choix" }, el("span", { text: titre }));
   const puces = el("div", { class: "puces" });
@@ -1320,76 +1314,126 @@ function curseur(titre, val, regler, min = 60, max = 140, pas = 5) {
   input.addEventListener("input", () => { remplir(); out.textContent = input.value + " %"; regler(Number(input.value) / 100); });
   return el("div", { class: "choix" }, el("span", { text: titre }), el("div", { class: "curseur" }, input, out));
 }
+/** Nuancier : une pastille par couleur, plus « Par défaut » (la couleur d'origine de l'élément). */
+function nuancier(titre, actuel, choisir) {
+  const grille = el("div", { class: "nuancier", role: "group", "aria-label": titre });
+  grille.append(el("button", { type: "button", class: "defaut", "aria-pressed": String(!actuel), "aria-label": "Par défaut", title: "Par défaut", "data-cle": titre + ":defaut", onclick: () => choisir("") }));
+  COULEURS.forEach((c, i) => grille.append(el("button", { type: "button", style: "background:" + LA.PALETTE[c], "aria-pressed": String(actuel === c), "aria-label": NOMS_COULEURS[i], title: NOMS_COULEURS[i], "data-cle": titre + ":" + c, onclick: () => choisir(c) })));
+  return grille;
+}
 const aide = (text) => el("p", { class: "regie-note", text });
-function reglagesDe(v) {
-  const r = cible(), regle = (f, cle) => regieChange(f, cle), out = [];
-  const ajoute = (...x) => out.push(...x);
-  if (sansEffet(r, v)) return [aide("Sans le titre (logo), la ligne du bas, le fondu et l'image ne s'affichent pas : allume l'élément Titre.")];
-  if (v === "statut") ajoute(choix("Style", [["texte", "Texte discret"], ["etiquette", "Étiquette"]], r.statut.style, (x) => regle((r) => { r.statut.style = x; })),
-    aide("« Nouveau » ou « Nouvelle saison » quand c'est le cas ; pas encore sorti : la date (« Dispo le 2 nov. »)."));
-  if (v === "tendance") ajoute(choix("Style", [["fleche", "↗ N°4"], ["ruban", "Ruban"]], r.tendance.style, (x) => regle((r) => { r.tendance.style = x; })));
-  if (v === "qualite") ajoute(
-    choix("Montrer", [["4k", "4K seul"], ["plus", "4K + DV/HDR"], ["tout", "Tout"]], r.qualite.montrer, (x) => regle((r) => { r.qualite.montrer = x; })),
-    choix("Style", [["texte", "Texte nu"], ["pastille", "Pastille"]], r.qualite.style, (x) => regle((r) => { r.qualite.style = x; })),
-    aide("« Tout » : 1080p quand il n'y a pas de 4K, HDR10+ et Dolby Atmos en plus."));
-  if (v === "bandeau") ajoute(
-    choix("Porte", [["statut", "Le statut"], ["tendance", "Le N°"]], r.bandeau.porte, (x) => regle((r) => { r.bandeau.porte = x; })),
-    choix("Coin", [["g", "Gauche"], ["d", "Droite"]], r.bandeau.coin, (x) => regle((r) => { r.bandeau.coin = x; })));
-  if (v === "badges") ajoute(
-    choix("Style", [["auto", "Chacun"], ["plein", "Plein"], ["verre", "Verre"], ["contour", "Contour"]], r.haut.style, (x) => regle((r) => { r.haut.style = x; })),
-    ...(r.haut.style === "auto" ? [] : [
-      choix("Forme", [["arrondi", "Arrondie"], ["carre", "Carrée"], ["pilule", "Pilule"]], r.haut.forme, (x) => regle((r) => { r.haut.forme = x; })),
-      choix("Fond", [["s", "Léger"], ["m", "Moyen"], ["l", "Plein"]], r.haut.opacite, (x) => regle((r) => { r.haut.opacite = x; })),
-      choix("Texte", [["blanc", "Blanc"], ["or", "Accent"], ["noir", "Noir"]], r.haut.couleur, (x) => regle((r) => { r.haut.couleur = x; })),
-    ]),
-    curseur("Taille", r.texte.haut, (x) => regle((r) => { r.texte.haut = x; }, "texte.haut")),
-    choix("Côtés", [[false, "Statut à gauche"], [true, "Inversés"]], r.haut.inverse, (x) => regle((r) => { r.haut.inverse = x; })));
-  if (v === "titre") ajoute(
-    choix("Langue", [["fr", "Français"], ["en", "Anglais"], ["vo", "D'origine"]], r.titre.langue, (x) => regle((r) => { r.titre.langue = x; })),
-    curseur("Taille", r.titre.taille, (x) => regle((r) => { r.titre.taille = x; }, "titre.taille")),
-    curseur("Largeur", r.titre.large, (x) => regle((r) => { r.titre.large = x; }, "titre.large")),
-    curseur("Hauteur", r.titre.monte, (x) => regle((r) => { r.titre.monte = x; }, "titre.monte"), 0, 30, 5),
-    choix("Place", [["auto", "Auto"], ["gauche", "Gauche"], ["centre", "Centre"]], r.titre.place, (x) => regle((r) => { r.titre.place = x; })));
-  if (v === "note") {
-    // Autres notes : des puces à cocher, deux au plus (une troisième est refusée tant qu'on n'en retire pas une).
-    const autres = ["rt", "mc", "lb"].filter((k) => r.note[k]).length;
-    const sites = el("div", { class: "choix" }, el("span", { text: "Autres" }), el("div", { class: "puces" },
-      ...[["rt", "Rotten Tomatoes"], ["mc", "Metacritic"], ["lb", "Letterboxd"]].map(([k, nom]) => el("button", { type: "button", text: nom, "data-cle": "autres:" + k, "aria-pressed": String(r.note[k]),
-        onclick: () => { if (r.note[k] || autres < 2) regle((r) => { r.note[k] = !r.note[k]; }); } }))));
-    ajoute(
-      choix("Principale", [["imdb", "IMDb"], ["tmdb", "TMDB"]], r.note.source, (x) => regle((r) => { r.note.source = x; })),
-      sites,
-      choix("Style", [["etoile", "★ 8,4"], ["nu", "8,4"], ["grand", "Grand"], ["badge", "Badge"]], r.note.style, (x) => regle((r) => { r.note.style = x; })),
-      choix("Couleur", [["non", "Non"], ["oui", "Selon la note"], ["halo", "+ halo"]], r.note.couleur, (x) => regle((r) => { r.note.couleur = x; })),
-      aide("Deux autres notes au plus, à côté de la principale."));
-  }
-  if (v === "genre") ajoute(choix("Forme", [["court", "Court (SF)"], ["complet", "Complet"]], r.genre.forme, (x) => regle((r) => { r.genre.forme = x; })));
-  if (v === "annee") ajoute(aide("Rien à régler : allume ou éteins l'année."));
-  if (v === "duree") ajoute(aide("La durée d'un film (« 2 h 46 »), le nombre de saisons d'une série (« 3 saisons »)."));
-  if (v === "age") ajoute(aide("L'âge conseillé en France, dans un petit cadre au bout de la ligne. Rien pour les titres tous publics."));
-  if (v === "plateforme") ajoute(choix("Place", [["ligne", "Dans la ligne"], ["coin", "En coin"]], r.plateforme.place, (x) => regle((r) => { r.plateforme.place = x; })),
-    aide("La plateforme d'abonnement où le titre est en France (Netflix, Prime Video, Canal+…)."));
-  if (v === "ligne") ajoute(
-    choix("Ordre", [["gna", "Genre d'abord"], ["nga", "Note d'abord"], ["agn", "Année d'abord"]], r.ligne.ordre, (x) => regle((r) => { r.ligne.ordre = x; })),
-    choix("Barre", [["aucune", "Aucune"], ["verre", "Verre"], ["fine", "Fine"]], r.ligne.barre, (x) => regle((r) => { r.ligne.barre = x; })),
-    curseur("Taille", r.texte.taille, (x) => regle((r) => { r.texte.taille = x; }, "texte.taille")),
-    choix("Séparateur", [["point", "·"], ["barre", "|"], ["puce", "•"]], r.texte.sep, (x) => regle((r) => { r.texte.sep = x; })),
-    choix("Police", [["inter", "Moderne"], ["bebas", "Cinéma"]], r.texte.police, (x) => regle((r) => { r.texte.police = x; })));
-  if (v === "image") ajoute(choix("Image", [["sanstexte", "Sans texte"], ["officielle", "Officielle"], ["fond", "Du film"]], r.image.source, (x) => regle((r) => { r.image.source = x; })),
-    aide("Sans texte : l'affiche nue et notre logo. Officielle : l'affiche française, avec son texte. Du film : une image du film recadrée."));
-  if (v === "fondu") ajoute(
-    choix("Couleur", [["noir", "Noir"], ["affiche", "De l'affiche"]], r.fondu.couleur, (x) => regle((r) => { r.fondu.couleur = x; })),
-    choix("Force", [["s", "Léger"], ["m", "Moyen"], ["l", "Fort"]], r.fondu.force, (x) => regle((r) => { r.fondu.force = x; })),
-    choix("Hauteur", [["court", "Court"], ["normal", "Normal"], ["long", "Long"]], r.fondu.hauteur, (x) => regle((r) => { r.fondu.hauteur = x; })),
-    choix("Flou", [[false, "Non"], [true, "Oui"]], r.fondu.flou, (x) => regle((r) => { r.fondu.flou = x; })));
-  if (v === "ambiance") ajoute(
-    choix("Voile du haut", [["0", "Aucun"], ["s", "Léger"], ["m", "Moyen"], ["l", "Fort"]], r.ambiance.voile, (x) => regle((r) => { r.ambiance.voile = x; })),
-    choix("Vignette", [[false, "Non"], [true, "Oui"]], r.ambiance.vignette, (x) => regle((r) => { r.ambiance.vignette = x; })));
-  if (v === "accent") ajoute(choix("Couleur", [["or", "Or"], ["blanc", "Blanc"], ["rouge", "Rouge"], ["bleu", "Bleu"], ["affiche", "De l'affiche"]], r.ambiance.accent, (x) => regle((r) => { r.ambiance.accent = x; })),
-    aide("Étoile, flèche de tendance, ruban, bandeau et barre fine."));
-  if (v === "sortie") ajoute(choix("Cacher la note", [[true, "Oui"], [false, "Non"]], r.sortie.cacherNote, (x) => regle((r) => { r.sortie.cacherNote = x; })),
-    aide("Les titres pas encore disponibles chez soi en VF passent en noir et blanc, comme dans les rangées."));
-  return out;
+const icone = (nom) => {
+  const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("aria-hidden", "true");
+  const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  p.setAttribute("d", ICONES[nom] || ICONES.couleur);
+  s.append(p);
+  return s;
+};
+
+// ---- Les cartes : nom, icône, interrupteur, choix principaux (toujours visibles) et réglages fins ----
+const SANS_TITRE = ["note", "genre", "annee", "duree", "age", "ligne", "ligne2", "fondu", "image", "c-texte", "c-fondu"];
+const sansEffet = (r, v) => !r.titre.on && SANS_TITRE.includes(v);
+function carteDe(v) {
+  const r = cible(), regle = (f, cle) => regieChange(f, cle);
+  const onOff = (g) => ({ on: () => r[g].on, bascule: () => regle((r) => { r[g].on = !r[g].on; }) });
+  const C = {
+    statut: { nom: "Statut", ...onOff("statut"),
+      principal: () => [choix("Style", [["texte", "Discret"], ["etiquette", "Étiquette"]], r.statut.style, (x) => regle((r) => { r.statut.style = x; }))],
+      plus: () => [choix("Date", [["date", "Le 2 nov."], ["compte", "Dans 12 jours"]], r.statut.forme, (x) => regle((r) => { r.statut.forme = x; })),
+        choix("Épisodes", [[false, "Non"], [true, "Nouvel épisode"]], r.statut.episode, (x) => regle((r) => { r.statut.episode = x; })),
+        aide("« Nouveau », « Nouvelle saison » ; pas encore sorti : la date ou le compte à rebours.")] },
+    tendance: { nom: "Tendance", ...onOff("tendance"),
+      principal: () => [choix("Style", [["fleche", "↗ N°4"], ["ruban", "Ruban"]], r.tendance.style, (x) => regle((r) => { r.tendance.style = x; }))] },
+    qualite: { nom: "Qualité", ...onOff("qualite"),
+      principal: () => [choix("Montrer", [["4k", "4K"], ["plus", "4K + HDR"], ["tout", "Tout"]], r.qualite.montrer, (x) => regle((r) => { r.qualite.montrer = x; }))],
+      plus: () => [choix("Style", [["texte", "Texte nu"], ["pastille", "Pastille"]], r.qualite.style, (x) => regle((r) => { r.qualite.style = x; })),
+        aide("« Tout » : 1080p quand il n'y a pas de 4K, HDR10+ et Dolby Atmos en plus.")] },
+    culte: { nom: "Incontournable", on: () => r.infos.culte, bascule: () => regle((r) => { r.infos.culte = !r.infos.culte; }),
+      principal: () => [aide("Un badge pour les films et séries très bien notés et très vus.")] },
+    bandeau: { nom: "Bandeau en coin", ...onOff("bandeau"),
+      principal: () => [choix("Porte", [["statut", "Le statut"], ["tendance", "Le N°"]], r.bandeau.porte, (x) => regle((r) => { r.bandeau.porte = x; })),
+        choix("Coin", [["g", "Gauche"], ["d", "Droite"]], r.bandeau.coin, (x) => regle((r) => { r.bandeau.coin = x; }))] },
+    badges: { nom: "Badges : style et place",
+      principal: () => [choix("Style", [["auto", "Chacun"], ["plein", "Plein"], ["verre", "Verre"], ["contour", "Contour"]], r.haut.style, (x) => regle((r) => { r.haut.style = x; }))],
+      plus: () => [
+        ...(r.haut.style === "auto" ? [] : [
+          choix("Forme", [["arrondi", "Arrondie"], ["carre", "Carrée"], ["pilule", "Pilule"]], r.haut.forme, (x) => regle((r) => { r.haut.forme = x; })),
+          choix("Fond", [["s", "Léger"], ["m", "Moyen"], ["l", "Plein"]], r.haut.opacite, (x) => regle((r) => { r.haut.opacite = x; })),
+          choix("Texte", [["blanc", "Blanc"], ["or", "Accent"], ["noir", "Noir"]], r.haut.couleur, (x) => regle((r) => { r.haut.couleur = x; })),
+        ]),
+        curseur("Taille", r.texte.haut, (x) => regle((r) => { r.texte.haut = x; }, "texte.haut")),
+        choix("Statut", [["auto", "Auto"], ["hg", "↖"], ["hd", "↗"], ["bg", "↙"], ["bd", "↘"]], r.haut.coinStatut, (x) => regle((r) => { r.haut.coinStatut = x; })),
+        choix("Qualité", [["auto", "Auto"], ["hg", "↖"], ["hd", "↗"], ["bg", "↙"], ["bd", "↘"]], r.haut.coinQualite, (x) => regle((r) => { r.haut.coinQualite = x; }))] },
+    titre: { nom: "Titre (logo)", ...onOff("titre"),
+      principal: () => [choix("Langue", [["fr", "Français"], ["en", "Anglais"], ["vo", "D'origine"]], r.titre.langue, (x) => regle((r) => { r.titre.langue = x; })),
+        curseur("Taille", r.titre.taille, (x) => regle((r) => { r.titre.taille = x; }, "titre.taille"))],
+      plus: () => [curseur("Largeur", r.titre.large, (x) => regle((r) => { r.titre.large = x; }, "titre.large")),
+        curseur("Hauteur", r.titre.monte, (x) => regle((r) => { r.titre.monte = x; }, "titre.monte"), 0, 30, 5),
+        choix("Place", [["auto", "Auto"], ["gauche", "Gauche"], ["centre", "Centre"]], r.titre.place, (x) => regle((r) => { r.titre.place = x; })),
+        choix("Effet", [["aucun", "Aucun"], ["ombre", "Ombre"], ["halo", "Halo"]], r.titre.effet, (x) => regle((r) => { r.titre.effet = x; }))] },
+    texte: { nom: "Police et texte",
+      principal: () => [choix("Police", [["inter", "Moderne"], ["bebas", "Cinéma"], ["elegante", "Élégante"], ["arrondie", "Arrondie"], ["condensee", "Condensée"]], r.texte.police, (x) => regle((r) => { r.texte.police = x; }))],
+      plus: () => [choix("Casse", [["normal", "Normale"], ["maj", "MAJUSCULES"]], r.texte.casse, (x) => regle((r) => { r.texte.casse = x; })),
+        choix("Lettres", [["normal", "Normal"], ["aere", "Aéré"], ["tresaere", "Très aéré"]], r.texte.espace, (x) => regle((r) => { r.texte.espace = x; })),
+        choix("Ombre", [["aucune", "Aucune"], ["normale", "Douce"], ["forte", "Forte"]], r.texte.ombre, (x) => regle((r) => { r.texte.ombre = x; }))] },
+    ligne: { nom: "Ligne du bas",
+      principal: () => [choix("Ordre", [["gna", "Genre d'abord"], ["nga", "Note d'abord"], ["agn", "Année d'abord"]], r.ligne.ordre, (x) => regle((r) => { r.ligne.ordre = x; }))],
+      plus: () => [choix("Barre", [["aucune", "Aucune"], ["verre", "Verre"], ["fine", "Fine"]], r.ligne.barre, (x) => regle((r) => { r.ligne.barre = x; })),
+        curseur("Taille", r.texte.taille, (x) => regle((r) => { r.texte.taille = x; }, "texte.taille")),
+        choix("Séparateur", [["point", "·"], ["barre", "|"], ["puce", "•"]], r.texte.sep, (x) => regle((r) => { r.texte.sep = x; }))] },
+    ligne2: { nom: "Petite ligne en dessous",
+      principal: () => [choix("Montrer", [["aucune", "Rien"], ["realisateur", "Réalisateur"], ["accroche", "Accroche"], ["studio", "Studio"]], r.infos.ligne2, (x) => regle((r) => { r.infos.ligne2 = x; }))] },
+    note: { nom: "Notes", ...onOff("note"),
+      principal: () => {
+        const autres = ["rt", "mc", "lb"].filter((k) => r.note[k]).length;
+        const sites = el("div", { class: "choix" }, el("span", { text: "Autres" }), el("div", { class: "puces" },
+          ...[["rt", "Rotten T."], ["mc", "Metacritic"], ["lb", "Letterboxd"]].map(([k, nom]) => el("button", { type: "button", text: nom, "data-cle": "autres:" + k, "aria-pressed": String(r.note[k]),
+            onclick: () => { if (r.note[k] || autres < 2) regle((r) => { r.note[k] = !r.note[k]; }); } }))));
+        return [choix("Principale", [["imdb", "IMDb"], ["tmdb", "TMDB"]], r.note.source, (x) => regle((r) => { r.note.source = x; })), sites];
+      },
+      plus: () => [choix("Style", [["etoile", "★ 8,4"], ["nu", "8,4"], ["grand", "Grand"], ["badge", "Badge"]], r.note.style, (x) => regle((r) => { r.note.style = x; })),
+        choix("Couleur", [["non", "Non"], ["oui", "Selon la note"], ["halo", "+ halo"]], r.note.couleur, (x) => regle((r) => { r.note.couleur = x; })),
+        aide("Deux autres notes au plus, à côté de la principale.")] },
+    genre: { nom: "Genre", ...onOff("genre"),
+      principal: () => [choix("Forme", [["court", "Court (SF)"], ["complet", "Complet"]], r.genre.forme, (x) => regle((r) => { r.genre.forme = x; }))] },
+    annee: { nom: "Année", ...onOff("annee") },
+    duree: { nom: "Durée, saisons", ...onOff("duree"), principal: () => [aide("« 2 h 46 » pour un film, « 3 saisons » pour une série.")] },
+    age: { nom: "Âge conseillé", ...onOff("age"), principal: () => [aide("-10, -12, -16, -18 ; rien pour les titres tous publics.")] },
+    plateforme: { nom: "Plateforme", ...onOff("plateforme"),
+      principal: () => [choix("Place", [["ligne", "Dans la ligne"], ["coin", "En coin"]], r.plateforme.place, (x) => regle((r) => { r.plateforme.place = x; }))] },
+    image: { nom: "Image",
+      principal: () => [choix("Image", [["sanstexte", "Sans texte"], ["officielle", "Officielle"], ["fond", "Du film"]], r.image.source, (x) => regle((r) => { r.image.source = x; }))] },
+    retouche: { nom: "Retouche",
+      principal: () => [choix("Filtre", [["aucun", "Aucun"], ["nb", "N&B"], ["sepia", "Sépia"], ["froid", "Froid"], ["chaud", "Chaud"]], r.image.filtre, (x) => regle((r) => { r.image.filtre = x; }))],
+      plus: () => [curseur("Lumière", r.image.lum, (x) => regle((r) => { r.image.lum = x; }, "image.lum"), 70, 130, 5),
+        curseur("Contraste", r.image.contraste, (x) => regle((r) => { r.image.contraste = x; }, "image.contraste"), 70, 130, 5),
+        curseur("Couleurs", r.image.satur, (x) => regle((r) => { r.image.satur = x; }, "image.satur"), 0, 160, 10),
+        choix("Grain", [[false, "Non"], [true, "Oui"]], r.image.grain, (x) => regle((r) => { r.image.grain = x; }))] },
+    fondu: { nom: "Fondu", ...onOff("fondu"),
+      principal: () => [choix("Force", [["s", "Léger"], ["m", "Moyen"], ["l", "Fort"]], r.fondu.force, (x) => regle((r) => { r.fondu.force = x; }))],
+      plus: () => [choix("Couleur", [["noir", "Noir"], ["affiche", "De l'affiche"]], r.fondu.couleur, (x) => regle((r) => { r.fondu.couleur = x; })),
+        choix("Hauteur", [["court", "Court"], ["normal", "Normal"], ["long", "Long"]], r.fondu.hauteur, (x) => regle((r) => { r.fondu.hauteur = x; })),
+        choix("Flou", [[false, "Non"], [true, "Oui"]], r.fondu.flou, (x) => regle((r) => { r.fondu.flou = x; }))] },
+    ambiance: { nom: "Voile et vignette",
+      principal: () => [choix("Voile", [["0", "Aucun"], ["s", "Léger"], ["m", "Moyen"], ["l", "Fort"]], r.ambiance.voile, (x) => regle((r) => { r.ambiance.voile = x; })),
+        choix("Vignette", [[false, "Non"], [true, "Oui"]], r.ambiance.vignette, (x) => regle((r) => { r.ambiance.vignette = x; }))] },
+    cadre: { nom: "Cadre",
+      principal: () => [choix("Cadre", [["aucun", "Aucun"], ["blanc", "Blanc"], ["or", "Doré"], ["couleur", "Couleur"]], r.image.cadre, (x) => regle((r) => { r.image.cadre = x; }))] },
+    sortie: { nom: "Pas encore sorti", on: () => r.sortie.nb, bascule: () => regle((r) => { r.sortie.nb = !r.sortie.nb; }),
+      principal: () => [choix("Note", [[true, "Cachée"], [false, "Montrée"]], r.sortie.cacherNote, (x) => regle((r) => { r.sortie.cacherNote = x; }))],
+      plus: () => [aide("Noir et blanc tant que le titre n'est pas disponible chez soi en VF, comme dans les rangées.")] },
+    "c-accent": { nom: "Accent (étoile, flèche, ruban)", couleur: true,
+      principal: () => [choix("Base", [["or", "Or"], ["blanc", "Blanc"], ["rouge", "Rouge"], ["bleu", "Bleu"], ["affiche", "De l'affiche"]], r.ambiance.accent, (x) => regle((r) => { r.ambiance.accent = x; r.ambiance.accentC = ""; })),
+        nuancier("Accent", r.ambiance.accentC, (x) => regle((r) => { r.ambiance.accentC = x; }))] },
+    "c-texte": { nom: "Texte du bas", couleur: true, principal: () => [nuancier("Texte du bas", r.texte.couleur, (x) => regle((r) => { r.texte.couleur = x; }))] },
+    "c-badges": { nom: "Fond des badges (style plein)", couleur: true,
+      principal: () => r.haut.style === "plein" ? [nuancier("Fond des badges", r.haut.fond, (x) => regle((r) => { r.haut.fond = x; }))] : [aide("Choisis le style « Plein » (onglet Haut, Badges) pour colorer leur fond.")] },
+    "c-fondu": { nom: "Fondu", couleur: true, principal: () => [nuancier("Fondu", r.fondu.teinte, (x) => regle((r) => { r.fondu.teinte = x; }))] },
+    "c-cadre": { nom: "Cadre", couleur: true,
+      principal: () => r.image.cadre === "couleur" ? [nuancier("Cadre", r.image.cadreC, (x) => regle((r) => { r.image.cadreC = x; }))] : [aide("Choisis un cadre « Couleur » (onglet Image) pour lui donner une couleur du nuancier.")] },
+  };
+  return C[v];
 }
 
 /** L'onglet Paysage : mêmes réglages que le portrait, ou réglages à part. */
@@ -1404,41 +1448,47 @@ function ongletPaysage() {
   return [bloc];
 }
 
-function regieLignes() {
+function regieCartes() {
   const r = cible(), boite = $("regie-voies");
   boite.textContent = "";
-  // Un élément ouvert : les autres lignes se resserrent (sans leur résumé) pour que tout tienne sans défiler.
-  boite.classList.toggle("une-ouverte", !!regieVoie && regieOnglet !== "paysage");
   if (regieOnglet === "paysage") { boite.append(...ongletPaysage()); return; }
   ONGLETS[regieOnglet].forEach((v) => {
-    const [nom, signe] = VOIES[v], on = allumee(r, v), ouverte = v === regieVoie, vide = sansEffet(r, v);
-    const ligne = el("div", { class: "ligne" + (ouverte ? " ouverte" : "") + (on === false || vide ? " eteinte" : ""), "data-voie": v });
-    const tete = el("div", { class: "ligne-tete" },
-      el("button", { type: "button", class: "ligne-nom", "aria-expanded": String(ouverte), "aria-controls": "corps-" + v, "data-cle": "ouvrir:" + v, onclick: () => { regieVoie = ouverte ? null : v; regieDessine(); } },
-        el("span", { class: "pastille", text: signe, "aria-hidden": "true" }),
-        el("span", { class: "ligne-txt" }, el("b", { text: nom }), el("small", { text: vide ? "Sans effet sans le titre" : resume(r, v) })),
-        el("span", { class: "chevron", text: ouverte ? "⌄" : "›", "aria-hidden": "true" })));
-    if (on !== null) {
-      tete.append(el("button", { type: "button", class: "interrupteur", role: "switch", "aria-checked": String(on), "aria-label": nom, "data-cle": "on:" + v,
-        onclick: () => regieChange((r) => { if (v === "sortie") r.sortie.nb = !r.sortie.nb; else r[v].on = !r[v].on; }) }));
+    const c = carteDe(v), allume = c.on ? c.on() : null, vide = sansEffet(r, v), ouverte = v === regieVoie;
+    const carte = el("section", { class: "carte" + (allume === false || vide ? " eteinte" : "") + (ouverte ? " ouverte" : ""), "data-voie": v, "aria-label": c.nom });
+    const tete = el("div", { class: "carte-tete" }, el("span", { class: "carte-icone" }, icone(c.couleur ? "couleur" : v)), el("b", { text: c.nom }));
+    if (allume !== null) tete.append(el("button", { type: "button", class: "interrupteur", role: "switch", "aria-checked": String(allume), "aria-label": c.nom, "data-cle": "on:" + v, onclick: c.bascule }));
+    carte.append(tete);
+    // Une autre carte est ouverte : celle-ci se replie sur son titre (tout tient sans défiler), avec « Régler ».
+    const repliee = regieVoie && !ouverte;
+    if (vide) carte.append(aide("Sans effet sans le titre (onglet Titre)."));
+    else if (repliee && allume !== false) {
+      carte.classList.add("repliee");
+      tete.insertBefore(el("button", { type: "button", class: "carte-plus", "data-cle": "regler:" + v, text: "Régler", onclick: () => { regieVoie = c.plus ? v : null; regieDessine(); } }), tete.lastChild && tete.lastChild.classList && tete.lastChild.classList.contains("interrupteur") ? tete.lastChild : null);
+    } else if (allume !== false) {
+      if (c.principal) carte.append(el("div", { class: "carte-corps" }, ...c.principal()));
+      if (c.plus) {
+        carte.append(el("button", { type: "button", class: "carte-plus", "aria-expanded": String(ouverte), "aria-controls": "corps-" + v, "data-cle": "plus:" + v,
+          text: ouverte ? "Moins de réglages" : "Plus de réglages", onclick: () => { regieVoie = ouverte ? null : v; regieDessine(); } }));
+        if (ouverte) carte.append(el("div", { class: "carte-corps carte-fin", id: "corps-" + v }, ...c.plus()));
+      }
     }
-    ligne.append(tete);
-    if (ouverte) ligne.append(el("div", { class: "ligne-corps", id: "corps-" + v }, ...reglagesDe(v)));
-    boite.append(ligne);
+    boite.append(carte);
   });
 }
 
 function regieDessine(garderCorps) {
   const r = cible(), m = LA.memoireDe(r);
-  // Les lignes sont reconstruites : le focus revient sur le même bouton (data-cle).
+  // Les cartes sont reconstruites : le focus revient sur le même bouton (data-cle).
   const actif = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.cle || "" : "";
   document.querySelectorAll("#regie-memoires [data-memoire]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.memoire === m)));
   $("regie-perso").hidden = !!m;
   document.querySelectorAll("#regie-onglets [data-onglet]").forEach((b) => { b.setAttribute("aria-selected", String(b.dataset.onglet === regieOnglet)); b.tabIndex = b.dataset.onglet === regieOnglet ? 0 : -1; });
   $("regie-voies").setAttribute("aria-labelledby", "onglet-" + regieOnglet);
   $("regie-cible").hidden = !(regieRP && regieForme === "landscape");
-  // Pendant un glissé de curseur, les lignes restent telles quelles (les reconstruire couperait le glissé).
-  if (!garderCorps) regieLignes();
+  // Pendant un glissé de curseur, les cartes restent telles quelles (les reconstruire couperait le glissé).
+  if (!garderCorps) regieCartes();
+  // Une carte ouverte : les vignettes des styles se réduisent à leurs noms, pour laisser la place à ses réglages.
+  document.querySelector(".regie-console").classList.toggle("reglage-ouvert", !!regieVoie && regieOnglet !== "paysage");
   $("regie-annuler").disabled = !regieHisto.length;
   seg($("regie-format"), ["Portrait", "Paysage"], regieForme === "landscape" ? 1 : 0, (i) => { regieForme = i ? "landscape" : "poster"; regieDessine(); regieApercus(); });
   [...$("regie-format").children].forEach((b, i) => { b.dataset.cle = "format:" + i; });
@@ -1490,6 +1540,17 @@ function regieApercus() {
   });
 }
 
+// Vignettes des styles tout prêts : une vraie petite affiche du premier titre de démonstration dans chaque style
+// (les mêmes pour tout le monde : gardées par le CDN, 7 dessins par jour en tout).
+function regieVignettes() {
+  const t = regieTitres[0];
+  if (!t) return;
+  document.querySelectorAll("#regie-memoires [data-memoire]").forEach((b) => {
+    const img = b.querySelector("img"), src = NV.ppSrc(t, "poster", LA.MEMOIRES[b.dataset.memoire]);
+    if (img && src && img.dataset.src !== src) { img.dataset.src = src; img.src = src; }
+  });
+}
+
 // Les 6 titres de démonstration : pris dans les catalogues de l'addon pour être toujours à jour (tendance,
 // pas encore sorti, en salle, série), plus deux titres fixes (un film en 4K, un film au logo travaillé).
 async function regieCharge() {
@@ -1513,6 +1574,7 @@ async function regieCharge() {
   c.textContent = "";
   regieTitres.forEach((t, i) => c.append(el("button", { type: "button", "aria-pressed": "false", "aria-label": "Voir " + (t.name || "ce titre") + " en grand",
     onclick: () => { regieChoisi = i; regieApercus(); } }, el("img", { alt: "" }), el("span", { text: t.legende }))));
+  regieVignettes();
 }
 
 function regieOuvre(declencheur) {
@@ -1539,7 +1601,7 @@ $("regie-ouvrir").addEventListener("click", (e) => regieOuvre(e.currentTarget));
 $("pp-ouvrir").addEventListener("click", (e) => regieOuvre(e.currentTarget));
 $("regie-fermer").addEventListener("click", regieFerme);
 $("regie").addEventListener("click", (e) => { if (e.target === $("regie")) regieFerme(); });
-// Échap ferme la régie où que soit le focus (des lignes reconstruites peuvent l'avoir fait retomber sur la page).
+// Échap ferme la régie où que soit le focus (des cartes reconstruites peuvent l'avoir fait retomber sur la page).
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("regie").hidden) { e.stopPropagation(); regieFerme(); } });
 $("regie-annuler").addEventListener("click", () => {
   if (!regieHisto.length) return;

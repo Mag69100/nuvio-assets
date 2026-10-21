@@ -69,13 +69,13 @@ test("regie_presente", () => {
   }
   for (const m of ["maison", "essentiel", "noteSeule", "cine", "postersPlus", "plateforme", "nue"]) assert.match(html, new RegExp(`data-memoire="${m}"`), m);
   assert.match(html, /id="regie-onglets"[^>]*role="tablist"/);
-  for (const o of ["haut", "infos", "image", "paysage"]) assert.match(html, new RegExp(`role="tab"[^>]*data-onglet="${o}"`), o);
+  for (const o of ["haut", "titre", "infos", "image", "couleurs", "paysage"]) assert.match(html, new RegExp(`role="tab"[^>]*data-onglet="${o}"`), o);
   assert.match(html, /id="regie-voies"[^>]*role="tabpanel"/);
   // Chaque onglet range ses éléments ; tous les réglages ont leur place.
   const debut = html.indexOf("const ONGLETS = ");
   assert.ok(debut > 0, "ONGLETS absent");
   const onglets = html.slice(debut, html.indexOf("};", debut));
-  for (const v of ["statut", "tendance", "qualite", "bandeau", "badges", "titre", "note", "genre", "annee", "duree", "age", "plateforme", "ligne", "image", "fondu", "ambiance", "accent", "sortie"]) {
+  for (const v of ["statut", "tendance", "qualite", "culte", "bandeau", "badges", "titre", "texte", "ligne", "ligne2", "note", "genre", "annee", "duree", "age", "plateforme", "image", "retouche", "fondu", "ambiance", "cadre", "sortie", "c-accent", "c-texte", "c-badges", "c-fondu", "c-cadre"]) {
     assert.match(onglets, new RegExp(`"${v}"`), v);
   }
   // Interrupteurs accessibles ; plus de lampes ni de tiroir du bas.
@@ -144,4 +144,13 @@ test("regie_curseurs_dessines", () => {
   assert.match(html, /\.regie-console \.curseur input\[type=range\]::-webkit-slider-thumb/);
   assert.match(html, /\.regie-console \.curseur input\[type=range\]::-moz-range-thumb/);
   assert.match(html, /setProperty\("--rempli"/);
+});
+
+// Régie v3 : styles tout prêts en vignettes (vraies petites affiches), nuancier en pastilles nommées.
+test("regie_v3_vignettes_et_nuancier", () => {
+  const html = salle2();
+  assert.ok(html.includes('data-memoire="cine" aria-label="Style Ciné"><img alt=""><span>Ciné</span>'));
+  assert.ok(html.includes("function regieVignettes"));
+  assert.ok(html.includes("function nuancier"));
+  assert.ok(html.includes("const NOMS_COULEURS = ["));
 });

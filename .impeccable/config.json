@@ -47,6 +47,15 @@
         ],
         "createdAt": "2026-10-20T21:54:01.072Z",
         "reason": "assistant judgment: #regie-grande in the hidden régie dialog gets its src from JS when the dialog opens; alt is empty and it never shows a broken icon"
+      },
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "tests/affiches.test.js"
+        ],
+        "createdAt": "2026-10-21T00:25:35.760Z",
+        "reason": "assistant judgment: the test asserts on the régie HTML as a string (<img alt=\"\"> of the style thumbnails, whose src is set by script); no image is rendered from this file"
       }
     ]
   }

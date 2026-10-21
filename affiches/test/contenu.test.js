@@ -351,6 +351,34 @@ test("titre_ecrit_sans_logo", () => {
   assert.equal("titreTexte" in contenu({ ...facts, titre: "Dune" }), false);
 });
 
+// Titre écrit : seulement ce que les polices savent écrire (lues dans leurs fichiers). Émojis et symboles (★) :
+// l'image d'origine. Cyrillique, grec : en Inter. Une lettre absente de la police choisie (Ş, Ř, Ğ manquent à
+// Oswald) : tout le titre en Inter, jamais un mélange au milieu du titre.
+test("titre_ecrit_seulement_ecrivable", () => {
+  const sansLogo = { ...facts, logo: null, logos: { fr: null, en: null, vo: null, autre: null } };
+  const ecrit = (titre, r = DEFAUT_REGLAGES) => { const c = contenu({ ...sansLogo, titre }, extra, "poster", r); return [c.titreTexte, c.titreInter]; };
+  assert.deepEqual(ecrit("Brat ★"), [undefined, undefined]);
+  assert.deepEqual(ecrit("Fiesta 🎉"), [undefined, undefined]);
+  assert.deepEqual(ecrit("Война и мир"), ["Война и мир", undefined]);
+  assert.deepEqual(ecrit("Ζορμπάς"), ["Ζορμπάς", undefined]);
+  assert.deepEqual(ecrit("Fast & Furious 7"), ["Fast & Furious 7", undefined]);
+  const oswald = reglages("wc");
+  assert.deepEqual(ecrit("Amélie", oswald), ["Amélie", undefined]);
+  assert.deepEqual(ecrit("Kış Uykusu", oswald), ["Kış Uykusu", true]);
+  assert.deepEqual(ecrit("Война и мир", reglages("wb")), ["Война и мир", true]);
+  // Titre en lettres décomposées (e + accent) : écrit dans sa forme composée.
+  assert.equal(ecrit("Amélie")[0], "Amélie");
+});
+
+// La petite ligne (réalisateur, accroche, studio) : vérifiée de même ; pas écrivable, pas de petite ligne.
+test("ligne2_seulement_ecrivable", () => {
+  assert.equal(contenu({ ...v3, studio: "東宝" }, plein, "poster", reglages("3as")).line2, undefined);
+  assert.equal(contenu({ ...v3, tagline: "Prêts ? 🍿" }, plein, "poster", reglages("3aa")).line2, undefined);
+  const c = contenu({ ...v3, director: "Nuri Bilge Ceylan Ş" }, plein, "poster", reglages("3arwc"));
+  assert.deepEqual([c.line2, c.ligne2Inter], ["Un film de Nuri Bilge Ceylan Ş", true]);
+  assert.equal("ligne2Inter" in contenu(v3, plein, "poster", reglages("3ar")), false);
+});
+
 // Sources sans VF (lues avec la qualité) : en noir et blanc, « EN VO ».
 test("statut_en_vo", () => {
   const recent = { ...facts, releases: [{ iso_3166_1: "US", release_dates: [{ type: 4, release_date: "2026-10-01" }] }, { iso_3166_1: "CA", release_dates: [{ type: 3, release_date: "2026-08-01" }] }], releaseDate: "2026-08-01" };

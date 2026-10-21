@@ -5,9 +5,9 @@
  * Les styles viennent des réglages de la régie (content.styles, voir lib/contenu.js) ; sans réglage, le rendu
  * est celui de la maquette « Gras + léger » validée, en pixels d'une affiche de 400 px de large.
  */
-import { readFileSync } from "node:fs";
 import sharp from "sharp";
 import satori from "satori";
+import { FONTS } from "./polices.js";
 
 export const SIZES = { poster: [400, 600], landscape: [800, 450] };
 const IMG = "https://image.tmdb.org/t/p/";
@@ -18,16 +18,7 @@ const ACCENTS = { or: OR, blanc: "#ffffff", rouge: "#e5484d", bleu: "#4c9aff" };
 // Couleur selon la note (sur 10) : bonne, moyenne, mauvaise.
 const couleurNote = (n) => (n >= 7.5 ? "#46c46e" : n >= 6 ? "#f5c518" : "#e5484d");
 
-const police = (fichier) => readFileSync(new URL(`../fonts/${fichier}`, import.meta.url));
-const FONTS = [
-  { name: "Inter", data: police("Inter-Medium.ttf"), weight: 500, style: "normal" },
-  { name: "Inter", data: police("Inter-SemiBold.ttf"), weight: 600, style: "normal" },
-  { name: "Inter", data: police("Inter-ExtraBold.ttf"), weight: 800, style: "normal" },
-  { name: "Bebas Neue", data: police("BebasNeue-Regular.ttf"), weight: 400, style: "normal" },
-  // Régie v3 : Élégante (Playfair Display), Arrondie (Nunito), Condensée (Oswald) — sous-ensembles latins (accents compris).
-  ...[["Playfair Display", "PlayfairDisplay", [500, 600, 800]], ["Nunito", "Nunito", [500, 600, 800]], ["Oswald", "Oswald", [500, 600, 700]]]
-    .flatMap(([name, fichier, poids]) => poids.map((weight) => ({ name, data: police(`${fichier}-${weight}.woff`), weight, style: "normal" }))),
-];
+// Les fichiers des polices sont chargés par lib/polices.js (qui sait aussi quelles lettres chacune écrit).
 // Polices : Bebas Neue (« Cinéma ») et Oswald (« Condensée ») sont hautes et serrées, un peu agrandies pour se lire
 // aussi bien qu'Inter. lettre : largeur moyenne d'une lettre (pour estimer la largeur de la ligne du bas).
 const POLICES = {
@@ -202,8 +193,9 @@ function ligne2(content, m, [w]) {
   const place = m.disposition === "cote" ? { right: m.marge, justifyContent: "flex-end" } : m.disposition === "gauche" ? { left: m.marge } : { left: 0, right: 0, justifyContent: "center" };
   const largeur = (m.disposition === "cote" ? w * 0.5 : w - 2 * m.marge), max = Math.max(8, Math.floor(largeur / (t * 0.56)));
   const texte = content.line2.length > max ? content.line2.slice(0, max - 1).trimEnd() + "…" : content.line2;
+  // ligne2Inter : la police choisie n'a pas toutes ses lettres, la ligne entière est écrite en Inter (lib/contenu.js).
   return h("div", { position: "absolute", bottom: m.ligneBas2, display: "flex", ...place, whiteSpace: "nowrap", fontSize: t, fontWeight: 500,
-    color: st.texteC || "rgba(255,255,255,0.78)", textShadow: m.ombre, ...casseEtEspace(st, t) }, texte);
+    color: st.texteC || "rgba(255,255,255,0.78)", textShadow: m.ombre, ...casseEtEspace(st, t), ...(content.ligne2Inter ? { fontFamily: "Inter" } : {}) }, texte);
 }
 
 /** Badge « Incontournable » : une étoile et le mot, à la couleur d'accent. */
@@ -461,10 +453,11 @@ async function imagesPlateforme(content, fetchImpl) {
 /**
  * Le titre écrit en texte (titre sans aucun logo chez TMDB), en blanc, dans la police choisie : une image comme un
  * logo, qui passe ensuite par le même chemin (taille, place, effet). Plus le titre est long, plus les lettres sont
- * petites (deux ou trois lignes au plus).
+ * petites (deux ou trois lignes au plus). titreInter : la police choisie n'a pas toutes ses lettres (Ş, cyrillique…),
+ * le titre entier est écrit en Inter (lib/contenu.js).
  */
 async function titreEnImage(content, aGauche) {
-  const police = POLICES[content.styles.police] || POLICES.inter;
+  const police = content.titreInter ? POLICES.inter : POLICES[content.styles.police] || POLICES.inter;
   const poids = { "Bebas Neue": 400, Oswald: 700 }[police.nom] || 800;
   const texte = String(content.titreTexte).toUpperCase();
   const taille = Math.round(150 * police.echelle * Math.sqrt(16 / Math.max(16, texte.length)));

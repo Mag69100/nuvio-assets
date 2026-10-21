@@ -8,6 +8,7 @@ import { createHash } from "node:crypto";
 import { DEFAUT_REGLAGES, PALETTE } from "./lien-affiches.js";
 import { etatSortie } from "./statut.js";
 import { jourParis } from "./jour.js";
+import { policePour } from "./polices.js";
 
 // À changer quand le dessin change : l'ETag change avec, et Nuvio recharge les affiches.
 export const DESIGN = "3";
@@ -99,9 +100,6 @@ function qualiteDe(quality, montrer) {
   return { label, extra, atmos: !!quality.atmos };
 }
 
-// Lettres que les polices de l'affiche savent écrire (latin, chiffres, ponctuation) : un titre japonais ou persan
-// sans logo garde l'image d'origine plutôt que des carrés vides.
-const ECRIVABLE = /^[\p{Script=Latin}\p{N}\p{P}\p{Zs}\p{S}\p{M}]+$/u;
 
 /** Contenu d'une affiche, ou null si le titre n'a aucune image pour cette forme. */
 export function posterContent(facts, { imdbRating, rank, quality, notes }, shape, r = DEFAUT_REGLAGES, today = aujourdhui()) {
@@ -110,7 +108,7 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
   // l'image du film recadrée (fond sans texte, avec logo).
   const source = r.titre.on && !paysage ? r.image.source : "sanstexte";
   const normale = paysage ? facts.backdrop : facts.poster;
-  let image, full, logo = null, titreTexte = null;
+  let image, full, logo = null, titreTexte = null, titreInter = false;
   if (source === "officielle") {
     image = normale || null;
     full = !!image;
@@ -118,7 +116,10 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
     const sansTexte = paysage || source === "fond" ? facts.textlessBackdrop : facts.textlessPoster;
     logo = r.titre.on ? logoDe(facts, r.titre.langue) : null;
     // Aucun logo chez TMDB, dans aucune langue (EB) : le titre est écrit en texte à sa place, jamais une image sans nom.
-    if (r.titre.on && !logo && sansTexte && facts.titre && ECRIVABLE.test(facts.titre)) titreTexte = facts.titre;
+    // Seulement s'il est écrivable (lib/polices.js) : un titre japonais, ou avec un émoji, garde l'image d'origine
+    // plutôt que des carrés vides ; une lettre absente de la police choisie (Ş, cyrillique) : tout le titre en Inter.
+    const police = r.titre.on && !logo && sansTexte && facts.titre ? policePour(facts.titre, r.texte.police || "inter") : null;
+    if (police) { titreTexte = facts.titre.normalize("NFC"); titreInter = police !== (r.texte.police || "inter"); }
     full = !!(r.titre.on && sansTexte && (logo || titreTexte));
     image = full ? sansTexte : normale || null;
     if (!full) logo = null;
@@ -177,6 +178,7 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
     gris: r.sortie.nb && pasSorti,
     logo,
     ...(full && titreTexte ? { titreTexte } : {}),
+    ...(full && titreTexte && titreInter ? { titreInter: true } : {}),
     line: Object.keys(line).length ? line : null,
     statut: libelle,
     rank: place,
@@ -225,7 +227,13 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
   if (full && r.infos.ligne2 !== "aucune") {
     const l2 = r.infos.ligne2 === "realisateur" ? (facts.director ? (facts.type === "series" ? "Créée par " : "Un film de ") + facts.director : null)
       : r.infos.ligne2 === "accroche" ? facts.tagline : facts.studio;
-    if (l2) content.line2 = l2;
+    // Vérifiée comme le titre : pas écrivable (studio japonais, émoji…), pas de petite ligne ; une lettre absente de
+    // la police choisie, toute la ligne en Inter.
+    const police = l2 ? policePour(l2, r.texte.police || "inter") : null;
+    if (police) {
+      content.line2 = l2.normalize("NFC");
+      if (police !== (r.texte.police || "inter")) content.ligne2Inter = true;
+    }
   }
   // Badge « Incontournable » : très bien noté (IMDb 8,0 ou plus, sinon TMDB) et très vu (3 000 votes TMDB ou plus).
   const noteCulte = Number(imdbRating || (facts.vote && facts.vote.average) || 0);

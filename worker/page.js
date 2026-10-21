@@ -492,6 +492,8 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .regie-coulisses img { display: block; width: 62px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 5px; margin-bottom: 4px; outline: 2px solid transparent; outline-offset: 2px; opacity: .8; background: #1b1418; }
 .regie-coulisses button[aria-pressed="true"] img { outline-color: var(--bulb); opacity: 1; }
 .regie-coulisses span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.regie-coulisses.paysage button { width: 104px; }
+.regie-coulisses.paysage img { width: 104px; aspect-ratio: 16 / 9; }
 
 /* La console : styles tout prêts en vignettes (vraies petites affiches), 6 onglets, une carte par élément (icône,
    nom, interrupteur, choix principaux visibles ; réglages fins dans « Plus de réglages », un seul ouvert). */
@@ -570,6 +572,7 @@ body.regie-ouverte { overflow: hidden; }
   .regie-corps { grid-template-columns: minmax(0, 1fr) 340px; }
   .regie-coulisses { gap: 6px; }
   .regie-coulisses button, .regie-coulisses img { width: 50px; }
+  .regie-coulisses.paysage button, .regie-coulisses.paysage img { width: 80px; }
 }
 /* Écran peu haut (portable en 1280×720) : console resserrée. */
 @media (max-height: 760px) and (min-width: 761px) {
@@ -1621,8 +1624,10 @@ function regieApercus() {
     grande.alt = "Affiche de " + (t.name || "ce titre");
     $("regie-legende").textContent = (t.name || "") + (t.legende ? " · " + t.legende : "");
   }
+  // Les coulisses suivent le format de la scène (en Paysage : images 16:9, réglages du paysage s'il est à part).
+  $("regie-coulisses").classList.toggle("paysage", regieForme === "landscape");
   document.querySelectorAll("#regie-coulisses button").forEach((b, i) => {
-    const img = b.querySelector("img"), src = NV.ppSrc(regieTitres[i], "poster", regieR);
+    const img = b.querySelector("img"), src = NV.ppSrc(regieTitres[i], regieForme, regieForme === "landscape" && regieRP ? regieRP : regieR);
     if (src && img.dataset.src !== src) { img.dataset.src = src; img.src = src; }
     b.setAttribute("aria-pressed", String(i === regieChoisi));
   });

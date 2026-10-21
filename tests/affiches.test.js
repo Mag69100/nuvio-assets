@@ -175,6 +175,14 @@ test("regie_importer_un_lien", () => {
   assert.match(html, /id="regie-import-msg"[^>]*aria-live="polite"/);
 });
 
+// En Paysage, les coulisses (les autres titres, sous la grande image) passent en paysage aussi, avec les réglages du paysage.
+test("regie_coulisses_suivent_le_format", () => {
+  const html = salle2();
+  assert.ok(html.includes("NV.ppSrc(regieTitres[i], regieForme, regieForme === \"landscape\" && regieRP ? regieRP : regieR)"), "coulisses toujours en portrait");
+  assert.ok(html.includes("$(\"regie-coulisses\").classList.toggle(\"paysage\", regieForme === \"landscape\")"));
+  assert.match(html, /\.regie-coulisses\.paysage img \{[^}]*aspect-ratio: 16 \/ 9/);
+});
+
 // QR code du lien d'affiches : le téléphone ouvre /lien avec le lien prêt à copier (il voyage après le #).
 test("regie_qr_code", async () => {
   const html = salle2();

@@ -625,8 +625,8 @@ test("bientot_dispo_sans_les_films_deja_sur_une_plateforme_en_france", async () 
 });
 
 // EB : sorti au cinéma aux Pays-Bas il y a 5 mois, sans date numérique, déjà sur Prime Video en France, mais en VO.
-// La fiche ne dit plus « Dispo vers le … » (estimation) : « Pas encore en VF » (seule la VF compte). En anglais (VF
-// probable) : « Déjà dispo ».
+// La fiche ne dit plus « Dispo vers le … » (estimation), ni « Pas encore en VF » : seules les sources le disent
+// (Kraken, norvégien, est en VF sur Paramount+). En anglais (VF probable) : « Déjà dispo ».
 test("fiche_deja_dispo_sur_une_plateforme_en_france", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   const fiche = (fr, langue) => ({ id: 1662858, title: "EB", release_date: jour(-160), original_language: langue,
@@ -640,8 +640,7 @@ test("fiche_deja_dispo_sur_une_plateforme_en_france", async () => {
     return new Response("{}");
   };
   const m = (await (await get("/meta/movie/tmdb:1662858.json")).json()).meta;
-  assert.match(m.description || "", /Pas encore en VF/);
-  assert.doesNotMatch(m.description || "", /Dispo vers|Déjà dispo|VO/);
+  assert.doesNotMatch(m.description || "", /Dispo vers|Déjà dispo|VO|VF/);
   const en = (await (await get("/meta/movie/tmdb:1662859.json")).json()).meta;
   assert.match(en.description || "", /Déjà dispo/);
   assert.ok(calls.some((u) => /\/movie\/1662858\?/.test(u) && /append_to_response=[^&]*watch/.test(decodeURIComponent(u))), "plateformes pas demandées");
@@ -714,6 +713,26 @@ test("tendances_du_jour_seulement_en_vf", async () => {
   assert.equal(calls.filter((u) => u.includes("/vf.json")).length, 1, "un seul appel pour la page");
 });
 
+// Kraken (norvégien) dans une rangée qui ne lit pas les sources : sorti chez soi aux États-Unis, aucune date
+// francophone, sur Paramount+ en France — et pourtant en VF. Sans sources, la fiche ne dit jamais « Pas encore en VF ».
+test("rangee_sans_sources_ne_dit_pas_pas_encore_en_vf", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/discover/movie")) return new Response(JSON.stringify({ results: [{ id: 7, title: "Kraken", original_language: "no", release_date: jour(-250) }], page: 1, total_pages: 1 }));
+    if (/\/movie\/7\?/.test(u)) {
+      return new Response(JSON.stringify({ ...filmVod(7, "no", [["NO", 3, jour(-250)], ["US", 4, jour(-130)]]),
+        "watch/providers": { results: { FR: { flatrate: [{ provider_name: "Paramount+ Amazon Channel" }] } } } }));
+    }
+    return new Response(JSON.stringify({ results: [] }));
+  };
+  const { metas } = await (await get("/catalog/movie/films-populaires.json")).json();
+  assert.equal(metas.length, 1);
+  assert.doesNotMatch(metas[0].description || "", /VF|VO/);
+  assert.ok(!calls.some((u) => u.includes("/vf.json")));
+});
+
 test("dispo_depuis_peu_selon_les_sources", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   const lus = { tt901: { vf: false, sources: 30 }, tt902: { vf: true, sources: 12 } };
@@ -738,6 +757,35 @@ test("dispo_depuis_peu_selon_les_sources", async () => {
   assert.equal(calls.filter((u) => u.includes("/vf.json")).length, 1, "un seul appel pour la page");
   assert.ok(calls.some((u) => u.includes("/vf.json") && u.includes("movie%2Ftt901") || u.includes("movie/tt901")));
   assert.ok(!metas.some((m) => "_vf" in m || "_dejaVf" in m));
+});
+
+// « Bientôt dispo » : aussi un film déjà sorti chez soi mais pas encore en VF d'après ses sources (The Weight), à la
+// fin ; pas celui qui y est déjà en VF, ni celui dont on n'a pas lu les sources (rien ne dit qu'il n'est pas en VF).
+test("bientot_dispo_avec_les_films_pas_encore_en_vf", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const lus = { tt901: { vf: false, sources: 47 }, tt902: { vf: true, sources: 12 } };
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/vf.json")) return sourcesDe(lus)(u);
+    const q = new URL(u).searchParams;
+    if (u.includes("/discover/movie") && q.get("with_release_type") === "4" && q.get("release_date.gte") < jour(-30)) return new Response(JSON.stringify({ results: [
+      { id: 1, title: "The Weight", original_language: "en", release_date: jour(-35), popularity: 9 },
+      { id: 2, title: "Déjà en VF", original_language: "en", release_date: jour(-35), popularity: 8 },
+    ], page: 1, total_pages: 1 }));
+    if (u.includes("/discover/movie") && q.get("with_release_type") === "4") return new Response(JSON.stringify({ results: [
+      { id: 4, title: "À venir", original_language: "en", release_date: jour(-20), popularity: 1 },
+    ], page: 1, total_pages: 1 }));
+    const m = /\/movie\/(\d)\?/.exec(u);
+    if (m && m[1] === "1") return new Response(JSON.stringify(filmVod(1, "en", [["FR", 3, jour(-35)], ["US", 4, jour(-1)]])));
+    if (m && m[1] === "2") return new Response(JSON.stringify(filmVod(2, "en", [["US", 4, jour(-3)]])));
+    if (m && m[1] === "4") return new Response(JSON.stringify(filmVod(4, "en", [["US", 3, jour(-20)], ["US", 4, jour(10)]])));
+    return new Response(JSON.stringify({ results: [] }));
+  };
+  const { metas } = await (await get("/catalog/movie/accueil-vod-bientot.json")).json();
+  assert.deepEqual(metas.map((m) => m.name), ["À venir", "The Weight"]);
+  assert.match(metas[1].description || "", /Pas encore en VF/);
+  assert.ok(!metas.some((m) => "_vo" in m));
 });
 
 test("bientot_dispo_et_prochainement_selon_les_sources", async () => {

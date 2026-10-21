@@ -148,6 +148,9 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
     status: type === "series" ? d.status || null : null,
     lastEpisodeNumber: type === "series" && d.last_episode_to_air ? d.last_episode_to_air.episode_number ?? null : null,
     nextEpisode: type === "series" && d.next_episode_to_air ? d.next_episode_to_air.air_date || null : null,
+    // Prochain épisode : sa saison et son numéro (« SAISON 3 BIENTÔT » quand c'est le 1er d'une nouvelle saison).
+    nextSeason: type === "series" && d.next_episode_to_air ? d.next_episode_to_air.season_number ?? null : null,
+    nextEpisodeNumber: type === "series" && d.next_episode_to_air ? d.next_episode_to_air.episode_number ?? null : null,
     // Pour le statut (lib/statut.js).
     releases: type === "series" ? [] : (d.release_dates && d.release_dates.results) || [],
     releaseDate: type === "series" ? "" : d.release_date || "",

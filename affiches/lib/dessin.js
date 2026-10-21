@@ -250,12 +250,9 @@ function boite(badges, t, accent, ombre = OMBRES.normale) {
  * Avancement de la saison en cours : une barre fine (épisodes diffusés sur épisodes de la saison) à la couleur
  * d'accent, et « S2 · 5/8 » à côté (du côté de l'image, pour rester aligné sur le bord).
  */
-function barreAvance({ s, n, t: total }, t, accent, ombre, cote) {
-  const L = Math.round(t * 3.2), H = Math.max(3, Math.round(t * 0.16));
-  const barre = h("div", { display: "flex", width: L, height: H, borderRadius: H, background: "rgba(255,255,255,0.3)", boxShadow: "0 1px 4px rgba(0,0,0,0.5)" },
-    [h("div", { display: "flex", width: Math.max(H, Math.round((L * n) / total)), height: H, borderRadius: H, background: accent })]);
-  const texte = h("span", { fontSize: t * 0.46, fontWeight: 700, letterSpacing: t * 0.03, color: "#fff", opacity: 0.9, textShadow: ombre, [cote === "left" ? "marginLeft" : "marginRight"]: t * 0.3 }, `S${s} · ${n}/${total}`);
-  return h("div", { display: "flex", alignItems: "center", marginTop: t * 0.05 }, cote === "left" ? [barre, texte] : [texte, barre]);
+/** L'avancement de la saison en chiffres, sans barre (trop petite pour se lire) : « S1 · 4/8 ». */
+function ligneAvance({ s, n, t: total }, t, ombre) {
+  return h("div", { display: "flex", marginTop: t * 0.02, fontSize: t * 0.56, fontWeight: 700, letterSpacing: t * 0.04, color: "#fff", opacity: 0.9, textShadow: ombre }, `S${s} · ${n}/${total}`);
 }
 
 /** Le statut, puis le rang de tendance dessous (en haut à gauche, ou à droite si les côtés sont inversés). */
@@ -271,7 +268,7 @@ function blocStatut(content, m, accent, place, descente) {
     // Petite ligne sous le statut (« AU CINÉMA », puis « DISPO LE 1 DÉC. »).
     if (content.statut2) pile.push(h("div", { display: "flex", marginTop: -t * 0.12, fontSize: t * 0.5, fontWeight: 700, letterSpacing: t * 0.05, color: "#fff", opacity: 0.85, textShadow: m.ombre }, content.statut2));
   }
-  if (content.avance) pile.push(barreAvance(content.avance, t, accent, m.ombre, cote));
+  if (content.avance) pile.push(ligneAvance(content.avance, t, m.ombre));
   if (content.rank) {
     if (b) {
       pile.push(h("div", { ...b, fontSize: t * 0.86, fontWeight: 800 }, [fleche(t * 0.86, b.color === ENCRE ? ENCRE : accent), h("span", {}, `N°${content.rank}`)]));

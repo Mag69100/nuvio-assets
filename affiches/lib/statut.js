@@ -96,25 +96,31 @@ function sortieFilm(facts, today, sources) {
 
 /**
  * Série : les sources lues sont celles du 1er épisode de sa dernière saison, souvent pas encore doublée (One Piece,
- * saison 23 ; American Horror Story, saison 13) alors que la série l'est. Sans VF dans ces sources (sans sources du
- * tout : pas de quoi juger), une série récente :
- * - avec des saisons d'avant : sortie (en couleur), et sa nouvelle saison annoncée pour bientôt (« Saison 23 bientôt »)
- *   plutôt que « Nouvelle saison » (seule la VF compte). Même sur une plateforme en France : la saison 13 d'American
- *   Horror Story n'y est pas encore en VF ;
- * - nouvelle série (une seule saison) : pas sortie, « Bientôt », en noir et blanc ; sauf sur une plateforme en France
- *   qui la double (série en anglais ou en français, Netflix, Disney+) : rien ne change.
+ * saison 23 ; la saison en cours de New York Unité spéciale) alors que la série l'est : elles ne jugent que les
+ * nouvelles séries (première diffusion il y a moins d'un an). Sans VF dans ces sources (sans sources du tout : pas de
+ * quoi juger), une nouvelle série n'est pas sortie : « Bientôt », en noir et blanc ; sauf sur une plateforme en France
+ * qui la double (série en anglais ou en français, Netflix, Disney+). Une vieille série dont seule la dernière saison
+ * (ou un seul « saison » de mille épisodes, Doraemon) manque de VF : rien ne change.
  */
 function sortieSerie(facts, today, sources) {
   const base = sortieSerieDates(facts, today), s = lues(sources);
-  const recente = (facts.lastEpisode || facts.firstAir || "") >= ajoute(today, -365);
-  if (!base.sorti || !s || s.vf || !(s.sources > 0) || !recente) return base;
-  if ((facts.lastSeason || 1) > 1) return { sorti: true, statut: "saisonvf", saison: facts.lastSeason };
-  return facts.plateformeFrance ? base : { sorti: false, statut: "bientot" };
+  const nouvelle = !!facts.firstAir && facts.firstAir >= ajoute(today, -365);
+  if (!base.sorti || !s || s.vf || !(s.sources > 0) || !nouvelle || facts.plateformeFrance) return base;
+  return { sorti: false, statut: "bientot" };
+}
+
+/** Une nouvelle saison (la 2e ou plus) commence dans moins de 60 jours : « SAISON 3 BIENTÔT », série en couleur. */
+const PROCHAINE_JOURS = 60;
+function saisonProchaine(facts, today) {
+  const { nextEpisode: d, nextSeason: s, nextEpisodeNumber: e } = facts;
+  return d && d > today && d <= ajoute(today, PROCHAINE_JOURS) && s >= 2 && e === 1 ? s : null;
 }
 
 function sortieSerieDates(facts, today) {
   if (!facts.firstAir) return { sorti: false, statut: "bientot" };
   if (facts.firstAir > today) return { sorti: false, statut: "bientot", quand: { quoi: "sortie", date: facts.firstAir, vers: false } };
+  const prochaine = saisonProchaine(facts, today);
+  if (prochaine) return { sorti: true, statut: "prochaine", saison: prochaine };
   if (facts.firstAir >= ajoute(today, -NOUVEAU_JOURS)) return { sorti: true, statut: "nouveau" };
   const derniere = (facts.seasons || [])
     .filter((s) => s.season_number >= 2 && s.air_date && s.air_date <= today)
@@ -123,8 +129,8 @@ function sortieSerieDates(facts, today) {
 }
 
 /**
- * { sorti: disponible chez soi en VF, statut: "bientot" | "salle" | "nouveau" | "saison" | "saisonvf" | null,
- *   saison (« saisonvf » : la saison pas encore en VF),
+ * { sorti: disponible chez soi en VF, statut: "bientot" | "salle" | "nouveau" | "saison" | "prochaine" | null,
+ *   saison (« prochaine » : la saison qui commence bientôt),
  *   quand (pas sorti, si on la connaît) : { quoi: "dispo" | "cinema" | "sortie", date, vers: date estimée } }.
  * sources (facultatif) : { vf, sources } lus chez Torrentio avec la qualité ; null ou vf inconnu : les dates.
  */
@@ -140,7 +146,7 @@ export const statutDe = (facts, today) => etatSortie(facts, today).statut;
 // 1. la sortie (etatSortie : « BIENTÔT », la date ou le compte à rebours, « AU CINÉMA », « NOUVEAU », « NOUVELLE SAISON ») ;
 // 2. « NOUVEL ÉPISODE » (réglage Épisodes) : un épisode sorti il y a moins de 7 jours ;
 // 3. « TERMINÉE » ou « ANNULÉE » (réglage Fin) : statut TMDB Ended ou Canceled.
-// L'avancement de la saison (réglage Avancement) n'est pas un libellé : une barre fine sous le libellé (ou seule),
+// L'avancement de la saison (réglage Avancement) n'est pas un libellé : « S1 · 4/8 » sous le libellé (ou seul),
 // pour une série pas finie dont la saison en cours n'est pas complète.
 const FINS = { Ended: "TERMINÉE", Canceled: "ANNULÉE" };
 export const LIBELLES_FIN = Object.freeze(Object.values(FINS));

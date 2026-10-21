@@ -440,7 +440,10 @@ test("serie_fin_et_avancement", () => {
   assert.equal(vo.statut, "BIENTÔT");
   assert.equal(vo.gris, true);
   assert.equal("avance" in vo, false);
-  // Série déjà là, sa saison 2 pas encore en VF : en couleur, « SAISON 2 BIENTÔT » (pas « BIENTÔT » comme une nouvelle série).
-  const saison = contenu({ ...enCours, firstAir: "2024-09-01" }, { ...plein, quality: { uhd: true, extra: null, vf: false, sources: 4 } }, "poster", reglages("3i1"));
-  assert.deepEqual([saison.statut, saison.gris], ["SAISON 2 BIENTÔT", false]);
+  // Série déjà là (plus d'un an), sa saison en cours pas encore en VF : en couleur, avec son avancement.
+  const enCoursVo = contenu({ ...enCours, firstAir: "2024-09-01" }, { ...plein, quality: { uhd: true, extra: null, vf: false, sources: 4 } }, "poster", reglages("3i1"));
+  assert.deepEqual([enCoursVo.statut, enCoursVo.gris, enCoursVo.avance], [null, false, { s: 2, n: 5, t: 8 }]);
+  // Sa saison 3 commence bientôt : « SAISON 3 BIENTÔT », en couleur (pas « BIENTÔT » comme une nouvelle série).
+  const prochaine = contenu({ ...serie, nextEpisode: "2026-11-02", nextSeason: 3, nextEpisodeNumber: 1 }, plein, "poster", reglages("3h1"));
+  assert.deepEqual([prochaine.statut, prochaine.gris], ["SAISON 3 BIENTÔT", false]);
 });

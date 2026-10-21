@@ -625,14 +625,15 @@ test("habillage_de_saison", async () => {
 });
 
 // Barre d'avancement d'une série : à la couleur d'accent, sous le statut (ou seule), du côté du bloc.
-test("barre_avancement", async () => {
-  const jaune = (r, g, b) => r > 200 && g > 150 && b < 90;
+// L'avancement en chiffres (« S2 · 5/8 »), sans barre : trop petite pour se lire.
+test("avancement_en_chiffres", async () => {
+  const jaune = (r, g, b) => r > 200 && g > 150 && b < 90, blanc = (r, g, b) => r > 200 && g > 200 && b > 200;
+  const sans = await draw({ ...seul, line: null, statut: "NOUVEL ÉPISODE" }, f);
   const avec = await draw({ ...seul, line: null, statut: "NOUVEL ÉPISODE", avance: { s: 2, n: 5, t: 8 } }, f);
-  assert.ok(await compte(avec, [0, 30, 200, 50], jaune) > 40, "pas de barre jaune sous le statut");
-  const seule = await draw({ ...seul, line: null, avance: { s: 1, n: 1, t: 10 } }, f);
-  assert.ok(await compte(seule, [0, 0, 120, 50], jaune) > 5, "pas de barre seule en haut à gauche");
+  assert.ok(await compte(avec, [0, 30, 200, 50], blanc) > await compte(sans, [0, 30, 200, 50], blanc) + 20, "pas de chiffres sous le statut");
+  assert.ok(await compte(avec, [0, 30, 200, 50], jaune) < 5, "encore une barre");
   const inverse = await draw({ ...seul, line: null, avance: { s: 3, n: 7, t: 8 }, styles: { ...STYLES, inverse: true } }, f);
-  assert.ok(await compte(inverse, [250, 0, 150, 50], jaune) > 40, "pas de barre à droite côtés inversés");
+  assert.ok(await compte(inverse, [250, 0, 150, 50], blanc) > 20, "pas de chiffres à droite côtés inversés");
 });
 
 // La petite ligne en Inter quand la police choisie n'a pas toutes ses lettres.

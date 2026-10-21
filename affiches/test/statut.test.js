@@ -200,11 +200,13 @@ test("sources : série récente sans VF → pas sortie", () => {
   assert.deepEqual(etatSortie(s, AUJ, { vf: false, sources: 14 }), { sorti: false, statut: "bientot" });
   // Sur une plateforme en France qui la double : rien ne change.
   assert.deepEqual(etatSortie({ ...s, plateformeFrance: true }, AUJ, { vf: false, sources: 14 }), { sorti: true, statut: "nouveau" });
-  // One Piece : la saison 23 pas encore en VF, mais les saisons d'avant oui : sortie, « Saison 23 bientôt ».
+  // One Piece : la saison en cours (23) pas encore en VF, mais la série l'est : rien ne change, les sources ne jugent
+  // que les nouvelles séries. Doraemon (2005, une seule « saison » de mille épisodes) non plus.
   const onePiece = { ...serie("1999-10-20", [{ season_number: 22, air_date: "2025-01-05" }, { season_number: 23, air_date: jours(-12) }]), lastEpisode: jours(-2), lastSeason: 23 };
   assert.equal(etatSortie(onePiece, AUJ).statut, "saison");
-  assert.deepEqual(etatSortie(onePiece, AUJ, { vf: false, sources: 35 }), { sorti: true, statut: "saisonvf", saison: 23 });
-  assert.deepEqual(etatSortie({ ...onePiece, plateformeFrance: true }, AUJ, { vf: false, sources: 35 }), { sorti: true, statut: "saisonvf", saison: 23 });
+  assert.deepEqual(etatSortie(onePiece, AUJ, { vf: false, sources: 35 }), etatSortie(onePiece, AUJ));
+  const doraemon = { ...serie("2005-04-15", [{ season_number: 1, air_date: "2005-04-15" }]), lastEpisode: jours(-4), lastSeason: 1 };
+  assert.deepEqual(etatSortie(doraemon, AUJ, { vf: false, sources: 3 }), { sorti: true, statut: null });
   assert.deepEqual(etatSortie(s, AUJ, { vf: true, sources: 14 }), { sorti: true, statut: "nouveau" });
   // Aucune source : rien ne change (pas de quoi juger).
   assert.deepEqual(etatSortie(s, AUJ, { vf: false, sources: 0 }), { sorti: true, statut: "nouveau" });
@@ -253,4 +255,14 @@ test("libelle_suite_priorites", () => {
   assert.equal(libelleSuite(finie, { episode: false, fin: true }), "TERMINÉE");
   assert.equal(libelleSuite({ ...finie, episode: false }, { episode: true, fin: true }), "TERMINÉE");
   assert.equal(libelleSuite(finie, { episode: false, fin: false }), null);
+});
+
+// Une nouvelle saison (la 2e ou plus) commence dans moins de 60 jours : « SAISON 3 BIENTÔT », la série reste sortie (en
+// couleur). Pas pour un épisode de la saison en cours, ni pour une saison lointaine, ni pour une série pas encore sortie.
+test("série : nouvelle saison bientôt", () => {
+  const s = { ...serie("2019-01-01", [{ season_number: 2, air_date: "2024-01-01" }]), lastEpisode: "2024-03-01", lastSeason: 2 };
+  assert.deepEqual(etatSortie({ ...s, nextEpisode: jours(12), nextSeason: 3, nextEpisodeNumber: 1 }, AUJ), { sorti: true, statut: "prochaine", saison: 3 });
+  assert.equal(etatSortie({ ...s, nextEpisode: jours(5), nextSeason: 2, nextEpisodeNumber: 6 }, AUJ).statut, null);
+  assert.equal(etatSortie({ ...s, nextEpisode: jours(90), nextSeason: 3, nextEpisodeNumber: 1 }, AUJ).statut, null);
+  assert.equal(etatSortie({ ...serie(jours(20)), nextEpisode: jours(20), nextSeason: 1, nextEpisodeNumber: 1 }, AUJ).statut, "bientot");
 });

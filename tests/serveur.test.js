@@ -1,6 +1,7 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import worker from "../worker/index.js";
+import { capQuery, correctQuery, prepareWords } from "../worker/search.js";
 
 // Addon appelé comme par Cloudflare (cache en mémoire, TMDB simulé) : adresses piégées, erreurs, budget d'appels.
 let store, calls;
@@ -83,6 +84,20 @@ test("fiche_legere_sans_appel_gemini", async () => {
   assert.ok(!calls.some((u) => u.includes("generativelanguage")), "Gemini appelé pour une fiche légère");
   await get(`${avecCle}/meta/movie/tmdb:7.json`);
   assert.ok(calls.some((u) => u.includes("generativelanguage")), "fiche complète : Gemini pas appelé");
+});
+
+// Recherche d'un texte collé au hasard : coupée à 100 caractères, correction sur les 10 premiers mots seulement.
+test("recherche_tres_longue_coupee", async () => {
+  assert.equal(capQuery("dune"), "dune");
+  const long = Array.from({ length: 60 }, (_, i) => `motinconnu${i}x`).join(" ");
+  const cut = capQuery(long);
+  assert.ok(cut.length <= 100 && long.startsWith(cut) && !cut.endsWith(" "), cut);
+  const vocab = prepareWords({ inception: 50, interstellar: 40 });
+  const fautes = Array.from({ length: 30 }, () => "inseption").join(" ");
+  assert.deepEqual(correctQuery(fautes, vocab).split(" ").map((w) => w === "inception"), Array.from({ length: 30 }, (_, i) => i < 10));
+  await get(`/catalog/movie/recherche-films/search=${encodeURIComponent(long)}.json`);
+  const tmdb = calls.filter((u) => u.includes("/search/")).map((u) => new URL(u).searchParams.get("query") || "");
+  assert.ok(tmdb.length && tmdb.every((q) => q.length <= 100), tmdb.join("\n"));
 });
 
 test("erreur_imprevue_reponse_propre", async () => {

@@ -35,7 +35,7 @@ import { lienPage } from "./lien.js";
 import { copiePage } from "./copie.js";
 import { hallPage } from "./hall.js";
 import { statique } from "./statique.js";
-import { smartSearch, prepareWords, isExact, norm } from "./search.js";
+import { smartSearch, prepareWords, isExact, norm, capQuery } from "./search.js";
 import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
 import { isFixedId, readFixed, fixedRoute, fixedAvailable } from "./fixe.js";
@@ -887,6 +887,8 @@ function searchWords() {
  * requêtes que la recherche classique ne reconnaît pas : voir ai.js.
  */
 async function runSearch(env, type, query, page, opts, trace) {
+  // Une requête très longue est coupée (100 caractères) : pour TMDB, Gemini et la correction des fautes.
+  query = capQuery(query);
   const endpoint = `/search/${type === "series" ? "tv" : "movie"}`;
   let left = SEARCH_BUDGET;
   const none = Promise.resolve({});

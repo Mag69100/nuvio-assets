@@ -244,6 +244,20 @@ function closestWord(w, vocab, firsts) {
   return best;
 }
 
+// Requête très longue (un texte collé au hasard) : coupée à 100 caractères, et la correction ne regarde que ses
+// 10 premiers mots (de 30 lettres au plus). Chaque mot inconnu est comparé à une bonne part du vocabulaire :
+// au-delà, le temps de calcul permis par Cloudflare était dépassé (erreur 1102).
+export const MAX_QUERY = 100;
+const MAX_FIX_WORDS = 10;
+
+/** Requête ramenée à MAX_QUERY caractères, coupée entre deux mots si possible. */
+export function capQuery(text) {
+  const s = String(text || "").trim();
+  if (s.length <= MAX_QUERY) return s;
+  const cut = s.slice(0, MAX_QUERY), space = cut.lastIndexOf(" ");
+  return (space > MAX_QUERY / 2 ? cut.slice(0, space) : cut).trim();
+}
+
 /**
  * Corrige les mots inconnus du vocabulaire : le mot connu le plus proche (1 faute jusqu'à
  * 5 lettres, 2 au-delà). On cherche d'abord parmi les mots qui commencent par la même lettre
@@ -252,8 +266,8 @@ function closestWord(w, vocab, firsts) {
 export function correctQuery(text, vocab) {
   if (!vocab || !vocab.weights.size) return null;
   let changed = false;
-  const out = norm(text).split(" ").filter(Boolean).map((w) => {
-    if (w.length < 4 || /\d/.test(w) || vocab.weights.has(w)) return w;
+  const out = norm(text).split(" ").filter(Boolean).map((w, i) => {
+    if (i >= MAX_FIX_WORDS || w.length < 4 || w.length > 30 || /\d/.test(w) || vocab.weights.has(w)) return w;
     const best = closestWord(w, vocab, [w[0]])
       || closestWord(w, vocab, [...vocab.byFirst.keys()].filter((f) => f !== w[0]));
     if (!best) return w;
@@ -448,7 +462,7 @@ async function sagaFilms({ sagas, base, n, api, pool, trace }) {
  */
 export async function smartSearch(query, page, search, kind, api, opts = {}) {
   const trace = opts.trace;
-  const raw = query.trim();
+  const raw = capQuery(query);
   const clean = cleanQuery(raw, kind);                     // « film barbie » → « barbie »
   const base = clean || raw;
   const alias = ALIASES[norm(base)];

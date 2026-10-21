@@ -851,11 +851,16 @@ async function fetchVfPage(env, ctx, def, kind, page, today, opts) {
     .map(({ _digital, _guess, _vf, _dejaVf, ...m }) => m);
 }
 
+/** decodeURIComponent sans erreur : null pour un « % » mal formé (« search=%C3%28 » faisait planter l'addon). */
+const decode = (s) => { try { return decodeURIComponent(s); } catch (e) { return null; } };
+
 function parseExtra(segment) {
   const out = {};
   for (const part of (segment || "").split("&")) {
     const [k, ...v] = part.split("=");
-    if (k) out[decodeURIComponent(k)] = decodeURIComponent(v.join("="));
+    // Mal encodé : ignoré (une recherche illisible ne trouve rien, plutôt qu'une erreur 500).
+    const key = decode(k), value = decode(v.join("="));
+    if (key && value !== null) out[key] = value;
   }
   return out;
 }
@@ -1749,7 +1754,15 @@ const SAFE_HOST = /^([a-z0-9-]+(\.[a-z0-9-]+)*|\[[0-9a-f:.]+\])(:\d{1,5})?$/i;
 export default {
   async fetch(request, env, ctx) {
     if (!SAFE_HOST.test(new URL(request.url).host)) return withSecurity(new Response("Adresse invalide", { status: 400 }));
-    return withSecurity(await app.fetch(request, env, ctx));
+    try {
+      return withSecurity(await app.fetch(request, env, ctx));
+    } catch (e) {
+      // Erreur imprévue : une réponse propre (pas la page 1101 de Cloudflare), jamais gardée, sans le détail.
+      // Dans le journal, le message sans ce qui suit un « ? » (une adresse peut contenir une clé).
+      console.warn("erreur :", String((e && e.message) || e).replace(/\?\S*/g, "?…").slice(0, 300));
+      return withSecurity(new Response(JSON.stringify({ error: "Erreur inattendue : réessaie dans un instant." }),
+        { status: 500, headers: { ...HEADERS, "Cache-Control": "no-store" } }));
+    }
   },
   // Tâche planifiée de 4 h UTC (wrangler.toml) : la photo du jour des tendances.
   async scheduled(event, env, ctx) {
@@ -1840,7 +1853,9 @@ const app = {
     const dbg = path.match(/^\/debug\/search\/(movie|series)\/(.+)$/);
     if (dbg) {
       const trace = {};
-      const out = await runSearch(env, dbg[1], decodeURIComponent(dbg[2]), 1, {
+      const q = decode(dbg[2]);
+      if (q === null) return json({ error: "requête mal encodée" }, 0);
+      const out = await runSearch(env, dbg[1], q, 1, {
         ctx, lang: langOf(cfg), region: cfg.g, aiModel: url.searchParams.get("model") || undefined, aiFresh: url.searchParams.has("fresh"),
         aiThinking: url.searchParams.get("thinking") || undefined,
       }, trace);
@@ -1914,7 +1929,7 @@ const app = {
       return json(await dossierSource(env, src, langOf(cfg), page), 6 * 3600);
     }
     const tm = path.match(/^\/trailer\/(movie|series)\/([^/]+)\.json$/);
-    if (tm) return json(await trailer(env, tm[1], decodeURIComponent(tm[2])), 7 * 86400);
+    if (tm) return json(decode(tm[2]) === null ? { key: null } : await trailer(env, tm[1], decode(tm[2])), 7 * 86400);
 
     const mm = path.match(/^\/meta\/(movie|series)\/([^/]+)\.json$/);
     // Fiche « Version X disponible » de la rangée « Mise à jour » (lien de l'hébergeur d'une copie).
@@ -1922,6 +1937,7 @@ const app = {
       const info = (await hasAlerts(env, url, cfg)) ? await updateInfo(VERSION) : null;
       return new Response(JSON.stringify({ meta: info ? updateCard(info, env, url.origin) : null }), { headers: { ...HEADERS, "Cache-Control": "no-store" } });
     }
+    if (mm && decode(mm[2]) === null) return json({ meta: null }, 600);
     if (mm) {
       const fullKey = `https://cache.local/${VERSION}/${today}/meta/${mm[1]}/${mm[2]}?l=${langOf(cfg)}&g=${cfg.g}&ai=${env.GEMINI_API_KEY ? 1 : 0}`;
       // ?leger=1 : l'aperçu du site au survol. La fiche complète si elle est déjà prête, sinon une fiche sans IA.
@@ -1930,7 +1946,7 @@ const app = {
       const hitMeta = (leger && await caches.default.match(new Request(fullKey))) || await caches.default.match(metaKey);
       if (hitMeta) return new Response(hitMeta.body, { headers: { ...HEADERS, "Cache-Control": `public, max-age=${CACHE_META_CLIENT_S}` } });
       let found = null;
-      try { found = await meta(env, mm[1], decodeURIComponent(mm[2]), cfg, today, ctx, { leger }); } catch (e) { return json({ meta: null, error: String(e) }, 60); }
+      try { found = await meta(env, mm[1], decode(mm[2]), cfg, today, ctx, { leger }); } catch (e) { return json({ meta: null, error: String(e) }, 60); }
       if (!found) return json({ meta: null }, 600);
       // Rappel encore en préparation : fiche pas gardée, pour l'avoir à la prochaine ouverture.
       const { _partial, ...metaOut } = found;
@@ -1942,7 +1958,8 @@ const app = {
     const m = path.match(/^\/catalog\/(movie|series)\/([^/]+?)(?:\/(.+))?\.json$/);
     if (!m) return json({ error: "introuvable" }, 60);
     const [, type, rawId, extraSeg] = m;
-    const id = decodeURIComponent(rawId);
+    const id = decode(rawId);
+    if (id === null) return json({ metas: [] }, 600);
     // Rangée « Mise à jour » : jamais en cache (« Plus tard » doit la vider tout de suite).
     if (type === "movie" && id === "mise-a-jour") {
       const info = (await hasAlerts(env, url, cfg)) ? await pendingUpdate(env, VERSION) : null;

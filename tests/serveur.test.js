@@ -37,3 +37,30 @@ test("fiche_identifiant_tmdb_valide", async () => {
   const lus = calls.filter((u) => u.includes("api.themoviedb.org")).map((u) => new URL(u).pathname);
   assert.ok(lus.length >= 2 && lus.every((p) => p.startsWith("/3/tv/1396")), lus.join("\n"));
 });
+
+test("adresses_mal_encodees_sans_erreur_500", async () => {
+  for (const path of [
+    "/catalog/movie/recherche-films/search=%C3%28.json",
+    "/catalog/movie/%E0%A4%A.json",
+    "/catalog/movie/accueil-top10/skip=%ZZ.json",
+    "/meta/movie/tt%E0%A4%A.json",
+    "/trailer/movie/%C3%28.json",
+  ]) {
+    const res = await get(path);
+    assert.ok(res.status < 500, `${path} → ${res.status}`);
+    await res.json();
+  }
+  const { metas } = await (await get("/catalog/movie/recherche-films/search=%C3%28.json")).json();
+  assert.deepEqual(metas, []);
+});
+
+test("erreur_imprevue_reponse_propre", async () => {
+  // Cache en panne : l'erreur remonte jusqu'en haut ; la réponse reste du JSON, jamais gardée, sans le détail.
+  globalThis.caches = { default: { match: async () => { throw new Error("cache cassé https://x/?api_key=secret"); }, put: async () => {} } };
+  const res = await get("/catalog/movie/accueil-top10.json");
+  assert.equal(res.status, 500);
+  assert.equal(res.headers.get("Cache-Control"), "no-store");
+  const body = await res.text();
+  assert.ok(!/at |secret|cassé/.test(body), body);
+  assert.ok(JSON.parse(body).error);
+});

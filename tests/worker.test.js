@@ -287,8 +287,19 @@ test("mot_de_passe_trop_simple_refuse", async () => {
 
 test("connexion_limitee_toutes_adresses", async () => {
   // Sur Docker, l'adresse vient d'un en-tête inventable : changer d'adresse à chaque essai ne suffit pas.
-  for (let i = 0; i < 100; i++) await loginFrom(`198.51.100.${i}`, "faux");
+  for (let i = 0; i < 1000; i++) await loginFrom(`198.51.${Math.floor(i / 250)}.${i % 250}`, "faux");
   assert.equal((await loginFrom("198.51.100.250", "secret-hote")).status, 429);
+});
+
+test("hebergeur_jamais_enferme_dehors", async () => {
+  // Déjà connecté depuis son adresse : 1 000 essais ratés venus d'ailleurs ne l'empêchent pas de revenir.
+  assert.equal((await loginFrom("192.0.2.10", "secret-hote")).status, 200);
+  for (let i = 0; i < 1000; i++) await loginFrom(`198.51.${Math.floor(i / 250)}.${i % 250}`, "faux");
+  assert.equal((await loginFrom("192.0.2.11", "secret-hote")).status, 429);
+  assert.equal((await loginFrom("192.0.2.10", "secret-hote")).status, 200);
+  // Sa propre limite (10 ratés) reste.
+  for (let i = 0; i < 10; i++) await loginFrom("192.0.2.10", "faux");
+  assert.equal((await loginFrom("192.0.2.10", "secret-hote")).status, 429);
 });
 
 test("cookie_trop_vieux", async () => {

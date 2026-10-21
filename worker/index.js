@@ -1937,7 +1937,13 @@ const app = {
     if (path === "/tv") return Response.redirect(NUVIO_TV_APK, 302);   // adresse courte pour Downloader : télécharge l'APK
     // Styles et scripts communs aux pages du site, gardés en cache par le navigateur (voir statique.js).
     if (path.startsWith("/statique/")) return statique(path.slice(10), url.searchParams.get("v")) || new Response("introuvable", { status: 404 });
-    if (path === "/manifest.json") return json(manifest(today, cfg, url, await hasAlerts(env, url, cfg)), CACHE_CLIENT_S);
+    if (path === "/manifest.json") {
+      const res = json(manifest(today, cfg, url, await hasAlerts(env, url, cfg)), CACHE_CLIENT_S);
+      // Lien fixe : même adresse, nouveaux réglages. « Actualiser les addons » dans Nuvio doit relire le manifest
+      // à chaque fois, jamais le ressortir d'un cache. Un lien habituel change d'adresse avec ses réglages : 5 min.
+      if (fixedId) res.headers.set("Cache-Control", "no-cache, max-age=0, must-revalidate");
+      return res;
+    }
     if (path === "/collections.json") return json(await collections(cfg), CACHE_CLIENT_S);
     // La photo du jour des tendances, lue par le service d'affiches (worker/tendances.js).
     const tend = !cfgSeg && /^\/tendances\/([a-z]+)\.json$/.exec(path);

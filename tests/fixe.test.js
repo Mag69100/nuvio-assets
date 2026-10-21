@@ -197,3 +197,10 @@ test("lien_fixe_lecture_base_en_panne", async () => {
   assert.equal((await post(`/lien-fixe/${id}/lire`, { modif })).status, 503);
 });
 
+// « Actualiser les addons » relit le manifest d'un lien fixe à chaque fois ; celui d'un lien habituel reste 5 min.
+test("lien_fixe_manifest_jamais_garde", async () => {
+  const { id } = await (await post("/lien-fixe", { c: seg({ n: "Frais" }) })).json();
+  assert.equal((await at(`/${id}/manifest.json`)).headers.get("Cache-Control"), "no-cache, max-age=0, must-revalidate");
+  assert.equal((await at(`/${seg({ n: "X" })}/manifest.json`)).headers.get("Cache-Control"), "public, max-age=300");
+  assert.equal((await at(`/manifest.json`)).headers.get("Cache-Control"), "public, max-age=300");
+});

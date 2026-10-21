@@ -854,6 +854,8 @@ async function fetchVfPage(env, ctx, def, kind, page, today, opts) {
     // « Bientôt dispo » : sans ceux déjà regardables en VF (sources VF, ou plateforme en France : date TMDB en retard).
     .filter((m) => !(future && m._dejaVf))
     .sort((a, b) => (future ? (when(a) < when(b) ? -1 : 1) : (when(a) > when(b) ? -1 : 1)))
+    // Une page au plus (voir pageOf) : les dates les plus proches d'abord.
+    .slice(0, PAGE)
     .map(sansInternes);
 }
 
@@ -966,6 +968,14 @@ async function runSearch(env, type, query, page, opts, trace) {
     .filter((it) => !seen.has(it.id) && seen.add(it.id)).slice(0, AI_MAX);
 }
 
+/**
+ * Page demandée par Nuvio, qui envoie skip = titres déjà reçus. Les rangées triées après coup (« Dispo depuis peu »,
+ * « Bientôt dispo », rangées mélangées dont une moitié s'épuise) renvoient parfois moins d'une page : arrondi au-dessus,
+ * skip = 12 demande la page 2 (avant : la page 1 de nouveau, recalculée pour rien, et la rangée s'arrêtait là). Une
+ * page n'a donc jamais plus de titres que sa taille ; et si Nuvio écarte un doublon, skip = 39 donne bien la page 3.
+ */
+const pageOf = (skip, size) => Math.ceil(Math.max(0, skip) / size) + 1;
+
 async function catalog(env, ctx, type, id, extra, today, cfg) {
   // Fiches TMDB de la page (extraInfo) et celles restées sans réponse (limite d'appels de TMDB, panne).
   const bilan = { vus: 0, rates: 0 };
@@ -995,7 +1005,7 @@ async function catalogPage(env, ctx, type, id, extra, today, cfg, bilan) {
   const wanted = id === "accueil-en-ce-moment" ? "accueil-saison" : id;
   const home = homeDefs(today, cfg).find((d) => d.id === wanted && d.type === type);
   if (home) {
-    const page = Math.floor(skip / pageSizeOf(home)) + 1;
+    const page = pageOf(skip, pageSizeOf(home));
     return fetchPage(env, ctx, home, type, page, today, opts);
   }
   const disc = discoverDefs(today).find((d) => d.id === id && d.type === type);
@@ -1003,7 +1013,7 @@ async function catalogPage(env, ctx, type, id, extra, today, cfg, bilan) {
     // Sans filtre (Nuvio ouvre Découvrir sur « Par défaut ») : le 1er filtre (« Tout »…).
     const opt = extra.genre ? disc.options.find((o) => o.label === extra.genre) : disc.options[0];
     if (!opt) return [];
-    const page = Math.floor(skip / PAGE) + 1;
+    const page = pageOf(skip, PAGE);
     return fetchPage(env, ctx, opt.def, type, page, today, opts);
   }
   return [];

@@ -126,6 +126,28 @@ test("page_incomplete_gardee_peu_de_temps", async () => {
   assert.match([...gardes.values()][0], /max-age=300 partiel$/);
 });
 
+// « Dispo depuis peu » : 3 titres sur la page 1. Nuvio demande ensuite skip = 3 : c'est la page 2 de TMDB, pas la 1.
+test("rangee_triee_apres_coup_page_suivante", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const pages = [];
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/discover/movie")) {
+      const p = Number(new URL(u).searchParams.get("page"));
+      pages.push(p);
+      return new Response(JSON.stringify({ results: [1, 2, 3].map((i) => ({ id: p * 10 + i, title: `F${p}-${i}`, original_language: "fr", release_date: jour(-60), popularity: 10 - i })), page: p, total_pages: 3 }));
+    }
+    const m = /\/movie\/(\d+)\?/.exec(u);
+    if (m) return new Response(JSON.stringify({ id: Number(m[1]), original_language: "fr", release_dates: { results: [{ iso_3166_1: "FR", release_dates: [{ type: 4, release_date: jour(-3) + "T00:00:00.000Z" }] }] } }));
+    return new Response(JSON.stringify({ results: [] }));
+  };
+  const noms = async (path) => (await (await get(path)).json()).metas.map((m) => m.name);
+  assert.deepEqual(await noms("/catalog/movie/accueil-vod-semaine.json"), ["F1-1", "F1-2", "F1-3"]);
+  assert.deepEqual(await noms("/catalog/movie/accueil-vod-semaine/skip=3.json"), ["F2-1", "F2-2", "F2-3"]);
+  assert.deepEqual(pages, [1, 2]);
+});
+
 test("erreur_imprevue_reponse_propre", async () => {
   // Cache en panne : l'erreur remonte jusqu'en haut ; la réponse reste du JSON, jamais gardée, sans le détail.
   globalThis.caches = { default: { match: async () => { throw new Error("cache cassé https://x/?api_key=secret"); }, put: async () => {} } };

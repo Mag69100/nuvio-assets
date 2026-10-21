@@ -28,7 +28,7 @@ Le plus simple : ouvrir le site, salle 1 (le guide) si tu n'as pas encore Nuvio,
   œuvre adaptée, temps pour tout voir.
 - Épisodes : ⭐ sur les 3 mieux notés de chaque saison, « (remplissage) » sur les anime.
 - Séries en cours : « 📺 Nouvel épisode jeudi… » ; films pas encore sortis en numérique : « 📅 Dispo le… »
-  (visible seulement si « Infos » est désactivé dans l'enrichissement TMDB de Nuvio).
+  (visible seulement si « Informations de base » est désactivé dans Paramètres → Intégrations → TMDB de Nuvio).
 
 **Recherche** (catalogues « Films » et « Séries »)
 - Titres français, original ou anglais, classés par ressemblance et notoriété.

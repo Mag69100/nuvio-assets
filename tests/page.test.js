@@ -236,3 +236,10 @@ test("lien_fixe_rien_d_enregistre_avant_la_cle_relue", () => {
   assert.equal((html.match(/state\.k = cleLue\(\)/g) || []).length, 1);
   assert.match(html, /if \(!fixe\) \{ if \(state\.k\) cleGarde\(state\.k\); else state\.k = cleLue\(\); \}/);
 });
+
+// Le chemin du réglage TMDB dans Nuvio TV (chaînes françaises de l'appli) : comme dans le guide.
+test("chemin_tmdb_de_la_salle_2", () => {
+  const html = page();
+  assert.doesNotMatch(html, /Paramètres → Enrichissement TMDB/);
+  assert.ok(html.includes("Paramètres → Intégrations → TMDB"));
+});

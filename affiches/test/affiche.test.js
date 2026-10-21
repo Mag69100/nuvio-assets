@@ -445,3 +445,10 @@ test("v3_service", async () => {
     assert.equal(res.status, 200, s);
   }
 });
+
+test("revue_v3_nouvel_episode_cache_quotidien", async () => {
+  const serie = { ...film, id: 94605, release_date: undefined, first_air_date: "2020-01-01", seasons: [], last_episode_to_air: { air_date: "2020-02-01" } };
+  const res = await makeHandler({ fetchImpl: internet({ detail: json(serie) }), env })(req("type=series&shape=poster&id=tmdb:94605&s=1.3c1"));
+  assert.equal(res.status, 200);
+  assert.ok(age(res, "Cache-Control") <= secondesAvantBascule() + 2, res.headers.get("Cache-Control"));
+});

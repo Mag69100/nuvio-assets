@@ -523,3 +523,20 @@ test("v3_ligne2_culte_coins", async () => {
   assert.ok(await compte(coin, [0, 0, 200, 60], blanc) < 10, "statut resté en haut");
   assert.ok(await compte(coin, [200, 300, 200, 250], blanc) > 40, "statut pas en bas à droite");
 });
+
+// ---------- Revue v3 ----------
+test("revue_v3_coin_bas_sans_place_remonte", async () => {
+  // Logo carré, agrandi et remonté : il commence presque en haut. Un bloc « en bas à droite » n'a pas la place
+  // au-dessus de lui : il est dessiné en haut à droite, entier (même rendu que le coin « haut droite »).
+  const carre = () => sharp({ create: { width: 300, height: 300, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } } }).png().toBuffer();
+  const g = images({ "/large.jpg": { corps: () => gris(1280, 720), type: "image/jpeg" }, "/carre.png": { corps: carre, type: "image/png" } });
+  const dessin = (statut) => draw({ ...base, logo: "/carre.png", shape: "landscape", image: "/large.jpg", line: ligneSF, line2: "Un film de quelqu'un", statut: "NOUVEAU", rank: 4, quality: null,
+    styles: { ...STYLES, titre: 1.4, monte: 0.3, coins: { statut, qualite: "auto" } } }, g);
+  assert.ok(await difference(await dessin("bd"), await dessin("hd"), [560, 0, 240, 140]) < 30, "bloc pas remonté en haut, ou coupé");
+});
+
+test("revue_v3_deux_blocs_meme_coin", async () => {
+  const buf = await draw({ ...seul, line: null, statut: "NOUVEAU", quality: { extra: null }, styles: { ...STYLES, coins: { statut: "hd", qualite: "auto" } } }, f);
+  assert.ok(await compte(buf, [0, 0, 150, 60], blanc) > 40, "la qualité n'est pas passée à gauche");
+  assert.ok(await compte(buf, [250, 0, 150, 60], blanc) > 40, "le statut n'est pas à droite");
+});

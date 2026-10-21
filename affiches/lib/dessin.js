@@ -308,7 +308,8 @@ function blocQualite(content, m, accent, place, descente, images) {
 
 /** Place d'un bloc de badges : un coin du haut (sous le bandeau s'il est de ce côté), ou un coin du bas, juste au-dessus du titre. */
 function positionBloc(m, place, descente) {
-  return place.vertical === "bottom" ? { [place.cote]: m.marge, bottom: m.basBlocs } : { [place.cote]: m.marge, top: m.haut + descente };
+  // En bas seulement s'il y a la place au-dessus du titre (sinon le bloc sortirait de l'image) : sinon en haut.
+  return place.vertical === "bottom" && m.basOk ? { [place.cote]: m.marge, bottom: m.basBlocs } : { [place.cote]: m.marge, top: m.haut + descente };
 }
 
 /** Bandeau en coin : une bande à la couleur d'accent, en diagonale, qui porte le statut ou le N° de tendance. */
@@ -343,7 +344,13 @@ async function calqueTexte(content, taille, m, accent, images) {
   const [coteStatut, coteQualite] = st.inverse ? ["right", "left"] : ["left", "right"];
   const coins = st.coins || {};
   const placeDe = (coin, cote) => (coin && coin !== "auto" ? { cote: coin[1] === "g" ? "left" : "right", vertical: coin[0] === "b" ? "bottom" : "top" } : { cote, vertical: "top" });
-  const pStatut = placeDe(coins.statut, coteStatut), pQualite = placeDe(coins.qualite, coteQualite);
+  let pStatut = placeDe(coins.statut, coteStatut), pQualite = placeDe(coins.qualite, coteQualite);
+  // Deux blocs dans le même coin : celui laissé sur « Auto » passe en face (la qualité si les deux sont choisis).
+  if (pStatut.cote === pQualite.cote && pStatut.vertical === pQualite.vertical) {
+    const enFace = (pl) => ({ ...pl, cote: pl.cote === "left" ? "right" : "left" });
+    if (coins.statut && coins.statut !== "auto" && (!coins.qualite || coins.qualite === "auto" || coins.qualite === coins.statut)) pQualite = enFace(pQualite);
+    else pStatut = enFace(pStatut);
+  }
   const coinBandeau = content.bandeau ? (content.bandeau.coin === "g" ? "left" : "right") : null;
   const descente = (p) => (p.vertical === "top" && p.cote === coinBandeau ? descenteBandeau(content, taille) : 0);
   const statut = blocStatut(content, m, accent, pStatut, descente(pStatut));
@@ -524,7 +531,8 @@ async function ajouterGrain(base) {
 
 /** Retouches de l'image, une étape après l'autre (sharp n'applique qu'un seul « linear » par passage). */
 async function retoucher(buf, rt) {
-  const etape = async (f) => { buf = await f(sharp(buf)).toBuffer(); };
+  // Entre deux étapes, l'image passe en PNG (sans perte), pas en JPEG.
+  const etape = async (f) => { buf = await f(sharp(buf)).png().toBuffer(); };
   if (rt.lum !== undefined || rt.satur !== undefined) await etape((x) => x.modulate({ brightness: rt.lum ?? 1, saturation: rt.satur ?? 1 }));
   if (rt.contraste !== undefined) await etape((x) => x.linear(rt.contraste, 128 * (1 - rt.contraste)));
   if (rt.filtre === "nb") await etape((x) => x.grayscale().toColourspace("srgb"));
@@ -582,6 +590,8 @@ export async function draw(content, fetchImpl = fetch) {
   ]);
   // Badges en bas : juste au-dessus du logo (ou de la ligne du bas sans logo).
   m.basBlocs = Math.round(logo ? hgt - logo.top + m.texte * 0.35 : m.ligneBas + hauteurLigne(content, m) + m.texte * 0.65);
+  // Place pour un bloc de trois badges au-dessus du titre ? (sinon les blocs du bas restent en haut)
+  m.basOk = hgt - m.basBlocs - m.haut >= 3.6 * m.texte * (Number(st.haut) || 1);
   // Pas encore sorti : l'image en noir et blanc ; les badges, posés ensuite, gardent leurs couleurs.
   let image = sharp(fond).resize(w, hgt, { fit: "cover", position: "attention" });
   if (content.gris) image = image.grayscale().toColourspace("srgb");

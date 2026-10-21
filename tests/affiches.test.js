@@ -154,3 +154,8 @@ test("regie_v3_vignettes_et_nuancier", () => {
   assert.ok(html.includes("function nuancier"));
   assert.ok(html.includes("const NOMS_COULEURS = ["));
 });
+
+test("regie_focus_apres_regler", () => {
+  const html = salle2();
+  assert.ok(html.includes('actif.startsWith("regler:")'));
+});

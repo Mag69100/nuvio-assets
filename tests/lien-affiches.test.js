@@ -218,3 +218,9 @@ test("nuancier_et_echelles", async () => {
   assert.equal(RETOUCHES.g, 1);
   assert.equal(SATURATIONS.k, 1);
 });
+
+test("revue_v3_liens_canoniques", () => {
+  assert.equal(ecrit("s=1.Zr0az"), "0az");              // accent du nuancier : la base n'est plus écrite
+  assert.equal(ecrit("s=1.L02am2bt"), "L0");            // majuscules et espacement : seulement pour la ligne du bas
+  assert.equal(ecrit("s=1.S0T0Q03b1Zr"), "S0T0Q0Zr3b1"); // Incontournable seul : l'accent sert (étoile du badge)
+});

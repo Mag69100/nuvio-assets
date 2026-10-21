@@ -62,7 +62,7 @@ export function creerLienAffiches() {
   const titreOn = (r) => r.titre.on;
   const noteOn = (r) => r.titre.on && r.note.on;
   // Un badge en haut (statut, tendance, qualité, ou la plateforme en coin) : les réglages des badges servent.
-  const hautOn = (r) => r.statut.on || r.tendance.on || r.qualite.on || (r.plateforme.on && r.plateforme.place === "coin");
+  const hautOn = (r) => r.statut.on || r.tendance.on || r.qualite.on || (r.plateforme.on && r.plateforme.place === "coin") || r.infos.culte;
   const styleCommun = (r) => hautOn(r) && r.haut.style !== "auto";
   // Du texte est écrit sur l'affiche (ligne du bas ou badges) : casse, espacement et ombre servent.
   const texteOn = (r) => r.titre.on || hautOn(r) || r.infos.culte;
@@ -70,7 +70,7 @@ export function creerLienAffiches() {
   const COINS = Object.freeze({ 1: "hg", 2: "hd", 3: "bg", 4: "bd" });
   // La couleur d'accent sert à l'étoile, à la flèche ou au ruban de tendance, au bandeau, à la barre fine, au texte « accent » des badges.
   const accentOn = (r) => r.tendance.on || (r.bandeau.on && (r.statut.on || r.tendance.on))
-    || (r.titre.on && ((r.note.on && r.note.style === "etoile") || r.ligne.barre === "fine")) || (styleCommun(r) && r.haut.couleur === "or");
+    || (r.titre.on && ((r.note.on && r.note.style === "etoile") || r.ligne.barre === "fine")) || (styleCommun(r) && r.haut.couleur === "or") || r.infos.culte;
   const CODES = [
     ["S", "statut", "on", { 0: false }],
     ["s", "statut", "style", { e: "etiquette" }, (r) => r.statut.on],
@@ -112,7 +112,7 @@ export function creerLienAffiches() {
     ["x", "texte", "taille", TAILLES, titreOn],
     ["p", "texte", "sep", { b: "barre", u: "puce" }, titreOn],
     ["z", "texte", "haut", TAILLES, hautOn],
-    ["w", "texte", "police", { b: "bebas", e: "elegante", r: "arrondie", c: "condensee" }, (r) => r.titre.on || r.statut.on || r.tendance.on || r.qualite.on],
+    ["w", "texte", "police", { b: "bebas", e: "elegante", r: "arrondie", c: "condensee" }, (r) => r.titre.on || hautOn(r)],
     ["F", "fondu", "on", { 0: false }, titreOn],
     ["f", "fondu", "couleur", { a: "affiche" }, (r) => r.titre.on && r.fondu.on],
     ["i", "fondu", "force", { s: "s", l: "l" }, (r) => r.titre.on && r.fondu.on],
@@ -121,7 +121,8 @@ export function creerLienAffiches() {
     ["U", "image", "source", { o: "officielle", f: "fond" }, titreOn],
     ["V", "ambiance", "voile", { 0: "0", s: "s", l: "l" }, (r) => hautOn(r) || (r.bandeau.on && (r.statut.on || r.tendance.on))],
     ["X", "ambiance", "vignette", { 1: true }],
-    ["Z", "ambiance", "accent", { b: "blanc", r: "rouge", u: "bleu", a: "affiche" }, accentOn],
+    // Une couleur du nuancier remplace l'accent de base : celui-ci n'est alors plus écrit.
+    ["Z", "ambiance", "accent", { b: "blanc", r: "rouge", u: "bleu", a: "affiche" }, (r) => accentOn(r) && !r.ambiance.accentC],
     ["B", "sortie", "nb", { 0: false }],
     ["h", "sortie", "cacherNote", { 0: false }, (r) => r.titre.on && r.note.on],
     // Régie v3 : clés de 2 caractères (un chiffre de 0 à 3, une lettre) et une valeur d'un caractère.
@@ -136,8 +137,9 @@ export function creerLienAffiches() {
     ["1e", "image", "grain", { 1: true }],
     ["1f", "image", "cadre", { b: "blanc", o: "or", c: "couleur" }],
     ["1g", "image", "cadreC", COULEUR, (r) => r.image.cadre === "couleur"],
-    ["2a", "texte", "casse", { m: "maj" }, texteOn],
-    ["2b", "texte", "espace", { a: "aere", t: "tresaere" }, texteOn],
+    // Majuscules et espacement : pour la ligne du bas et la petite ligne seulement (il faut le titre).
+    ["2a", "texte", "casse", { m: "maj" }, titreOn],
+    ["2b", "texte", "espace", { a: "aere", t: "tresaere" }, titreOn],
     ["2c", "texte", "ombre", { 0: "aucune", f: "forte" }, texteOn],
     ["2d", "titre", "effet", { o: "ombre", h: "halo" }, titreOn],
     ["3a", "infos", "ligne2", { r: "realisateur", a: "accroche", s: "studio" }, titreOn],

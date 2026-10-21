@@ -1494,7 +1494,10 @@ function regieDessine(garderCorps) {
   [...$("regie-format").children].forEach((b, i) => { b.dataset.cle = "format:" + i; });
   lienAffichesMaj();
   if (actif) {
-    const retour = [...$("regie").querySelectorAll("[data-cle]")].find((b) => b.dataset.cle === actif);
+    // « Régler » disparaît une fois la carte ouverte : le focus va sur son « Moins de réglages », sinon son interrupteur.
+    const cles = actif.startsWith("regler:") ? ["plus:" + actif.slice(7), "on:" + actif.slice(7)] : [actif];
+    const boutons = [...$("regie").querySelectorAll("[data-cle]")];
+    const retour = cles.map((c) => boutons.find((b) => b.dataset.cle === c)).find(Boolean);
     if (retour) retour.focus();
   }
 }

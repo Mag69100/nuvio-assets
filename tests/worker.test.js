@@ -567,3 +567,31 @@ test("prochainement_sans_les_films_deja_dispo", async () => {
   const { metas } = await (await get("/catalog/movie/films-cinema/genre=Prochainement.json")).json();
   assert.deepEqual(metas.map((m) => m.name), ["Pas encore"]);
 });
+
+test("prochainement_pages_pleines_et_fiches_lues_une_fois", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const film = (id) => ({ id, title: "Film " + id, original_language: "en", release_date: jour(10) });
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/movie/upcoming")) {
+      const p = Number(new URL(u).searchParams.get("page"));
+      return new Response(JSON.stringify({ results: Array.from({ length: 20 }, (_, i) => film(p * 100 + i)), page: p, total_pages: 3 }));
+    }
+    const m = /\/movie\/(\d+)\?/.exec(u);
+    if (m) {
+      // Le film 105 est déjà en VOD avec une sortie francophone : retiré.
+      const dispo = m[1] === "105";
+      const dates = dispo ? [{ iso_3166_1: "US", release_dates: [{ type: 4, release_date: jour(-5) + "T00:00:00.000Z" }] }, { iso_3166_1: "CA", release_dates: [{ type: 3, release_date: jour(-30) + "T00:00:00.000Z" }] }]
+        : [{ iso_3166_1: "FR", release_dates: [{ type: 3, release_date: jour(10) + "T00:00:00.000Z" }] }];
+      return new Response(JSON.stringify({ release_dates: { results: dates } }));
+    }
+    return new Response("{}");
+  };
+  const { metas } = await (await get("/catalog/movie/films-cinema/genre=Prochainement.json")).json();
+  assert.equal(metas.length, 20, "page pas pleine");
+  assert.ok(!metas.some((m) => m.name === "Film 105"));
+  assert.ok(metas.some((m) => m.name === "Film 200"), "pas complétée par la page suivante");
+  const lectures = calls.filter((u) => /\/movie\/\d+\?/.test(u)).map((u) => /\/movie\/(\d+)\?/.exec(u)[1]);
+  assert.equal(lectures.length, new Set(lectures).size, "une fiche lue deux fois");
+});

@@ -141,7 +141,7 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
   // Pas encore sorti : la date quand on la connaît, plutôt que « Bientôt » ou « En salle ».
   let libelle = r.statut.on && statut ? (quand ? (r.statut.forme === "compte" ? libelleCompte(quand, today) : libelleDate(quand, today)) : LIBELLES_STATUT[statut]) : null;
   // Série dont un épisode est sorti il y a moins de 7 jours (si rien de plus fort à dire).
-  if (r.statut.on && r.statut.episode && !libelle && facts.type === "series" && facts.lastEpisode && facts.lastEpisode <= today && jours(facts.lastEpisode, today) <= 7) libelle = "NOUVEL ÉPISODE";
+  if (r.statut.on && r.statut.episode && !libelle && facts.type === "series" && facts.lastEpisode && facts.lastEpisode <= today && jours(facts.lastEpisode, today) < 7) libelle = "NOUVEL ÉPISODE";
   let place = r.tendance.on && rank >= 1 && rank <= 20 ? rank : null;
   // Bandeau en coin : il porte le statut ou le N° de tendance, qui ne sont alors plus écrits en haut.
   let bandeau = null;

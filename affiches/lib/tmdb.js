@@ -110,7 +110,8 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
     provider: plateformeDe(d),
     // Régie v3 : accroche, studio (ou chaîne d'une série), réalisateur (ou créateurs), dernier épisode diffusé.
     tagline: d.tagline || null,
-    studio: ((d.production_companies || [])[0] || {}).name || ((d.networks || [])[0] || {}).name || null,
+    // Série : sa chaîne d'abord (AMC, HBO…) ; film : sa première société de production.
+    studio: (type === "series" ? ((d.networks || [])[0] || {}).name : null) || ((d.production_companies || [])[0] || {}).name || null,
     director: (type === "series"
       ? (d.created_by || []).map((c) => c.name)
       : ((d.credits && d.credits.crew) || []).filter((c) => c.job === "Director").map((c) => c.name)).slice(0, 2).join(" et ") || null,

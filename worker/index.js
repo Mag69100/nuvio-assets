@@ -653,12 +653,25 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
   if (!data.results || page > (data.total_pages || 0)) return [];
   // « Prochainement » (sorties en salle à venir) : sans les films déjà regardables chez soi en VF (sortis en VOD,
   // avec une sortie francophone), comme les affiches maison (règle « pas sorti »). Infos gardées un jour.
+  // La page reste pleine (20) : complétée par la page TMDB suivante, comme les Tendances (Nuvio demande la suite
+  // avec skip = titres reçus et ignore les doublons). Chaque fiche n'est lue qu'une fois (passée à toMetas).
   if (def.endpoint === "/movie/upcoming") {
-    const infos = await Promise.all(data.results.map((it) => extraInfo(env, "movie", it.id)));
-    data = { ...data, results: data.results.filter((it, i) => {
-      const r = infos[i].releases, dispo = r ? firstDigital(r) : "";
-      return !(dispo && dispo <= today && likelyVf(r, it.original_language, today));
-    }) };
+    const garder = async (liste) => {
+      const infos = await Promise.all(liste.map((it) => extraInfo(env, "movie", it.id)));
+      return liste.map((it, i) => [it, infos[i]]).filter(([it, info]) => {
+        const r = info.releases, dispo = r ? firstDigital(r) : "";
+        return !(dispo && dispo <= today && likelyVf(r, it.original_language, today));
+      });
+    };
+    let gardes = await garder(data.results);
+    if (gardes.length < PAGE && page < (data.total_pages || 0)) {
+      const suite = await tmdb(env, def.endpoint, { ...(def.params || {}), region: opts.region, page: page + 1 }, opts.lang);
+      const vus = new Set(gardes.map(([it]) => it.id));
+      gardes = gardes.concat(await garder((suite.results || []).filter((it) => !vus.has(it.id)).slice(0, PAGE - gardes.length + 2)));
+    }
+    gardes = gardes.slice(0, PAGE);
+    data = { ...data, results: gardes.map(([it]) => it) };
+    opts = { ...opts, infos: new Map(gardes.map(([it, info]) => [it.id, info])) };
   }
   const metas = await toMetas(env, ctx, data.results, kind, opts, today);
   return metas.map(({ _digital, _guess, _vf, ...m }) => m);

@@ -264,7 +264,7 @@ test("faits_v3", async () => {
   await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, g);
   assert.doesNotMatch(new URL(g.calls[0]).searchParams.get("append_to_response"), /credits/);
   const serie = { ...movie, id: 94605, release_date: undefined, first_air_date: "2021-11-06", tagline: "", created_by: [{ name: "Vince Gilligan" }],
-    networks: [{ name: "AMC" }], production_companies: [], last_episode_to_air: { air_date: "2026-10-18", season_number: 2 } };
+    networks: [{ name: "AMC" }], production_companies: [{ name: "Sony Pictures Television" }], last_episode_to_air: { air_date: "2026-10-18", season_number: 2 } };
   const s = await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fauxFetch([["/tv/94605", json(serie)]]));
   assert.deepEqual([s.tagline, s.studio, s.director, s.lastEpisode], [null, "AMC", "Vince Gilligan", "2026-10-18"]);
 });

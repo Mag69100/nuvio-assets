@@ -122,7 +122,8 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const brouillon = posterContent(facts, {}, shape, reglages);
       if (!brouillon) return absent();
       const images = fetchImages(fetchImpl);
-      const peutDessiner = brouillon.full || brouillon.statut || brouillon.gris || brouillon.bandeau || brouillon.coin || tendance || qualite;
+      const peutDessiner = brouillon.full || brouillon.statut || brouillon.gris || brouillon.bandeau || brouillon.coin || tendance || qualite
+        || reglages.infos.culte || !!brouillon.styles.retouche || !!brouillon.styles.cadre;
       // Pas encore sorti avec la note cachée : les autres notes ne seraient pas dessinées non plus.
       const notesUtiles = autresNotes && !(reglages.sortie.cacherNote && !etatSortie(facts, new Date().toISOString().slice(0, 10)).sorti);
       if (peutDessiner && !request.headers.get("If-None-Match")) imageUrls(brouillon).forEach((u) => images(u).catch(() => {}));
@@ -143,7 +144,9 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const etag = `"${contentKey(content)}"`;
       // Classée, presque classée ou avec un statut : jusqu'au changement de photo des tendances (voir cacheDe).
       // Un bandeau qui porte le statut (une date) suit la même règle que le statut.
-      const cache = cacheDe({ enRetard, place, statut: content.statut || (content.bandeau && reglages.bandeau.porte === "statut") });
+      // « Nouvel épisode » allumé sur une série : revérifiée chaque jour aussi, pour l'afficher le jour même.
+      const suitLeCalendrier = content.statut || (content.bandeau && reglages.bandeau.porte === "statut") || (type === "series" && reglages.statut.on && reglages.statut.episode);
+      const cache = cacheDe({ enRetard, place, statut: suitLeCalendrier });
       const headers = { ...CORS, ...cache, ETag: etag };
       if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });
       const jpg = await draw(content, images);

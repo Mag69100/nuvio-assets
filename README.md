@@ -153,6 +153,7 @@ chaque correction. Rien ne change sans ton accord.
 | `worker/search.js`, `worker/ai.js` | Recherche classique et recherche par IA |
 | `worker/hote.js` | Copies auto-hébergées : version, espace hébergeur, alertes |
 | `worker/stage.js`, `worker/statique.js` | Mise en scène commune et feuilles de style partagées |
+| `worker/polices/`, `worker/tiers/` | Polices du site (licence OFL) et bibliothèque des QR codes (MIT), servies par le site lui-même (`worker/statique.js`) |
 | `worker/nuvio.js`, `worker/apercu.js`, `worker/reglages.js` | Les écrans Nuvio TV recopiés pour les aperçus du guide |
 | `catalogs.json` | Définition des catalogues et rangées |
 | `collections/` | Les collections Nuvio |

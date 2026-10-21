@@ -517,8 +517,17 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .regie-console .puces button:hover { border-color: #7a6670; }
 .regie-console .puces button[aria-pressed="true"] { background: var(--cream); color: var(--ink); border-color: var(--cream); }
 .regie-console .curseur { display: flex; align-items: center; gap: 8px; }
-.regie-console .curseur input { flex: 1; min-width: 0; accent-color: var(--bulb); }
-.regie-console .curseur output { font: 700 .74rem system-ui, sans-serif; min-width: 4ch; color: var(--cream); }
+/* Curseurs dessinés à la main : piste fine, partie remplie dorée jusqu'au bouton (--rempli), bouton rond doré. */
+.regie-console .curseur input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; min-width: 0; height: 18px; margin: 0; background: transparent; cursor: pointer; }
+.regie-console .curseur input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 99px; background: linear-gradient(90deg, var(--bulb) var(--rempli, 50%), #4a3d45 var(--rempli, 50%)); }
+.regie-console .curseur input[type=range]::-moz-range-track { height: 4px; border-radius: 99px; background: #4a3d45; }
+.regie-console .curseur input[type=range]::-moz-range-progress { height: 4px; border-radius: 99px; background: var(--bulb); }
+.regie-console .curseur input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: -5px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #ffe7a0, var(--bulb) 65%); box-shadow: 0 0 0 3px #1d171b, 0 0 8px rgba(255,207,107,.45); }
+.regie-console .curseur input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #ffe7a0, var(--bulb) 65%); box-shadow: 0 0 0 3px #1d171b, 0 0 8px rgba(255,207,107,.45); }
+.regie-console .curseur input[type=range]:focus-visible { outline: none; }
+.regie-console .curseur input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px #1d171b, 0 0 0 5px var(--cream); }
+.regie-console .curseur input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px #1d171b, 0 0 0 5px var(--cream); }
+.regie-console .curseur output { font: 700 .74rem system-ui, sans-serif; width: 5ch; text-align: right; color: var(--cream); font-variant-numeric: tabular-nums; }
 .regie-console .regie-note { margin: 0; font-size: .72rem; color: #c2b4a6; }
 .regie-paysage { display: grid; gap: 10px; padding-top: 10px; }
 .regie-paysage .btn { justify-self: start; }
@@ -1305,7 +1314,10 @@ function choix(titre, options, actuel, choisir) {
 function curseur(titre, val, regler, min = 60, max = 140, pas = 5) {
   const out = el("output", { text: Math.round(val * 100) + " %" });
   const input = el("input", { type: "range", min: String(min), max: String(max), step: String(pas), value: String(Math.round(val * 100)), "aria-label": titre, "data-cle": "curseur:" + titre });
-  input.addEventListener("input", () => { out.textContent = input.value + " %"; regler(Number(input.value) / 100); });
+  // Partie remplie de la piste (dessinée en CSS jusqu'au bouton).
+  const remplir = () => input.style.setProperty("--rempli", ((Number(input.value) - min) / (max - min)) * 100 + "%");
+  remplir();
+  input.addEventListener("input", () => { remplir(); out.textContent = input.value + " %"; regler(Number(input.value) / 100); });
   return el("div", { class: "choix" }, el("span", { text: titre }), el("div", { class: "curseur" }, input, out));
 }
 const aide = (text) => el("p", { class: "regie-note", text });

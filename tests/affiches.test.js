@@ -136,3 +136,12 @@ test("regie_accessible_au_clavier", () => {
   assert.match(html, /"aria-controls": "corps-" \+ v/);
   assert.match(html, /id: "corps-" \+ v/);
 });
+
+// Curseurs de la régie dessinés à la main (piste fine, partie remplie dorée, bouton rond), pas ceux du navigateur.
+test("regie_curseurs_dessines", () => {
+  const html = salle2();
+  assert.match(html, /\.regie-console \.curseur input\[type=range\] \{[^}]*appearance: none/);
+  assert.match(html, /\.regie-console \.curseur input\[type=range\]::-webkit-slider-thumb/);
+  assert.match(html, /\.regie-console \.curseur input\[type=range\]::-moz-range-thumb/);
+  assert.match(html, /setProperty\("--rempli"/);
+});

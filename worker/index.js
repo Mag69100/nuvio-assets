@@ -1000,8 +1000,11 @@ const STATUS_FR = {
 
 /** Identifiant TMDB d'un titre demandé en « tt… » ou « tmdb:… ». */
 async function tmdbIdOf(env, kind, id) {
-  if (/^tmdb:\d+/.test(id)) return id.slice(5).split(":")[0];
-  if (!/^tt\d+$/.test(id)) return null;
+  // Des chiffres seulement, jusqu'au « : » ou à la fin : « tmdb:1/../../tv/1396 » ouvrait une autre fiche
+  // (le reste de l'identifiant allait tel quel dans l'adresse TMDB).
+  const t = /^tmdb:(\d{1,10})(?::|$)/.exec(id);
+  if (t) return t[1];
+  if (!/^tt\d{1,10}$/.test(id)) return null;
   const found = await tmdb(env, `/find/${id}`, { external_source: "imdb_id" });
   const hits = (kind === "series" ? found.tv_results : found.movie_results) || [];
   // Fiches TMDB en double pour un même IMDb : on garde la plus connue.
@@ -1049,6 +1052,8 @@ const shortName = (name) => name.split(/ [:–-] /)[0].trim();
  * Allociné trouvée par l'IMDb, via Wikidata.
  */
 async function allocineVf(kind, imdb) {
+  // L'identifiant IMDb vient de TMDB (modifiable par tous) et va tel quel dans la requête Wikidata.
+  if (!/^tt\d{1,10}$/.test(imdb || "")) return undefined;
   const q = `SELECT ?a WHERE { ?f wdt:P345 "${imdb}"; wdt:${kind === "series" ? "P1267" : "P1265"} ?a }`;
   const wd = await fetch(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(q)}`, { headers: WIKI_HEADERS, cf: WIKI_CACHE })
     .then((r) => (r.ok ? r.json() : null), () => null);
@@ -1621,7 +1626,7 @@ const HEADERS = {
  */
 async function trailer(env, kind, id) {
   let tmdbId = id.startsWith("tmdb:") ? id.slice(5) : null;
-  if (!tmdbId && /^tt\d+$/.test(id)) {
+  if (!tmdbId && /^tt\d{1,10}$/.test(id)) {
     const found = await tmdb(env, `/find/${id}`, { external_source: "imdb_id" });
     const hit = (kind === "series" ? found.tv_results : found.movie_results) || [];
     tmdbId = hit[0] ? String(hit[0].id) : null;

@@ -162,6 +162,8 @@ function compteur() {
   globalThis.fetch = async (url) => {
     n.sortants++;
     const u = String(url), p = Number(new URL(u).searchParams.get("page")) || 1;
+    // VF des sources (service d'affiches) : tous en VF, pour que les Tendances gardent leurs titres.
+    if (u.includes("/vf.json")) return new Response(JSON.stringify(Object.fromEntries((new URL(u).searchParams.get("v") || "").split(",").map((v) => [v, { vf: true, sources: 5 }]))));
     if (/\/(discover|trending|movie\/upcoming)/.test(u)) {
       return new Response(JSON.stringify({ results: Array.from({ length: 20 }, (_, i) => ({ id: p * 100 + i, title: `T${p}-${i}`, name: `T${p}-${i}`,
         original_language: "en", release_date: jour(u.includes("upcoming") ? 10 : -10), first_air_date: jour(-10), popularity: 100 - i })), page: p, total_pages: 20 }));

@@ -183,9 +183,9 @@ test("sources : la VF trouvée décide pour un film récent", () => {
   assert.deepEqual(etatSortie(oasis, AUJ, { vf: false, sources: 20 }), { sorti: false, statut: "salle" });
   // Bad Apples : aucune date francophone, mais des sources VF.
   assert.deepEqual(etatSortie(film([pays("DE", [3, jours(-41)])]), AUJ, { vf: true, sources: 36 }), { sorti: true, statut: "nouveau" });
-  // Sorti en VO seulement, pas au cinéma en France : « EN VO ».
+  // Sorti en VO seulement, pas au cinéma en France : pas sorti (seule la VF compte), « Bientôt » sans date.
   const vo = film([pays("US", [3, jours(-60)], [4, jours(-20)]), pays("CA", [3, jours(-59)])]);
-  assert.deepEqual(etatSortie(vo, AUJ, { vf: false, sources: 30 }), { sorti: false, statut: "vo" });
+  assert.deepEqual(etatSortie(vo, AUJ, { vf: false, sources: 30 }), { sorti: false, statut: "bientot" });
   // Aucune source du tout : pas dispo.
   assert.equal(etatSortie(vo, AUJ, { vf: false, sources: 0 }).statut, "bientot");
   // Sources inconnues (Torrentio en panne, ancienne réponse) : les dates.
@@ -195,9 +195,9 @@ test("sources : la VF trouvée décide pour un film récent", () => {
   assert.deepEqual(etatSortie(film([pays("US", [3, jours(-800)])]), AUJ, { vf: false, sources: 5 }), { sorti: true, statut: null });
 });
 
-test("sources : série récente sans VF → EN VO", () => {
+test("sources : série récente sans VF → pas sortie", () => {
   const s = { ...serie(jours(-10), [{ season_number: 1, air_date: jours(-10) }]), lastEpisode: jours(-3) };
-  assert.deepEqual(etatSortie(s, AUJ, { vf: false, sources: 14 }), { sorti: false, statut: "vo" });
+  assert.deepEqual(etatSortie(s, AUJ, { vf: false, sources: 14 }), { sorti: false, statut: "bientot" });
   assert.deepEqual(etatSortie(s, AUJ, { vf: true, sources: 14 }), { sorti: true, statut: "nouveau" });
   // Aucune source : rien ne change (pas de quoi juger).
   assert.deepEqual(etatSortie(s, AUJ, { vf: false, sources: 0 }), { sorti: true, statut: "nouveau" });

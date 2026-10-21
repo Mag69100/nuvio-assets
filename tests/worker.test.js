@@ -625,7 +625,8 @@ test("bientot_dispo_sans_les_films_deja_sur_une_plateforme_en_france", async () 
 });
 
 // EB : sorti au cinéma aux Pays-Bas il y a 5 mois, sans date numérique, déjà sur Prime Video en France, mais en VO.
-// La fiche ne dit plus « Dispo vers le … » (estimation) : « Dispo en VO ». En anglais (VF probable) : « Déjà dispo ».
+// La fiche ne dit plus « Dispo vers le … » (estimation) : « Pas encore en VF » (seule la VF compte). En anglais (VF
+// probable) : « Déjà dispo ».
 test("fiche_deja_dispo_sur_une_plateforme_en_france", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   const fiche = (fr, langue) => ({ id: 1662858, title: "EB", release_date: jour(-160), original_language: langue,
@@ -639,8 +640,8 @@ test("fiche_deja_dispo_sur_une_plateforme_en_france", async () => {
     return new Response("{}");
   };
   const m = (await (await get("/meta/movie/tmdb:1662858.json")).json()).meta;
-  assert.match(m.description || "", /Dispo en VO/);
-  assert.doesNotMatch(m.description || "", /Dispo vers|Déjà dispo/);
+  assert.match(m.description || "", /Pas encore en VF/);
+  assert.doesNotMatch(m.description || "", /Dispo vers|Déjà dispo|VO/);
   const en = (await (await get("/meta/movie/tmdb:1662859.json")).json()).meta;
   assert.match(en.description || "", /Déjà dispo/);
   assert.ok(calls.some((u) => /\/movie\/1662858\?/.test(u) && /append_to_response=[^&]*watch/.test(decodeURIComponent(u))), "plateformes pas demandées");
@@ -683,6 +684,35 @@ const sourcesDe = (table) => (u) => {
 const filmVod = (n, langue, dates, fr) => ({ id: n, imdb_id: "tt" + (900 + n), original_language: langue,
   release_dates: { results: dates.map(([pays, type, d]) => ({ iso_3166_1: pays, release_dates: [{ type, release_date: d + "T00:00:00.000Z" }] })) },
   ...(fr ? { "watch/providers": { results: { FR: { flatrate: [{ provider_name: "Netflix" }] } } } } : {}) });
+
+// Tendances du jour : seulement ce qu'on peut regarder chez soi en VF (seule la VF compte). The Weight (1) : sorti
+// chez soi aux États-Unis, sources sans VF → retiré ; 2 : sources VF → gardé ; 3 : pas de sources lues, sortie
+// numérique américaine seulement → retiré ; 4 : pas de sources lues, sorti au cinéma en France → gardé ; 5 : vieux film
+// sans date francophone → gardé (ses sources ne sont pas lues, comme sur les affiches).
+test("tendances_du_jour_seulement_en_vf", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const fiches = {
+    1: filmVod(1, "en", [["FR", 3, jour(-35)], ["US", 4, jour(-1)]]),
+    2: filmVod(2, "en", [["US", 4, jour(-10)]]),
+    3: filmVod(3, "en", [["US", 4, jour(-10)]]),
+    4: filmVod(4, "en", [["FR", 3, jour(-100)]]),
+    5: filmVod(5, "en", [["US", 3, "2001-05-01"]]),
+  };
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/vf.json")) return sourcesDe({ tt901: { vf: false, sources: 47 }, tt902: { vf: true, sources: 12 } })(u);
+    if (u.includes("/trending/movie/day")) {
+      return new Response(JSON.stringify({ results: u.includes("page=1") ? [1, 2, 3, 4, 5].map((id) => ({ id, title: `Film ${id}`, original_language: "en", release_date: jour(-35) })) : [], page: 1, total_pages: 1 }));
+    }
+    const m = /\/movie\/(\d)\?/.exec(u);
+    if (m) return new Response(JSON.stringify(fiches[m[1]]));
+    return new Response("{}");
+  };
+  const { metas } = await (await get("/catalog/movie/accueil-top10.json")).json();
+  assert.deepEqual(metas.map((m) => m.name), ["Film 2", "Film 4", "Film 5"]);
+  assert.equal(calls.filter((u) => u.includes("/vf.json")).length, 1, "un seul appel pour la page");
+});
 
 test("dispo_depuis_peu_selon_les_sources", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
@@ -750,7 +780,7 @@ test("fiche_selon_les_sources", async () => {
   const vf = (await (await get("/meta/movie/tmdb:8001.json")).json()).meta;
   assert.match(vf.description || "", /Déjà dispo/);
   const vo = (await (await get("/meta/movie/tmdb:8002.json")).json()).meta;
-  assert.match(vo.description || "", /Dispo en VO/);
+  assert.match(vo.description || "", /Pas encore en VF/);
 });
 
 // Les Diables (1971) ressort au cinéma : ses sources ont de la VF (vieux film), mais une ressortie reste dans
@@ -769,7 +799,7 @@ test("prochainement_garde_les_ressorties", async () => {
   assert.deepEqual(metas.map((m) => m.name), ["Les Diables"]);
 });
 
-// Buddy : sorti chez soi aux États-Unis (date connue), sources sans VF : « Dispo en VO depuis le … ».
+// Buddy : sorti chez soi aux États-Unis (date connue), sources sans VF : « Pas encore en VF », pas « Dispo depuis le … ».
 test("fiche_vo_avec_date_connue", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   globalThis.fetch = async (url) => {
@@ -781,7 +811,8 @@ test("fiche_vo_avec_date_connue", async () => {
     return new Response("{}");
   };
   const m = (await (await get("/meta/movie/tmdb:8003.json")).json()).meta;
-  assert.match(m.description || "", /Dispo en VO depuis le/);
+  assert.match(m.description || "", /Pas encore en VF/);
+  assert.doesNotMatch(m.description || "", /Dispo depuis|VO/);
 });
 
 // Le service d'affiches avec RELAIS_KEY ne lit une liste pas encore dans son cache que pour qui envoie la clé :

@@ -523,15 +523,14 @@ function digitalGuess(releases) {
  */
 function releaseNote(releases, today, plateforme = {}) {
   const known = firstDigital(releases || []);
-  // Déjà sur une plateforme en France : « Déjà dispo » (en VF), ou « Dispo en VO » (pas de VF), plutôt qu'une date
-  // à venir ou une estimation qui ne veut plus rien dire.
+  // Déjà sur une plateforme en France : « Déjà dispo » (en VF), plutôt qu'une date à venir ou une estimation qui ne
+  // veut plus rien dire. Regardable en VO seulement (plateforme ou sources sans VF) : pas sorti, seule la VF compte.
   if (!(known && known <= today) && plateforme.vf) return "Déjà dispo";
-  if (!(known && known <= today) && plateforme.vo) return "Dispo en VO";
+  if (plateforme.vo && !plateforme.vf) return "Pas encore en VF";
   if (!releases || !releases.length) return "";
   if (known) {
     if (known > today) return known <= addDays(today, 200) ? `Dispo le ${shortDate(known)}` : "";
-    // Sorti chez soi, mais en VO seulement (sources sans VF) : dit tel quel.
-    return known >= addDays(today, -60) ? `Dispo ${plateforme.vo && !plateforme.vf ? "en VO " : ""}depuis le ${shortDate(known)}` : "";
+    return known >= addDays(today, -60) ? `Dispo depuis le ${shortDate(known)}` : "";
   }
   const guess = digitalGuess(releases);
   if (!guess || guess < addDays(today, -120)) return "";
@@ -582,13 +581,20 @@ async function toMetas(env, ctx, results, kind, opts, today) {
   // VF des sources (« Dispo depuis peu », « Bientôt dispo », « Prochainement ») : un appel pour la page.
   const sources = opts.sources || (opts.lireSources && kind === "movie" ? await sourcesVf(env, ids) : new Map());
   return results.map((it, i) => {
-    const lu = kind === "movie" && filmRecent(infos[i].releases, today) ? sources.get(ids[i]) : null;
+    const recent = kind === "movie" && filmRecent(infos[i].releases, today);
+    const lu = recent ? sources.get(ids[i]) : null;
+    // En VF chez soi : d'après les sources si on les a lues, sinon d'après les dates.
+    const vf = lu ? lu.vf : likelyVf(infos[i].releases, it.original_language, today, infos[i].plateformeFr);
+    // Regardable seulement en VO : sources sans VF, plateforme en France sans VF, ou (film récent, sans sources lues)
+    // sorti chez soi sans aucune sortie francophone. Comme pas sorti : seule la VF compte.
+    const sortiChezSoi = !!firstDigital(infos[i].releases) && firstDigital(infos[i].releases) <= today;
+    const vo = lu ? !lu.vf && lu.sources > 0 : !!infos[i].plateformeVo || (recent && sortiChezSoi && !vf);
     const date = it.release_date || it.first_air_date || "";
     // Films : quand ils deviennent regardables (« Les plus attendus » : quand ils sortent au cinéma) ;
     // séries : l'épisode de la semaine.
     const note = kind !== "movie" ? episodeNote(infos[i].episode, today)
       : opts.upcoming ? cinemaNote(infos[i].releases, opts.region, date, today)
-      : releaseNote(infos[i].releases, today, lu ? { vf: lu.vf, vo: !lu.vf && lu.sources > 0 } : { vf: infos[i].plateformeFr, vo: infos[i].plateformeVo });
+      : releaseNote(infos[i].releases, today, { vf: lu ? lu.vf : infos[i].plateformeFr, vo });
     // Pas encore regardable : la date affichée par Nuvio (carrousel, « date de sortie
     // complète ») devient la date de dispo plutôt que la sortie en salle.
     const dispo = kind === "movie" ? (firstDigital(infos[i].releases) || digitalGuess(infos[i].releases)) : "";
@@ -617,8 +623,7 @@ async function toMetas(env, ctx, results, kind, opts, today) {
       ...catalogTrailers(infos[i].trailers || [], vfIndex[`${kind}:${ids[i]}`]),
       _digital: firstDigital(infos[i].releases),
       _guess: digitalGuess(infos[i].releases),
-      // En VF chez soi : d'après les sources si on les a lues, sinon d'après les dates.
-      _vf: lu ? lu.vf : likelyVf(infos[i].releases, it.original_language, today, infos[i].plateformeFr),
+      _vf: vf,
       // Déjà en VF aujourd'hui (pour « Bientôt dispo ») : sources VF, sinon une plateforme en France.
       _dejaVf: lu ? lu.vf : !!infos[i].plateformeFr,
     };
@@ -803,16 +808,17 @@ function moitieParSelf(env, prefixe, type, id) {
 }
 
 /**
- * Tendances avec seulement ce qu'on peut déjà regarder chez soi : TMDB y classe aussi les films
- * attendus dès leur bande-annonce (Godzilla Minus Zero, voir « Les plus attendus ») et ceux qui
- * ne sont encore qu'au cinéma (Street Fighter, voir « Bientôt dispo »). Séries : déjà diffusées.
+ * Tendances avec seulement ce qu'on peut déjà regarder chez soi en VF : TMDB y classe aussi les films
+ * attendus dès leur bande-annonce (Godzilla Minus Zero, voir « Les plus attendus »), ceux qui ne sont
+ * encore qu'au cinéma (Street Fighter, voir « Bientôt dispo ») et ceux qu'on ne trouve qu'en VO (The
+ * Weight : sources sans VF ; sans sources lues, aucune sortie francophone). Séries : déjà diffusées.
  * Pages pleines (20) : la page N part de la page N de TMDB et se complète avec la suivante. Nuvio
  * demande la suite avec skip = titres déjà reçus et ignore les doublons : rien ne manque ni ne
  * s'affiche deux fois. Les infos lues pour trier (dates de sortie) resservent pour les fiches.
  */
 // Fiches TMDB lues au plus par page (50 appels sortants par requête chez Cloudflare, cache, base des liens fixes et
 // « pour qui » compris) : de quoi garder une marge, au pire une quarantaine d'appels en tout.
-const MAX_CHECKED = 30;   // Tendances : titres examinés pour en garder 20 déjà regardables
+const MAX_CHECKED = 30;   // Tendances : titres examinés pour en garder 20 déjà regardables en VF
 const MAX_FILL = 8;       // « Prochainement » : titres de la page TMDB suivante pour compléter la page
 const MAX_VF = 28;        // « Dispo depuis peu », « Bientôt dispo » : candidats examinés
 async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
@@ -829,16 +835,25 @@ async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
   if (kind === "movie") {
     const infos = new Map();
     picked = [];
-    for (let i = 0; i < released.length && picked.length < PAGE && infos.size < MAX_CHECKED;) {
-      const batch = released.slice(i, i + Math.min(PAGE - picked.length + 4, MAX_CHECKED - infos.size));
+    for (let i = 0; i < released.length && picked.length < PAGE + 4 && infos.size < MAX_CHECKED;) {
+      const batch = released.slice(i, i + Math.min(PAGE + 4 - picked.length, MAX_CHECKED - infos.size));
       i += batch.length;
       const got = await Promise.all(batch.map((it) => extraInfo(env, kind, it.id)));
       batch.forEach((it, k) => {
         infos.set(it.id, got[k]);
-        if (picked.length < PAGE && watchable(got[k], it.release_date, today)) picked.push(it);
+        if (picked.length < PAGE + 4 && watchable(got[k], it.release_date, today)) picked.push(it);
       });
     }
-    opts = { ...opts, infos };
+    // En VF : les sources (un appel pour la page), sinon les dates, comme les affiches ; un vieux film reste (ses
+    // sources ne sont pas lues). 4 de plus gardés pour remplacer les titres en VO seulement.
+    const recent = (it) => !!infos.get(it.id).releases && filmRecent(infos.get(it.id).releases, today);
+    const sources = await sourcesVf(env, picked.filter(recent).map((it) => infos.get(it.id).imdb));
+    picked = picked.filter((it) => {
+      if (!recent(it)) return true;
+      const info = infos.get(it.id), lu = sources.get(info.imdb);
+      return lu ? lu.vf : likelyVf(info.releases, it.original_language, today, info.plateformeFr);
+    }).slice(0, PAGE);
+    opts = { ...opts, infos, sources };
   }
   if (!picked.length) return [];
   const metas = await toMetas(env, ctx, picked, kind, opts, today);
@@ -1295,7 +1310,11 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
   // Film récent (sorti il y a moins d'un an) : la VF lue dans les sources, comme les affiches ; sinon les plateformes.
   const recent = movie && imdb && releaseDates(releases, [2, 3, 4, 5, 6]).some((x) => x >= addDays(today, -365) && x <= today);
   const lu = recent ? (await sourcesVf(env, [imdb])).get(imdb) : null;
-  const plateforme = lu ? { vf: lu.vf, vo: !lu.vf && lu.sources > 0 } : { vf: vfSurPlateforme(wp, d.original_language), vo: plateformeFrance(wp) };
+  // En VO seulement (comme pas sorti : seule la VF compte) : sources sans VF, plateforme en France sans VF, ou film
+  // récent sorti chez soi sans aucune sortie francophone (sources pas lues).
+  const vfPlateforme = movie && vfSurPlateforme(wp, d.original_language), chezSoi = movie ? firstDigital(releases) : "";
+  const voDates = recent && !!chezSoi && chezSoi <= today && !likelyVf(releases, d.original_language, today, vfPlateforme);
+  const plateforme = lu ? { vf: lu.vf, vo: !lu.vf && lu.sources > 0 } : { vf: vfPlateforme, vo: plateformeFrance(wp) || voDates };
   const note = movie ? releaseNote(releases, today, plateforme) : episodeNote(episodeOf(d), today);
   const dispo = movie ? firstDigital(releases) || digitalGuess(releases) : "";
   const shownDate = dispo && dispo > today ? dispo : date;

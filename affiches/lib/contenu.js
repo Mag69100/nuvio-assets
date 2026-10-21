@@ -30,7 +30,7 @@ export const GENRES_COMPLETS = {
   10764: "Téléréalité", 10765: "SF & Fantastique", 10766: "Feuilleton", 10767: "Talk-show",
   10768: "Guerre & Politique",
 };
-const LIBELLES_STATUT = { bientot: "BIENTÔT", salle: "AU CINÉMA", nouveau: "NOUVEAU", saison: "NOUVELLE SAISON", vo: "EN VO" };
+const LIBELLES_STATUT = { bientot: "BIENTÔT", salle: "AU CINÉMA", nouveau: "NOUVEAU", saison: "NOUVELLE SAISON" };
 const MOIS = ["JANV.", "FÉVR.", "MARS", "AVR.", "MAI", "JUIN", "JUIL.", "AOÛT", "SEPT.", "OCT.", "NOV.", "DÉC."];
 const DEBUTS = { dispo: "DISPO LE", cinema: "SORTIE LE", sortie: "SORTIE LE" };
 

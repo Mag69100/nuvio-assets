@@ -379,11 +379,11 @@ test("ligne2_seulement_ecrivable", () => {
   assert.equal("ligne2Inter" in contenu(v3, plein, "poster", reglages("3ar")), false);
 });
 
-// Sources sans VF (lues avec la qualité) : en noir et blanc, « EN VO ».
-test("statut_en_vo", () => {
+// Sources sans VF (lues avec la qualité) : pas sorti, seule la VF compte — en noir et blanc, « BIENTÔT ».
+test("statut_en_vo_seulement", () => {
   const recent = { ...facts, releases: [{ iso_3166_1: "US", release_dates: [{ type: 4, release_date: "2026-10-01" }] }, { iso_3166_1: "CA", release_dates: [{ type: 3, release_date: "2026-08-01" }] }], releaseDate: "2026-08-01" };
   const vo = contenu(recent, { ...extra, quality: { uhd: false, extra: null, vf: false, sources: 8 } });
-  assert.deepEqual([vo.statut, vo.gris], ["EN VO", true]);
+  assert.deepEqual([vo.statut, vo.gris], ["BIENTÔT", true]);
   const vf = contenu(recent, { ...extra, quality: { uhd: false, extra: null, vf: true, sources: 8 } });
   assert.deepEqual([vf.statut, vf.gris], ["NOUVEAU", false]);
 });

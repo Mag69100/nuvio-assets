@@ -7,7 +7,8 @@
  *   plateforme en France (facts.plateformeFrance : films Netflix sans date francophone chez TMDB) ;
  * - sorti = chez soi ET VF probable. Pas sorti : noir et blanc et note cachée sur l'affiche (réglage « Pas sorti »).
  * Pour un titre de moins d'un an, les sources lues chez Torrentio (avec la qualité) décident quand on les a : ce
- * qu'on obtient en faisant « Lire ». Des sources sans VF : « EN VO ». Les dates ne servent plus qu'en repli
+ * qu'on obtient en faisant « Lire ». Des sources sans VF : pas sorti (seule la VF compte), « Bientôt » en noir et
+ * blanc. Les dates ne servent plus qu'en repli
  * (vérifié sur 69 films récents : les dates seules se trompaient pour 9 d'entre eux).
  */
 const NOUVEAU_JOURS = 30, SALLE_JOURS = 45;
@@ -81,8 +82,9 @@ function sortieFilm(facts, today, sources) {
   const dispoAVenir = dispo > today ? { quoi: "dispo", date: dispo, vers: !chezSoiConnu } : null;
   if (sallesFrance[0] && sallesFrance[0] <= today) return { sorti: false, statut: "salle", ...(dispoAVenir ? { quand: dispoAVenir } : {}) };
   const cinema = sallesFrance.find((d) => d > today);
-  // Des sources, mais aucune en VF (et pas de sortie au cinéma en France à venir) : « EN VO ».
-  if (s && !s.vf && s.sources > 0 && !cinema) return { sorti: false, statut: "vo" };
+  // Des sources, mais aucune en VF (et pas de sortie au cinéma en France à venir) : pas sorti, « Bientôt » sans date
+  // (seule la VF compte, et on ne sait pas quand elle viendra).
+  if (s && !s.vf && s.sources > 0 && !cinema) return { sorti: false, statut: "bientot" };
   // Déjà sorti quelque part (Bad Apples : au cinéma en Allemagne) : son arrivée chez soi, annoncée ou estimée,
   // comme la rangée « Bientôt dispo » ; jamais la sortie d'un autre pays (« SORTIE LE » se lirait comme en France).
   const dejaSorti = commerciales.some((d) => d <= today);
@@ -94,9 +96,9 @@ function sortieFilm(facts, today, sources) {
 
 function sortieSerie(facts, today, sources) {
   const base = sortieSerieDates(facts, today), s = lues(sources);
-  // Série récente avec des sources, aucune en VF : « EN VO » (sans sources du tout : pas de quoi juger).
+  // Série récente avec des sources, aucune en VF : pas sortie, « Bientôt » (sans sources du tout : pas de quoi juger).
   const recente = (facts.lastEpisode || facts.firstAir || "") >= ajoute(today, -365);
-  if (base.sorti && s && !s.vf && s.sources > 0 && recente) return { sorti: false, statut: "vo" };
+  if (base.sorti && s && !s.vf && s.sources > 0 && recente) return { sorti: false, statut: "bientot" };
   return base;
 }
 
@@ -111,7 +113,7 @@ function sortieSerieDates(facts, today) {
 }
 
 /**
- * { sorti: disponible chez soi en VF, statut: "bientot" | "salle" | "nouveau" | "saison" | "vo" | null,
+ * { sorti: disponible chez soi en VF, statut: "bientot" | "salle" | "nouveau" | "saison" | null,
  *   quand (pas sorti, si on la connaît) : { quoi: "dispo" | "cinema" | "sortie", date, vers: date estimée } }.
  * sources (facultatif) : { vf, sources } lus chez Torrentio avec la qualité ; null ou vf inconnu : les dates.
  */

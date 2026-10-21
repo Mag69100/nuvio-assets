@@ -130,6 +130,26 @@ test("lien_fixe_relu_dans_la_base_apres_5_minutes", async () => {
   assert.equal((await (await at(`/${id}/manifest.json`)).json()).name, "Base");
 });
 
+test("lien_fixe_sans_origin_refuse", async () => {
+  const res = await at("/lien-fixe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ c: "" }) });
+  assert.equal(res.status, 403);
+  assert.equal(env.LIENS.rows.size, 0);
+});
+
+test("lien_fixe_creations_limitees_par_adresse", async () => {
+  const vus = [];
+  let reste = 2;
+  env.LIMITE_LIENS = { limit: async ({ key }) => { vus.push(key); return { success: reste-- > 0 }; } };
+  const de = (ip, path = "/lien-fixe", body = { c: "" }) => at(path, { method: "POST", headers: { "Content-Type": "application/json", Origin: O, "cf-connecting-ip": ip }, body: JSON.stringify(body) });
+  assert.equal((await de("203.0.113.7")).status, 200);
+  const { id, modif } = await (await de("203.0.113.7")).json();
+  assert.equal((await de("203.0.113.7")).status, 429);
+  assert.deepEqual(vus, ["203.0.113.7", "203.0.113.7", "203.0.113.7"]);
+  // Les modifications (enregistrées à chaque réglage) ne comptent pas.
+  assert.equal((await de("203.0.113.7", `/lien-fixe/${id}`, { c: seg({ n: "Encore" }), modif })).status, 200);
+  assert.equal(vus.length, 3);
+});
+
 test("lien_fixe_indisponible_sans_base", async () => {
   delete env.LIENS;
   assert.equal((await post("/lien-fixe", { c: "" })).status, 501);

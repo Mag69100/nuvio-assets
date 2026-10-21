@@ -97,8 +97,16 @@ export async function fixedRoute(request, env, path, valid) {
   const reply = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
   if (request.method !== "POST") return reply({ error: "Méthode non prise en charge." }, 405);
   if (!fixedAvailable(env)) return reply({ error: "Les liens fixes ne sont pas disponibles sur ce site." }, 501);
-  const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) return reply({ error: "interdit" }, 403);
+  // Un navigateur envoie toujours Origin avec un POST fait par la page : sans elle, c'est un script ou un robot
+  // (des liens créés à la chaîne rempliraient la base).
+  if (request.headers.get("origin") !== new URL(request.url).origin) return reply({ error: "interdit" }, 403);
+  // Créations limitées par adresse IP (liaison LIMITE_LIENS de wrangler.toml, facultative : sans elle, pas de limite).
+  // Les modifications, enregistrées toutes seules à chaque réglage, ne sont pas comptées.
+  if (path === "/lien-fixe" && env.LIMITE_LIENS) {
+    const ip = request.headers.get("cf-connecting-ip") || "?";
+    const { success } = await env.LIMITE_LIENS.limit({ key: ip }).catch(() => ({ success: true }));
+    if (!success) return reply({ error: "Trop de liens créés d'un coup : réessaie dans une minute." }, 429);
+  }
   let body;
   try { body = await request.json(); } catch (e) { return reply({ error: "Demande illisible." }, 400); }
   const seg = typeof body.c === "string" ? body.c : "";

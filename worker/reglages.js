@@ -54,36 +54,44 @@ const ico = (name) => `<svg class="nv-ico" data-ico="${name}" viewBox="0 0 24 24
 const CHEV = `<svg class="nv-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
 
 // ---------- Les briques d'un écran de paramètres ----------
-// x = options communes : a (« À adapter », texte de la bulle), n (« Pourquoi »), icon, skip (le focus ne s'y arrête pas).
+// x = options communes : a (« À adapter », texte de la bulle), n (« Pourquoi »), icon, skip (le focus ne s'y arrête pas),
+// enter (le focus entre dans l'écran de ce nom, comme TMDB dans Intégrations) ; pour la version texte seulement :
+// texte (nom d'une brique qui n'en affiche pas), garde (valeur d'une section qu'on laisse fermée).
 const bulle = (x = {}) => (x.a ? ` data-a="${esc(x.a)}"` : "") + (x.n ? ` data-n="${esc(x.n)}"` : "");
-const focus = (x = {}) => (x.skip ? "" : " data-f") + bulle(x);
+const focus = (x = {}) => (x.skip ? "" : " data-f") + (x.enter ? ` data-enter="${x.enter}"` : "") + bulle(x);
+// La version texte de l'étape 9 (texteReglages) : pendant qu'elle se prépare, chaque brique note ce qu'elle
+// affiche (réglage, valeur, bulle), retrouvé ensuite à partir de son HTML. Le reste du temps, rien n'est noté.
+let TXT = null;
+const note = (html, quoi) => { if (TXT) TXT.set(html, quoi()); return html; };
+const notes = (htmls) => htmls.map((h) => TXT.get(h)).filter(Boolean);
+const COULEURS = { "#fff": "blanc", "#000": "noir", "#d9d9d9": "gris clair" };
 const txt = (l, s) => `<span class="nv-txt"><b>${esc(l)}</b>${s ? `<small>${esc(s)}</small>` : ""}</span>`;
 const lead = (x = {}) => (x.icon ? ico(x.icon) : "");
 
 // Interrupteur
-const T = (l, s, on, x = {}) => `<div class="nv-row${x.dim ? " dim" : ""}"${focus(x)}>${lead(x)}${txt(l, s)}<i class="nv-tg${on ? " on" : ""}" role="img" aria-label="${on ? "activé" : "désactivé"}"></i></div>`;
+const T = (l, s, on, x = {}) => note(`<div class="nv-row${x.dim ? " dim" : ""}"${focus(x)}>${lead(x)}${txt(l, s)}<i class="nv-tg${on ? " on" : ""}" role="img" aria-label="${on ? "activé" : "désactivé"}"></i></div>`, () => ({ l, v: on ? "activé" : "désactivé", x }));
 // Valeur avec chevron
-const V = (l, s, v, x = {}) => `<div class="nv-row"${focus(x)}>${lead(x)}${txt(l, s)}<span class="nv-val">${v ? esc(v) : ""}${CHEV}</span></div>`;
+const V = (l, s, v, x = {}) => note(`<div class="nv-row"${focus(x)}>${lead(x)}${txt(l, s)}<span class="nv-val">${v ? esc(v) : ""}${CHEV}</span></div>`, () => ({ l, v, x }));
 // Curseur
-const SL = (l, s, v, pct, x = {}) => `<div class="nv-row nv-slider"${focus(x)}><span class="nv-sl-top">${txt(l, s)}<span class="nv-val">${esc(v)}</span></span><span class="nv-sl"><i>−</i><span class="nv-track"><span style="width:${pct}%"></span></span><i>+</i></span></div>`;
+const SL = (l, s, v, pct, x = {}) => note(`<div class="nv-row nv-slider"${focus(x)}><span class="nv-sl-top">${txt(l, s)}<span class="nv-val">${esc(v)}</span></span><span class="nv-sl"><i>−</i><span class="nv-track"><span style="width:${pct}%"></span></span><i>+</i></span></div>`, () => ({ l, v, x }));
 // Pastille de couleur
-const COL = (l, s, color, x = {}) => `<div class="nv-row"${focus(x)}>${txt(l, s)}<i class="nv-dot" style="background:${color}"></i></div>`;
+const COL = (l, s, color, x = {}) => note(`<div class="nv-row"${focus(x)}>${txt(l, s)}<i class="nv-dot" style="background:${color}"></i></div>`, () => ({ l, v: COULEURS[color] || color, x }));
 // Rangée de puces, une sélectionnée
-const CH = (l, opts, sel, x = {}) => `<div class="nv-chips"${focus({ skip: !x.a && !x.n, ...x })}><span>${esc(l)}</span><span class="nv-chip-row">${opts.map((o) => `<i${o === sel ? ' class="sel"' : ""}>${esc(o)}</i>`).join("")}</span></div>`;
+const CH = (l, opts, sel, x = {}) => note(`<div class="nv-chips"${focus({ skip: !x.a && !x.n, ...x })}><span>${esc(l)}</span><span class="nv-chip-row">${opts.map((o) => `<i${o === sel ? ' class="sel"' : ""}>${esc(o)}</i>`).join("")}</span></div>`, () => ({ l: l.replace(/ [(].*[)]$/, ""), v: sel, x }));
 // Cartes à choisir (disposition de l'accueil, style de Continuer à regarder, style des paramètres)
-const CARDS = (kind, opts, sel, x = {}) => `<div class="nv-cards nv-${kind}"${focus(x)}>${opts.map(([name, desc, n]) => `<span class="nv-card${name === sel ? " sel" : ""}">${n ? `<span class="nv-art">${"<i></i>".repeat(n)}</span>` : ""}<b>${esc(name)}</b>${desc ? `<small>${esc(desc)}</small>` : ""}</span>`).join("")}</div>`;
+const CARDS = (kind, opts, sel, x = {}) => note(`<div class="nv-cards nv-${kind}"${focus(x)}>${opts.map(([name, desc, n]) => `<span class="nv-card${name === sel ? " sel" : ""}">${n ? `<span class="nv-art">${"<i></i>".repeat(n)}</span>` : ""}<b>${esc(name)}</b>${desc ? `<small>${esc(desc)}</small>` : ""}</span>`).join("")}</div>`, () => ({ l: x.texte, v: sel, x }));
 // Nuancier du thème de couleur
-const SWATCHES = (list, sel, x = {}) => `<div class="nv-swatches"${focus(x)}>${list.map(([name, c]) => `<span class="nv-sw${name === sel ? " sel" : ""}"><i style="background:${c}"></i>${esc(name)}</span>`).join("")}</div>`;
+const SWATCHES = (list, sel, x = {}) => note(`<div class="nv-swatches"${focus(x)}>${list.map(([name, c]) => `<span class="nv-sw${name === sel ? " sel" : ""}"><i style="background:${c}"></i>${esc(name)}</span>`).join("")}</div>`, () => ({ v: sel, x }));
 // « Apply to » : petits interrupteurs groupés
-const APPLY = (list, x = {}) => `<div class="nv-apply"${focus({ skip: !x.a && !x.n, ...x })}><span>APPLY TO</span><span class="nv-chip-row">${list.map((o) => `<i>${esc(o)}<em class="nv-tg on"></em></i>`).join("")}</span></div>`;
+const APPLY = (list, x = {}) => note(`<div class="nv-apply"${focus({ skip: !x.a && !x.n, ...x })}><span>APPLY TO</span><span class="nv-chip-row">${list.map((o) => `<i>${esc(o)}<em class="nv-tg on"></em></i>`).join("")}</span></div>`, () => ({ l: "Apply to", v: "tout activé (" + list.join(", ") + ")", x }));
 // Sous-titre de groupe, paragraphe, lien
 const H = (l, s, warn) => `<p class="nv-h">${esc(l)}${s ? `<small${warn ? ' class="warn"' : ""}>${esc(s)}</small>` : ""}</p>`;
 const P = (t) => `<p class="nv-p">${esc(t)}</p>`;
-const URL = (t, x = {}) => `<div class="nv-url"${focus(x)}>${esc(t)}</div>`;
+const URL = (t, x = {}) => note(`<div class="nv-url"${focus(x)}>${esc(t)}</div>`, () => ({ l: "Lien", v: t, x }));
 // Section repliable : « Fermé › » puis « Ouvert ⌄ » quand le focus l'ouvre. keep = reste fermée.
-const SEC = (l, s, icon, kids, x = {}) => `<div class="nv-secw"><div class="nv-row nv-sec"${focus(x)} data-sec${x.keep ? " data-keep" : ""}>${ico(icon)}${txt(l, s)}<span class="nv-val"><span class="nv-etat">Fermé</span>${CHEV}</span></div>${kids.length ? `<div class="nv-kids"><div class="nv-kin"><div class="nv-kbox">${kids.join("")}</div></div></div>` : ""}</div>`;
+const SEC = (l, s, icon, kids, x = {}) => note(`<div class="nv-secw"><div class="nv-row nv-sec"${focus(x)} data-sec${x.keep ? " data-keep" : ""}>${ico(icon)}${txt(l, s)}<span class="nv-val"><span class="nv-etat">Fermé</span>${CHEV}</span></div>${kids.length ? `<div class="nv-kids"><div class="nv-kin"><div class="nv-kbox">${kids.join("")}</div></div></div>` : ""}</div>`, () => ({ l, kids: notes(kids), x }));
 // Groupe (boîte translucide), avec ou sans en-tête
-const G = (h, s, items) => `<div class="nv-group">${h ? `<p class="nv-gh"><b>${esc(h)}</b>${s ? `<small>${esc(s)}</small>` : ""}</p>` : ""}${items.join("")}</div>`;
+const G = (h, s, items) => note(`<div class="nv-group">${h ? `<p class="nv-gh"><b>${esc(h)}</b>${s ? `<small>${esc(s)}</small>` : ""}</p>` : ""}${items.join("")}</div>`, () => ({ l: h, kids: notes(items), groupe: true }));
 
 // ---------- Barre latérale ----------
 const SIDE = [["Compte", "user"], ["Profils", "users"], ["Watch party", "users"], "sep", ["Apparence", "palette"], ["Disposition", "grid"], "sep",
@@ -93,7 +101,7 @@ const SIDE_HTML = SIDE.map((it) => it === "sep" ? `<li class="sep" aria-hidden="
 const sideIndex = (name) => SIDE.filter((it) => it !== "sep").findIndex((it) => it[0] === name);
 
 // ---------- Les écrans, dans l'ordre de la visite ----------
-const page = (id, chap, side, title, sub, body, parent) => ({ id, chap, side: sideIndex(side), title, sub, body, parent });
+const page = (id, chap, side, title, sub, body, parent) => ({ id, chap, side: sideIndex(side), title, sub, body: [].concat(body).join(""), parts: [].concat(body), parent });
 const pageHTML = ({ id, chap, side, title, sub, body, parent }) =>
   `<div class="nv-page" data-page="${id}" data-chap="${esc(chap)}" data-side="${side}"${parent ? ` data-parent="${parent}"` : ""}>
   <div class="nv-head"><h4>${esc(title)}</h4><p>${esc(sub)}</p></div>
@@ -132,7 +140,7 @@ const PAGES = (posterUrl) => [
       V("Police de l'application", "Choisissez votre police préférée", "Inter"),
       V("Langue de l'application", "Remplacer la langue du système", "Français", { n: "« Par défaut (système) » suffit si ton appareil est en français. S'il est en anglais, choisis Français." }),
     ]),
-  ].join("")),
+  ]),
 
   page("disposition", "Disposition", "Disposition", "Paramètres de disposition", "Ajuster la disposition de l'accueil, la visibilité du contenu et le comportement des affiches", G(null, null, [
     SEC("Disposition de l'accueil", "Choisir la structure et la source hero.", "home", [
@@ -152,7 +160,7 @@ const PAGES = (posterUrl) => [
     ]),
     SEC("Continuer à regarder", "Paramètres pour la section Continuer à regarder.", "play2", [
       T("Show Continue Watching", "Show the Continue Watching row on the home screen.", true),
-      CARDS("cw", [["Card", "", 2], ["Wide", "", 1], ["Poster", "", 1]], "Card"),
+      CARDS("cw", [["Card", "", 2], ["Wide", "", 1], ["Poster", "", 1]], "Card", { texte: "Style des cartes" }),
       T("Utiliser les miniatures d'épisodes dans Continuer à regarder", "Utilise les miniatures d'épisodes comme image par défaut. Quand désactivé, utilise l'image de fond.", true),
       T("Flouter les épisodes non vus dans Continuer à regarder", "Flouter les miniatures des épisodes suivants dans Continuer à regarder pour éviter les spoilers.", true, { n: "Anti-spoiler : les miniatures des épisodes pas encore vus restent floues." }),
       T("Suivant à partir de l'épisode le plus avancé", "Affiche l'épisode suivant à partir de l'épisode le plus avancé que vous avez regardé.", true),
@@ -288,7 +296,7 @@ const PAGES = (posterUrl) => [
       T("Supprimer les métadonnées HDR10+", "Supprime les métadonnées dynamiques HDR10+ des flux.", false),
       T("True black bars", "Leave the bars around the picture unpainted so HDR stays true black.", false),
     ]),
-    SEC("Mémoire tampon et réseau", "Quelle quantité de contenu garder en mémoire et comment récupérer les flux.", "wifi", [], { keep: true }),
+    SEC("Mémoire tampon et réseau", "Quelle quantité de contenu garder en mémoire et comment récupérer les flux.", "wifi", [], { keep: true, garde: "rien à changer" }),
     SEC("Streaming P2P", "Autoriser les flux pair-à-pair (torrent)", "p2p", [
       T("Activer le P2P", "", false, { n: "Laisse-le désactivé : avec AllDebrid, Torrentio et les autres addons donnent des liens directs, le P2P ne sert à rien. Sans débrideur, tu partagerais les fichiers depuis ta propre adresse IP, visible de tous." }),
       T("Masquer les statistiques torrent", "Masquer la mémoire tampon, les seeders, les pairs et la vitesse de téléchargement", true),
@@ -299,7 +307,7 @@ const PAGES = (posterUrl) => [
 
   page("integrations", "Enrichissement TMDB", "Intégrations", "Intégrations", "Gérer les intégrations disponibles", G(null, null, [
     V("Debrid", "Sources de comptes cloud expérimentales", "", { icon: "cloud", skip: true }),
-    V("TMDB", "Contrôles d'enrichissement des métadonnées", "", { icon: "image" }).replace(" data-f", ' data-f data-enter="tmdb"'),
+    V("TMDB", "Contrôles d'enrichissement des métadonnées", "", { icon: "image", enter: "tmdb" }),
     V("Notes MDBList", "Fournisseurs de notes externes", "", { icon: "star", skip: true }),
     V("Anime-Skip", "Horodatages pour passer les intros/outros d'animés", "", { icon: "skip", skip: true }),
   ])),
@@ -340,7 +348,7 @@ const PAGES = (posterUrl) => [
       T("Rapports de problèmes de lecture", "Affiche des boutons de signalement pendant la lecture, les chargements longs et les erreurs", true),
       T("Playback stats overlay", "Show a button in stream info to toggle live cpu, memory, buffer, bitrate and thermal readings", false),
     ]),
-  ].join("")),
+  ]),
 ];
 
 // ---------- L'écran Paramètres de l'aperçu (nuvio.js) ----------
@@ -395,6 +403,30 @@ export const parametresNuvio = (posterUrl) => {
 
 const CHAPITRES = ["Apparence", "Disposition", "Lecture", "Enrichissement TMDB", "Avancé"];
 
+// ---------- La version texte de l'étape 9 : les mêmes écrans, réglage par réglage, avec leurs bulles ----------
+// Pour qui ne voit pas l'animation (lecteur d'écran, mouvement réduit) ou préfère une liste à recopier.
+const ligneTexte = (e, enfants) => {
+  const x = e.x || {};
+  if (x.skip) return "";
+  const sous = e.kids || (x.enter && enfants[x.enter]) || null;
+  const liste = sous && sous.length ? `<ul>${sous.map((k) => ligneTexte(k, enfants)).join("")}</ul>` : "";
+  if (e.groupe && !e.l) return sous.map((k) => ligneTexte(k, enfants)).join("");
+  const v = e.v || x.garde || "";
+  const t = x.a || x.n;
+  return `<li>${e.l ? esc(e.l) + (v ? " : " : "") : ""}${v ? `<b>${esc(v)}</b>` : ""}${t ? ` <span class="nvt-${x.a ? "adapt" : "pourquoi"}">${x.a ? "À adapter" : "Pourquoi"}</span> ${esc(t)}` : ""}${liste}</li>`;
+};
+export const texteReglages = (posterUrl) => {
+  TXT = new Map();
+  try {
+    const pages = PAGES(posterUrl).map((p) => ({ ...p, notes: notes(p.parts) }));
+    const enfants = Object.fromEntries(pages.filter((p) => p.parent).map((p) => [p.id, p.notes]));
+    const rubriques = SIDE.filter((it) => it !== "sep");
+    return `<details class="nv-texte"><summary>Version texte : tous les réglages, écran par écran</summary>
+  ${pages.filter((p) => !p.parent).map((p) => `<div class="nvt-ecran"><p class="nvt-titre">Paramètres → ${esc(rubriques[p.side][0])}</p><ul>${p.notes.map((e) => ligneTexte(e, enfants)).join("")}</ul></div>`).join("\n  ")}
+</details>`;
+  } finally { TXT = null; }
+};
+
 export const reglagesHTML = (posterUrl) => `<div class="nv" id="nv">
   <div class="nv-tv">
     <div class="nv-screen" tabindex="0" role="group" aria-roledescription="animation" aria-label="Les réglages de Nuvio, écran par écran. Flèches gauche et droite : réglage précédent ou suivant. Espace : pause.">
@@ -410,6 +442,7 @@ export const reglagesHTML = (posterUrl) => `<div class="nv" id="nv">
     <button type="button" class="nv-step" data-dir="-1" aria-label="Réglage précédent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
     <button type="button" class="nv-step" data-dir="1" aria-label="Réglage suivant"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
   </div>
+  ${texteReglages(posterUrl)}
 </div>`;
 
 export const REGLAGES_CSS = `/* Étape 9 : les écrans de paramètres de Nuvio TV, rejoués comme à la télécommande. */
@@ -544,6 +577,19 @@ export const REGLAGES_CSS = `/* Étape 9 : les écrans de paramètres de Nuvio T
   background: linear-gradient(var(--bulb), var(--bulb)) 0 100% / calc(var(--p, 0) * 100%) 2px no-repeat, linear-gradient(var(--seat), var(--seat)) 0 100% / 100% 2px no-repeat, transparent; }
 .nv-chaps button:hover { color: var(--cream); }
 .nv-chaps button[aria-current="true"] { color: var(--bulb); background-color: rgba(255,207,107,.07); }
+
+/* La version texte, sous l'animation */
+.nv-texte { border: 1px solid var(--seat); border-radius: 12px; padding: 10px 14px; background: rgba(0,0,0,.18); }
+.nv-texte summary { cursor: pointer; color: var(--bulb); font-weight: 700; }
+.nv-texte[open] summary { margin-bottom: 8px; }
+.nvt-ecran + .nvt-ecran { margin-top: 12px; }
+.nvt-titre { margin: 0 0 4px; font: 800 .8rem var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--bulb); }
+.nv-texte ul { margin: 0; padding-left: 1.2em; display: grid; gap: 3px; font-size: .92rem; color: #e6d6c8; }
+.nv-texte ul ul { margin-top: 3px; }
+.nv-texte b { color: var(--cream); }
+.nvt-adapt, .nvt-pourquoi { font: 800 .62rem/1.6 var(--body); letter-spacing: .1em; text-transform: uppercase; border-radius: 4px; padding: 1px 5px; vertical-align: 1px; }
+.nvt-adapt { color: var(--ink); background: var(--bulb); }
+.nvt-pourquoi { color: var(--cream); box-shadow: inset 0 0 0 1px rgba(245,234,216,.45); }
 
 /* Sauts de chapitre et pas à pas : tout se place sans animation */
 .nv.instant * { transition: none !important; }

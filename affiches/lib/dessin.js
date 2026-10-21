@@ -270,13 +270,22 @@ function blocQualite(content, m, accent, cote, descente, images) {
 }
 
 /** Bandeau en coin : une bande à la couleur d'accent, en diagonale, qui porte le statut ou le N° de tendance. */
+/**
+ * Taille du texte du bandeau : celle des badges, réduite pour qu'un texte long (« AU CINÉMA LE 12 MARS 2027 »)
+ * tienne dans la partie visible de la bande (environ 62 % de sa longueur ; une lettre ≈ 0,62 de la taille).
+ */
+export function tailleBandeau(texte, t, L) {
+  return Math.min(t * 0.58, (L * 0.62) / (String(texte).length * 0.62));
+}
+
 function bandeauEnCoin(content, m, [w], accent) {
   const t = m.texte * (Number(content.styles.haut) || 1), L = Math.round(Math.min(w, 600) * 0.5), H = Math.round(t * 1.15), d = Math.round(L * 0.3);
+  const taille = tailleBandeau(content.bandeau.texte, t, L);
   const droite = content.bandeau.coin !== "g";
   return h("div", {
     position: "absolute", left: droite ? w - d - L / 2 : d - L / 2, top: d - H / 2, width: L, height: H,
     display: "flex", alignItems: "center", justifyContent: "center", background: accent, color: ENCRE,
-    fontSize: t * 0.58, fontWeight: 800, letterSpacing: t * 0.05, transform: `rotate(${droite ? 45 : -45}deg)`, boxShadow: "0 2px 6px rgba(0,0,0,0.45)",
+    fontSize: taille, fontWeight: 800, letterSpacing: taille * 0.08, transform: `rotate(${droite ? 45 : -45}deg)`, boxShadow: "0 2px 6px rgba(0,0,0,0.45)",
   }, content.bandeau.texte);
 }
 /** Place que le bandeau prend dans son coin : les badges de ce côté descendent d'autant. */
@@ -347,24 +356,24 @@ function calqueDegrades(content, [w, hgt], teinte) {
 }
 
 /** Une bande de l'image floutée (de top à bottom), avec un masque SVG facultatif pour l'adoucir. */
-async function bandeFloue(base, [w, hgt], top, masque) {
+async function bandeFloue(flouDe, [w, hgt], top, masque) {
   const haut = hgt - top;
-  const floue = await sharp(await sharp(base).blur(Math.max(1, w / 40)).toBuffer()).extract({ left: 0, top, width: w, height: haut }).toBuffer();
+  const floue = await sharp(await flouDe()).extract({ left: 0, top, width: w, height: haut }).toBuffer();
   const input = masque ? await sharp(floue).ensureAlpha().composite([{ input: masque(w, haut), blend: "dest-in" }]).png().toBuffer() : floue;
   return { input, left: 0, top };
 }
 
 /** Le bas de l'image flouté, de plus en plus en descendant (fondu « flou », comme un verre dépoli sous le titre). */
-function calqueFlou(base, taille, part) {
+function calqueFlou(flouDe, taille, part) {
   const [w, hgt] = taille, top = hgt - Math.round(hgt * part);
-  return bandeFloue(base, taille, top, (lw, lh) => Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${lw}" height="${lh}"><defs><linearGradient id="m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.45" stop-color="#fff" stop-opacity="1"/></linearGradient></defs><rect width="${lw}" height="${lh}" fill="url(#m)"/></svg>`));
+  return bandeFloue(flouDe, taille, top, (lw, lh) => Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${lw}" height="${lh}"><defs><linearGradient id="m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.45" stop-color="#fff" stop-opacity="1"/></linearGradient></defs><rect width="${lw}" height="${lh}" fill="url(#m)"/></svg>`));
 }
 
 /** Barre d'infos en verre : une bande floutée et assombrie sous la ligne du bas, bordée d'un filet clair. */
-async function calquesBarreVerre(base, content, taille, m) {
+async function calquesBarreVerre(flouDe, content, taille, m) {
   const [w, hgt] = taille, t = m.texte * (m.ligne || 1) * (Number(content.styles.texte) || 1);
   const top = Math.max(0, Math.round(hgt - m.ligneBas - hauteurLigne(content, m) * (m.ligne || 1) - t * 0.55));
-  const verre = await bandeFloue(base, taille, top);
+  const verre = await bandeFloue(flouDe, taille, top);
   const voile = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${hgt - top}"><rect width="${w}" height="${hgt - top}" fill="#000" fill-opacity="0.32"/><rect width="${w}" height="1" fill="#fff" fill-opacity="0.22"/></svg>`);
   return [verre, { input: voile, left: 0, top }];
 }
@@ -456,12 +465,16 @@ export async function draw(content, fetchImpl = fetch) {
   content = { ...content, styles: { ...STYLES_DEFAUT, ...(content.styles || {}) } };
   const st = content.styles, taille = SIZES[content.shape], m = mesures(content);
   const [w, hgt] = taille;
-  const [fond, logo, images] = await Promise.all([
+  const imagesP = imagesPlateforme(content, fetchImpl);
+  // Le texte se dessine pendant les téléchargements, sauf avec l'accent « couleur de l'affiche », qui attend l'image.
+  const accentFixe = st.accent !== "affiche";
+  const [fond, logo, images, texteFixe] = await Promise.all([
     telecharger(urlFond(content), fetchImpl),
     // Pas de repli sans logo : sur l'image sans texte, il porte le titre. Une erreur ici fait répondre
     // une erreur au service, et Nuvio montre l'affiche d'origine.
     calqueLogo(content, taille, m, fetchImpl),
-    imagesPlateforme(content, fetchImpl),
+    imagesP,
+    accentFixe ? imagesP.then((im) => calqueTexte(content, taille, m, ACCENTS[st.accent] || OR, im)) : null,
   ]);
   // Pas encore sorti : l'image en noir et blanc ; les badges, posés ensuite, gardent leurs couleurs.
   let image = sharp(fond).resize(w, hgt, { fit: "cover", position: "attention" });
@@ -469,13 +482,15 @@ export async function draw(content, fetchImpl = fetch) {
   const base = await image.toBuffer();
   const fondu = content.full && st.fondu;
   const hsl = (fondu && fondu.couleur === "affiche") || st.accent === "affiche" ? await hslDuBas(base, taille) : null;
-  const accent = st.accent === "affiche" && hsl ? teinteVive(hsl) : ACCENTS[st.accent] || OR;
-  const texte = await calqueTexte(content, taille, m, accent, images);
+  const texte = accentFixe ? texteFixe : await calqueTexte(content, taille, m, hsl ? teinteVive(hsl) : OR, images);
+  // Un seul flou de l'image, calculé au premier besoin (fondu flou, barre de verre).
+  let floue = null;
+  const flouDe = () => (floue = floue || sharp(base).blur(Math.max(1, w / 40)).toBuffer());
   const calques = [];
-  if (fondu && fondu.flou) calques.push(await calqueFlou(base, taille, HAUTEUR_FONDU[fondu.hauteur || "normal"]));
+  if (fondu && fondu.flou) calques.push(await calqueFlou(flouDe, taille, HAUTEUR_FONDU[fondu.hauteur || "normal"]));
   const degrades = calqueDegrades(content, taille, fondu && fondu.couleur === "affiche" && hsl ? teinteSombre(hsl) : null);
   if (degrades) calques.push({ input: degrades, left: 0, top: 0 });
-  if (content.line && content.full && st.barre === "verre") calques.push(...(await calquesBarreVerre(base, content, taille, m)));
+  if (content.line && content.full && st.barre === "verre") calques.push(...(await calquesBarreVerre(flouDe, content, taille, m)));
   if (logo) calques.push(logo);
   if (texte) calques.push({ input: texte, left: 0, top: 0 });
   // JPEG standard plutôt que mozjpeg : 3 fois moins de calcul pour des fichiers à peine plus lourds.

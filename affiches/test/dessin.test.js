@@ -431,3 +431,20 @@ test("revue_image_du_film_nette", async () => {
   await draw({ ...base, image: "/large.jpg", fondLarge: true }, async (u, o) => { urls.push(String(u)); return f(u, o); });
   assert.ok(urls.some((u) => u.endsWith("/w1280/large.jpg")), urls.join(" "));
 });
+
+// Revue : un texte long dans le bandeau (« AU CINÉMA LE 12 MARS 2027 ») rapetisse pour tenir dans la partie visible.
+test("revue_bandeau_texte_long", async () => {
+  const { tailleBandeau } = await import("../lib/dessin.js");
+  const court = tailleBandeau("NOUVEAU", 18, 200), long = tailleBandeau("AU CINÉMA LE 12 MARS 2027", 18, 200);
+  assert.ok(long < court, `court ${court}, long ${long}`);
+  assert.ok(long * 25 * 0.62 <= 200 * 0.62, "le texte long dépasse la partie visible");
+  const buf = await draw({ ...seul, line: null, bandeau: { texte: "AU CINÉMA LE 12 MARS 2027", coin: "d" } }, f);
+  assert.equal((await sharp(buf).metadata()).width, 400);
+});
+
+// Revue : « Tout » dessine vraiment ATMOS (le test d'avant ne vérifiait que la largeur de l'image).
+test("revue_qualite_atmos_dessinee", async () => {
+  const sans = await draw({ ...seul, line: null, quality: { label: "4K", extra: null, atmos: false } }, f);
+  const avecAtmos = await draw({ ...seul, line: null, quality: { label: "4K", extra: null, atmos: true } }, f);
+  assert.ok(await compte(avecAtmos, [200, 0, 200, 60], blanc) > await compte(sans, [200, 0, 200, 60], blanc) + 60, "ATMOS absent");
+});

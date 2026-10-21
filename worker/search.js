@@ -587,6 +587,8 @@ const ORIGIN_LIST = [
   ["DK", "danois"], ["SE", "suedois"], ["NO", "norvegien"], ["TH", "thailandais"], ["BR", "bresilien"], ["AU", "australien"],
   ["IE", "irlandais"], ["RU", "russe"], ["PL", "polonais"], ["AR", "argentin"], ["NZ", "neozelandais"],
 ];
+const LANGUE_DU_PAYS = { KR: "ko", JP: "ja", FR: "fr", IT: "it", ES: "es", DE: "de", CN: "zh", TR: "tr", MX: "es", DK: "da",
+  SE: "sv", NO: "no", TH: "th", BR: "pt", RU: "ru", PL: "pl", AR: "es" };
 const ORIGINS = new Map(ORIGIN_LIST.flatMap(([code, words]) => words.split(" ")
   .flatMap((w) => [w, `${w}s`, `${w}e`, `${w}es`, `${w}ne`, `${w}nes`, `${w}que`, `${w}ques`].map((f) => [f, code]))));
 // Mots sans importance autour du genre : « les films d'horreur des années 80 ».
@@ -682,6 +684,9 @@ export function genreParams(g, kind, page = 1) {
     p[tv ? "first_air_date.lte" : "primary_release_date.lte"] = `${g.to}-12-31`;
   }
   if (g.country) p.with_origin_country = g.country;
+  // Un pays à langue principale : aussi tourné dans cette langue (« comédie française » sans Bridget Jones,
+  // coproduction anglaise). Pas pour les pays à plusieurs langues (Inde, Belgique, Canada…) ni anglophones.
+  if (g.country && !g.lang && LANGUE_DU_PAYS[g.country]) p.with_original_language = LANGUE_DU_PAYS[g.country];
   if (g.lang) p.with_original_language = g.lang;
   return p;
 }

@@ -52,10 +52,12 @@ const lendemain = (iso) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(Date.pars
 const ABSENT = { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" };
 // Redirection vers la forme normale d'un lien : elle ne change qu'avec une mise en ligne, qui vide le cache de toute façon.
 const CANONIQUE = { "Cache-Control": "public, max-age=604800", "Vercel-CDN-Cache-Control": "max-age=604800" };
-// Trop de dessins en ce moment (lib/disjoncteur.js) : l'affiche d'origine, redemandée dans 10 minutes.
-const SURCHARGE = { "Cache-Control": "public, max-age=600", "Vercel-CDN-Cache-Control": "max-age=600" };
-// Dessin impossible (logo cassé, SVG illisible) : l'affiche d'origine, redemandée dans une heure.
-const SECOURS = { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" };
+// Trop de dessins (lib/disjoncteur.js) ou dessin impossible (logo cassé, SVG illisible) : une erreur passagère, jamais
+// une redirection vers l'affiche d'origine. Nuvio garde une image redirigée sous l'adresse de l'affiche, avec les
+// en-têtes de TMDB (un an) : les affiches paysage étaient restées nues après un disjoncteur. Sur une erreur, il montre
+// l'affiche d'origine sans la garder et redemande la nôtre plus tard. Retry-After : dans 10 minutes, dans une heure.
+const SURCHARGE = { "Retry-After": "600" };
+const SECOURS = { "Retry-After": "3600" };
 const CORS = { "Access-Control-Allow-Origin": "*" };
 const ATTENTE_QUALITE_MS = 1000;
 // Fichier des notes IMDb pas encore lu (instance qui démarre) : pas attendu plus longtemps (il peut prendre 8 s).
@@ -63,13 +65,8 @@ const ATTENTE_NOTES_MS = 1500;
 
 const absent = () => new Response(null, { status: 404, headers: { ...CORS, ...ABSENT } });
 const panne = () => new Response(null, { status: 502, headers: { ...CORS, "Cache-Control": "no-store" } });
-/** L'affiche (ou le fond) d'origine du titre chez TMDB, aux tailles de dessin.js ; null s'il n'en a pas. */
-const imageOrigine = (facts, shape) => {
-  const chemin = shape === "landscape" ? facts.backdrop : facts.poster;
-  return chemin ? `https://image.tmdb.org/t/p/${shape === "landscape" ? "w780" : "w500"}${chemin}` : null;
-};
-/** Redirection vers l'affiche d'origine, gardée le temps donné (en-têtes de cache). */
-const versOrigine = (url, cache) => new Response(null, { status: 302, headers: { ...CORS, ...cache, Location: url } });
+/** Pas d'affiche pour l'instant (503, jamais gardée) : l'appli montre celle d'origine. */
+const indisponible = (attente) => new Response(null, { status: 503, headers: { ...CORS, ...attente, "Cache-Control": "no-store" } });
 
 /** fetch qui ne télécharge qu'une fois chaque image TMDB : une demande faite en avance resservira à draw(). */
 function fetchImages(fetchImpl) {
@@ -150,14 +147,11 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       if (tendance) lireRang(env, type, 0, fetchImpl, relais).catch(() => {});
       let facts = await titleFacts(env, { type, id, imdb }, fetchImpl, { plateforme: reglages.plateforme.on, vo: reglages.titre.on && reglages.titre.langue === "vo", credits: reglages.titre.on && reglages.infos.ligne2 === "realisateur" });
       if (!facts) return absent();
-      // Trop de dessins sur cette instance (robot, liens au hasard) : l'affiche d'origine, sans rien analyser ni
-      // dessiner, redemandée dans 10 minutes. Mieux vaut des affiches nues un moment qu'un service coupé 30 jours.
+      // Trop de dessins sur cette instance (robot, liens au hasard) : rien à analyser ni à dessiner, l'appli montre
+      // l'affiche d'origine. Mieux vaut des affiches nues un moment qu'un service coupé 30 jours.
       if (disjoncteur.plein()) {
-        const origine = imageOrigine(facts, shape);
-        if (origine) {
-          if (Date.now() - dernierAvis > 60000) { dernierAvis = Date.now(); console.warn("disjoncteur : trop de dessins, affiches d'origine pour l'instant"); }
-          return versOrigine(origine, SURCHARGE);
-        }
+        if (Date.now() - dernierAvis > 60000) { dernierAvis = Date.now(); console.warn("disjoncteur : trop de dessins, affiches d'origine pour l'instant"); }
+        return indisponible(SURCHARGE);
       }
       // L'image « sans texte » porte notre logo : on vérifie qu'elle n'a vraiment pas de texte (TMDB y range
       // parfois des affiches étrangères). Aucune de propre : l'affiche normale, sans logo ni ligne du bas.
@@ -235,12 +229,10 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       try {
         jpg = await draw(content, images);
       } catch (e) {
-        // Dessin impossible (logo introuvable ou illisible, SVG cassé…) : l'affiche d'origine, qui porte le titre,
-        // gardée une heure (une erreur 502 n'est jamais gardée : chaque demande redessinerait).
+        // Dessin impossible (logo introuvable ou illisible, SVG cassé…) : l'appli montre l'affiche d'origine, qui
+        // porte le titre.
         console.error(`dessin ${type}/${shape}/${id} : ${e && e.message}`);
-        const origine = imageOrigine(facts, shape);
-        if (!origine) throw e;
-        return versOrigine(origine, SECOURS);
+        return indisponible(SECOURS);
       }
       return new Response(jpg, { status: 200, headers: { ...headers, "Content-Type": "image/jpeg" } });
     } catch (e) {

@@ -122,24 +122,25 @@ test("refusés sans appel TMDB", async () => {
   }
 });
 
-// Trop de dessins sur l'instance (liens au hasard) : l'affiche d'origine de TMDB, gardée 10 minutes, sans analyser
-// ni dessiner d'image ; le compte ne porte que sur les dessins (304 et redirections ne comptent pas).
-test("disjoncteur : affiche d'origine au-delà de la limite", async () => {
+// Trop de dessins sur l'instance (liens au hasard) : une erreur passagère (503, jamais gardée, Retry-After 10 min),
+// sans analyser ni dessiner d'image ; l'appli montre l'affiche d'origine. Jamais une redirection vers TMDB : Nuvio la
+// garderait un an sous l'adresse de l'affiche (en-têtes de TMDB). Le compte ne porte que sur les dessins.
+test("disjoncteur : erreur passagère au-delà de la limite", async () => {
   const GET = makeHandler({ fetchImpl: internet(), env: { ...env, RENDUS_MINUTE: "2" } });
   for (let i = 0; i < 2; i++) assert.equal((await GET(req("type=movie&shape=poster&id=tt15239678"))).status, 200, `dessin ${i}`);
   const f = internet();
   const autre = makeHandler({ fetchImpl: f, env: { ...env, RENDUS_MINUTE: "2" } });
   assert.equal((await autre(req("type=movie&shape=poster&id=tt15239678"))).status, 200, "chaque service a son compteur");
   const res = await GET(req("type=movie&shape=poster&id=tt15239678"));
-  assert.equal(res.status, 302);
-  assert.equal(res.headers.get("Location"), "https://image.tmdb.org/t/p/w500/fr.jpg");
-  assert.equal(res.headers.get("Cache-Control"), "public, max-age=600");
-  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=600");
+  assert.equal(res.status, 503);
+  assert.equal(res.headers.get("Location"), null);
+  assert.equal(res.headers.get("Cache-Control"), "no-store");
+  assert.equal(res.headers.get("Retry-After"), "600");
   const g = internet();
   const sansDessin = makeHandler({ fetchImpl: g, env: { ...env, RENDUS_MINUTE: "1" } });
   await sansDessin(req("type=movie&shape=poster&id=tt15239678"));
   g.calls.length = 0;
-  assert.equal((await sansDessin(req("type=movie&shape=landscape&id=tt15239678"))).headers.get("Location"), "https://image.tmdb.org/t/p/w780/bd.jpg");
+  assert.equal((await sansDessin(req("type=movie&shape=landscape&id=tt15239678"))).status, 503);
   assert.ok(!g.calls.some((u) => u.includes("image.tmdb.org")), g.calls.join("\n"));
 });
 
@@ -329,21 +330,21 @@ test("presque classée sans rien à poser : redirection courte", async () => {
   assert.ok(age(res, "Vercel-CDN-Cache-Control") <= secondesAvantBascule());
 });
 
-// Le titre ne doit jamais manquer : logo introuvable sur une image sans texte → l'affiche d'origine de TMDB (avec son
-// titre), gardée une heure, jamais une affiche sans nom (une erreur 502 n'est jamais gardée : chaque demande redessinerait).
-test("logo introuvable : redirection vers l'affiche d'origine, gardée une heure", async () => {
+// Le titre ne doit jamais manquer : logo introuvable sur une image sans texte → une erreur passagère (503, Retry-After
+// une heure), l'appli montre l'affiche d'origine (avec son titre), jamais une affiche sans nom. Pas de redirection
+// vers TMDB : Nuvio la garderait un an.
+test("logo introuvable : erreur passagère, l'affiche d'origine dans l'appli", async () => {
   const base = internet();
   const f = async (url, opts) => (String(url).endsWith("/logo.png") ? new Response("non", { status: 404 }) : base(url, opts));
   const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678"));
-  assert.equal(res.status, 302);
-  assert.equal(res.headers.get("Location"), "https://image.tmdb.org/t/p/w500/fr.jpg");
-  assert.equal(res.headers.get("Cache-Control"), "public, max-age=3600");
-  assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=3600");
+  assert.equal(res.status, 503);
+  assert.equal(res.headers.get("Cache-Control"), "no-store");
+  assert.equal(res.headers.get("Retry-After"), "3600");
   const avecFond = internet({ detail: json({ ...film, images: { ...film.images, backdrops: [{ iso_639_1: null, file_path: "/bdnu.jpg" }] } }) });
   const g = async (url, opts) => (String(url).endsWith("/logo.png") ? new Response("non", { status: 404 }) : avecFond(url, opts));
   const pays = await makeHandler({ fetchImpl: g, env })(req("type=movie&shape=landscape&id=tt15239678"));
-  assert.equal(pays.status, 302);
-  assert.equal(pays.headers.get("Location"), "https://image.tmdb.org/t/p/w780/bd.jpg");
+  assert.equal(pays.status, 503);
+  assert.equal(pays.headers.get("Location"), null);
 });
 
 // Lien bricolé (paramètre en trop, lettres dans le désordre ou inconnues, imdb qui contredit l'id) : redirigé

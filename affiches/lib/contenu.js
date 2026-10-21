@@ -28,11 +28,11 @@ export const GENRES_COMPLETS = {
   10764: "Téléréalité", 10765: "SF & Fantastique", 10766: "Feuilleton", 10767: "Talk-show",
   10768: "Guerre & Politique",
 };
-const LIBELLES_STATUT = { bientot: "BIENTÔT", salle: "EN SALLE", nouveau: "NOUVEAU", saison: "NOUVELLE SAISON" };
+const LIBELLES_STATUT = { bientot: "BIENTÔT", salle: "AU CINÉMA", nouveau: "NOUVEAU", saison: "NOUVELLE SAISON" };
 const MOIS = ["JANV.", "FÉVR.", "MARS", "AVR.", "MAI", "JUIN", "JUIL.", "AOÛT", "SEPT.", "OCT.", "NOV.", "DÉC."];
-const DEBUTS = { dispo: "DISPO LE", cinema: "AU CINÉMA LE", sortie: "SORTIE LE" };
+const DEBUTS = { dispo: "DISPO LE", cinema: "SORTIE LE", sortie: "SORTIE LE" };
 
-const DEBUTS_COMPTE = { dispo: "DISPO", cinema: "AU CINÉMA", sortie: "SORTIE" };
+const DEBUTS_COMPTE = { dispo: "DISPO", cinema: "SORTIE", sortie: "SORTIE" };
 const jours = (de, a) => Math.round((Date.parse(a) - Date.parse(de)) / 86400000);
 
 /** Compte à rebours : « AU CINÉMA DANS 57 JOURS », « DISPO DANS ENV. 35 JOURS », « AU CINÉMA DEMAIN ». */
@@ -42,7 +42,7 @@ function libelleCompte({ quoi, date, vers }, today) {
   return `${DEBUTS_COMPTE[quoi]} ${quand}`;
 }
 
-/** « DISPO LE 2 NOV. », « DISPO VERS LE 3 DÉC. », « AU CINÉMA LE 12 MARS 2027 »… (comme les rangées de l'addon). */
+/** « DISPO LE 2 NOV. », « DISPO VERS LE 3 DÉC. », « SORTIE LE 12 MARS 2027 »… (comme les rangées de l'addon). */
 function libelleDate({ quoi, date, vers }, today) {
   const jour = `${Number(date.slice(8, 10))} ${MOIS[Number(date.slice(5, 7)) - 1]}`;
   const debut = vers ? DEBUTS[quoi].replace(/ LE$/, " VERS LE") : DEBUTS[quoi];
@@ -139,7 +139,14 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
     if (Object.keys(line).length && r.ligne.ordre !== "gna") line.ordre = r.ligne.ordre;
   }
   // Pas encore sorti : la date quand on la connaît, plutôt que « Bientôt » ou « En salle ».
-  let libelle = r.statut.on && statut ? (quand ? (r.statut.forme === "compte" ? libelleCompte(quand, today) : libelleDate(quand, today)) : LIBELLES_STATUT[statut]) : null;
+  // Au cinéma en ce moment : « AU CINÉMA », et en petit dessous la date où on pourra le voir chez soi.
+  // Pas encore sorti : la date (« SORTIE LE 4 NOV. ») quand on la connaît, sinon « BIENTÔT ».
+  const dateDe = (q) => (r.statut.forme === "compte" ? libelleCompte(q, today) : libelleDate(q, today));
+  let libelle = null, libelle2 = null;
+  if (r.statut.on && statut) {
+    if (statut === "salle") { libelle = LIBELLES_STATUT.salle; if (quand) libelle2 = dateDe(quand); }
+    else libelle = quand ? dateDe(quand) : LIBELLES_STATUT[statut];
+  }
   // Série dont un épisode est sorti il y a moins de 7 jours (si rien de plus fort à dire).
   if (r.statut.on && r.statut.episode && !libelle && facts.type === "series" && facts.lastEpisode && facts.lastEpisode <= today && jours(facts.lastEpisode, today) < 7) libelle = "NOUVEL ÉPISODE";
   let place = r.tendance.on && rank >= 1 && rank <= 20 ? rank : null;
@@ -149,7 +156,7 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
     const texte = r.bandeau.porte === "tendance" ? (place ? `N°${place}` : null) : libelle;
     if (texte) {
       bandeau = { texte, coin: r.bandeau.coin };
-      if (r.bandeau.porte === "tendance") place = null; else libelle = null;
+      if (r.bandeau.porte === "tendance") place = null; else { libelle = null; libelle2 = null; }
     }
   }
   const b = r.haut, a = r.ambiance;
@@ -214,6 +221,7 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
   if (r.infos.culte && noteCulte >= 8 && facts.vote && facts.vote.count >= 3000) content.culte = true;
   // Clés ajoutées seulement quand elles servent (même raison : l'ETag des autres affiches ne bouge pas).
   if (bandeau) content.bandeau = bandeau;
+  if (libelle && libelle2) content.statut2 = libelle2;
   if (plateforme && r.plateforme.place === "coin") content.coin = plateforme;
   if (source === "fond" && full) content.fondLarge = true;
   return content;

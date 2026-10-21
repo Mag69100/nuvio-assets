@@ -249,6 +249,8 @@ function blocStatut(content, m, accent, place, descente) {
       : st.statut === "etiquette"
         ? h("div", { display: "flex", background: CREME, color: ENCRE, borderRadius: 5, padding: "4px 8px", fontSize: t * 0.62, fontWeight: 800, letterSpacing: t * 0.05 }, content.statut)
         : h("div", { display: "flex", fontSize: t * 0.7, fontWeight: 800, letterSpacing: t * 0.08, color: "#fff", textShadow: m.ombre }, content.statut));
+    // Petite ligne sous le statut (« AU CINÉMA », puis « DISPO LE 1 DÉC. »).
+    if (content.statut2) pile.push(h("div", { display: "flex", marginTop: -t * 0.12, fontSize: t * 0.5, fontWeight: 700, letterSpacing: t * 0.05, color: "#fff", opacity: 0.85, textShadow: m.ombre }, content.statut2));
   }
   if (content.rank) {
     if (b) {
@@ -314,7 +316,7 @@ function positionBloc(m, place, descente) {
 
 /** Bandeau en coin : une bande à la couleur d'accent, en diagonale, qui porte le statut ou le N° de tendance. */
 /**
- * Taille du texte du bandeau : celle des badges, réduite pour qu'un texte long (« AU CINÉMA LE 12 MARS 2027 »)
+ * Taille du texte du bandeau : celle des badges, réduite pour qu'un texte long (« SORTIE LE 12 MARS 2027 »)
  * tienne dans la partie visible de la bande (environ 62 % de sa longueur ; une lettre ≈ 0,62 de la taille).
  */
 export function tailleBandeau(texte, t, L) {

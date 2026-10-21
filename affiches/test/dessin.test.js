@@ -548,3 +548,9 @@ test("fondu_precis_dessine", async () => {
   const [haut] = await zone(await fondu({ taille: 0.85 }), 0, 200, 400, 40), [bas] = await zone(await fondu({ taille: 0.25 }), 0, 200, 400, 40);
   assert.ok(haut < bas - 5, `hauteur sans effet : ${haut} / ${bas}`);
 });
+
+test("statut_avec_petite_ligne", async () => {
+  const sans = await draw({ ...seul, line: null, statut: "AU CINÉMA" }, f);
+  const avec2 = await draw({ ...seul, line: null, statut: "AU CINÉMA", statut2: "DISPO LE 1 DÉC." }, f);
+  assert.ok(await compte(avec2, [0, 0, 220, 90], blanc) > await compte(sans, [0, 0, 220, 90], blanc) + 40, "pas de petite ligne sous le statut");
+});

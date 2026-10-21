@@ -508,17 +508,19 @@ export const NUVIO_JS = "var __name = function (f) { return f; };\nconst NV_PP =
     if (!caches.ba.has(u)) caches.ba.set(u, fetch(u).then((r) => r.ok ? r.json() : {}).then((d) => (d && /^[A-Za-z0-9_-]{6,20}$/.test(d.key || "")) ? d.key : null).catch(() => null));
     return caches.ba.get(u);
   };
-  // Lecteur YouTube sans cookies (youtube-nocookie), avec l'adresse du site (origin, referrer) : pas de cookie
-  // tiers posé sans accord. S'il demande « Connectez-vous pour confirmer que vous n'êtes pas un robot », la
-  // vidéo ne joue jamais : rien ne s'affiche (quandJoue), et la bande-annonce demandée propose le lien YouTube.
+  // Lecteur YouTube normal (pas youtube-nocookie : sans la session Google, YouTube y demande souvent
+  // « Connectez-vous pour confirmer que vous n'êtes pas un robot »), avec l'adresse du site (origin, referrer).
+  // S'il le demande quand même, la vidéo ne joue jamais : rien ne s'affiche (quandJoue), et la bande-annonce
+  // demandée propose le lien YouTube.
   const youtube = (key, muet) => {
     const f = document.createElement("iframe");
-    f.src = "https://www.youtube-nocookie.com/embed/" + key + "?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1&origin=" + encodeURIComponent(location.origin) + (muet ? "&mute=1&controls=0&loop=1&disablekb=1&playlist=" + key : "");
+    f.src = "https://www.youtube.com/embed/" + key + "?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1&origin=" + encodeURIComponent(location.origin) + (muet ? "&mute=1&controls=0&loop=1&disablekb=1&playlist=" + key : "");
     f.title = "Bande-annonce"; f.allow = "autoplay; encrypted-media; picture-in-picture"; f.allowFullscreen = true; f.referrerPolicy = "strict-origin-when-cross-origin"; if (muet) f.tabIndex = -1;
     return f;
   };
   // Les bandes-annonces qui partent toutes seules attendent le premier geste du visiteur sur la page (clic,
-  // toucher, touche du clavier) : rien n'est chargé chez YouTube pour qui ne fait que passer. Ensuite, comme Nuvio.
+  // toucher, touche du clavier) : rien n'est chargé chez YouTube (ni ses cookies) pour qui ne fait que passer.
+  // Ensuite, comme Nuvio.
   let aInteragi = false;
   ["pointerdown", "keydown"].forEach((t) => addEventListener(t, () => { aInteragi = true; }, { capture: true, once: true, passive: true }));
   // quandJoue(iframe, ok) : ok() quand YouTube dit que la vidéo joue vraiment (état 1). Bloquée (robot,

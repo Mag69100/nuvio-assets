@@ -67,9 +67,13 @@ test("mur_du_hall_cache_si_vide", () => {
   for (const m of hall.matchAll(/<script>([\s\S]*?)<\/script>/g)) assert.doesNotThrow(() => new Function(m[1]));
 });
 
-test("bandes_annonces_sans_cookie", () => {
-  assert.ok(NUVIO_JS.includes("https://www.youtube-nocookie.com/embed/"));
-  assert.doesNotMatch(NUVIO_JS, /www\.youtube\.com\/embed/);
+// Lecteur YouTube normal (youtube-nocookie demande souvent « pas un robot ») ; celles qui partent toutes seules
+// attendent le premier geste du visiteur.
+test("bandes_annonces_apres_un_geste", () => {
+  assert.ok(NUVIO_JS.includes('f.src = "https://www.youtube.com/embed/"'));
+  assert.doesNotMatch(NUVIO_JS, /youtube-nocookie\.com\/embed/);
+  assert.match(NUVIO_JS, /\["pointerdown", "keydown"\]\.forEach\(\(t\) => addEventListener\(t, \(\) => \{ aInteragi = true; \}/);
+  assert.ok((NUVIO_JS.match(/aInteragi/g) || []).length >= 3);
 });
 
 // Les liens « Salle 2 » du guide n'emportent pas la clé Gemini ; le lien d'addon à installer, si.

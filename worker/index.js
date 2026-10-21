@@ -134,6 +134,21 @@ function seasonDef(today, cfg) {
   return { id: "accueil-saison", type: "movie", name: s.title, home: true, ...source };
 }
 
+/**
+ * /saison.json : { saison, ids } — la fête du jour et les films de sa rangée (identifiants TMDB des 3 premières pages,
+ * réglages par défaut, plus la version sans horreur d'Halloween), pour l'habillage de saison des affiches maison
+ * (affiches/lib/saison.js) : Nuvio ne dit pas au service de quelle rangée vient une affiche. Hors fête : aucun film.
+ */
+async function filmsDeSaison(env, today, cfg) {
+  const saison = pickSeason(today);
+  if (saison === "a-laffiche") return { saison: null, ids: [] };
+  const defs = [seasonDef(today, cfg), ...(saison === "halloween" ? [seasonDef(today, { ...cfg, e: [...cfg.e, "Horreur"] })] : [])];
+  const opts = { cfg, region: cfg.g };
+  const pages = await Promise.all(defs.flatMap((def) => [1, 2, 3].map((page) =>
+    tmdb(env, "/discover/movie", { ...discoverParams(def, "movie", today, opts), page }, langOf(cfg)))));
+  return { saison, ids: [...new Set(pages.flatMap((d) => (d.results || []).map((it) => it.id)))] };
+}
+
 // ---------- définitions ----------
 /** Toutes les rangées possibles : saison, rangées par défaut puis rangées facultatives. */
 function allRows(today, cfg) {
@@ -1773,7 +1788,7 @@ function json(data, maxAge) {
   });
 }
 
-const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie", "lien-fixe", "tendances"]);
+const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie", "lien-fixe", "tendances", "saison.json"]);
 
 async function loadCollections() {
   const res = await fetch(`${ASSETS}/collections/collections.json`, { cf: { cacheTtl: 600, cacheEverything: true } });
@@ -1972,6 +1987,12 @@ const app = {
       return new Response(r.body, { status: r.status, headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } });
     }
     if (!env.TMDB_API_KEY) return json({ error: "Secret TMDB_API_KEY manquant" }, 0);
+    // Les films de la rangée de saison, lus par le service d'affiches (habillage de la saison).
+    // Gardés 3 h, comme les pages TMDB ; une liste vide en pleine fête (TMDB injoignable) : 5 min.
+    if (!cfgSeg && path === "/saison.json") {
+      const s = await filmsDeSaison(env, today, cfg);
+      return json(s, s.saison && !s.ids.length ? CACHE_DEGRADE_S : CACHE_CATALOG_S);
+    }
     // Diagnostics (/debug) : ils dépensent la clé Gemini de l'instance, donc réservés à l'hébergeur,
     // depuis son propre lien (celui qui contient cette clé) : /<config>/debug/…
     if (path.startsWith("/debug/") && !(env.GEMINI_API_KEY && cfg.k && same(cfg.k, env.GEMINI_API_KEY))) {

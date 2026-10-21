@@ -834,3 +834,30 @@ test("vf_json_avec_la_cle_du_relais", async () => {
   } finally { delete env.RELAIS_KEY; }
   assert.deepEqual(vus, ["cle-du-relais-de-test"]);
 });
+
+// Habillage de saison des affiches maison : /saison.json donne la fête du jour et les films de sa rangée (3 pages,
+// plus Halloween sans horreur) ; hors fête, aucun film et aucun appel à TMDB.
+test("films_de_la_rangee_de_saison", async () => {
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    const u = new URL(url), page = Number(u.searchParams.get("page"));
+    const base = u.searchParams.get("with_genres") === "27" ? 100 : 200;
+    return new Response(JSON.stringify({ results: [{ id: base + page }, { id: 1 }], page, total_pages: 5 }));
+  };
+  mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-21T12:00:00Z") });
+  try {
+    const res = await get("/saison.json");
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get("Cache-Control"), /max-age=10800/);
+    const d = await res.json();
+    assert.equal(d.saison, "halloween");
+    assert.deepEqual(d.ids.sort((a, b) => a - b), [1, 101, 102, 103, 201, 202, 203]);
+    assert.equal(calls.filter((u) => u.includes("/discover/movie")).length, 6);
+  } finally { mock.timers.reset(); }
+  mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-09-15T12:00:00Z") });
+  try {
+    calls.length = 0;
+    assert.deepEqual(await (await get("/saison.json")).json(), { saison: null, ids: [] });
+    assert.equal(calls.length, 0);
+  } finally { mock.timers.reset(); }
+});

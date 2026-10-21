@@ -1009,6 +1009,7 @@ export const STAGE_JS = String.raw`
     ["1895", "La séance de 1895", "Une année, au clavier : celle du premier film."],
     ["esquimau", "Acheter un esquimau à l'entracte", "À l'entracte du guide, quelqu'un vend des glaces."],
     ["ouvreuse", "Saluer l'ouvreuse", "Dans le guide, quelqu'un t'éclaire le chemin."],
+    ["cinephile", "Deviner le film du jour", "Dans le hall, un film attend chaque jour d'être deviné."],
   ];
   if (root.dataset.saison === "halloween") LISTE.push(["colonie", "Réveiller la colonie de chauves-souris", "Elles volent au-dessus de toi."]);
   let trouves = [];

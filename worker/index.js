@@ -22,6 +22,7 @@
  * variable GEMINI_PUBLIC=on, pour tous les liens sans clé.
  *   /meta/<type>/<id>.json      fiche détaillée (résumé, casting, saisons, épisodes) en français
  *   /cinemeta/<type>/<id>.json  rangées de Nuvio tel qu'installé (Cinemeta), pour l'avant / après des aperçus
+ *   /jeu                        le film du jour à deviner (image, indices et essais sur /jeu/<date>/…)
  */
 import DEFS from "../catalogs.json";
 import {
@@ -36,6 +37,7 @@ import { lienPage } from "./lien.js";
 import { copiePage } from "./copie.js";
 import { hallPage } from "./hall.js";
 import { routeCinemeta } from "./cinemeta.js";
+import { routeJeu } from "./jeu.js";
 import { statique } from "./statique.js";
 import { smartSearch, prepareWords, isExact, norm, capQuery } from "./search.js";
 import { imdbRating } from "./ratings.js";
@@ -1895,6 +1897,8 @@ const app = {
     const rows = allRows(today, null);
     // Nuvio « de base » de l'avant / après des aperçus : les rangées de Cinemeta, relayées (voir cinemeta.js).
     if (path.startsWith("/cinemeta/")) return routeCinemeta(path, HEADERS, ctx);
+    // Le film du jour à deviner : la page, son image, ses indices et ses essais (voir jeu.js).
+    if (path === "/jeu" || path.startsWith("/jeu/")) return routeJeu(request, env, ctx, url, path, today, HEADERS);
 
     // Premier segment = config personnalisée, s'il n'est pas un mot réservé.
     let cfgSeg = "", fixedId = "";

@@ -1509,7 +1509,7 @@ function ongletPaysage() {
   const bloc = el("div", { class: "regie-paysage" },
     choix("Paysage", [[false, "Mêmes réglages"], [true, "Réglages à part"]], apart, (x) => regieChange(() => { regieRP = x ? JSON.parse(JSON.stringify(regieR)) : null; if (x) regieForme = "landscape"; })),
     aide(apart
-      ? "Avec la scène en Paysage, tout ce que tu règles ne touche que les images en paysage (Continuer à regarder…)."
+      ? "Avec la scène en Paysage, tout ce que tu règles ne touche que les images en paysage (Continuer à regarder…). Ça reste un seul lien : les deux réglages sont dedans, Nuvio prend le bon pour chaque image."
       : "Les images en paysage suivent les réglages des affiches. Choisis « Réglages à part » pour les régler séparément."));
   if (apart) bloc.append(el("button", { type: "button", class: "btn", text: "Reprendre les réglages des affiches", "data-cle": "paysage:reprendre", onclick: () => regieChange(() => { regieRP = JSON.parse(JSON.stringify(regieR)); }) }));
   return [bloc];

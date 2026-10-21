@@ -248,6 +248,12 @@ test("importer_un_lien", async () => {
   assert.equal(ecrireReglages(reglagesDuLien("  " + DEFAUT_LIEN + "&s=1.T0  ").r), "T0");
   assert.equal(ecrireReglages(reglagesDuLien("https://affiches-catalogue-fr.vercel.app/movie/poster/tt1375666.jpg?imdb=tt1375666&s=1.Q0").r), "Q0");
   assert.equal(ecrireReglages(reglagesDuLien("https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?imdb={imdb_id?}&o=tga").r), "T0G0A0");
+  // Copié d'une barre d'adresse : accolades codées (%7B…%7D), et même tout le lien codé.
+  const code = DEFAUT_LIEN.replace(/\{/g, "%7B").replace(/\}/g, "%7D") + "&s=1.coD1failWc0a10b02do3b13c13e13f2";
+  assert.equal(ecrireReglages(reglagesDuLien(code).r), ecrireReglages(reglagesDuLien(DEFAUT_LIEN + "&s=1.coD1failWc0a10b02do3b13c13e13f2").r));
+  assert.notEqual(ecrireReglages(reglagesDuLien(code).r), "");
+  assert.equal(ecrireReglages(reglagesDuLien(encodeURIComponent(DEFAUT_LIEN + "&s=1.T0")).r), "T0");
+  assert.equal(reglagesDuLien("%E0%A4%A"), null);
   // Autre chose qu'un lien d'affiches : refusé.
   for (const x of ["", "bonjour", "https://exemple.com/?s=1.T0", "https://posters.example/{type}/{id}?s=1.T0"]) assert.equal(reglagesDuLien(x), null, x);
 });

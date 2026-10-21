@@ -241,7 +241,9 @@ export function creerLienAffiches() {
    * ou null), ou null si ce n'est pas un lien d'affiches (…/{type}/{shape}/{id}.jpg ou l'adresse d'une affiche).
    */
   function reglagesDuLien(texte) {
-    const t = String(texte || "").trim();
+    let t = String(texte || "").trim();
+    // Copié d'une barre d'adresse ou d'une appli : accolades (voire tout le lien) codées, %7Btype%7D…
+    for (let i = 0; i < 2 && /%[0-9a-f]{2}/i.test(t); i++) { try { t = decodeURIComponent(t); } catch (e) { break; } }
     if (!/\/(\{type\}|movie|series)\/(\{shape\}|poster|landscape)\/[^/?]+\.jpg(\?|$)/.test(t)) return null;
     const params = new URLSearchParams(t.includes("?") ? t.slice(t.indexOf("?") + 1) : "");
     return { r: lireReglages(params), rp: params.has("sp") ? lireReglagesPaysage(params) : null };

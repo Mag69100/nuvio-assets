@@ -61,8 +61,11 @@ Décor de fête à prévisualiser : `?saison=noel`, `saint-valentin`, `paques`, 
 ## Héberger ta propre copie
 
 Le lien principal est partagé par tout le monde : ses quotas gratuits peuvent saturer. Ta copie tourne avec tes
-clés et ton quota, avec le même code, et continue de lire les images et données communes sur ce dépôt :
-elle profite des mises à jour de chaque nuit.
+clés et ton quota, avec le même code, et continue de lire les images et données communes sur ce dépôt
+(tuiles, vocabulaire de la recherche) : elle profite de leurs mises à jour de chaque nuit. Les notes IMDb, elles,
+sont intégrées au code de l'addon (refaites chaque lundi) : une copie Cloudflare les reçoit avec « Sync fork »
+(puis le redéploiement automatique), une copie Docker avec la nouvelle image (`docker compose pull`), refaite
+dès que les notes changent.
 
 Il te faut :
 - une clé TMDB (gratuite : themoviedb.org → Paramètres → API, clé v3) ;
@@ -90,6 +93,7 @@ Il te faut :
 
 Le conteneur fait tourner le Worker avec `wrangler dev` (runtime workerd de Cloudflare), sans les droits root ;
 le cache, tes choix et le secret de connexion sont gardés dans `./donnees`. Image : `ghcr.io/xnzx07/nuvio-assets:latest` (ou `:<version>`).
+`docker ps` affiche `healthy` quand l'addon répond.
 
 ### Variables
 
@@ -160,26 +164,34 @@ chaque correction. Rien ne change sans ton accord.
 ### Tests
 
 ```sh
-node --import ./tests/support/register.mjs --test "tests/*.test.js"
+node --import ./tests/support/register.mjs --test "tests/*.test.js"   # addon et site
+cd affiches && npm ci && npm test                                     # service des affiches
+python -m unittest discover -s tests/python                           # scripts (Pillow nécessaire)
 ```
 
-Node 22 ou plus, aucun paquet à installer (`tests/support` charge les JSON et le fichier des notes IMDb
-comme le fait Cloudflare).
+Addon et site : Node 22 ou plus, aucun paquet à installer (`tests/support` charge les JSON et le fichier des
+notes IMDb comme le fait Cloudflare). Les trois suites tournent sur GitHub à chaque push et pull request
+(workflow « Tests »).
 
 ### Déploiement et tâches automatiques
 
 Le Worker est déployé par Cloudflare (Workers Builds) à chaque push sur `main`. Le service des affiches
-(`affiches/`) est déployé par Vercel, seulement quand ce dossier change.
+(`affiches/`) est déployé par Vercel, seulement quand ce dossier change. Ni l'un ni l'autre n'attend le
+workflow « Tests ».
 
 | Workflow | Quand | Ce qu'il fait |
 |---|---|---|
-| Mettre à jour l'addon | chaque nuit | Addon statique, saison en cours, vocabulaire de recherche |
-| Notes IMDb | chaque lundi | Refait `data/imdb-ratings.bin` |
-| Générer les images des collections | à chaque changement d'`assets.json` | Tuiles et GIF |
-| Image Docker | à chaque changement du Worker | Publie `ghcr.io/xnzx07/nuvio-assets` |
+| Tests | à chaque push et pull request | Les trois suites de tests |
+| Mettre à jour l'addon | chaque nuit, et à chaque changement de `catalogs.json`, `scripts/update_addon.py` ou `scripts/build_search_words.py` | Addon statique, saison en cours, vocabulaire de recherche |
+| Notes IMDb | chaque lundi, et à chaque changement de `scripts/build_imdb_ratings.py` | Refait `data/imdb-ratings.bin`, puis relance l'image Docker s'il a changé |
+| Générer les images des collections | à chaque changement d'`assets.json`, `scripts/make_assets.py` ou `fonts/` | Tuiles et GIF |
+| Image Docker | à chaque changement du Worker, de `catalogs.json`, `wrangler.toml`, `Dockerfile` ou `docker/`, et après de nouvelles notes IMDb | Publie `ghcr.io/xnzx07/nuvio-assets` |
 | Liste des plateformes TMDB | à la main | Refait `data/providers_fr.json` |
 
-Secret GitHub nécessaire : `TMDB_API_KEY`.
+Secret GitHub nécessaire : `TMDB_API_KEY`. Les workflows qui enregistrent sur `main` ne tournent que sur ce
+dépôt (jamais sur un fork) ; en cas d'échec, ils ouvrent une issue « Échec de … » (ou la complètent).
+Une panne de TMDB ne publie pas un addon troué : une liste en échec garde ses pages de la veille, et au-delà
+de 10 % de listes en échec rien n'est modifié.
 
 ### Diagnostics
 

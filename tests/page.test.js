@@ -57,6 +57,33 @@ test("liens_salle_2_sans_cle", () => {
   assert.equal(sansCle("https://x/configure"), "https://x/configure");
 });
 
+// L'adresse fabriquée par la page (compact + enc, dans le navigateur) se relit à l'identique par le serveur
+// (decodeConfig) : tous les réglages, rangées sur mesure, noms et clé compris.
+test("adresse_de_la_page_relue_par_le_serveur", () => {
+  const rows3 = [{ id: "a", home: true, name: "A", type: "movie" }, { id: "b", home: true, name: "B", type: "series" }, { id: "c", home: false, name: "C", type: "movie" }];
+  const disc = [{ id: "d1", name: "D1", type: "movie" }, { id: "d2", name: "D2", type: "series" }];
+  const html = configurePage({ origin: "https://x", cfg: decodeConfig("", rows3, disc), rows: rows3, discover: disc,
+    providers: PROVIDERS, collections: COLLECTIONS.map((c) => ({ ...c, pos: 0, folders: [] })), defaults: defaults(rows3, disc),
+    regions: REGIONS, genres: GENRES, languages: LANGUAGES, sorts: SORTS, seasons: SEASON_KEYS, maxCustom: MAX_CUSTOM, season: null });
+  const D = JSON.parse(/const D = (.*);\nconst hashDepart/.exec(html)[1]);
+  const src = /function rowRef[\s\S]*?\nfunction enc\(obj\) \{[\s\S]*?\n\}\n/.exec(html)[0];
+  const { compact, enc } = new Function("D", "const same = (a, b) => JSON.stringify(a) === JSON.stringify(b); const baseIds = D.rows.map(r => r.id);\n"
+    + src + "\nreturn { compact, enc };")(D);
+  const lire = (st) => { const c = compact(st); const { custom, ...cfg } = decodeConfig(Object.keys(c).length ? enc(c) : "", rows3, disc); return cfg; };
+  // Réglages d'origine : adresse vide, relue telle quelle.
+  assert.deepEqual(lire(structuredClone(D.cfg)), D.cfg);
+  const st = structuredClone(D.cfg);
+  Object.assign(st, {
+    n: "Ma salle à moi ✨", r: ["perso-0", "c", "a"], p: [PROVIDERS[0].id, PROVIDERS[2].id], d: ["d2"], c: [COLLECTIONS[1].id],
+    o: { a: "Mes films", "perso-0": "Peur" }, x: [{ n: "Frissons", t: 1, g: [2, 5], w: [0], l: LANGUAGES[1][0], y: [2000, 2020], v: 7, s: 2 }],
+    g: REGIONS[1].id, e: [GENRES[3][0]], m: 7, a: 1990, f: true, h: [SEASON_KEYS[0][0]], t: { [COLLECTIONS[0].id]: [1, 3] },
+    to: { [COLLECTIONS[0].id]: [3, 0, 1] }, u: true, k: KEY, al: "a".repeat(24),
+  });
+  assert.deepEqual(lire(st), st);
+  // Billet offert (sans clé ni jeton) : relu sans eux, le reste identique.
+  assert.deepEqual(lire({ ...st, k: "", al: "" }), { ...st, k: "", al: "" });
+});
+
 // L'indication sous le champ accepte les mêmes clés que le serveur (nouveau format « AQ.… » compris).
 test("indication_meme_format_que_serveur", () => {
   assert.ok(page().includes("/^[A-Za-z0-9._~+/=:-]{20,200}$/.test(k)"));

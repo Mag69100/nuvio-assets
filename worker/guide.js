@@ -79,6 +79,100 @@ const consigne = (addon) => `<p class="consigne" data-consigne="${addon}"><b>Pou
 
 export const NUVIO_TV_APK = LINKS.nuvioTvApk;
 
+// ---------- Étape 2 : un onglet par appareil où installer Nuvio (TV par défaut : le guide se lit souvent à côté) ----------
+const ONGLETS = [
+  ["tv", ICONES_APPAREIL.tv, "TV Android", "Google TV, Shield…"],
+  ["fire", ICONES_APPAREIL.stick, "Fire TV", "Stick, Cube"],
+  ["android", '<rect x="9" y="3" width="14" height="26" rx="3"/><path d="M14 25h4"/>', "Android", "téléphone, tablette"],
+  ["ios", '<rect x="5" y="4" width="22" height="25" rx="3"/><circle cx="16" cy="25.5" r=".9"/>', "iPhone, iPad", "via AltStore"],
+  ["pc", '<rect x="6" y="7" width="20" height="13" rx="1.5"/><path d="M3 24h26l-2-4H5z"/>', "Windows, Mac", "ordinateur"],
+  ["linux", '<rect x="4" y="6" width="24" height="20" rx="2"/><path d="M9 13l4 3-4 3M15 20h7"/>', "Linux", "ordinateur"],
+];
+const ongletsHTML = () => ONGLETS.map(([id, svg, nom, detail], i) => `<button type="button" role="tab" id="tab-${id}" aria-controls="panel-${id}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-tab="${id}"><svg viewBox="0 0 32 32" aria-hidden="true">${svg}</svg><b>${nom}</b><small>${detail}</small><i class="claude-dispo">+ Claude</i></button>`).join("\n      ");
+// Le panneau d'un onglet ; seul celui de la TV est ouvert au départ.
+const panneau = (id, contenu) => `<div class="panel" role="tabpanel" id="panel-${id}" aria-labelledby="tab-${id}" data-panel="${id}"${id === "tv" ? "" : " hidden"}>
+      ${contenu}
+    </div>`;
+const modes = (avecClaude) => `<div class="modes" role="group" aria-label="Façon d'installer">
+        <button type="button" data-mode="main" aria-pressed="true"><b>À la main</b><small>pas à pas</small></button>
+        <button type="button" data-mode="claude" aria-pressed="false"><b>Avec Claude</b><small>${avecClaude}</small></button>
+      </div>`;
+
+// TV Android et Fire TV : mêmes étapes (Downloader, puis l'APK), à quelques menus près.
+// n : la façon de nommer l'appareil dans les phrases (« la TV », « ton Fire TV »…).
+const TV = { id: "tv", n: { le: "la TV", ton: "ta TV", mon: "ma TV", du: "de la TV", au: "à la TV" },
+  etapes: [
+    "Sur la TV, installe l'appli <b>Downloader</b> depuis le Play Store.",
+    `Autorise-la à installer des applis : <span class="path">Paramètres → Système (ou Appareil) → Sécurité → Sources inconnues → Downloader</span>. Le chemin varie un peu selon la marque.`,
+    "Dans Downloader, tape ce code dans le champ d'adresse et valide. Il télécharge directement le bon fichier, <b>app-full-universal-release.apk</b> :",
+  ],
+  fin: [`Choisis <b>Installer</b>, puis ouvre Nuvio. Vérifie dans <span class="path">Paramètres → À propos</span> que la version est ${LINKS.nuvioTvVersion} ou plus récente.`],
+  debogage: `<span class="path">Paramètres → Système → À propos</span>, appuie 7 fois sur « Version de l'OS » (ou « Build »). Puis <span class="path">Options pour les développeurs → Débogage USB</span>.`,
+  ip: `<span class="path">Paramètres → Réseau et Internet</span>, puis ton Wi-Fi`,
+  // Android 11 et plus : certaines TV (Google TV Streamer…) refusent « adb connect » sur le port 5555 tant
+  // qu'on n'a pas associé l'ordinateur par le débogage sans fil (code d'association, port tiré au hasard).
+  secours: {
+    claude: " Si la connexion sur le port 5555 est refusée, guide-moi pour activer « Débogage sans fil » dans les options pour les développeurs, associe l'ordinateur avec « adb pair » (adresse, port et code d'association affichés sur la TV), puis connecte-toi avec l'adresse et le port de l'écran « Débogage sans fil ».",
+    main: `<p class="small">Connexion refusée ? Sur les TV récentes (Android 11 et plus), active <span class="path">Options pour les développeurs → Débogage sans fil</span>, choisis « Associer l'appareil avec un code », puis tape <code>adb pair</code> suivi de l'adresse et du port affichés (par exemple <code>adb pair 192.168.1.42:37123</code>) et donne le code à 6 chiffres. Ensuite, <code>adb connect</code> avec l'adresse et le port de l'écran « Débogage sans fil » (pas 5555).</p>`,
+  },
+};
+const FIRE = { id: "fire", n: { le: "le Fire TV", ton: "ton Fire TV", mon: "mon Fire TV", du: "du Fire TV", au: "au Fire TV" },
+  // Les derniers Fire TV tournent sous Vega OS, plus sous Android : aucune appli Android ne s'y installe.
+  avant: `<p class="note warn"><b>Fire TV Stick 4K Select</b> et <b>Fire TV Stick HD de 2026</b> (Wi-Fi 6) : ils tournent sous Vega OS, pas sous Android, et Nuvio ne peut pas s'y installer. Pour vérifier : <span class="path">Paramètres → Ma Fire TV → À propos</span> ; si la version du logiciel commence par « 1. », c'est Vega OS. Les Fire TV Stick Lite, 4K et 4K Max, le Cube et les TV Fire TV marchent.</p>`,
+  etapes: [
+    "Installe <b>Downloader</b> de <b>AFTVnews</b> depuis l'Amazon Appstore (cherche « Downloader », icône orange). Évite « Downloader for Fire, Browser… », une imitation payante.",
+    `Active les options développeur : <span class="path">Paramètres → Ma Fire TV → À propos</span>, puis appuie 7 fois sur le nom de l'appareil.`,
+    `Autorise Downloader : <span class="path">Paramètres → Ma Fire TV → Options pour les développeurs → Applications de sources inconnues → Downloader</span>.`,
+    "Ouvre Downloader, va dans le champ d'adresse, tape ce code (ou dicte-le à la télécommande Alexa) et valide. Il télécharge directement le bon fichier, <b>app-full-universal-release.apk</b> :",
+  ],
+  fin: [
+    "Choisis <b>Installer</b>, puis <b>Supprimer</b> le fichier téléchargé pour libérer de la place.",
+    `Ouvre Nuvio et vérifie dans <span class="path">Paramètres → À propos</span> que la version est ${LINKS.nuvioTvVersion} ou plus récente. Astuce : maintiens le bouton Accueil → Applications pour l'ajouter à tes favoris.`,
+  ],
+  debogage: `<span class="path">Paramètres → Ma Fire TV → À propos</span>, appuie 7 fois sur le nom de l'appareil. Puis <span class="path">Options pour les développeurs → Débogage ADB → Activé</span>.`,
+  ip: `<span class="path">Paramètres → Ma Fire TV → À propos → Réseau</span>`,
+};
+const li = (items) => items.map((t) => `<li>${t}</li>`).join("\n          ");
+const panneauTV = ({ id, n, avant = "", etapes, fin, debogage, ip, secours = { claude: "", main: "" } }, short) => panneau(id, `${avant}${modes("il s'en occupe depuis l'ordi")}
+      <div class="mode-pane" data-pane="main">
+        <ol>
+          ${li(etapes)}
+        </ol>
+        <div class="code"><span>Code Downloader</span><b>${LINKS.downloaderCode}</b></div>
+        <p class="small">Si le code ne marche pas, tape l'adresse à la place :</p>
+        ${copyBox("u-" + id, short)}
+        <ol start="${etapes.length + 1}">
+          ${li(fin)}
+        </ol>
+      <details class="manual"><summary>TV et Fire TV : installer à la main depuis GitHub (si le code ne marche pas)</summary>
+        <p>Ouvre ${link(LINKS.nuvioTv, "la page de Nuvio TV " + LINKS.nuvioTvVersion)}, puis dans « Assets » prends <b>app-full-universal-release.apk</b>. Il marche partout. Les autres fichiers sont plus légers mais propres à un type de processeur : <b>armeabi-v7a</b> pour la plupart des Fire TV et des TV, <b>arm64-v8a</b> pour les boîtiers récents (Shield, Chromecast avec Google TV), <b>x86</b> et <b>x86_64</b> pour les émulateurs et PC.</p>
+      </details>
+      </div>
+      <div class="mode-pane" data-pane="claude" hidden>
+        <p>Tu as un ordinateur sur le même Wi-Fi que ${n.le} et l'appli <b>Claude</b> (avec Claude Code) ? Claude installe Nuvio sur ${n.ton} à ta place, par le réseau (ADB). Rien à télécharger sur ${n.le}.</p>
+        <p class="small">Depuis ton téléphone, l'appli Claude peut piloter Claude Code qui tourne sur ton ordinateur (Remote Control) : ça marche aussi, tant que l'ordinateur reste allumé sur le même Wi-Fi. Une session Claude Code « dans le cloud », elle, ne voit pas ${n.ton}.</p>
+        <ol>
+          <li><b>Active le débogage sur ${n.le}</b> : ${debogage}</li>
+          <li><b>Note l'adresse IP ${n.du}</b> : ${ip}. Elle ressemble à 192.168.1.42.</li>
+          <li><b>Ouvre Claude Code sur l'ordinateur</b> et colle ce message en remplaçant l'adresse IP par celle de ${n.ton} :</li>
+        </ol>
+        <div class="copy long"><code id="u-claude-${id}">Installe Nuvio TV sur ${n.mon} par ADB. Adresse IP ${n.du} : 192.168.1.42. Étapes : installe les outils ADB (Android platform-tools) s'ils manquent, télécharge le fichier APK depuis ${esc(LINKS.nuvioTvApk)}, connecte-toi ${n.au} avec « adb connect » sur le port 5555, puis installe l'APK avec « adb install -r ».${secours.claude} Explique-moi chaque étape avant de la faire et dis-moi quand accepter la demande qui s'affichera sur ${n.le}. À la fin, déconnecte-toi ${n.du}.</code><button type="button" data-copy="u-claude-${id}">Copier</button></div>
+        <ol start="4">
+          <li>Quand ${n.le} affiche <b>« Autoriser le débogage ? »</b>, coche « Toujours autoriser depuis cet ordinateur » et valide.</li>
+          <li>Une fois Nuvio installé, <b>désactive le débogage</b> sur ${n.le} (même menu). Laisser ADB ouvert permet à n'importe quel appareil du réseau de piloter ${n.ton}.</li>
+        </ol>
+        <details class="manual"><summary>Sans Claude : les commandes à taper soi-même</summary>
+          <p>Avec les <a href="https://developer.android.com/tools/releases/platform-tools" target="_blank" rel="noopener">outils ADB de Google</a> installés et le fichier APK téléchargé :</p>
+          <div class="copy long"><code id="u-adb-${id}" class="lignes">adb connect 192.168.1.42:5555
+adb install -r app-full-universal-release.apk
+adb disconnect</code><button type="button" data-copy="u-adb-${id}">Copier</button></div>
+          ${secours.main}
+        </details>
+      </div>`);
+
+// Ordinateur (Windows, Mac ou Linux) : Claude choisit lui-même le bon fichier, le message est le même.
+const MESSAGE_DESKTOP = `Installe Nuvio Desktop sur cet ordinateur. Prends la dernière version sur ${LINKS.nuvioDesktop}, avec le fichier qui correspond à mon système : .msi pour Windows ; .dmg arm64 (puce Apple) ou x86_64 (Intel) pour Mac ; .deb, .rpm, .flatpak ou .AppImage selon ma distribution Linux. Télécharge-le et installe-le. Explique-moi chaque étape avant de la faire, et à la fin dis-moi comment ouvrir Nuvio.`;
+
 export function guidePage({ origin, season }) {
   const short = origin.replace(/^https?:\/\//, "") + "/tv";
   const LOGO = origin + "/logo.png";
@@ -315,7 +409,8 @@ a { color: var(--bulb); font-weight: 700; text-underline-offset: 3px; }
 .code span { font: 700 .7rem var(--body); letter-spacing: .2em; text-transform: uppercase; color: #7a5a4c; }
 .code b { font: 400 3rem/1 var(--display); letter-spacing: .12em; }
 .small { font-size: .88rem; color: var(--dim); }
-#u-adb { white-space: pre; }
+.ou-installer { margin: 0; font: 800 1.05rem var(--body); color: var(--cream); }
+.ou-installer small { display: block; font: 400 .88rem var(--body); color: var(--dim); }
 .panel ul { margin-top: 6px; }
 .manual summary { cursor: pointer; color: var(--bulb); font-weight: 700; }
 .manual p { margin: 8px 0 0; color: #d9c8be; }
@@ -627,7 +722,7 @@ ${secretsHTML("guide")}
   <section class="act" id="avant">
     <header><span class="num">01</span><span class="label">Avant de commencer</span><h2>Ce qu'il te faut</h2></header>
     <ul>
-      <li><b>Un appareil</b> : une TV Android ou Google TV, un Fire TV, un téléphone ou une tablette (Android, iPhone, iPad), ou un ordinateur (Windows, Mac, Linux).</li>
+      <li><b>Un appareil</b> : une TV Android ou Google TV, un Fire TV (sauf le Fire TV Stick 4K Select et le Fire TV Stick HD de 2026, voir l'étape 2), un téléphone ou une tablette (Android, iPhone, iPad), ou un ordinateur (Windows, Mac, Linux).</li>
       <li><b>Sur TV, un téléphone</b> sur le même Wi-Fi : il sert à coller les liens au lieu de les taper à la télécommande.</li>
       <li><b>Un compte AllDebrid premium</b> (payant, quelques euros par mois) : Lumio, StreamFusion, Torrentio et WAStream s'en servent pour fournir des sources rapides. On le crée à l'étape 5. ${link(LINKS.realDebrid, "Real-Debrid")} ou ${link(LINKS.torbox, "TorBox")} marchent aussi.</li>
     </ul>
@@ -636,102 +731,14 @@ ${secretsHTML("guide")}
 
   <section class="act" id="installer">
     <header><span class="num">02</span><span class="label">Installation</span><h2>Installer Nuvio</h2></header>
-    <p class="lead">Choisis ton appareil. Sur TV, on installe la version testée avec ce guide, <b>Nuvio TV ${LINKS.nuvioTvVersion}</b>, depuis sa page officielle sur GitHub. Sur téléphone, tablette et ordinateur, c'est l'appli Nuvio de la même équipe : les étapes suivantes sont les mêmes partout.</p>
-    <div class="appareils" role="tablist" aria-label="Ton appareil">
-      <button type="button" role="tab" aria-selected="true" data-tab="tv"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="6" width="26" height="16" rx="2"/><path d="M11 27h10M16 22v5"/></svg><b>TV Android</b><small>Google TV, Shield…</small><i class="claude-dispo">+ Claude</i></button>
-      <button type="button" role="tab" aria-selected="false" data-tab="fire"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="12" width="17" height="8" rx="2"/><path d="M22 16h3M25 13v6"/><path d="M10.5 16h6"/></svg><b>Fire TV</b><small>Stick, Cube</small><i class="claude-dispo">+ Claude</i></button>
-      <button type="button" role="tab" aria-selected="false" data-tab="android"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="9" y="3" width="14" height="26" rx="3"/><path d="M14 25h4"/></svg><b>Android</b><small>téléphone, tablette</small><i class="claude-dispo">+ Claude</i></button>
-      <button type="button" role="tab" aria-selected="false" data-tab="ios"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="4" width="22" height="25" rx="3"/><circle cx="16" cy="25.5" r=".9"/></svg><b>iPhone, iPad</b><small>via AltStore</small><i class="claude-dispo">+ Claude</i></button>
-      <button type="button" role="tab" aria-selected="false" data-tab="pc"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="6" y="7" width="20" height="13" rx="1.5"/><path d="M3 24h26l-2-4H5z"/></svg><b>Windows, Mac</b><small>ordinateur</small><i class="claude-dispo">+ Claude</i></button>
-      <button type="button" role="tab" aria-selected="false" data-tab="linux"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="24" height="20" rx="2"/><path d="M9 13l4 3-4 3M15 20h7"/></svg><b>Linux</b><small>ordinateur</small><i class="claude-dispo">+ Claude</i></button>
+    <p class="lead">Sur TV, on installe la version testée avec ce guide, <b>Nuvio TV ${LINKS.nuvioTvVersion}</b>, depuis sa page officielle sur GitHub. Sur téléphone, tablette et ordinateur, c'est l'appli Nuvio de la même équipe : les étapes suivantes sont les mêmes partout.</p>
+    <p class="ou-installer" id="ou-installer">Où veux-tu installer Nuvio ? <small>Pas forcément sur l'appareil où tu lis ce guide.</small></p>
+    <div class="appareils" role="tablist" aria-labelledby="ou-installer">
+      ${ongletsHTML()}
     </div>
-    <div class="panel" data-panel="tv">
-      <div class="modes" role="group" aria-label="Façon d'installer">
-        <button type="button" data-mode="main" aria-pressed="true"><b>À la main</b><small>pas à pas</small></button>
-        <button type="button" data-mode="claude" aria-pressed="false"><b>Avec Claude</b><small>il s'en occupe depuis l'ordi</small></button>
-      </div>
-      <div class="mode-pane" data-pane="main">
-        <ol>
-          <li>Sur la TV, installe l'appli <b>Downloader</b> depuis le Play Store.</li>
-          <li>Autorise-la à installer des applis : <span class="path">Paramètres → Système (ou Appareil) → Sécurité → Sources inconnues → Downloader</span>. Le chemin varie un peu selon la marque.</li>
-          <li>Dans Downloader, tape ce code dans le champ d'adresse et valide. Il télécharge directement le bon fichier, <b>app-full-universal-release.apk</b> :</li>
-        </ol>
-        <div class="code"><span>Code Downloader</span><b>${LINKS.downloaderCode}</b></div>
-        <p class="small">Si le code ne marche pas, tape l'adresse à la place :</p>
-        ${copyBox("u-tv", short)}
-        <ol start="4">
-          <li>Choisis <b>Installer</b>, puis ouvre Nuvio. Vérifie dans <span class="path">Paramètres → À propos</span> que la version est ${LINKS.nuvioTvVersion} ou plus récente.</li>
-        </ol>
-      <details class="manual"><summary>TV et Fire TV : installer à la main depuis GitHub (si le code ne marche pas)</summary>
-        <p>Ouvre ${link(LINKS.nuvioTv, "la page de Nuvio TV " + LINKS.nuvioTvVersion)}, puis dans « Assets » prends <b>app-full-universal-release.apk</b>. Il marche partout. Les autres fichiers sont plus légers mais propres à un type de processeur : <b>armeabi-v7a</b> pour la plupart des Fire TV et des TV, <b>arm64-v8a</b> pour les boîtiers récents (Shield, Chromecast avec Google TV), <b>x86</b> et <b>x86_64</b> pour les émulateurs et PC.</p>
-      </details>
-      </div>
-      <div class="mode-pane" data-pane="claude" hidden>
-        <p>Tu as un ordinateur sur le même Wi-Fi que la TV et l'appli <b>Claude</b> (avec Claude Code) ? Claude installe Nuvio sur ta TV à ta place, par le réseau (ADB). Rien à télécharger sur la TV.</p>
-        <p class="small">Depuis ton téléphone, l'appli Claude peut piloter Claude Code qui tourne sur ton ordinateur (Remote Control) : ça marche aussi, tant que l'ordinateur reste allumé sur le même Wi-Fi. Une session Claude Code « dans le cloud », elle, ne voit pas ta TV.</p>
-        <ol>
-          <li><b>Active le débogage sur la TV</b> : <span class="path">Paramètres → Système → À propos</span>, appuie 7 fois sur « Version de l'OS » (ou « Build »). Puis <span class="path">Options pour les développeurs → Débogage USB</span> (ou « Débogage sans fil »).</li>
-          <li><b>Note l'adresse IP de la TV</b> : <span class="path">Paramètres → Réseau et Internet</span>, puis ton Wi-Fi. Elle ressemble à 192.168.1.42.</li>
-          <li><b>Ouvre Claude Code sur l'ordinateur</b> et colle ce message en remplaçant l'adresse IP par celle de ta TV :</li>
-        </ol>
-        <div class="copy long"><code id="u-claude-tv">Installe Nuvio TV sur ma TV par ADB. Adresse IP de la TV : 192.168.1.42. Étapes : installe les outils ADB (Android platform-tools) s'ils manquent, télécharge le fichier APK depuis ${esc(LINKS.nuvioTvApk)}, connecte-toi à la TV avec « adb connect » sur le port 5555, puis installe l'APK avec « adb install -r ». Explique-moi chaque étape avant de la faire et dis-moi quand accepter la demande qui s'affichera sur la TV. À la fin, déconnecte-toi de la TV.</code><button type="button" data-copy="u-claude-tv">Copier</button></div>
-        <ol start="4">
-          <li>Quand la TV affiche <b>« Autoriser le débogage ? »</b>, coche « Toujours autoriser depuis cet ordinateur » et valide.</li>
-          <li>Une fois Nuvio installé, <b>désactive le débogage</b> sur la TV (même menu). Laisser ADB ouvert permet à n'importe quel appareil du réseau de piloter ta TV.</li>
-        </ol>
-        <details class="manual"><summary>Sans Claude : les commandes à taper soi-même</summary>
-          <p>Avec les <a href="https://developer.android.com/tools/releases/platform-tools" target="_blank" rel="noopener">outils ADB de Google</a> installés et le fichier APK téléchargé :</p>
-          <div class="copy long"><code id="u-adb-tv" class="lignes">adb connect 192.168.1.42:5555
-adb install -r app-full-universal-release.apk
-adb disconnect</code><button type="button" data-copy="u-adb-tv">Copier</button></div>
-        </details>
-      </div>
-    </div>
-    <div class="panel" data-panel="fire" hidden>
-      <div class="modes" role="group" aria-label="Façon d'installer">
-        <button type="button" data-mode="main" aria-pressed="true"><b>À la main</b><small>pas à pas</small></button>
-        <button type="button" data-mode="claude" aria-pressed="false"><b>Avec Claude</b><small>il s'en occupe depuis l'ordi</small></button>
-      </div>
-      <div class="mode-pane" data-pane="main">
-        <ol>
-          <li>Installe <b>Downloader</b> de <b>AFTVnews</b> depuis l'Amazon Appstore (cherche « Downloader », icône orange). Évite « Downloader for Fire, Browser… », une imitation payante.</li>
-          <li>Active les options développeur : <span class="path">Paramètres → Ma Fire TV → À propos</span>, puis appuie 7 fois sur le nom de l'appareil.</li>
-          <li>Autorise Downloader : <span class="path">Paramètres → Ma Fire TV → Options pour les développeurs → Applications de sources inconnues → Downloader</span>.</li>
-          <li>Ouvre Downloader, va dans le champ d'adresse, tape ce code (ou dicte-le à la télécommande Alexa) et valide. Il télécharge directement le bon fichier, <b>app-full-universal-release.apk</b> :</li>
-        </ol>
-        <div class="code"><span>Code Downloader</span><b>${LINKS.downloaderCode}</b></div>
-        <p class="small">Si le code ne marche pas, tape l'adresse à la place :</p>
-        ${copyBox("u-fire", short)}
-        <ol start="5">
-          <li>Choisis <b>Installer</b>, puis <b>Supprimer</b> le fichier téléchargé pour libérer de la place.</li>
-          <li>Ouvre Nuvio et vérifie dans <span class="path">Paramètres → À propos</span> que la version est ${LINKS.nuvioTvVersion} ou plus récente. Astuce : maintiens le bouton Accueil → Applications pour l'ajouter à tes favoris.</li>
-        </ol>
-      <details class="manual"><summary>TV et Fire TV : installer à la main depuis GitHub (si le code ne marche pas)</summary>
-        <p>Ouvre ${link(LINKS.nuvioTv, "la page de Nuvio TV " + LINKS.nuvioTvVersion)}, puis dans « Assets » prends <b>app-full-universal-release.apk</b>. Il marche partout. Les autres fichiers sont plus légers mais propres à un type de processeur : <b>armeabi-v7a</b> pour la plupart des Fire TV et des TV, <b>arm64-v8a</b> pour les boîtiers récents (Shield, Chromecast avec Google TV), <b>x86</b> et <b>x86_64</b> pour les émulateurs et PC.</p>
-      </details>
-      </div>
-      <div class="mode-pane" data-pane="claude" hidden>
-        <p>Tu as un ordinateur sur le même Wi-Fi que le Fire TV et l'appli <b>Claude</b> (avec Claude Code) ? Claude installe Nuvio sur ton Fire TV à ta place, par le réseau (ADB). Rien à télécharger sur le Fire TV.</p>
-        <p class="small">Depuis ton téléphone, l'appli Claude peut piloter Claude Code qui tourne sur ton ordinateur (Remote Control) : ça marche aussi, tant que l'ordinateur reste allumé sur le même Wi-Fi. Une session Claude Code « dans le cloud », elle, ne voit pas ton Fire TV.</p>
-        <ol>
-          <li><b>Active le débogage sur le Fire TV</b> : <span class="path">Paramètres → Ma Fire TV → À propos</span>, appuie 7 fois sur le nom de l'appareil. Puis <span class="path">Options pour les développeurs → Débogage ADB → Activé</span>.</li>
-          <li><b>Note l'adresse IP du Fire TV</b> : <span class="path">Paramètres → Ma Fire TV → À propos → Réseau</span>. Elle ressemble à 192.168.1.42.</li>
-          <li><b>Ouvre Claude Code sur l'ordinateur</b> et colle ce message en remplaçant l'adresse IP par celle de ton Fire TV :</li>
-        </ol>
-        <div class="copy long"><code id="u-claude-fire">Installe Nuvio TV sur mon Fire TV par ADB. Adresse IP du Fire TV : 192.168.1.42. Étapes : installe les outils ADB (Android platform-tools) s'ils manquent, télécharge le fichier APK depuis ${esc(LINKS.nuvioTvApk)}, connecte-toi au Fire TV avec « adb connect » sur le port 5555, puis installe l'APK avec « adb install -r ». Explique-moi chaque étape avant de la faire et dis-moi quand accepter la demande qui s'affichera sur le Fire TV. À la fin, déconnecte-toi du Fire TV.</code><button type="button" data-copy="u-claude-fire">Copier</button></div>
-        <ol start="4">
-          <li>Quand le Fire TV affiche <b>« Autoriser le débogage ? »</b>, coche « Toujours autoriser depuis cet ordinateur » et valide.</li>
-          <li>Une fois Nuvio installé, <b>désactive le débogage</b> sur le Fire TV (même menu). Laisser ADB ouvert permet à n'importe quel appareil du réseau de piloter ton Fire TV.</li>
-        </ol>
-        <details class="manual"><summary>Sans Claude : les commandes à taper soi-même</summary>
-          <p>Avec les <a href="https://developer.android.com/tools/releases/platform-tools" target="_blank" rel="noopener">outils ADB de Google</a> installés et le fichier APK téléchargé :</p>
-          <div class="copy long"><code id="u-adb-fire" class="lignes">adb connect 192.168.1.42:5555
-adb install -r app-full-universal-release.apk
-adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button></div>
-        </details>
-      </div>
-    </div>
-    <div class="panel" data-panel="android" hidden>
+    ${panneauTV(TV, short)}
+    ${panneauTV(FIRE, short)}
+    <div class="panel" role="tabpanel" id="panel-android" aria-labelledby="tab-android" data-panel="android" hidden>
       <div class="modes" role="group" aria-label="Façon d'installer">
         <button type="button" data-mode="main" aria-pressed="true"><b>À la main</b><small>pas à pas</small></button>
         <button type="button" data-mode="claude" aria-pressed="false"><b>Avec Claude</b><small>il te guide sur ton téléphone</small></button>
@@ -754,7 +761,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
         </ol>
       </div>
     </div>
-    <div class="panel" data-panel="ios" hidden>
+    <div class="panel" role="tabpanel" id="panel-ios" aria-labelledby="tab-ios" data-panel="ios" hidden>
       <div class="modes" role="group" aria-label="Façon d'installer">
         <button type="button" data-mode="main" aria-pressed="true"><b>À la main</b><small>pas à pas</small></button>
         <button type="button" data-mode="claude" aria-pressed="false"><b>Avec Claude</b><small>il te guide sur ton téléphone</small></button>
@@ -783,7 +790,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
         </ol>
       </div>
     </div>
-    <div class="panel" data-panel="pc" hidden>
+    <div class="panel" role="tabpanel" id="panel-pc" aria-labelledby="tab-pc" data-panel="pc" hidden>
       <div class="modes" role="group" aria-label="Façon d'installer">
         <button type="button" data-mode="main" aria-pressed="true"><b>À la main</b><small>pas à pas</small></button>
         <button type="button" data-mode="claude" aria-pressed="false"><b>Avec Claude</b><small>il s'en occupe depuis l'ordi</small></button>
@@ -810,11 +817,11 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
         <p>Tu as l'appli <b>Claude</b> (avec Claude Code) sur cet ordinateur ? Claude trouve le bon fichier pour ton système, le télécharge et l'installe à ta place.</p>
         <p class="note warn">Nuvio Desktop est encore en version <b>alpha</b>, réservée aux testeurs : attends-toi à quelques bugs.</p>
         <ol><li><b>Ouvre Claude Code</b> et colle ce message :</li></ol>
-        <div class="copy long"><code id="u-claude-pc">Installe Nuvio Desktop sur cet ordinateur. Prends la dernière version sur https://github.com/NuvioMedia/NuvioDesktop/releases/latest, avec le fichier qui correspond à mon système : .msi pour Windows ; .dmg arm64 (puce Apple) ou x86_64 (Intel) pour Mac ; .deb, .rpm, .flatpak ou .AppImage selon ma distribution Linux. Télécharge-le et installe-le. Explique-moi chaque étape avant de la faire, et à la fin dis-moi comment ouvrir Nuvio.</code><button type="button" data-copy="u-claude-pc">Copier</button></div>
+        <div class="copy long"><code id="u-claude-pc">${esc(MESSAGE_DESKTOP)}</code><button type="button" data-copy="u-claude-pc">Copier</button></div>
         <ol start="2"><li>Accepte les demandes d'autorisation de Claude (et ton mot de passe si le système le demande), puis ouvre Nuvio et saute l'étape 4 : tu colles les liens directement dans l'appli.</li></ol>
       </div>
     </div>
-    <div class="panel" data-panel="linux" hidden>
+    <div class="panel" role="tabpanel" id="panel-linux" aria-labelledby="tab-linux" data-panel="linux" hidden>
       <div class="modes" role="group" aria-label="Façon d'installer">
         <button type="button" data-mode="main" aria-pressed="true"><b>À la main</b><small>pas à pas</small></button>
         <button type="button" data-mode="claude" aria-pressed="false"><b>Avec Claude</b><small>il s'en occupe depuis l'ordi</small></button>
@@ -846,7 +853,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-fire">Copier</button
         <p>Tu as l'appli <b>Claude</b> (avec Claude Code) sur cet ordinateur ? Claude trouve le bon fichier pour ton Linux, le télécharge et l'installe à ta place.</p>
         <p class="note warn">Nuvio Desktop est encore en version <b>alpha</b>, réservée aux testeurs : attends-toi à quelques bugs.</p>
         <ol><li><b>Ouvre Claude Code</b> et colle ce message :</li></ol>
-        <div class="copy long"><code id="u-claude-linux">Installe Nuvio Desktop sur cet ordinateur. Prends la dernière version sur https://github.com/NuvioMedia/NuvioDesktop/releases/latest, avec le fichier qui correspond à mon système : .msi pour Windows ; .dmg arm64 (puce Apple) ou x86_64 (Intel) pour Mac ; .deb, .rpm, .flatpak ou .AppImage selon ma distribution Linux. Télécharge-le et installe-le. Explique-moi chaque étape avant de la faire, et à la fin dis-moi comment ouvrir Nuvio.</code><button type="button" data-copy="u-claude-linux">Copier</button></div>
+        <div class="copy long"><code id="u-claude-linux">${esc(MESSAGE_DESKTOP)}</code><button type="button" data-copy="u-claude-linux">Copier</button></div>
         <ol start="2"><li>Accepte les demandes d'autorisation de Claude (et ton mot de passe si le système le demande), puis ouvre Nuvio et saute l'étape 4 : tu colles les liens directement dans l'appli.</li></ol>
       </div>
     </div>
@@ -1104,28 +1111,27 @@ ${CREDITS_HTML}
 
 ${scripts("liens.js")}
 <script>
-// Onglets d'installation
-document.querySelectorAll(".appareils button").forEach((b) => b.addEventListener("click", () => {
-  document.querySelectorAll(".appareils button").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+// Onglets d'installation : un clic, ou les flèches (Début, Fin) quand le focus est sur un onglet.
+// TV par défaut, sans deviner : on lit souvent ce guide sur le téléphone, à côté de la TV.
+const onglets = [...document.querySelectorAll(".appareils [role=tab]")];
+const ouvreOnglet = (b) => {
+  onglets.forEach((x) => { x.setAttribute("aria-selected", String(x === b)); x.tabIndex = x === b ? 0 : -1; });
   document.querySelectorAll("[data-panel]").forEach((p) => { p.hidden = p.dataset.panel !== b.dataset.tab; });
-}));
+};
+onglets.forEach((b) => b.addEventListener("click", () => ouvreOnglet(b)));
+document.querySelector(".appareils").addEventListener("keydown", (e) => {
+  const i = onglets.indexOf(document.activeElement); if (i < 0) return;
+  const j = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: onglets.length - 1 }[e.key];
+  if (j === undefined) return;
+  e.preventDefault();
+  const b = onglets[(j + onglets.length) % onglets.length]; b.focus(); b.click();
+});
 // À la main ou avec Claude (le choix suit d'un appareil à l'autre).
 const choisirMode = (mode) => document.querySelectorAll("[data-panel]").forEach((p) => {
   p.querySelectorAll(".modes button").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.mode === mode)));
   p.querySelectorAll(".mode-pane").forEach((x) => { x.hidden = x.dataset.pane !== mode; });
 });
 document.querySelectorAll(".modes button").forEach((b) => b.addEventListener("click", () => choisirMode(b.dataset.mode)));
-// On ouvre l'onglet de l'appareil sur lequel on lit le guide (Fire TV, iPhone, Android, ordinateur, Linux).
-(() => {
-  const ua = navigator.userAgent;
-  const ipad = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
-  const tab = /AFT|Fire ?TV/i.test(ua) ? "fire"
-    : /iPhone|iPad|iPod/.test(ua) || ipad ? "ios"
-    : /Android/.test(ua) && !/TV|AFT|BRAVIA|SmartTV/i.test(ua) ? "android"
-    : /Windows|Macintosh/.test(ua) ? "pc"
-    : /Linux|X11/.test(ua) ? "linux" : null;
-  if (tab) document.querySelector('.appareils button[data-tab="' + tab + '"]').click();
-})();
 // ---------- Le trousseau : clés et appareil, gardés dans le navigateur (rien n'est envoyé) ----------
 const ORIG = ${JSON.stringify(origin)};
 const lit = (k) => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
@@ -1238,8 +1244,8 @@ $id("choix-appareil").addEventListener("keydown", (e) => { caClavier = e.key.ind
 $id("choix-appareil").addEventListener("pointerdown", () => { caClavier = false; });
 $id("choix-appareil").addEventListener("change", () => { appAuto = false; if (!caClavier) caOuvert = false; garde("guide-appareil", appSel.value); majCles(); });
 $id("ca-changer").addEventListener("click", () => { caOuvert = true; majCles(); const r = appRadios.find((x) => x.checked) || appRadios[0]; r.focus(); });
-document.querySelectorAll(".appareils button").forEach((b) => b.addEventListener("click", (e) => {
-  if (!e.isTrusted || !appAuto) return;
+onglets.forEach((b) => b.addEventListener("click", () => {
+  if (!appAuto) return;
   appSel.value = { android: "ecran", ios: "ecran", pc: "ecran", linux: "ecran" }[b.dataset.tab] || "";
   garde("guide-appareil", appSel.value); majCles();
 }));

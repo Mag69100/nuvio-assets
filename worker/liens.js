@@ -22,11 +22,14 @@ const HD = {
   streamfusion: "Exclusions : coche 2160p, HDR, Dolby Vision et HEVC (en plus de 480p, CAM et Unknown, déjà cochés). Taille max : 15 Go.",
   wastream: "Résolutions : décoche 2160p. Taille max : 15 Go.",
 };
+// Fire TV Stick 4K Select et Fire TV Stick HD de 2026 (Wi-Fi 6) : Vega OS, pas Android, Nuvio ne s'y installe pas.
+const VEGA = "Nuvio ne s'installe pas sur les modèles sous Vega OS";
 export const APPAREILS = {
-  "fire-hd": { nom: "Fire TV Stick Lite ou Fire TV Stick (HD)", ...HD },
+  "fire-hd": { nom: "Fire TV Stick Lite ou Fire TV Stick (HD)", exemples: VEGA + " : le Fire TV Stick HD de 2026 (Wi-Fi 6)", ...HD },
   "box-hd": { nom: "Autre clé ou box HD (1080p)", exemples: "Mi TV Stick, Chromecast avec Google TV HD, box d'entrée de gamme", ...HD },
   "fire-4k": {
     nom: "Fire TV Stick 4K, 4K Max ou Fire TV Cube",
+    exemples: VEGA + " : le Fire TV Stick 4K Select",
     qualite: "4K",
     exclure: "AV1 sur les anciens modèles. Dolby Vision « profil 7 » des fichiers REMUX",
     torrentio: { qualityfilter: "brremux,threed,cam,scr" },

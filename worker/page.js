@@ -39,6 +39,7 @@ import { POSTER_URL } from "./reglages.js";
 import { feuilles, scripts } from "./statique.js";
 import { esc } from "./outils-serveur.js";
 import { GUICHET_DEPART, guichetHTML } from "./guichet.js";
+import { SOIREE_HTML } from "./soiree.js";
 
 // Espace hébergeur d'une copie auto-hébergée (absent de l'instance principale) : connexion avec le mot de
 // passe ADMIN_PASSWORD, lien avec alertes (rangée « Mise à jour » dans Nuvio), bannière de mise à jour.
@@ -148,7 +149,7 @@ ${STAGE_HEAD}
 <meta property="og:title" content="Compose ta programmation Nuvio">
 <meta property="og:image" content="${LOGO}">
 <link rel="icon" href="${LOGO}">
-${feuilles("polices.css", "salle2.css", "scene.css", "nuvio.css", "salle2-fin.css", "salle2-guichet.css")}
+${feuilles("polices.css", "salle2.css", "scene.css", "nuvio.css", "salle2-fin.css", "salle2-guichet.css", "salle2-soiree.css")}
 </head>
 <body>
   <div class="valance" aria-hidden="true"></div>
@@ -202,6 +203,7 @@ ${GUICHET_DEPART}
           <p class="summary" id="b-summary"></p>
           <div class="b-actions"><button type="button" class="mini ok" id="b-save">Ajouter à l'affiche</button><button type="button" class="mini" id="b-cancel">Annuler</button></div>
         </div>
+${SOIREE_HTML}
       </section>
 
       <section class="act" id="s-saison">
@@ -402,7 +404,7 @@ ${scripts("nuvio.js")}
 <script>
 const D = ${json};
 </script>
-${scripts("outils.js", "salle2.js", "salle2-guichet.js")}
+${scripts("outils.js", "salle2.js", "salle2-guichet.js", "salle2-soiree.js")}
 ${copy ? scripts("salle2-hote.js") : ""}
 ${scripts("scene.js")}
 </body>

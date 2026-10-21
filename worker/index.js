@@ -40,6 +40,7 @@ import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
 import { isFixedId, readFixed, fixedRoute, fixedAvailable, noteLecture } from "./fixe.js";
 import { sha256 } from "./outils-serveur.js";
+import { programmationPublique } from "./soiree.js";
 import { secondesAvantBascule, jourTendances, routeTendances, prendrePhotos } from "./tendances.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
@@ -1966,6 +1967,8 @@ const app = {
       return res;
     }
     if (path === "/collections.json") return json(await collections(cfg), CACHE_CLIENT_S);
+    // Soirée à deux (salle 2) : les rangées d'un lien, sans clé Gemini ni jeton d'alerte (voir soiree.js).
+    if (path === "/programmation.json") return json(programmationPublique(cfg), fixedId ? 60 : 86400);
     // La photo du jour des tendances, lue par le service d'affiches (worker/tendances.js).
     const tend = !cfgSeg && /^\/tendances\/([a-z]+)\.json$/.exec(path);
     if (tend) return routeTendances(env, tend[1], HEADERS);

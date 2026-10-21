@@ -97,6 +97,10 @@ function qualiteDe(quality, montrer) {
   return { label, extra, atmos: !!quality.atmos };
 }
 
+// Lettres que les polices de l'affiche savent écrire (latin, chiffres, ponctuation) : un titre japonais ou persan
+// sans logo garde l'image d'origine plutôt que des carrés vides.
+const ECRIVABLE = /^[\p{Script=Latin}\p{N}\p{P}\p{Zs}\p{S}\p{M}]+$/u;
+
 /** Contenu d'une affiche, ou null si le titre n'a aucune image pour cette forme. */
 export function posterContent(facts, { imdbRating, rank, quality, notes }, shape, r = DEFAUT_REGLAGES, today = aujourdhui()) {
   const paysage = shape === "landscape";
@@ -104,14 +108,16 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
   // l'image du film recadrée (fond sans texte, avec logo).
   const source = r.titre.on && !paysage ? r.image.source : "sanstexte";
   const normale = paysage ? facts.backdrop : facts.poster;
-  let image, full, logo = null;
+  let image, full, logo = null, titreTexte = null;
   if (source === "officielle") {
     image = normale || null;
     full = !!image;
   } else {
     const sansTexte = paysage || source === "fond" ? facts.textlessBackdrop : facts.textlessPoster;
     logo = r.titre.on ? logoDe(facts, r.titre.langue) : null;
-    full = !!(r.titre.on && sansTexte && logo);
+    // Aucun logo chez TMDB, dans aucune langue (EB) : le titre est écrit en texte à sa place, jamais une image sans nom.
+    if (r.titre.on && !logo && sansTexte && facts.titre && ECRIVABLE.test(facts.titre)) titreTexte = facts.titre;
+    full = !!(r.titre.on && sansTexte && (logo || titreTexte));
     image = full ? sansTexte : normale || null;
     if (!full) logo = null;
   }
@@ -167,6 +173,7 @@ export function posterContent(facts, { imdbRating, rank, quality, notes }, shape
     full,
     gris: r.sortie.nb && pasSorti,
     logo,
+    ...(full && titreTexte ? { titreTexte } : {}),
     line: Object.keys(line).length ? line : null,
     statut: libelle,
     rank: place,

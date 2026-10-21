@@ -114,15 +114,18 @@ test("age_conseille_france", async () => {
 });
 
 // « On va s'arrêter là », « Friends Sex and Games » : un logo seulement en espagnol. Ni français ni anglais : on
-// demande les logos de toutes les langues (un appel de plus, pour ces titres seulement) ; celui de la langue
-// d'origine d'abord, sinon le premier venu (logos.autre).
+// demande les logos de toutes les langues (un appel de plus, pour ces titres seulement) : celui de la langue
+// d'origine, sinon un logo sans langue (logos.autre). Pas celui d'une langue tierce (EB, film néerlandais : un logo
+// portugais « Maré Escura ») : le titre français sera écrit à la place.
 test("logo_dans_une_autre_langue", async () => {
   const sansFrEn = { ...movie, original_language: "es", images: { ...movie.images, logos: [] } };
   const f = fauxFetch([["/movie/693134/images", json({ logos: [{ iso_639_1: "de", file_path: "/de.png" }, { iso_639_1: "es", file_path: "/es.png" }] })], ["/movie/693134", json(sansFrEn)]]);
   const facts = await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, f);
   assert.equal(facts.logos.autre, "/es.png");
   const g = fauxFetch([["/movie/693134/images", json({ logos: [{ iso_639_1: "de", file_path: "/de.png" }] })], ["/movie/693134", json(sansFrEn)]]);
-  assert.equal((await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, g)).logos.autre, "/de.png");
+  assert.equal((await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, g)).logos.autre, null);
+  const n = fauxFetch([["/movie/693134/images", json({ logos: [{ iso_639_1: "pt", file_path: "/pt.png" }, { iso_639_1: null, file_path: "/nul.png" }] })], ["/movie/693134", json(sansFrEn)]]);
+  assert.equal((await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, n)).logos.autre, "/nul.png");
   // « The Musical » : un logo sans langue seulement (dans la première réponse, sans appel de plus).
   const sansLangue = { ...sansFrEn, images: { ...movie.images, logos: [{ iso_639_1: null, file_path: "/nul.png" }] } };
   const m = fauxFetch([["/movie/693134/images", json({ logos: [{ iso_639_1: null, file_path: "/nul.png" }] })], ["/movie/693134", json(sansLangue)]]);

@@ -458,15 +458,36 @@ async function imagesPlateforme(content, fetchImpl) {
   return out;
 }
 
+/**
+ * Le titre écrit en texte (titre sans aucun logo chez TMDB), en blanc, dans la police choisie : une image comme un
+ * logo, qui passe ensuite par le même chemin (taille, place, effet). Plus le titre est long, plus les lettres sont
+ * petites (deux ou trois lignes au plus).
+ */
+async function titreEnImage(content, aGauche) {
+  const police = POLICES[content.styles.police] || POLICES.inter;
+  const poids = { "Bebas Neue": 400, Oswald: 700 }[police.nom] || 800;
+  const texte = String(content.titreTexte).toUpperCase();
+  const taille = Math.round(150 * police.echelle * Math.sqrt(16 / Math.max(16, texte.length)));
+  const [L, H] = [1200, 640];
+  const racine = { type: "div", props: { style: {
+    width: L, height: H, display: "flex", alignItems: "center", justifyContent: aGauche ? "flex-start" : "center",
+    textAlign: aGauche ? "left" : "center", color: "#fff", fontFamily: police.nom, fontWeight: poids, fontSize: taille, lineHeight: 1.02,
+  }, children: texte } };
+  return sharp(Buffer.from(await satori(racine, { width: L, height: H, fonts: FONTS }))).png().toBuffer();
+}
+
 /** Le logo du titre, réduit dans sa boîte (selon la taille choisie) et centré au-dessus de la ligne. */
 async function calqueLogo(content, [w, hgt], m, fetchImpl) {
   const url = urlLogo(content);
-  if (!url) return null;
+  const ecrit = !url && content.full && content.titreTexte;
+  if (!url && !ecrit) return null;
   const echelle = Number(content.styles.titre) || 1, large = Number(content.styles.large) || 1;
   // Agrandi à la main, le logo reste dans l'affiche : jamais plus large qu'elle (marges comprises) ni plus haut que sa moitié.
-  const boiteL = Math.min(Math.round(w * m.logoL * echelle * large), w - 2 * m.marge), boiteH = Math.min(Math.round(hgt * m.logoH * echelle), Math.round(hgt * 0.5));
-  const svgLogo = /\.svg$/i.test(content.logo);
-  const brut = await telecharger(url, fetchImpl);
+  const boiteL = Math.min(Math.round(w * m.logoL * echelle * large), w - 2 * m.marge), boiteH0 = Math.min(Math.round(hgt * m.logoH * echelle), Math.round(hgt * 0.5));
+  // Titre écrit : moins haut qu'un logo (un titre court comme « EB » remplirait sinon toute la boîte).
+  const boiteH = ecrit ? Math.round(boiteH0 * 0.5) : boiteH0;
+  const svgLogo = !ecrit && /\.svg$/i.test(content.logo);
+  const brut = ecrit ? await titreEnImage(content, m.disposition !== "centre") : await telecharger(url, fetchImpl);
   // Marges transparentes retirées : seule la partie visible du logo compte pour sa taille et sa place.
   // Un SVG est dessiné à la taille utile (environ 2 fois sa boîte), pas à sa taille déclarée, qui peut être énorme.
   let options = {};

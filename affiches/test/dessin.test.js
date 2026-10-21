@@ -554,3 +554,22 @@ test("statut_avec_petite_ligne", async () => {
   const avec2 = await draw({ ...seul, line: null, statut: "AU CINÉMA", statut2: "DISPO LE 1 DÉC." }, f);
   assert.ok(await compte(avec2, [0, 0, 220, 90], blanc) > await compte(sans, [0, 0, 220, 90], blanc) + 40, "pas de petite ligne sous le statut");
 });
+
+// Sans logo : le titre écrit en texte, à la place du logo (du blanc au-dessus de la ligne du bas, qui n'y est pas
+// sans lui), dans les deux formes et avec chaque police.
+test("titre_ecrit_sans_logo", async () => {
+  const zoneTitre = async (buf, [x, y, w, h]) => {
+    const z = await sharp(buf).extract({ left: x, top: y, width: w, height: h }).toBuffer();
+    return (await sharp(z).stats()).channels[0].max;
+  };
+  const sans = { ...base, logo: null, rank: null, quality: null, line: null };
+  const vide = await draw(sans, f);
+  const ecrit = await draw({ ...sans, titreTexte: "EB" }, f);
+  assert.ok(await zoneTitre(ecrit, [60, 380, 280, 150]) > 230, "titre pas écrit");
+  assert.ok(await zoneTitre(vide, [60, 380, 280, 150]) < 200, "zone déjà blanche sans titre");
+  for (const police of ["inter", "bebas", "elegante", "arrondie", "condensee"]) {
+    await draw({ ...sans, titreTexte: "Les Rayons et les Ombres", styles: { ...STYLES, police } }, f);
+  }
+  const paysage = await draw({ ...sans, shape: "landscape", image: "/large.jpg", titreTexte: "Un titre assez long pour deux lignes" }, f);
+  assert.ok(await zoneTitre(paysage, [22, 250, 340, 170]) > 230, "titre pas écrit en paysage");
+});

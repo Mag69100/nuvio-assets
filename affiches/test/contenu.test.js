@@ -330,3 +330,23 @@ test("fondu_precis_dans_les_styles", () => {
   assert.deepEqual(contenu(v3, plein, "poster", reglages("1ho1im")).styles.fondu, { couleur: "noir", force: "m", opacite: 1, taille: 0.85 });
   assert.deepEqual(contenu(v3, plein).styles.fondu, { couleur: "noir", force: "m" });
 });
+
+// « EB » : aucun logo chez TMDB, dans aucune langue. Le titre est écrit en texte à la place du logo (jamais une image
+// sans nom) ; seulement en lettres latines (les polices n'ont pas les autres écritures). Avec un logo : rien ne change.
+test("titre_ecrit_sans_logo", () => {
+  const sansLogo = { ...facts, logo: null, logos: { fr: null, en: null, vo: null, autre: null }, titre: "EB" };
+  const c = contenu(sansLogo);
+  assert.deepEqual([c.full, c.logo, c.titreTexte, c.image], [true, null, "EB", "/nu.jpg"]);
+  assert.ok(c.line, "ligne du bas");
+  assert.equal(contenu(sansLogo, extra, "landscape").titreTexte, "EB");
+  assert.equal(contenu({ ...sansLogo, titre: "Les Rayons et les Ombres : l'été d'Hélène (2026) !" }).titreTexte, "Les Rayons et les Ombres : l'été d'Hélène (2026) !");
+  const japonais = contenu({ ...sansLogo, titre: "南田南弁護士は天才肌" });
+  assert.deepEqual([japonais.full, japonais.titreTexte], [false, undefined]);
+  assert.equal(contenu({ ...sansLogo, titre: null }).full, false);
+  // Sans image sans texte : l'affiche officielle, qui porte déjà son titre.
+  assert.equal(contenu({ ...sansLogo, textlessPoster: null }).titreTexte, undefined);
+  // Titre éteint (« Pas de titre ») : rien d'écrit.
+  assert.equal(contenu(sansLogo, extra, "poster", lireReglages(new URLSearchParams("s=1.L0"))).titreTexte, undefined);
+  // Avec un logo : pas de titre écrit (ETag inchangé).
+  assert.equal("titreTexte" in contenu({ ...facts, titre: "Dune" }), false);
+});

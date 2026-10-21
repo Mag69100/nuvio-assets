@@ -195,9 +195,7 @@ ${STAGE_HEAD}
 <meta property="og:title" content="Nuvio en français, de A à Z">
 <meta property="og:image" content="${LOGO}">
 <link rel="icon" href="${LOGO}">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Figtree:wght@400;500;700;800&family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&family=Instrument+Serif:ital@0;1&family=Limelight&family=Pacifico&family=Orbitron:wght@500;700&display=swap">
+${feuilles("polices.css")}
 <style>
 /* Le programme de la séance : une colonne de lecture, chaque étape est un « acte » numéroté. */
 :root {
@@ -1104,7 +1102,7 @@ ${CREDITS_HTML}
   </button>
 </div>
 
-${scripts("liens.js")}
+${scripts("liens.js", "outils.js")}
 <script>
 // Onglets d'installation : un clic, ou les flèches (Début, Fin) quand le focus est sur un onglet.
 // TV par défaut, sans deviner : on lit souvent ce guide sur le téléphone, à côté de la TV.
@@ -1388,21 +1386,7 @@ addEventListener("keydown", (e) => {
 // ---------- Du PC au téléphone : QR codes ----------
 const ORIGINE = ${JSON.stringify(origin)};
 const QR_ICONE = '<svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M2 2h7v7H2zm2 2v3h3V4zm7-2h7v7h-7zm2 2v3h3V4zM2 11h7v7H2zm2 2v3h3v-3zm8-2h2v2h-2zm2 2h2v2h-2zm2-2h2v2h-2zm-4 4h2v3h-2zm4 0h2v3h-2zm-2 2h2v1h-2z"/></svg>';
-let qrLib = null;
-const chargerQr = () => qrLib || (qrLib = new Promise((ok, ko) => {
-  const sc = document.createElement("script");
-  sc.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js";
-  // Empreinte du fichier : si le CDN servait autre chose, le navigateur refuserait de l'exécuter.
-  sc.integrity = "sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k"; sc.crossOrigin = "anonymous";
-  sc.onload = () => ok(window.qrcode); sc.onerror = () => { qrLib = null; ko(); };
-  document.head.append(sc);
-}));
-function qrSvg(qrcode, texte) {
-  const q = qrcode(0, texte.length > 300 ? "L" : "M"); q.addData(texte); q.make();
-  const n = q.getModuleCount(), w = n + 4; let d = "";
-  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += "M" + c + " " + r + "h1v1h-1z";
-  return '<svg viewBox="-2 -2 ' + w + " " + w + '" shape-rendering="crispEdges" role="img" aria-label="QR code"><path d="' + d + '" fill="#2a1a14"/></svg>';
-}
+// chargerQr et qrSvg : outils.js (communs avec la salle 2).
 function montrerQr(titre, texte, cible, detail) {
   document.querySelectorAll(".qr-modal").forEach((x) => x._fermer());
   const ov = document.createElement("div"); ov.className = "qr-modal"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", titre);

@@ -3,6 +3,9 @@
  * héberger sa propre copie du Catalogue FR (fork Cloudflare gratuit, ou Docker), et comment.
  * Le détail technique reste dans le README (section « Héberger ta propre copie »).
  */
+
+import { feuilles } from "./statique.js";
+
 const REPO = "https://github.com/xnzx07/nuvio-assets";
 
 const COMPOSE = `services:
@@ -27,7 +30,7 @@ export function copiePage({ origin }) {
 <title>Ta propre salle · Nuvio en français</title>
 <meta name="description" content="Héberge ta propre copie du Catalogue FR pour Nuvio : gratuite sur Cloudflare, ou avec Docker sur ton serveur.">
 <link rel="icon" href="${LOGO}">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Figtree:wght@400;600;800&family=Courier+Prime&display=swap">
+${feuilles("polices.css")}
 <style>
 :root { --velvet: #170c12; --velvet-2: #22121b; --seat: #3d2230; --cream: #f5ead8; --dim: #b9a59c; --bulb: #ffcf6b; --ink: #2a1a14; --red: #e5413a; color-scheme: dark; }
 * { box-sizing: border-box; }

@@ -1,31 +1,49 @@
 /**
- * Les feuilles de style et les scripts communs aux pages du site (hall, guide, salle 2), servis à part
+ * Les feuilles de style, les scripts et les polices des pages du site (hall, guide, salle 2…), servis à part
  * sur /statique/<nom>?v=<empreinte> au lieu d'être recopiés dans chaque page : le navigateur les garde
  * en cache (un an) et ne les retélécharge plus d'une salle à l'autre, ni à la visite suivante.
  * L'empreinte change avec le contenu : une nouvelle version du site est redemandée tout de suite.
+ * Tout vient du worker lui-même : les copies (Cloudflare, Docker) servent les leurs, sans rien chercher ailleurs.
  */
 import { STAGE_CSS, STAGE_JS } from "./stage.js";
 import { APERCU_CSS, APERCU_JS } from "./apercu.js";
 import { NUVIO_CSS, NUVIO_JS } from "./nuvio.js";
 import { REGLAGES_CSS, REGLAGES_JS } from "./reglages.js";
 import { LIENS_JS } from "./liens.js";
+import { POLICES, policesCss } from "./polices.js";
+import { QRCODE_JS } from "./tiers/qrcode.js";
+import { outilsJs } from "./outils.js";
 
-const FICHIERS = {
+// Construits au premier besoin : les pages importent ce fichier, et lui importe leurs styles et leurs scripts.
+let fichiers = null;
+const FICHIERS = () => fichiers || (fichiers = {
   "scene.css": STAGE_CSS, "scene.js": STAGE_JS,
   "nuvio.css": NUVIO_CSS, "nuvio.js": NUVIO_JS,
   "apercu.css": APERCU_CSS, "apercu.js": APERCU_JS,
   "reglages.css": REGLAGES_CSS, "reglages.js": REGLAGES_JS,
   "liens.js": LIENS_JS,
+  // qrcode-generator 1.4.4 (licence MIT, en tête du fichier), tel que publié sur npm.
+  "qrcode.js": QRCODE_JS,
+  // Ceux-là citent d'autres fichiers d'ici, avec leur empreinte.
+  "outils.js": () => outilsJs(adresse("qrcode.js")),
+  "polices.css": () => policesCss(adresse),
+  ...Object.fromEntries(POLICES.map(([f, contenu]) => ["polices/" + f, contenu])),
+});
+const contenus = {};
+const contenu = (nom) => {
+  if (!(nom in contenus)) { const c = FICHIERS()[nom]; contenus[nom] = typeof c === "function" ? c() : c; }
+  return contenus[nom];
 };
-const TYPES = { css: "text/css; charset=utf-8", js: "text/javascript; charset=utf-8" };
+const TYPES = { css: "text/css; charset=utf-8", js: "text/javascript; charset=utf-8", woff2: "font/woff2" };
 
-// FNV-1a sur le texte : calculée une fois par fichier, au premier besoin.
+// FNV-1a sur le texte (ou les octets d'une police) : calculée une fois par fichier, au premier besoin.
 const empreintes = {};
 const empreinte = (nom) => {
   if (!empreintes[nom]) {
     let h = 0x811c9dc5;
-    const s = FICHIERS[nom];
-    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+    const c = contenu(nom);
+    if (typeof c === "string") for (let i = 0; i < c.length; i++) { h ^= c.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+    else for (const b of new Uint8Array(c)) { h ^= b; h = Math.imul(h, 0x01000193); }
     empreintes[nom] = (h >>> 0).toString(36);
   }
   return empreintes[nom];
@@ -37,10 +55,13 @@ const adresse = (nom) => `/statique/${nom}?v=${empreinte(nom)}`;
 export const feuilles = (...noms) => noms.map((n) => `<link rel="stylesheet" href="${adresse(n)}">`).join("\n");
 export const scripts = (...noms) => noms.map((n) => `<script src="${adresse(n)}"></script>`).join("\n");
 
+/** Le contenu d'un fichier (texte, ou ArrayBuffer d'une police) ; undefined s'il n'existe pas. Pour les tests. */
+export const contenuStatique = (nom) => (Object.hasOwn(FICHIERS(), nom) ? contenu(nom) : undefined);
+
 /** Réponse à /statique/<nom> ; null si le fichier n'existe pas. */
 export function statique(nom, version) {
-  if (!Object.hasOwn(FICHIERS, nom)) return null;
+  if (!Object.hasOwn(FICHIERS(), nom)) return null;
   // Ancienne empreinte (page restée ouverte pendant une mise à jour) : contenu actuel, gardé une minute seulement.
   const cache = version === empreinte(nom) ? "public, max-age=31536000, immutable" : "public, max-age=60";
-  return new Response(FICHIERS[nom], { headers: { "Content-Type": TYPES[nom.split(".").pop()], "Cache-Control": cache } });
+  return new Response(contenu(nom), { headers: { "Content-Type": TYPES[nom.split(".").pop()], "Cache-Control": cache } });
 }

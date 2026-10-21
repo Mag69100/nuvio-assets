@@ -29,9 +29,7 @@ ${STAGE_HEAD}
 <meta property="og:description" content="Tous tes films et séries au même endroit, en français.">
 <meta property="og:image" content="${LOGO}">
 <link rel="icon" href="${LOGO}">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Figtree:wght@400;500;700;800&family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&family=Instrument+Serif:ital@0;1&family=Limelight&family=Pacifico&family=Orbitron:wght@500;700&display=swap">
+${feuilles("polices.css")}
 <style>
 :root {
   --foyer-w: 1180px;

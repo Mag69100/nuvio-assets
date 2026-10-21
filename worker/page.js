@@ -147,9 +147,7 @@ ${STAGE_HEAD}
 <meta property="og:title" content="Compose ta programmation Nuvio">
 <meta property="og:image" content="${LOGO}">
 <link rel="icon" href="${LOGO}">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Figtree:wght@400;500;700;800&family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&family=Instrument+Serif:ital@0;1&family=Limelight&family=Pacifico&family=Orbitron:wght@500;700&display=swap">
+${feuilles("polices.css")}
 <style>
 /* Salle obscure : enseigne en haut, la bobine de réglages à gauche, l'écran et le billet à droite. */
 :root {
@@ -1034,7 +1032,7 @@ ${copy ? HOTE_HTML : ""}
   </div>
 
 <script>${nuvioDonnees(origin)}</script>
-${scripts("nuvio.js")}
+${scripts("nuvio.js", "outils.js")}
 <script>
 const D = ${json};
 const hashDepart = location.hash; // l'adresse est réécrite ensuite (réglages), on garde l'ancre demandée
@@ -1435,12 +1433,9 @@ function regieQr() {
   if ($("regie-qr").hidden) return;
   const box = $("regie-qr-code");
   const lien = location.origin + "/lien#" + new URLSearchParams({ u: NV.lienPerso(), nom: "Ton lien d'affiches" }).toString();
-  loadQr().then((qrcode) => {
-    const q = qrcode(0, lien.length > 300 ? "L" : "M"); q.addData(lien); q.make();
-    const n = q.getModuleCount(), w = n + 4; let d = "";
-    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += "M" + c + " " + r + "h1v1h-1z";
+  chargerQr().then((qrcode) => { // outils.js
     box.className = "regie-qr-code"; box.removeAttribute("role");
-    box.innerHTML = '<svg viewBox="-2 -2 ' + w + " " + w + '" role="img" aria-label="QR code de ton lien d\\'affiches" shape-rendering="crispEdges"><rect x="-2" y="-2" width="' + w + '" height="' + w + '" fill="#fff"/><path d="' + d + '" fill="#2a1a14"/></svg>';
+    box.innerHTML = qrSvg(qrcode, lien, "QR code de ton lien d'affiches", true);
   }, () => { box.className = "regie-qr-code alerte"; box.setAttribute("role", "alert"); box.textContent = "QR code indisponible : vérifie ta connexion."; });
 }
 function qrOuvre(ouvert) {
@@ -2271,27 +2266,13 @@ $("fixe-modif").addEventListener("click", async (e) => {
   const now = new Date();
   $("t-seance").textContent = "Séance du " + now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }) + " à " + now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
-let qrLib = null;
-function loadQr() {
-  if (!qrLib) qrLib = new Promise((ok, ko) => {
-    const sc = document.createElement("script");
-    sc.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js";
-    // Empreinte du fichier : si le CDN servait autre chose, le navigateur refuserait de l'exécuter.
-    sc.integrity = "sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k"; sc.crossOrigin = "anonymous";
-    sc.onload = () => ok(window.qrcode); sc.onerror = () => { qrLib = null; ko(); };
-    document.head.append(sc);
-  });
-  return qrLib;
-}
+// QR codes : chargerQr et qrSvg viennent d'outils.js.
 function drawQr() {
   const box = $("qr-code");
-  loadQr().then((qrcode) => {
+  chargerQr().then((qrcode) => {
     // Pour ses propres appareils : la clé Gemini voyage avec (le billet offert et l'image, eux, ne l'ont jamais).
-    const q = qrcode(0, "M"); q.addData(fixe && fixe.modif ? lienModif() : configureUrl); q.make();
-    const n = q.getModuleCount(), w = n + 4; let d = "";
-    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += "M" + c + " " + r + "h1v1h-1z";
     box.className = "";
-    box.innerHTML = '<svg viewBox="-2 -2 ' + w + " " + w + '" role="img" aria-label="QR code de ta programmation" shape-rendering="crispEdges"><rect x="-2" y="-2" width="' + w + '" height="' + w + '" fill="#fff"/><path d="' + d + '" fill="#2a1a14"/></svg>';
+    box.innerHTML = qrSvg(qrcode, fixe && fixe.modif ? lienModif() : configureUrl, "QR code de ta programmation", true);
   }, () => { box.className = "alerte"; box.setAttribute("role", "alert"); box.textContent = "QR code indisponible : vérifie ta connexion."; });
 }
 $("qr-btn").addEventListener("click", () => {
@@ -2367,7 +2348,7 @@ function drawTicket(c, qr) {
 async function imprimeBillet() {
   await Promise.all(['400 90px "Bebas Neue"', '700 28px "Courier Prime"', '700 30px "Figtree"', '800 22px "Figtree"', '600 30px "Figtree"', 'italic 400 38px "Instrument Serif"'].map((f) => document.fonts.load(f)));
   let qr = null;
-  try { const qrcode = await loadQr(); qr = qrcode(0, "M"); qr.addData(shareUrl); qr.make(); } catch (err) { qr = null; }
+  try { const qrcode = await chargerQr(); qr = qrcode(0, "M"); qr.addData(shareUrl); qr.make(); } catch (err) { qr = null; }
   const cv = document.createElement("canvas"); cv.width = 1080; cv.height = 1350;
   drawTicket(cv.getContext("2d"), qr);
   return new Promise((ok, ko) => cv.toBlob((b) => b ? ok(b) : ko(new Error("image vide")), "image/png"));

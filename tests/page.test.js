@@ -31,7 +31,7 @@ test("partage_sans_cle", () => {
   assert.match(image, /addData\(shareUrl\)/);
   assert.equal((image.match(/addData\(/g) || []).length, 1);
   // QR pour ses appareils : la clé voyage, et le texte le dit.
-  assert.match(html, /addData\(fixe && fixe\.modif \? lienModif\(\) : configureUrl\)/);
+  assert.match(html, /qrSvg\(qrcode, fixe && fixe\.modif \? lienModif\(\) : configureUrl, /);
   assert.match(html, /ta clé Gemini comprise[^<]*ne le montre à personne d'autre/);
 });
 

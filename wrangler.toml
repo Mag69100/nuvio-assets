@@ -14,10 +14,11 @@ workers_dev = true
 # Garde les variables ajoutées dans le tableau de bord (copies : DEPOT, GEMINI_PUBLIC) à chaque déploiement.
 keep_vars = true
 
-# Notes IMDb (data/imdb-ratings.bin, voir worker/ratings.js) : fichier binaire intégré à l'addon.
+# Notes IMDb (data/imdb-ratings.bin, voir worker/ratings.js) et polices du site (worker/polices/*.woff2, voir
+# worker/polices.js) : fichiers binaires intégrés à l'addon.
 [[rules]]
 type = "Data"
-globs = ["**/*.bin"]
+globs = ["**/*.bin", "**/*.woff2"]
 fallthrough = true
 
 # L'addon peut s'appeler lui-même (préparation des « pour qui » d'une rangée, voir prefetchProfiles) :

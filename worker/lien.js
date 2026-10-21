@@ -6,6 +6,7 @@
  * Un lien d'affiches (QR code de la régie) : seulement « Copier le lien », avec l'endroit où le coller dans Nuvio.
  */
 import { AFFICHES_URL } from "./reglages.js";
+import { feuilles } from "./statique.js";
 
 export function lienPage({ origin }) {
   const LOGO = origin + "/logo.png";
@@ -17,7 +18,7 @@ export function lienPage({ origin }) {
 <title>Sur ton téléphone · Nuvio en français</title>
 <meta name="robots" content="noindex">
 <link rel="icon" href="${LOGO}">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Figtree:wght@400;600;800&family=Courier+Prime&display=swap">
+${feuilles("polices.css")}
 <style>
 :root { --velvet: #170c12; --velvet-2: #22121b; --seat: #3d2230; --cream: #f5ead8; --dim: #b9a59c; --bulb: #ffcf6b; --ink: #2a1a14; color-scheme: dark; }
 * { box-sizing: border-box; }

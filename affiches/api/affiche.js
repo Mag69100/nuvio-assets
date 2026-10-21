@@ -97,7 +97,8 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       return new Response(null, { status: 308, headers: { ...CORS, ...ABSENT, Location: `/${type}/${shape}/${id}.jpg${normales ? "?" + normales : ""}` } });
     }
     const tendance = reglages.tendance.on, qualite = reglages.qualite.on && env.QUALITE !== "off";
-    const noteImdb = reglages.titre.on && reglages.note.on && reglages.note.source !== "tmdb";
+    // Note IMDb : pour la note affichée, ou pour le badge « Incontournable ».
+    const noteImdb = (reglages.titre.on && reglages.note.on && reglages.note.source !== "tmdb") || reglages.infos.culte;
     // Les autres notes ne sont demandées que si elles seront dessinées (pas avec la note en grand chiffre).
     const autresNotes = reglages.titre.on && reglages.note.on && reglages.note.style !== "grand" && (reglages.note.rt || reglages.note.mc || reglages.note.lb);
     try {
@@ -106,7 +107,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       if (noteImdb) ratingOf("tt0", fetchImpl).catch(() => {});
       const relais = new URL(request.url).origin;
       if (tendance) trendingRank(env, type, 0, fetchImpl, relais).catch(() => {});
-      let facts = await titleFacts(env, { type, id, imdb }, fetchImpl, { plateforme: reglages.plateforme.on, vo: reglages.titre.on && reglages.titre.langue === "vo" });
+      let facts = await titleFacts(env, { type, id, imdb }, fetchImpl, { plateforme: reglages.plateforme.on, vo: reglages.titre.on && reglages.titre.langue === "vo", credits: reglages.titre.on && reglages.infos.ligne2 === "realisateur" });
       if (!facts) return absent();
       // L'image « sans texte » porte notre logo : on vérifie qu'elle n'a vraiment pas de texte (TMDB y range
       // parfois des affiches étrangères). Aucune de propre : l'affiche normale, sans logo ni ligne du bas.
@@ -135,7 +136,8 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const enRetard = qualiteEnRetard || notes === null;
       const content = posterContent(facts, { imdbRating, rank: place, quality, notes }, shape, reglages);
       // Rien à poser ni à griser : l'appli va chercher l'image directement chez TMDB, sans la redessiner ici.
-      if (!content.full && !content.rank && !content.quality && !content.statut && !content.gris && !content.bandeau && !content.coin) {
+      const retouchee = !!(content.styles.retouche || content.styles.cadre);
+      if (!content.full && !content.rank && !content.quality && !content.statut && !content.gris && !content.bandeau && !content.coin && !content.culte && !retouchee) {
         return new Response(null, { status: 302, headers: { ...CORS, ...cacheDe({ enRetard, place }), Location: imageUrls(content)[0] } });
       }
       const etag = `"${contentKey(content)}"`;

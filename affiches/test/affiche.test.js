@@ -424,3 +424,24 @@ test("revue_bandeau_seul_pas_redirige", async () => {
   const res = await makeHandler({ fetchImpl: internet({ detail: avecSorties([4, jour(-5)]) }), env })(req("type=movie&shape=poster&id=tt15239678&s=1.T0Q0J1L0B0"));
   assert.equal(res.status, 200);
 });
+
+// ---------- Régie v3 ----------
+test("v3_service", async () => {
+  // Réalisateur : le générique est demandé à TMDB (seulement dans ce cas).
+  const real = internet();
+  await makeHandler({ fetchImpl: real, env })(req("type=movie&shape=poster&id=tt15239678&s=1.3ar"));
+  assert.ok(real.calls.some((u) => /append_to_response=[^&]*credits/.test(u)), real.calls.join("\n"));
+  const sans = internet();
+  await makeHandler({ fetchImpl: sans, env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.ok(!sans.calls.some((u) => /append_to_response=[^&]*credits/.test(u)));
+  // Incontournable : la note IMDb est lue même si la note n'est pas affichée.
+  r2();   // notes IMDb pas encore chargées (les requêtes d'avant les ont mises en mémoire)
+  const culte = internet();
+  await makeHandler({ fetchImpl: culte, env })(req("type=movie&shape=poster&id=tt15239678&s=1.N03b1"));
+  assert.ok(culte.calls.some((u) => u.includes("imdb-ratings.bin")), culte.calls.join("\n"));
+  // Retouches ou cadre seuls : l'affiche est dessinée, pas renvoyée vers TMDB.
+  for (const s of ["S0T0Q0L0B01am", "S0T0Q0L0B01fb"]) {
+    const res = await makeHandler({ fetchImpl: internet(), env })(req("type=movie&shape=poster&id=tt15239678&s=1." + s));
+    assert.equal(res.status, 200, s);
+  }
+});

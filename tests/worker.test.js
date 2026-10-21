@@ -547,3 +547,23 @@ test("affiche_relais_suit_le_cache_du_service", async () => {
   await new Promise((ok) => setTimeout(ok, 20));
   assert.ok([...store.keys()].some((k) => k.includes("affiche-v" + APERCU_V) || k.includes("v=" + APERCU_V)), [...store.keys()].join(" "));
 });
+
+// « Au cinéma · Prochainement » : un film déjà regardable chez soi en VF (sorti en VOD, avec une sortie
+// francophone) n'y est plus, même si sa sortie en salle en France est à venir (Hope : VOD aux États-Unis, salle au Québec).
+test("prochainement_sans_les_films_deja_dispo", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const dates = (...l) => ({ results: l.map(([pays, type, d]) => ({ iso_3166_1: pays, release_dates: [{ type, release_date: d + "T00:00:00.000Z" }] })) });
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/movie/upcoming")) return new Response(JSON.stringify({ results: [
+      { id: 1, title: "Hope", original_language: "ko", release_date: jour(7) },
+      { id: 2, title: "Pas encore", original_language: "en", release_date: jour(20) },
+    ], page: 1, total_pages: 1 }));
+    if (/\/movie\/1\?/.test(u)) return new Response(JSON.stringify({ release_dates: dates(["US", 4, jour(-8)], ["CA", 3, jour(-40)], ["FR", 3, jour(7)]) }));
+    if (/\/movie\/2\?/.test(u)) return new Response(JSON.stringify({ release_dates: dates(["FR", 3, jour(20)]) }));
+    return new Response("{}");
+  };
+  const { metas } = await (await get("/catalog/movie/films-cinema/genre=Prochainement.json")).json();
+  assert.deepEqual(metas.map((m) => m.name), ["Pas encore"]);
+});

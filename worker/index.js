@@ -651,6 +651,15 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
     data = await tmdb(env, endpoint, { ...params, page: p }, opts.lang);
   }
   if (!data.results || page > (data.total_pages || 0)) return [];
+  // « Prochainement » (sorties en salle à venir) : sans les films déjà regardables chez soi en VF (sortis en VOD,
+  // avec une sortie francophone), comme les affiches maison (règle « pas sorti »). Infos gardées un jour.
+  if (def.endpoint === "/movie/upcoming") {
+    const infos = await Promise.all(data.results.map((it) => extraInfo(env, "movie", it.id)));
+    data = { ...data, results: data.results.filter((it, i) => {
+      const r = infos[i].releases, dispo = r ? firstDigital(r) : "";
+      return !(dispo && dispo <= today && likelyVf(r, it.original_language, today));
+    }) };
+  }
   const metas = await toMetas(env, ctx, data.results, kind, opts, today);
   return metas.map(({ _digital, _guess, _vf, ...m }) => m);
 }

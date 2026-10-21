@@ -2,8 +2,12 @@ __pycache__/
 *.pyc
 node_modules/
 .wrangler/
-IMG_7861.mov
+*.mov
 .dev.vars
+# Secrets et réglages locaux : jamais dans le dépôt public.
+.env*
+.vercel/
+.claude/
 docs/superpowers/
 .superpowers/
 .intros/

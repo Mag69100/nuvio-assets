@@ -3,3 +3,7 @@ node_modules
 .wrangler
 .dev.vars
 *.mov
+# Secrets et réglages locaux : jamais envoyés au constructeur d'image.
+.env*
+.vercel
+.claude

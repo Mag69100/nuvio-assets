@@ -1169,6 +1169,21 @@ function appliquerPerso(base) {
   setInstall("u-cat");
 }
 try { appliquerPerso(basePerso(sessionStorage.getItem("programmation") || "", ORIG)); } catch (e) { appliquerPerso(""); }
+// Fenêtres par-dessus le guide (salle 2, QR code) : le reste de la page devient inerte (le focus reste dans
+// la fenêtre), Échap la ferme, et le focus revient au bouton qui l'a ouverte. Renvoie de quoi tout rétablir.
+function modale(ov, fermer) {
+  const avant = document.activeElement;
+  const fond = [...document.body.children].filter((x) => x !== ov && !x.inert);
+  fond.forEach((x) => { x.inert = true; });
+  ov.setAttribute("aria-modal", "true");
+  const echap = (e) => { if (e.key === "Escape") { e.preventDefault(); fermer(); } };
+  addEventListener("keydown", echap);
+  return () => {
+    removeEventListener("keydown", echap);
+    fond.forEach((x) => { x.inert = false; });
+    if (avant && avant.isConnected && !avant.closest("[hidden]")) avant.focus({ preventScroll: true });
+  };
+}
 // La salle 2 s'ouvre par-dessus le guide, sans changer de page ; en la fermant, son lien arrive dans les cartes.
 function ouvrirSalle2(e) {
   const declencheur = e && e.currentTarget;
@@ -1179,8 +1194,9 @@ function ouvrirSalle2(e) {
   ov.innerHTML = '<div class="s2-barre"><p><b>Ta programmation</b><span>Choisis tes rangées, tes plateformes et tes filtres : le guide reprend ton lien.</span></p><button type="button" class="s2-fini">Terminé, revenir au guide</button></div><iframe title="Salle 2 : ta programmation"></iframe>';
   const frame = ov.querySelector("iframe"); frame.src = depart;
   document.body.append(ov); document.documentElement.classList.add("s2-ouverte");
-  const fini = ov.querySelector(".s2-fini"); fini.focus();
+  const fini = ov.querySelector(".s2-fini");
   const fermer = () => {
+    if (!ov.isConnected) return;
     // La salle 2 réécrit son adresse à chaque réglage : on la relit à la fermeture.
     let u = "";
     try { u = frame.contentWindow.location.href; } catch (err) {}
@@ -1188,13 +1204,13 @@ function ouvrirSalle2(e) {
     const base = basePerso(u, ORIG);
     try { sessionStorage.setItem("programmation", (base || ORIG) + "/configure"); } catch (err) {}
     appliquerPerso(base);
-    removeEventListener("keydown", echap); ov.remove(); document.documentElement.classList.remove("s2-ouverte");
+    ov.remove(); libere(); document.documentElement.classList.remove("s2-ouverte");
     $id("u-cat").closest(".addon").scrollIntoView({ block: "center" });
     if (declencheur && declencheur.isConnected && !declencheur.closest("[hidden]")) declencheur.focus({ preventScroll: true });
     toast(base ? "Ton lien perso est prêt : il est dans la carte du Catalogue FR." : "Tu gardes les réglages conseillés.");
   };
-  const echap = (ev) => { if (ev.key === "Escape") fermer(); };
-  fini.addEventListener("click", fermer); addEventListener("keydown", echap);
+  const libere = modale(ov, fermer);
+  fini.addEventListener("click", fermer); fini.focus();
 }
 document.querySelectorAll("[data-perso-ouvrir]").forEach((b) => b.addEventListener("click", ouvrirSalle2));
 document.querySelectorAll("[data-perso-retour]").forEach((b) => b.addEventListener("click", () => {
@@ -1382,17 +1398,17 @@ function qrSvg(qrcode, texte) {
   return '<svg viewBox="-2 -2 ' + w + " " + w + '" shape-rendering="crispEdges" role="img" aria-label="QR code"><path d="' + d + '" fill="#2a1a14"/></svg>';
 }
 function montrerQr(titre, texte, cible, detail) {
-  document.querySelectorAll(".qr-modal").forEach((x) => x.remove());
+  document.querySelectorAll(".qr-modal").forEach((x) => x._fermer());
   const ov = document.createElement("div"); ov.className = "qr-modal"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", titre);
   ov.innerHTML = '<div class="boite"><button type="button" class="fermer" aria-label="Fermer">×</button><h2></h2><div class="code-qr">Impression du QR code…</div><p></p><small></small></div>';
   ov.querySelector("h2").textContent = titre;
   ov.querySelector("p").textContent = texte;
   ov.querySelector("small").textContent = detail || "";
   document.body.append(ov);
-  const close = () => ov.remove();
+  const close = () => { if (!ov.isConnected) return; ov.remove(); libere(); };
+  const libere = modale(ov, close); ov._fermer = close;
   ov.querySelector(".fermer").addEventListener("click", close); ov.querySelector(".fermer").focus();
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
-  ov.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
   chargerQr().then((qrcode) => { ov.querySelector(".code-qr").innerHTML = qrSvg(qrcode, cible); },
     () => { const q = ov.querySelector(".code-qr"), p = document.createElement("p"); p.className = "alerte"; p.setAttribute("role", "alert"); p.textContent = "QR code indisponible : vérifie ta connexion."; q.textContent = ""; q.append(p); });
 }

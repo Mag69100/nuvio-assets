@@ -121,8 +121,19 @@ export const APERCU_JS = `// ---------- L'accueil qu'on aura à la fin du guide 
     bP.addEventListener("click", () => { NV.reglages.format = "l"; boutons(); E.paysage(true); });
     bPP.addEventListener("click", () => { NV.reglages.pp = !NV.reglages.pp; boutons(); E.pp(); if (window.sfx) sfx.click(); });
     seg.append(bV, bP); outils.append(bRet, seg, bPP); boutons();
-    ov.append(fermer, tv, outils, legende); document.body.append(ov); fermer.focus(); ouvert = ov;
-    const close = () => { E.hero.stopVideo(); ov.remove(); ouvert = null; };
+    // Fenêtre modale : le reste de la page devient inerte (le focus reste dans l'aperçu) ; à la fermeture,
+    // le focus revient au bouton qui l'a ouverte.
+    const avant = document.activeElement, fond = [...document.body.children].filter((x) => !x.inert);
+    ov.setAttribute("aria-modal", "true");
+    ov.append(fermer, tv, outils, legende); document.body.append(ov); fond.forEach((x) => { x.inert = true; }); fermer.focus(); ouvert = ov;
+    // Échap ferme aussi quand le focus s'est perdu hors de l'aperçu (clic sur une zone sans bouton).
+    const echap = (e) => { if (e.key === "Escape" && !ov.contains(e.target)) { e.preventDefault(); close(); } };
+    addEventListener("keydown", echap);
+    const close = () => {
+      E.hero.stopVideo(); ov.remove(); ouvert = null; removeEventListener("keydown", echap);
+      fond.forEach((x) => { x.inert = false; });
+      if (avant && avant.isConnected && avant !== document.body) avant.focus({ preventScroll: true });
+    };
     fermer.addEventListener("click", close);
     ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
     ov.addEventListener("keydown", (e) => {

@@ -2072,8 +2072,8 @@ const app = {
     // La clé change aussi avec la photo des tendances (4 h UTC) : les rangées suivent les « N° » du jour.
     const cacheKey = new Request(`https://cache.local/c${CACHE_V}/${today}${path}?k=${await sha(contentKey(cfg))}${aiTag}&t=${jourTendances()}`);
     const hit = await caches.default.match(cacheKey);
-    // Page gardée incomplète (X-Partiel) : Nuvio ne la garde qu'une minute.
     const clientCc = fixedId ? `public, max-age=${CACHE_CLIENT_S}` : `public, max-age=${CACHE_CLIENT_LONG_S}, stale-while-revalidate=${CACHE_CLIENT_LONG_S}`;
+    // Page gardée incomplète (X-Partiel) : Nuvio ne la garde qu'une minute.
     if (hit) {
       const partiel = hit.headers.get("X-Partiel") ? { "X-Partiel": "1" } : {};
       return new Response(hit.body, { headers: { ...HEADERS, ...partiel, "Cache-Control": partiel["X-Partiel"] ? "public, max-age=60" : clientCc } });

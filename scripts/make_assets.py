@@ -8,10 +8,13 @@
 Usage : python scripts/make_assets.py [dossier_images_locales]
 Sans argument, les images sont téléchargées depuis TMDB.
 """
+import http.client
 import io
 import json
 import math
 import sys
+import time
+import urllib.error
 import urllib.request
 from functools import lru_cache
 from pathlib import Path
@@ -37,8 +40,19 @@ def fetch(path: str, size: str = "w1280") -> Image.Image:
     # Image TMDB (« /xxx.png »), ou adresse complète pour un logo absent de TMDB (Crunchyroll).
     url = path if path.startswith("http") else f"https://image.tmdb.org/t/p/{size}{path}"
     req = urllib.request.Request(url, headers={"User-Agent": "nuvio-assets"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return Image.open(io.BytesIO(r.read())).convert("RGBA")
+    # Quelques essais : un raté passager du CDN de TMDB ne doit pas faire échouer toute la génération.
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return Image.open(io.BytesIO(r.read())).convert("RGBA")
+        except urllib.error.HTTPError as e:
+            if attempt == 3 or (e.code != 429 and e.code < 500):
+                raise
+        except (OSError, http.client.HTTPException):
+            if attempt == 3:
+                raise
+        time.sleep(2 ** attempt)
+    raise AssertionError("inaccessible")
 
 
 def cover(img: Image.Image, w: int, h: int, zoom: float = 1.0) -> Image.Image:

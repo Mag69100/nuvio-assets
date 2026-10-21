@@ -8,10 +8,17 @@
   mis en cache dans data/imdb_cache.json pour limiter les appels à TMDB.
 
 Nécessite le secret TMDB_API_KEY. Argument optionnel : forcer une saison.
+
+Une panne de TMDB ne publie jamais un addon troué. Code de sortie :
+- 0 : tout est à jour ;
+- 3 : quelques listes en échec (ou vides) : elles gardent leurs pages de la veille, le reste est écrit ;
+- 1 : clé refusée ou plus de 10 % des listes en échec : rien n'est modifié.
 """
 import datetime as dt
+import http.client
 import json
 import os
+import shutil
 import sys
 import time
 import urllib.error
@@ -28,7 +35,6 @@ import make_assets as m  # noqa: E402
 ROOT = m.ROOT
 ADDON = ROOT / "addon"
 CACHE_FILE = ROOT / "data" / "imdb_cache.json"
-BUILT_FILE = ROOT / "data" / "meta_built.json"
 DEFS = json.loads((ROOT / "catalogs.json").read_text(encoding="utf-8"))
 KEY = os.environ.get("TMDB_API_KEY", "").strip()
 LANG = "fr-FR"
@@ -80,10 +86,21 @@ def pick_season(today: dt.date) -> str:
 
 
 # ---------- TMDB ----------
+class TMDBError(RuntimeError):
+    """TMDB n'a pas répondu après plusieurs essais : le catalogue concerné est en échec (jamais vide)."""
+
+
+class TMDBAuthError(TMDBError):
+    """Clé refusée (401) : inutile d'insister, toute la nuit échouerait pareil."""
+
+
 def tmdb(path: str, **params) -> dict:
+    """Réponse de TMDB ; {} pour un titre qui n'existe plus (404). Lève TMDBError si TMDB reste
+    injoignable : une panne ne doit jamais passer pour une liste vide."""
     params = {"api_key": KEY, "language": LANG, **params}
     url = f"https://api.themoviedb.org/3{path}?{urllib.parse.urlencode(params)}"
     req = urllib.request.Request(url, headers={"User-Agent": "nuvio-assets"})
+    last = None
     for attempt in range(5):
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
@@ -91,28 +108,42 @@ def tmdb(path: str, **params) -> dict:
         except urllib.error.HTTPError as e:
             if e.code == 404:
                 return {}
-            if e.code == 429 or e.code >= 500:
-                time.sleep(2 ** attempt)
-                continue
-            raise
-        except (urllib.error.URLError, TimeoutError):
+            if e.code == 401:
+                raise TMDBAuthError("clé TMDB refusée (401) : vérifier le secret TMDB_API_KEY") from e
+            if e.code != 429 and e.code < 500:
+                raise TMDBError(f"{path} : erreur {e.code}") from e
+            last = f"erreur {e.code}"
+        except (OSError, ValueError, http.client.HTTPException) as e:   # réseau, délai, réponse tronquée
+            last = type(e).__name__
+        if attempt < 4:
             time.sleep(2 ** attempt)
-    return {}
+    raise TMDBError(f"{path} : TMDB injoignable après 5 essais ({last})")
 
 
 _cache_lock = Lock()
 CACHE: dict[str, str] = json.loads(CACHE_FILE.read_text()) if CACHE_FILE.exists() else {}
+# Titre sans identifiant IMDb : « ?AAAA-MM-JJ » (jour de la vérification), redemandé après NO_IMDB_DAYS
+# jours (IMDb crée souvent la fiche après TMDB). L'ancien format "" (date inconnue) est redemandé aussi.
+NO_IMDB_DAYS = 7
 
 
 def imdb_id(kind: str, tmdb_id: int) -> str | None:
     key = f"{kind}:{tmdb_id}"
     with _cache_lock:
-        if key in CACHE:
-            return CACHE[key] or None
+        value = CACHE.get(key)
+    if value:
+        if not value.startswith("?"):
+            return value
+        try:
+            if (TODAY - dt.date.fromisoformat(value[1:])).days < NO_IMDB_DAYS:
+                return None
+        except ValueError:
+            pass
+    # Une erreur de TMDB remonte sans rien mettre en cache : le titre sera redemandé la prochaine fois.
     ext = tmdb(f"/{'tv' if kind == 'series' else 'movie'}/{tmdb_id}/external_ids")
     value = ext.get("imdb_id") or ""
     with _cache_lock:
-        CACHE[key] = value
+        CACHE[key] = value or f"?{TODAY.isoformat()}"
     return value or None
 
 
@@ -204,8 +235,8 @@ def build(defn: dict) -> list[dict]:
     endpoint = f"/discover/{'tv' if kind == 'series' else 'movie'}"
     if defn.get("rotateDaily"):
         # Sélection différente chaque jour : on démarre à une page qui dépend de la date.
-        total = min(tmdb(endpoint, page=1, **params).get("total_pages", 1), 50)
-        start = TODAY.toordinal() % max(total, 1) + 1
+        total = max(min(tmdb(endpoint, page=1, **params).get("total_pages", 1), 50), 1)   # 0 page : liste vide
+        start = TODAY.toordinal() % total + 1
         results = []
         for k in range(6):
             results += tmdb(endpoint, page=(start + k - 1) % total + 1, **params).get("results", [])
@@ -261,113 +292,6 @@ def season_defs(season: str) -> list[dict]:
     return [{"id": "accueil-en-ce-moment", "type": "movie", "name": SEASON_TITLES[season], "home": True, **films}]
 
 
-# ---------- fiches détaillées (ressource « meta ») ----------
-IMG = "https://image.tmdb.org/t/p/"
-
-
-def pick_logo(images: dict) -> str | None:
-    logos = images.get("logos") or []
-    for lang in ("fr", "en", None):
-        for lg in logos:
-            if lg.get("iso_639_1") == lang and lg.get("file_path"):
-                return IMG + "w500" + lg["file_path"]
-    return None
-
-
-def build_meta(kind: str, tmdb_id: int, imdb: str) -> dict | None:
-    """Fiche complète au format addon Stremio : résumé, genres, casting, durée, épisodes…"""
-    path = f"/{'tv' if kind == 'series' else 'movie'}/{tmdb_id}"
-    d = tmdb(path, append_to_response="credits,images", include_image_language="fr,en,null")
-    if not d:
-        return None
-    crew = d.get("credits", {}).get("crew", [])
-    meta = {
-        "id": imdb,
-        "type": kind,
-        "name": d.get("title") or d.get("name"),
-        "poster": (IMG + "w500" + d["poster_path"]) if d.get("poster_path") else None,
-        "background": (IMG + "original" + d["backdrop_path"]) if d.get("backdrop_path") else None,
-        "logo": pick_logo(d.get("images", {})),
-        "description": d.get("overview") or None,
-        "genres": [g["name"] for g in d.get("genres", [])],
-        "cast": [c["name"] for c in d.get("credits", {}).get("cast", [])[:10]],
-        "imdbRating": f"{d['vote_average']:.1f}" if d.get("vote_average") else None,
-        "country": ", ".join(c.get("iso_3166_1", "") for c in d.get("production_countries", [])) or None,
-        "language": d.get("original_language"),
-    }
-    if kind == "movie":
-        date = d.get("release_date") or ""
-        meta.update({
-            "releaseInfo": date[:4] or None,
-            "released": f"{date}T00:00:00.000Z" if date else None,
-            "runtime": f"{d['runtime']} min" if d.get("runtime") else None,
-            "director": [c["name"] for c in crew if c.get("job") == "Director"],
-        })
-    else:
-        first, last = (d.get("first_air_date") or "")[:4], (d.get("last_air_date") or "")[:4]
-        ongoing = d.get("status") in ("Returning Series", "In Production")
-        meta.update({
-            "releaseInfo": (f"{first}-" if ongoing else f"{first}-{last}" if last and last != first else first) or None,
-            "released": f"{d['first_air_date']}T00:00:00.000Z" if d.get("first_air_date") else None,
-            "runtime": f"{d['episode_run_time'][0]} min" if d.get("episode_run_time") else None,
-            "director": [c["name"] for c in d.get("created_by", [])],
-        })
-        videos = []
-        for season in d.get("seasons", []):
-            n = season.get("season_number")
-            if not n:      # on ignore les « épisodes spéciaux » (saison 0)
-                continue
-            for ep in tmdb(f"{path}/season/{n}").get("episodes", []):
-                air = ep.get("air_date")
-                videos.append({
-                    "id": f"{imdb}:{n}:{ep['episode_number']}",
-                    "title": ep.get("name") or f"Épisode {ep['episode_number']}",
-                    "season": n,
-                    "episode": ep["episode_number"],
-                    "released": f"{air}T00:00:00.000Z" if air else None,
-                    "overview": ep.get("overview") or None,
-                    "thumbnail": (IMG + "w500" + ep["still_path"]) if ep.get("still_path") else None,
-                })
-        meta["videos"] = videos
-    return {k: v for k, v in meta.items() if v not in (None, [], "")}
-
-
-def write_metas(items: dict[tuple[str, str], int]) -> int:
-    """Écrit addon/meta/<type>/<imdb>.json pour chaque titre des rangées, supprime les anciens."""
-    keep = {f"{kind}/{imdb}.json" for kind, imdb in items}
-    for old in (ADDON / "meta").rglob("*.json") if (ADDON / "meta").exists() else []:
-        if f"{old.parent.name}/{old.name}" not in keep:
-            old.unlink()
-
-    built = json.loads(BUILT_FILE.read_text()) if BUILT_FILE.exists() else {}
-
-    def fresh(kind: str, imdb: str) -> bool:
-        """Séries refaites tous les 2 jours (nouveaux épisodes), films toutes les 2 semaines."""
-        date = built.get(f"{kind}/{imdb}")
-        if not date or not (ADDON / "meta" / kind / f"{imdb}.json").exists():
-            return False
-        age = (TODAY - dt.date.fromisoformat(date)).days
-        return age < (2 if kind == "series" else 14)
-
-    def one(entry):
-        (kind, imdb), tmdb_id = entry
-        if fresh(kind, imdb):
-            return 1
-        meta = build_meta(kind, tmdb_id, imdb)
-        if meta:
-            write_json(ADDON / "meta" / kind / f"{imdb}.json", {"meta": meta})
-            with _cache_lock:
-                built[f"{kind}/{imdb}"] = TODAY.isoformat()
-            return 1
-        return 0
-
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        total = sum(pool.map(one, items.items()))
-    built = {k: v for k, v in built.items() if tuple(k.split("/", 1)) in items}
-    write_json(BUILT_FILE, built)
-    return total
-
-
 # ---------- écriture ----------
 def write_json(path: Path, data, pretty: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -376,20 +300,73 @@ def write_json(path: Path, data, pretty: bool = False) -> None:
 
 
 def season_images(season: str) -> str:
+    """Images de la tuile « En ce moment ». TMDB injoignable : celles de la veille restent."""
     seasons = {slug: path for slug, _label, path in m.ASSETS["seasons"]}
     label = SEASON_TITLES[season]
-    if season == "a-laffiche":
-        top = next(x for x in tmdb("/trending/movie/day")["results"] if x.get("backdrop_path"))
-        backdrop = top["backdrop_path"]
-    else:
-        backdrop = seasons[season]
-    src = m.fetch(backdrop)
-    (ROOT / "seasons").mkdir(exist_ok=True)
-    m.titled(m.cover(src, *m.CARD), label).save(ROOT / "seasons" / "current.jpg", quality=88, optimize=True, progressive=True)
+    card = ROOT / "seasons" / "current.jpg"
+    try:
+        if season == "a-laffiche":
+            results = tmdb("/trending/movie/day").get("results") or []
+            backdrop = next((x["backdrop_path"] for x in results if x.get("backdrop_path")), None)
+            if not backdrop:
+                raise TMDBError("tendances du jour sans image")
+        else:
+            backdrop = seasons[season]
+        src = m.fetch(backdrop)
+    except TMDBAuthError:
+        raise
+    except Exception as e:
+        if not card.exists():
+            raise
+        print(f"::warning::Images de la saison non refaites ({e}) : celles de la veille restent.")
+        return label
+    card.parent.mkdir(exist_ok=True)
+    m.titled(m.cover(src, *m.CARD), label).save(card, quality=88, optimize=True, progressive=True)
     m.sheen(m.titled(m.cover(src, *m.GIF), label), ROOT / "gifs" / "seasons" / "current.gif")
     m.hero_title(label, ROOT / "titles" / "seasons" / "current.png")
     m.cover(src, 1280, 720).save(ROOT / "seasons" / "current-hero.jpg", quality=88, optimize=True, progressive=True)
     return label
+
+
+# ---------- catalogues : une liste en échec garde ses pages de la veille ----------
+MAX_FAILED = 0.10    # plus de 10 % des listes en échec : panne de TMDB, rien n'est modifié
+PARTIAL_EXIT = 3     # quelques listes en échec : le reste est écrit, le workflow enregistre puis passe au rouge
+
+
+def old_pages(catalog: Path, kind: str, cid: str, genre: str | None = None) -> list[Path]:
+    """Pages déjà publiées d'une liste : <cid>.json et <cid>/skip=N.json, ou pour un filtre de
+    Découvrir <cid>/genre=X.json et <cid>/genre=X&skip=N.json."""
+    folder = catalog / kind / cid
+    files = sorted(folder.iterdir()) if folder.is_dir() else []
+    if genre is None:
+        first = catalog / kind / f"{cid}.json"
+        return ([first] if first.is_file() else []) + [f for f in files if f.name.startswith("skip=")]
+    return [f for f in files if f.name == f"genre={genre}.json" or f.name.startswith(f"genre={genre}&skip=")]
+
+
+def publish_catalog(pages_out: dict[str, list[dict]], keep: list[tuple[str, str, str | None]],
+                    catalog: Path | None = None) -> int:
+    """Écrit les nouvelles pages dans un dossier à part, y recopie les pages de la veille des listes
+    en échec, puis remplace le dossier des catalogues d'un coup (les pages disparues s'en vont).
+    Renvoie le nombre de pages gardées."""
+    catalog = catalog or ADDON / "catalog"
+    new, old = catalog.with_name(catalog.name + ".new"), catalog.with_name(catalog.name + ".old")
+    shutil.rmtree(new, ignore_errors=True)
+    shutil.rmtree(old, ignore_errors=True)
+    for path, chunk in pages_out.items():
+        write_json(new / path, {"metas": chunk})
+    kept = 0
+    for kind, cid, genre in keep:
+        for f in old_pages(catalog, kind, cid, genre):
+            dest = new / f.relative_to(catalog)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(f, dest)
+            kept += 1
+    if catalog.exists():
+        catalog.rename(old)
+    new.rename(catalog)
+    shutil.rmtree(old, ignore_errors=True)
+    return kept
 
 
 def main() -> None:
@@ -402,7 +379,8 @@ def main() -> None:
     # Les tuiles utilisent les sources TMDB intégrées à Nuvio (définies dans catalogs.json pour mémoire).
     defs = season_defs(season) + [d for d in DEFS["catalogs"] if d.get("home")]
     discover = discover_defs()
-    counts, failed = {}, []
+    counts, failed, empty = {}, [], []
+    keep: list[tuple[str, str, str | None]] = []   # listes en échec : leurs pages de la veille restent
     pages_out: dict[str, list[dict]] = {}   # chemin relatif -> fiches de la page
 
     def paginate(kind: str, cid: str, metas: list[dict], genre: str | None = None) -> None:
@@ -417,40 +395,41 @@ def main() -> None:
                 path = f"{kind}/{cid}/{prefix}skip={off}.json"
             pages_out[path] = chunk
 
-    for defn in defs:
-        try:
-            metas = build(defn)
-        except Exception as e:  # un catalogue en échec ne bloque pas les autres
-            failed.append(f"{defn['id']}: {e}")
-            continue
-        counts[defn["id"]] = len(metas)
-        for meta in metas:
-            meta.pop("_tmdb", None)
-        if metas:
-            paginate(defn["type"], defn["id"], metas)
-
+    # (nom, type, id, filtre de Découvrir, définition) de chaque liste.
+    units = [(d["id"], d["type"], d["id"], None, d) for d in defs]
     # Découvrir : un catalogue par entrée du 2e menu, un fichier par filtre du 3e menu.
     # Le fichier sans filtre reste vide : vide, la rangée n'apparaît pas sur l'accueil.
     for d in discover:
         pages_out[f"{d['type']}/{d['id']}.json"] = []
-        for opt in d["options"]:
-            try:
-                metas = build({"type": d["type"], "limit": DISCOVER_LIMIT, **opt["def"]})
-            except Exception as e:
-                failed.append(f"{d['id']}/{opt['label']}: {e}")
-                continue
-            counts[f"{d['id']}/{opt['label']}"] = len(metas)
-            for meta in metas:
-                meta.pop("_tmdb", None)
-            if metas:
-                paginate(d["type"], d["id"], metas, opt["label"])
+        units += [(f"{d['id']}/{o['label']}", d["type"], d["id"], o["label"],
+                   {"type": d["type"], "limit": DISCOVER_LIMIT, **o["def"]}) for o in d["options"]]
 
-    # Réécriture complète du dossier des catalogues (les anciennes pages disparaissent).
-    import shutil
-    shutil.rmtree(ADDON / "catalog", ignore_errors=True)
-    shutil.rmtree(ADDON / "meta", ignore_errors=True)   # les fiches viennent de TMDB Discover Plus
-    for path, chunk in pages_out.items():
-        write_json(ADDON / "catalog" / path, {"metas": chunk})
+    for name, kind, cid, genre, defn in units:
+        try:
+            metas = build(defn)
+        except TMDBAuthError as e:
+            sys.exit(f"{e} — rien n'est modifié.")
+        except Exception as e:  # un catalogue en échec ne bloque pas les autres
+            failed.append(f"{name}: {e}")
+            keep.append((kind, cid, genre))
+            continue
+        if not metas:   # jamais vide d'habitude : la veille plutôt qu'une rangée qui disparaît
+            failed.append(f"{name}: liste vide")
+            empty.append(name)
+            keep.append((kind, cid, genre))
+            continue
+        counts[name] = len(metas)
+        for meta in metas:
+            meta.pop("_tmdb", None)
+        paginate(kind, cid, metas, genre)
+
+    if len(failed) > MAX_FAILED * len(units):
+        for f in failed[:20]:
+            print("  ", f)
+        sys.exit(f"{len(failed)} listes sur {len(units)} en échec (plus de {MAX_FAILED:.0%}) : "
+                 "TMDB en panne ? Rien n'est modifié.")
+
+    kept = publish_catalog(pages_out, keep)
 
     paging = [{"name": "skip"}]
     write_json(ADDON / "manifest.json", {
@@ -480,11 +459,13 @@ def main() -> None:
     write_json(CACHE_FILE, CACHE)
     write_json(ADDON / "state.json", {"season": season, "label": label, "date": TODAY.isoformat(),
                                       "catalogs": len(counts), "pages": len(pages_out),
-                                      "empty": [k for k, v in counts.items() if not v],
-                                      "failed": failed}, pretty=True)
-    print(f"Saison : {label} — {len(counts)} listes, {len(pages_out)} pages, échecs : {len(failed)}")
+                                      "empty": empty, "failed": failed}, pretty=True)
+    print(f"Saison : {label} — {len(counts)} listes, {len(pages_out)} pages, échecs : {len(failed)}"
+          + (f" (pages de la veille gardées : {kept})" if failed else ""))
     for f in failed:
         print("  ", f)
+    if failed:
+        sys.exit(PARTIAL_EXIT)
 
 
 if __name__ == "__main__":

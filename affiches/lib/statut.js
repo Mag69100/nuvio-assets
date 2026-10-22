@@ -150,15 +150,15 @@ function sortieFilm(facts, today, sources) {
 /**
  * Série : les sources lues sont celles du 1er épisode de sa dernière saison, souvent pas encore doublée (One Piece,
  * saison 23 ; la saison en cours de New York Unité spéciale) alors que la série l'est : elles ne jugent que les
- * nouvelles séries (première diffusion il y a moins d'un an). Sans VF dans ces sources (sans sources du tout : pas de
- * quoi juger), une nouvelle série n'est pas sortie : « Bientôt », en noir et blanc ; sauf sur une plateforme en France
+ * nouvelles séries (première diffusion il y a moins d'un an). Sans VF dans ces sources (ou sans aucune source : Small
+ * Town Remedy, chinoise, diffusée depuis deux jours, n'est regardable nulle part), une nouvelle série n'est pas sortie : « Bientôt », en noir et blanc ; sauf sur une plateforme en France
  * qui la double (série en anglais ou en français, Netflix, Disney+). Une vieille série dont seule la dernière saison
  * (ou un seul « saison » de mille épisodes, Doraemon) manque de VF : rien ne change.
  */
 function sortieSerie(facts, today, sources) {
   const base = sortieSerieDates(facts, today), s = lues(sources);
   const nouvelle = !!facts.firstAir && facts.firstAir >= ajoute(today, -365);
-  if (!base.sorti || !s || s.vf || !(s.sources > 0) || !nouvelle || facts.plateformeFrance) return base;
+  if (!base.sorti || !s || s.vf || !nouvelle || facts.plateformeFrance) return base;
   return { sorti: false, statut: "bientot" };
 }
 

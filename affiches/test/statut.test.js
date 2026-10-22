@@ -267,8 +267,11 @@ test("sources : série récente sans VF → pas sortie", () => {
   const doraemon = { ...serie("2005-04-15", [{ season_number: 1, air_date: "2005-04-15" }]), lastEpisode: jours(-4), lastSeason: 1 };
   assert.deepEqual(etatSortie(doraemon, AUJ, { vf: false, sources: 3 }), { sorti: true, statut: null });
   assert.deepEqual(etatSortie(s, AUJ, { vf: true, sources: 14 }), { sorti: true, statut: "nouveau" });
-  // Aucune source : rien ne change (pas de quoi juger).
-  assert.deepEqual(etatSortie(s, AUJ, { vf: false, sources: 0 }), { sorti: true, statut: "nouveau" });
+  // Aucune source du tout (Small Town Remedy, diffusée depuis deux jours) : regardable nulle part, pas sortie non plus ;
+  // sur une plateforme en France qui la double, si. Sources pas lues (Torrentio en panne) : rien ne change.
+  assert.deepEqual(etatSortie(s, AUJ, { vf: false, sources: 0 }), { sorti: false, statut: "bientot" });
+  assert.deepEqual(etatSortie({ ...s, plateformeFrance: true }, AUJ, { vf: false, sources: 0 }), { sorti: true, statut: "nouveau" });
+  assert.deepEqual(etatSortie(s, AUJ, null), { sorti: true, statut: "nouveau" });
   // Vieille série (dernier épisode il y a plus d'un an) : rien ne change.
   const vieille = { ...serie("2018-01-01"), lastEpisode: "2019-05-01" };
   assert.deepEqual(etatSortie(vieille, AUJ, { vf: false, sources: 14 }), etatSortie(vieille, AUJ));

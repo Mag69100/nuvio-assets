@@ -1090,8 +1090,9 @@ async function filmsRegardables(env, released, today, max) {
 /**
  * Les séries déjà en VF chez soi parmi `released` (déjà diffusées, dans leur ordre), au plus `max` : { picked, infos }.
  * Même règle que leurs affiches (affiches/lib/statut.js) : seule une nouvelle série (première diffusion il y a moins
- * d'un an) est jugée, d'après les sources de sa dernière saison ; sans aucune VF (des sources, aucune en VF), elle est
- * écartée, sauf sur une plateforme en France qui la double. Une vieille série reste toujours (sa dernière saison
+ * d'un an) est jugée, d'après les sources de sa dernière saison ; sans aucune VF (aucune source en VF, ou aucune source
+ * du tout : Small Town Remedy, chinoise, diffusée depuis deux jours), elle est écartée, sauf sur une plateforme en
+ * France qui la double. Une vieille série reste toujours (sa dernière saison
  * manque souvent de VF, pas la série) ; une série pas lue (fiche, sources) aussi.
  */
 async function seriesRegardables(env, released, today, max) {
@@ -1104,7 +1105,7 @@ async function seriesRegardables(env, released, today, max) {
     const info = infos.get(it.id);
     if (!nouvelle(it) || !info || !info.serie || info.serie.plateformeFr) return true;
     const lu = sources.get(info.imdb);
-    return !(lu && lu.vf === false && lu.sources > 0);
+    return !(lu && lu.vf === false);
   }).slice(0, max);
   return { picked, infos };
 }

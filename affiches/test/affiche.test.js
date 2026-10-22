@@ -2,6 +2,7 @@ import { test, beforeEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
 import { makeHandler } from "../api/affiche.js";
+import { cleReserve, EMPREINTE_DESSIN } from "../lib/reserve.js";
 import { makeQualite } from "../api/qualite.js";
 import { makeTendances } from "../api/tendances.js";
 import { secondesAvantBascule } from "../lib/tendances.js";
@@ -733,7 +734,7 @@ test("reserve_dessin_range", async () => {
   assert.equal(res.status, 200);
   const jpg = Buffer.from(await res.arrayBuffer());
   assert.equal(rangees.length, 1);
-  assert.equal(`"${rangees[0][0]}"`, res.headers.get("ETag"));   // rangée sous la clé de son contenu
+  assert.equal(rangees[0][0], cleReserve(res.headers.get("ETag").slice(1, -1)));   // rangée sous la clé de son contenu
   assert.ok(rangees[0][1].equals(jpg));
 });
 
@@ -741,7 +742,7 @@ test("reserve_relue_sans_dessiner", async () => {
   // Une première fois pour connaître la clé, puis l'addon la garde : la suivante est relue telle quelle.
   const premier = avecAddon();
   const res = await makeHandler({ fetchImpl: premier.f, env: envAddon })(req("type=movie&shape=poster&id=tt15239678"));
-  const cle = res.headers.get("ETag").slice(1, -1);
+  const cle = cleReserve(res.headers.get("ETag").slice(1, -1));
   const marque = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.from("gardée")]);
   const { f, rangees } = avecAddon({ gardees: new Map([[cle, marque]]) });
   const relue = await makeHandler({ fetchImpl: f, env: envAddon })(req("type=movie&shape=poster&id=tt15239678"));
@@ -756,7 +757,7 @@ test("reserve_seule_quand_le_budget_est_depense", async () => {
   // Entre le budget (140 min) et la marge (160) : plus de dessin, mais la réserve sert encore.
   const ms = 150 * 60000;
   const premier = avecAddon();
-  const cle = (await makeHandler({ fetchImpl: premier.f, env: envAddon })(req("type=movie&shape=poster&id=tt15239678"))).headers.get("ETag").slice(1, -1);
+  const cle = cleReserve((await makeHandler({ fetchImpl: premier.f, env: envAddon })(req("type=movie&shape=poster&id=tt15239678"))).headers.get("ETag").slice(1, -1));
   const vide = avecAddon({ cpuMs: ms });
   const h = makeHandler({ fetchImpl: vide.f, env: envAddon });
   await h(req("type=movie&shape=poster&id=tt0816692"));   // le total arrive avec le premier envoi
@@ -776,4 +777,12 @@ test("reserve_sans_cle_dessine_comme_avant", async () => {
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("X-Affiche-Reserve"), null);
   assert.equal(rangees.length, 0);
+});
+
+test("reserve_cle_suit_le_code_du_dessin", () => {
+  // L'empreinte lit vraiment les fichiers du dessin (aucun « absent ») et la clé change avec elle.
+  assert.match(EMPREINTE_DESSIN, /^[0-9a-f]{40}$/);
+  assert.match(cleReserve("abc"), /^[0-9a-f]{40}$/);
+  assert.notEqual(cleReserve("abc"), cleReserve("abd"));
+  assert.notEqual(cleReserve("abc"), "abc");
 });

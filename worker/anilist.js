@@ -4,14 +4,16 @@
  * personnage (« ichigo » : Ichigo Kurosaki, Bleach ; « luffy », « gojo »). Seulement quand la recherche classique ne
  * trouve rien de connu (runSearch), avant Gemini : ça marche aussi sans clé Gemini.
  *
- * Une seule demande (animes et personnages ensemble) ; AniList en accepte 30 par minute : les réponses sont gardées
- * 7 jours (1 jour sans rien trouvé), une panne ou un refus (429) rend null, la recherche continue sans lui.
+ * AniList refuse (403) les demandes qui viennent de Cloudflare : on passe par le service d'affiches sur Vercel
+ * (affiches/api/anilist.js, /anilist.json, avec RELAIS_KEY), qui garde ses réponses 7 jours. Une seule demande
+ * (animes et personnages ensemble) ; AniList en accepte 30 par minute : gardées ici aussi 7 jours (1 jour sans rien
+ * trouvé), une panne ou un refus (429) rend null, la recherche continue sans lui.
  * Les titres trouvés sont rendus comme ceux de Gemini (resolveTitles, ai.js) : { title, title_fr, title_en, year, type }.
  */
 import { norm } from "./search.js";
+import { AFFICHES_URL } from "./reglages.js";
 
-const URL_ANILIST = "https://graphql.anilist.co";
-const WAIT_MS = 1500;
+const WAIT_MS = 2500;
 const POP_MIN = 15000;     // membres AniList qui suivent l'anime : en dessous, trop obscur pour passer devant
 const FANS_MIN = 1000;     // favoris d'un personnage : en dessous, un figurant (« Dune » de Casshern Sins)
 const MAX_PICKS = 3;       // titres rendus : chacun coûte jusqu'à 3 recherches TMDB (budget de runSearch)
@@ -21,12 +23,6 @@ const PAUSE_MS = 60e3;     // après un refus (429, quota dépassé) : plus d'ap
 let pauseJusqua = 0;
 export const oublierPauseAnilist = () => { pauseJusqua = 0; };
 const FORMATS = { TV: "serie", TV_SHORT: "serie", ONA: "serie", MOVIE: "film" };
-
-const QUERY = `query($s:String){
-  a: Page(perPage:6){ media(search:$s, type:ANIME, sort:SEARCH_MATCH){ title{romaji english} synonyms format startDate{year} popularity } }
-  c: Page(perPage:4){ characters(search:$s, sort:SEARCH_MATCH){ name{full alternative} favourites
-    media(perPage:3, sort:POPULARITY_DESC, type:ANIME){ nodes{ title{romaji english} format startDate{year} popularity } } } }
-}`;
 
 // Suite d'une série (« Attack on Titan Season 2 », « Final Season », « Part 2 ») : le titre de la série, sans année
 // (TMDB n'a qu'une fiche pour toutes les saisons, datée de la première).
@@ -85,24 +81,25 @@ export function oeuvresDe(query, data) {
 }
 
 /** Titres d'animes pour cette requête (gardés), [] si rien, null si AniList ne répond pas. */
-export async function animesDe(query) {
-  if (norm(query).replace(/ /g, "").length < MIN_LETTRES) return [];
-  const cle = new Request(`https://cache.local/anilist-v1/${encodeURIComponent(norm(query))}`);
+export async function animesDe(query, env = {}) {
+  const q = norm(query);
+  if (q.replace(/ /g, "").length < MIN_LETTRES || q.length > 60 || q.split(" ").length > 6) return [];
+  const cle = new Request(`https://cache.local/anilist-v1/${encodeURIComponent(q)}`);
   const hit = await caches.default.match(cle).catch(() => null);
   if (hit) return hit.json();
   if (Date.now() < pauseJusqua) return null;
   let data;
   try {
-    const r = await fetch(URL_ANILIST, {
-      method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ query: QUERY, variables: { s: query } }), signal: AbortSignal.timeout(WAIT_MS),
+    const r = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/anilist.json?q=${encodeURIComponent(q)}`, {
+      headers: env.RELAIS_KEY ? { "X-Relais-Cle": env.RELAIS_KEY } : {}, signal: AbortSignal.timeout(WAIT_MS),
     });
-    if (r.status === 429) pauseJusqua = Date.now() + PAUSE_MS;
-    // Dans les journaux (wrangler tail) : un refus d'AniList se voit, la recherche continue sans lui.
-    if (!r.ok) { console.log(`anilist ${r.status} pour « ${query} »`); return null; }
-    data = (await r.json()).data;
+    const d = r.ok ? await r.json() : { erreur: r.status };
+    if (d.erreur === 429) pauseJusqua = Date.now() + PAUSE_MS;
+    // Dans les journaux (wrangler tail) : un refus d'AniList (ou du relais) se voit, la recherche continue sans lui.
+    if (!d.data) { console.log(`anilist ${d.erreur || "réponse vide"} pour « ${q} »`); return null; }
+    data = d.data;
   } catch (e) {
-    console.log(`anilist ${e && e.name} pour « ${query} »`);
+    console.log(`anilist ${e && e.name} pour « ${q} »`);
     return null;
   }
   const picks = oeuvresDe(query, data);

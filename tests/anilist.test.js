@@ -57,11 +57,14 @@ beforeEach(() => {
 });
 
 test("garde_et_panne", async () => {
-  globalThis.fetch = async () => { appels++; return new Response(JSON.stringify({ data: ICHIGO })); };
-  assert.equal((await animesDe("Ichigo"))[0].title, "Bleach");
+  const vues = [];
+  globalThis.fetch = async (url, init = {}) => { appels++; vues.push([String(url), (init.headers || {})["X-Relais-Cle"]]); return new Response(JSON.stringify({ data: ICHIGO })); };
+  assert.equal((await animesDe("Ichigo", { AFFICHES_URL: "https://affiches.test", RELAIS_KEY: "cle" }))[0].title, "Bleach");
+  // Par le relais du service d'affiches (AniList refuse Cloudflare), requête réduite, avec la clé du relais.
+  assert.deepEqual(vues, [["https://affiches.test/anilist.json?q=ichigo", "cle"]]);
   assert.equal((await animesDe("ichigo"))[0].title, "Bleach");
   assert.equal(appels, 1);
-  globalThis.fetch = async () => { appels++; return new Response("{}", { status: 429 }); };
+  globalThis.fetch = async () => { appels++; return new Response(JSON.stringify({ erreur: 429 })); };
   assert.equal(await animesDe("luffy"), null);
   assert.ok(![...store.keys()].some((k) => k.includes("luffy")));
   // Refusé : une minute sans appel, la recherche continue sans AniList.

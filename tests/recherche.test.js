@@ -398,7 +398,8 @@ test("addon_anime_par_son_nom_japonais_sans_gemini", async () => {
   globalThis.fetch = async (url, init) => {
     const u = new URL(String(url));
     urls.push(u);
-    if (u.hostname === "graphql.anilist.co") return new Response(JSON.stringify({ data: {
+    // AniList par le relais du service d'affiches (AniList refuse Cloudflare).
+    if (u.pathname === "/anilist.json" && u.searchParams.get("q") === "shingeki no kyojin") return new Response(JSON.stringify({ data: {
       a: { media: [{ title: { english: "Attack on Titan", romaji: "Shingeki no Kyojin" }, synonyms: [], format: "TV", startDate: { year: 2013 }, popularity: 1069303 }] },
       c: { characters: [] } } }));
     if (u.pathname === "/3/search/tv") {

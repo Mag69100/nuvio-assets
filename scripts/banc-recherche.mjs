@@ -20,7 +20,11 @@ if (!cle) throw new Error("TMDB_API_KEY manquante (variable d'environnement ou .
 const store = new Map();
 globalThis.caches = { default: { match: async (r) => (store.has(r.url) ? new Response(store.get(r.url)) : undefined), put: async (r, res) => { store.set(r.url, await res.text()); } } };
 const vraiFetch = globalThis.fetch;
-globalThis.fetch = (u, o) => (String(u).includes("generativelanguage") ? Promise.resolve(new Response("{}", { status: 400 })) : vraiFetch(u, o));
+// Le relais AniList du service d'affiches (affiches/api/anilist.js) tourne ici, sans Vercel ni sa clé.
+const { makeAnilist } = await import(new URL("affiches/api/anilist.js", racine));
+const relais = makeAnilist({ fetchImpl: vraiFetch, env: {} });
+globalThis.fetch = (u, o) => (String(u).includes("generativelanguage") ? Promise.resolve(new Response("{}", { status: 400 }))
+  : new URL(String(u)).pathname === "/anilist.json" ? relais(new Request(String(u))) : vraiFetch(u, o));
 console.warn = () => {};
 const worker = (await import(new URL("worker/index.js", racine))).default;
 // /debug demande une clé Gemini, celle du lien égale à celle de l'instance : une fausse, jamais envoyée à Google.

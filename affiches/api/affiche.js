@@ -25,6 +25,7 @@ import { choisirSansTexte } from "../lib/texte.js";
 import { jourParis, secondesAvantMinuitParis, secondesAvantJourParis } from "../lib/jour.js";
 import { disjoncteurDe } from "../lib/disjoncteur.js";
 import { creerBudget } from "../lib/budget.js";
+import { creerReserve } from "../lib/reserve.js";
 
 // CDN : 7 jours, comme l'appli, puis redessinée en arrière-plan (limite de calcul gratuite : 4 h par mois). Une
 // affiche sans statut ni N° ne change qu'avec sa note (fichier IMDb de la semaine) ou son badge 4K : quelques jours
@@ -129,7 +130,7 @@ function optionsNormales(q, id) {
 
 export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
   const disjoncteur = disjoncteurDe(env);
-  const budget = creerBudget({ env, fetchImpl });
+  const budget = creerBudget({ env, fetchImpl }), reserve = creerReserve({ env, fetchImpl });
   let dernierAvis = 0, dernierAvisBudget = 0, dessins = 0;
   // Le CPU de l'instance part chez l'addon (une fois par minute au plus) pendant qu'on répond.
   return async function GET(request) {
@@ -150,9 +151,9 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
     if (String(recues) !== normales) {
       return new Response(null, { status: 308, headers: { ...CORS, ...CANONIQUE, Location: `/${type}/${shape}/${id}.jpg${normales ? "?" + normales : ""}` } });
     }
-    // Budget de calcul des 31 jours dépensé (lib/budget.js) : rien à lire ni à dessiner, l'appli montre l'affiche
-    // d'origine (le CDN ressert encore un jour celles qu'il a). Vérifié avant TMDB : lire la fiche coûte aussi.
-    if (budget.epuise()) {
+    // Budget de calcul des 31 jours dépensé, marge comprise (lib/budget.js) : rien à lire ni à dessiner, l'appli
+    // montre l'affiche d'origine (le CDN ressert encore un jour celles qu'il a). Avant TMDB : lire la fiche coûte aussi.
+    if (budget.arret()) {
       if (Date.now() - dernierAvisBudget > 60000) { dernierAvisBudget = Date.now(); console.warn("budget de calcul dépensé : affiches d'origine pour l'instant"); }
       return indisponible(SURCHARGE);
     }
@@ -245,7 +246,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
         && !content.langue && !content.avance && !content.saga && !content.saison) {
         return new Response(null, { status: 302, headers: { ...CORS, ...cacheDe({ enRetard, place, jusqua: finSaison }), Location: imageUrls(content)[0] } });
       }
-      const etag = `"${contentKey(content)}"`;
+      const cle = contentKey(content), etag = `"${cle}"`;
       // Classée, presque classée ou avec un statut : jusqu'au changement de photo des tendances (voir cacheDe).
       // Un bandeau qui porte le statut (une date) suit la même règle que le statut.
       // « Nouvel épisode » allumé sur une série : revérifiée chaque jour aussi, pour l'afficher le jour même.
@@ -272,11 +273,23 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const headers = { ...CORS, "Access-Control-Expose-Headers": "X-Affiche-Etat, X-Affiche-Sortie", "X-Affiche-Etat": enRetard ? "retard" : "complete",
         "X-Affiche-Sortie": pourquoi, ...cache, ETag: etag };
       if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });
-      // Une ligne par dessin dans les journaux de Vercel : ce qui fait dessiner (options, durée au CDN, donnée en
-      // retard : q qualité, i note IMDb, t tendances, x image sans texte, s saga ou saison, e estimation).
+      // Une ligne par affiche dans les journaux de Vercel : relue ou dessinée, et ce qui fait dessiner (options, durée
+      // au CDN, donnée en retard : q qualité, i note IMDb, t tendances, x image sans texte, s saga ou saison, e estimation).
       const retard = [[qualiteEnRetard, "q"], [imdbManque, "i"], [photoIllisible, "t"], [imageIncertaine, "x"],
         [(sagaVoulue && !filmsSaga) || (saisonVoulue && !rangee), "s"], [estimationManque, "e"]].filter(([v]) => v).map(([, c]) => c).join("");
-      console.log(`dessin ${type}/${shape}/${id}${normales ? "?" + normales : ""} cdn=${/max-age=(\d+)/.exec(cache["Vercel-CDN-Cache-Control"])[1]}${retard ? " retard=" + retard : ""}`);
+      const ligne = `${type}/${shape}/${id}${normales ? "?" + normales : ""} cdn=${/max-age=(\d+)/.exec(cache["Vercel-CDN-Cache-Control"])[1]}${retard ? " retard=" + retard : ""}`;
+      // Déjà dessinée à l'identique (la veille, avant une mise en ligne…) : relue dans la réserve de l'addon.
+      const gardee = await reserve.lire(cle);
+      if (gardee) {
+        console.log(`reserve ${ligne}`);
+        return new Response(gardee, { status: 200, headers: { ...headers, "X-Affiche-Reserve": "lue", "Content-Type": "image/jpeg" } });
+      }
+      // Budget du mois dépensé (lib/budget.js) : plus de dessin, seulement la réserve.
+      if (budget.epuise()) {
+        if (Date.now() - dernierAvisBudget > 60000) { dernierAvisBudget = Date.now(); console.warn("budget de calcul dépensé : plus de dessin, seulement la réserve"); }
+        return indisponible(SURCHARGE);
+      }
+      console.log(`dessin ${ligne}`);
       let jpg;
       disjoncteur.compte();
       try {
@@ -292,6 +305,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       dessins++;
       const ms = (c) => Math.round((c.user + c.system) / 1000);
       const cpu = `requete=${ms(process.cpuUsage(cpu0))} instance=${ms(process.cpuUsage())} dessins=${dessins} depuis=${Math.round(process.uptime())}`;
+      await reserve.garder(cle, jpg);
       return new Response(jpg, { status: 200, headers: { ...headers, "X-Affiche-Cpu": cpu, "Content-Type": "image/jpeg" } });
     } catch (e) {
       console.error(`affiche ${type}/${shape}/${id} : ${e && e.message}`);

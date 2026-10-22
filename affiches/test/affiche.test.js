@@ -710,3 +710,70 @@ test("dispo_estimee_d_apres_le_distributeur", async () => {
   assert.match(sans.headers.get("X-Affiche-Sortie"), new RegExp(` dispo=${jour(35)}~ `));
   assert.equal(sans.headers.get("X-Affiche-Etat"), "retard");
 });
+
+// Réserve de l'addon (lib/reserve.js) : un faux addon devant le faux internet. cpuMs : le total des 31 jours qu'il
+// annonce au budget (lib/budget.js).
+function avecAddon({ gardees = new Map(), cpuMs = 0 } = {}) {
+  const net = internet(), rangees = [];
+  const f = async (url, opts = {}) => {
+    const u = new URL(String(url));
+    if (u.pathname === "/cpu") return json({ ms: cpuMs, jours: 31 });
+    const r = /^\/reserve\/([0-9a-f]{40})$/.exec(u.pathname);
+    if (!r) return net(url, opts);
+    if (opts.method === "PUT") { rangees.push([r[1], Buffer.from(opts.body)]); return new Response(null, { status: 204 }); }
+    return gardees.has(r[1]) ? new Response(gardees.get(r[1]), { headers: { "Content-Type": "image/jpeg" } }) : new Response(null, { status: 404 });
+  };
+  return { f, rangees };
+}
+const envAddon = { ...env, RELAIS_KEY: "cle" };
+
+test("reserve_dessin_range", async () => {
+  const { f, rangees } = avecAddon();
+  const res = await makeHandler({ fetchImpl: f, env: envAddon })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(res.status, 200);
+  const jpg = Buffer.from(await res.arrayBuffer());
+  assert.equal(rangees.length, 1);
+  assert.equal(`"${rangees[0][0]}"`, res.headers.get("ETag"));   // rangée sous la clé de son contenu
+  assert.ok(rangees[0][1].equals(jpg));
+});
+
+test("reserve_relue_sans_dessiner", async () => {
+  // Une première fois pour connaître la clé, puis l'addon la garde : la suivante est relue telle quelle.
+  const premier = avecAddon();
+  const res = await makeHandler({ fetchImpl: premier.f, env: envAddon })(req("type=movie&shape=poster&id=tt15239678"));
+  const cle = res.headers.get("ETag").slice(1, -1);
+  const marque = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.from("gardée")]);
+  const { f, rangees } = avecAddon({ gardees: new Map([[cle, marque]]) });
+  const relue = await makeHandler({ fetchImpl: f, env: envAddon })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(relue.status, 200);
+  assert.equal(relue.headers.get("X-Affiche-Reserve"), "lue");
+  assert.equal(relue.headers.get("ETag"), res.headers.get("ETag"));
+  assert.ok(Buffer.from(await relue.arrayBuffer()).equals(marque));
+  assert.equal(rangees.length, 0);
+});
+
+test("reserve_seule_quand_le_budget_est_depense", async () => {
+  // Entre le budget (140 min) et la marge (160) : plus de dessin, mais la réserve sert encore.
+  const ms = 150 * 60000;
+  const premier = avecAddon();
+  const cle = (await makeHandler({ fetchImpl: premier.f, env: envAddon })(req("type=movie&shape=poster&id=tt15239678"))).headers.get("ETag").slice(1, -1);
+  const vide = avecAddon({ cpuMs: ms });
+  const h = makeHandler({ fetchImpl: vide.f, env: envAddon });
+  await h(req("type=movie&shape=poster&id=tt0816692"));   // le total arrive avec le premier envoi
+  const sans = await h(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(sans.status, 503);
+  const pleine = avecAddon({ cpuMs: ms, gardees: new Map([[cle, JPG]]) });
+  const h2 = makeHandler({ fetchImpl: pleine.f, env: envAddon });
+  await h2(req("type=movie&shape=poster&id=tt0816692"));
+  const avec = await h2(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(avec.status, 200);
+  assert.equal(avec.headers.get("X-Affiche-Reserve"), "lue");
+});
+
+test("reserve_sans_cle_dessine_comme_avant", async () => {
+  const { f, rangees } = avecAddon();
+  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("X-Affiche-Reserve"), null);
+  assert.equal(rangees.length, 0);
+});

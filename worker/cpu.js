@@ -20,7 +20,7 @@ const table = (env) => (ready = ready || env.LIENS.prepare(
 const jourUtc = (t) => new Date(t).toISOString().slice(0, 10);
 
 /** Comparaison en temps constant : la durée ne dit pas combien de caractères de la clé sont justes. */
-function memeCle(a, b) {
+export function memeCle(a, b) {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);

@@ -33,6 +33,12 @@ service = "nuvio-assets"
 binding = "LIENS"
 database_name = "nuvio-liens"
 
+# Réserve des affiches maison déjà dessinées (voir worker/reserve.js) : une base à part, créée toute seule elle
+# aussi. Une base gratuite tient 500 Mo : les liens fixes ne partagent pas la leur avec des images.
+[[d1_databases]]
+binding = "RESERVE"
+database_name = "nuvio-reserve"
+
 # Photo du jour des tendances (worker/tendances.js) : prise à 4 h UTC, la même pour tout le monde.
 [triggers]
 crons = ["0 4 * * *"]

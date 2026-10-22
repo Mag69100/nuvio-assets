@@ -41,6 +41,7 @@ import { copiePage } from "./copie.js";
 import { nouveautesPage } from "./nouveautes.js";
 import { hallPage } from "./hall.js";
 import { routeCinemeta } from "./cinemeta.js";
+import { videosCinemeta, decoupageCinemeta, ficheRecomptee } from "./episodes.js";
 import { routeJeu } from "./jeu.js";
 import { routeEtat } from "./etat.js";
 import { statique } from "./statique.js";
@@ -55,6 +56,7 @@ import { programmationPublique } from "./soiree.js";
 import { galerieRoute } from "./galerie.js";
 import { secondesAvantBascule, jourTendances, routeTendances, prendrePhotos } from "./tendances.js";
 import { routeCpu } from "./cpu.js";
+import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
 const VERSION = "5.38.0";
@@ -1532,13 +1534,18 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
   const lang = langOf(cfg);
   const short = lang.slice(0, 2);
   const movie = kind === "movie";
-  const d = await tmdb(env, `/${movie ? "movie" : "tv"}/${tmdbId}`, {
+  const brut = await tmdb(env, `/${movie ? "movie" : "tv"}/${tmdbId}`, {
     append_to_response: movie ? "credits,videos,images,release_dates,external_ids,keywords,watch/providers" : "aggregate_credits,credits,videos,images,external_ids,content_ratings,keywords,watch/providers",
     include_image_language: `${short},en,null`, include_video_language: `${short},en`,
   }, lang);
-  if (!d || !d.id) return null;
+  if (!brut || !brut.id) return null;
 
-  const imdb = (movie ? d.imdb_id : d.external_ids && d.external_ids.imdb_id) || null;
+  const imdb = (movie ? brut.imdb_id : brut.external_ids && brut.external_ids.imdb_id) || null;
+  // Série : saisons comptées comme Cinemeta quand TMDB les découpe autrement (anime en une saison), pour les
+  // épisodes, leurs identifiants (les sources) et les lignes « Saison… » de la fiche. Voir episodes.js.
+  const cine = !movie && imdb ? await videosCinemeta(imdb) : [];
+  const decoupage = cine && decoupageCinemeta(brut.seasons, cine);
+  const d = decoupage ? ficheRecomptee(brut, decoupage) : brut;
   const metaId = id.startsWith("tt") ? id : imdb || `tmdb:${tmdbId}`;
   const date = (movie ? d.release_date : d.first_air_date) || "";
   const releases = movie ? (d.release_dates && d.release_dates.results) || [] : null;
@@ -1640,7 +1647,8 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
   if (!movie) {
     // Épisodes : les saisons sont ajoutées par lots de 20 à un seul appel TMDB.
     const base = imdb || `tmdb:${tmdbId}`;
-    const numbers = (d.seasons || []).map((s) => s.season_number).filter((n) => Number.isInteger(n));
+    // Saisons de TMDB (pas celles recomptées) : ce sont elles qu'on lui demande.
+    const numbers = (brut.seasons || []).map((s) => s.season_number).filter((n) => Number.isInteger(n));
     const batches = [];
     for (let i = 0; i < numbers.length; i += 20) batches.push(numbers.slice(i, i + 20));
     const anime = d.original_language === "ja" && (d.genres || []).some((g) => g.id === 16) && (d.number_of_episodes || 0) >= 40;
@@ -1654,27 +1662,47 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
       for (const n of numbers) {
         const s = part[`season/${n}`];
         if (!s || !s.episodes) continue;
-        const best = n > 0 ? bestEpisodes(s.episodes, today) : new Set();
         for (const e of s.episodes) {
-          const title = `${best.has(e.episode_number) ? "⭐ " : ""}${e.name || `Épisode ${e.episode_number}`}`;
+          const { season, episode } = decoupage ? decoupage.place(n, e.episode_number) : { season: n, episode: e.episode_number };
           videos.push({
-            id: `${base}:${n}:${e.episode_number}`,
-            title,
-            name: title,
-            season: n,
-            episode: e.episode_number,
-            number: e.episode_number,
+            id: `${base}:${season}:${episode}`,
+            title: e.name || `Épisode ${episode}`,
+            season,
+            episode,
+            number: episode,
             released: e.air_date ? `${e.air_date}T00:00:00.000Z` : undefined,
             overview: e.overview || undefined,
             thumbnail: e.still_path ? `${IMG}w500${e.still_path}` : undefined,
             runtime: e.runtime ? `${e.runtime} min` : undefined,
             _minutes: e.runtime || 0,
             _aired: !!e.air_date && e.air_date <= today,
+            _note: { air_date: e.air_date, vote_count: e.vote_count, vote_average: e.vote_average, episode_number: episode },
           });
         }
       }
     }
+    // Épisodes que seul Cinemeta connaît (saison annoncée) : ses titres anglais, « Episode 1 » traduit.
+    for (const v of decoupage ? decoupage.restants : []) {
+      videos.push({
+        id: `${base}:${v.season}:${v.episode}`,
+        title: !v.name || /^Episode \d+$/i.test(v.name) ? `Épisode ${v.episode}` : v.name,
+        season: v.season,
+        episode: v.episode,
+        number: v.episode,
+        released: v.released || undefined,
+        overview: v.overview || undefined,
+        thumbnail: v.released && v.thumbnail ? v.thumbnail : undefined,
+        _aired: !!v.released && v.released.slice(0, 10) <= today,
+      });
+    }
     videos.sort((a, b) => a.season - b.season || a.episode - b.episode);
+    // Les 3 meilleurs épisodes de chaque saison (une fois les saisons recomptées) : l'étoile.
+    for (const n of new Set(videos.map((v) => v.season))) {
+      const saison = videos.filter((v) => v.season === n && v._note);
+      const best = n > 0 ? bestEpisodes(saison.map((v) => v._note), today) : new Set();
+      for (const v of saison) if (best.has(v.episode)) v.title = `⭐ ${v.title}`;
+    }
+    for (const v of videos) v.name = v.title;
     // Anime : épisodes de remplissage, comptés à la suite d'une saison à l'autre (hors spéciaux).
     if (fillers && fillers.size) {
       let k = 0;
@@ -2009,7 +2037,7 @@ function json(data, maxAge) {
   });
 }
 
-const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie", "lien-fixe", "tendances", "saison.json", "seance", "diagnostic", "nouveautes", "cpu"]);
+const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie", "lien-fixe", "tendances", "saison.json", "seance", "diagnostic", "nouveautes", "cpu", "reserve"]);
 
 async function loadCollections() {
   const res = await fetch(`${ASSETS}/collections/collections.json`, { cf: { cacheTtl: 600, cacheEverything: true } });
@@ -2114,6 +2142,7 @@ export default {
   // Tâche planifiée de 4 h UTC (wrangler.toml) : la photo du jour des tendances.
   async scheduled(event, env, ctx) {
     ctx.waitUntil(prendrePhotos(env, event.scheduledTime, classerTendances));
+    ctx.waitUntil(nettoyerReserve(env, event.scheduledTime));
   },
 };
 
@@ -2129,6 +2158,9 @@ const app = {
     if (path.startsWith("/galerie/")) return galerieRoute(request, env, url, path);
     // Compteur de calcul du service d'affiches (offre Hobby de Vercel : 4 h de CPU par mois, voir cpu.js).
     if (path === "/cpu") return routeCpu(request, env, url);
+    // Réserve des affiches déjà dessinées, lue par le service d'affiches avant de dessiner (voir reserve.js).
+    const rv = /^\/reserve\/([^/]+)$/.exec(path);
+    if (rv) return routeReserve(request, env, rv[1]);
     const today = parisToday();
     const rows = allRows(today, null);
     // Nuvio « de base » de l'avant / après des aperçus : les rangées de Cinemeta, relayées (voir cinemeta.js).

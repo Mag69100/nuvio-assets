@@ -33,8 +33,8 @@ test("budget_envoie_le_cpu_une_fois_par_minute", async () => {
 });
 
 test("budget_epuise_avec_le_total_de_toutes_les_instances", async () => {
-  // Les autres instances ont déjà dépensé 149 min ; celle-ci 30 s, puis 61 s.
-  const a = addon({ depart: 149 * 60000 });
+  // Les autres instances ont déjà dépensé 139 min (budget : 140) ; celle-ci 30 s, puis 61 s.
+  const a = addon({ depart: 139 * 60000 });
   let cpu = 30000;
   const b = creerBudget({ env: { RELAIS_KEY: "cle" }, fetchImpl: a.fetchImpl, cpu: () => cpu, horloge: () => 0 });
   assert.equal(b.epuise(), false);   // total encore inconnu : seulement le CPU de l'instance

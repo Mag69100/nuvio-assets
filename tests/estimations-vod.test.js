@@ -126,8 +126,11 @@ test("bientot_dispo_avec_la_fenetre_du_distributeur", async () => {
   const salles = calls.find((u) => u.includes("/discover/movie") && u.includes("with_release_type=3%7C2"));
   assert.ok(salles, calls.join("\n"));
   const q = new URL(salles).searchParams;
-  assert.equal(q.get("release_date.gte"), jour(1 - 60));
-  assert.equal(q.get("release_date.lte"), jour(45 - 18));
+  // Comptées depuis la date de Paris (parisToday) : entre minuit et 2 h, elle a un jour d'avance sur jour(0), en UTC.
+  const paris = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date());
+  const jourParis = (n) => new Date(Date.parse(paris) + n * 86400000).toISOString().slice(0, 10);
+  assert.equal(q.get("release_date.gte"), jourParis(1 - 60));
+  assert.equal(q.get("release_date.lte"), jourParis(45 - 18));
   assert.equal(calls.filter((u) => u === VOD_URL).length, 1, "un seul appel pour la page");
 });
 

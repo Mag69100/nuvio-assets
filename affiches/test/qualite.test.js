@@ -99,14 +99,14 @@ test("mémoire : un seul appel par titre", async () => {
   assert.equal(n, 1);
 });
 
-// VF dans le nom d'un flux (TRUEFRENCH, FRENCH, VFF, VFQ…, ou « Multi Audio » avec le drapeau français) ; les
+// VF dans le nom d'un flux (TRUEFRENCH, FRENCH, VFF…, pas la VFQ seule, ou « Multi Audio » avec le drapeau français) ; les
 // drapeaux seuls ne comptent pas (une sortie WEB-DL en affiche quinze, surtout pour ses sous-titres).
 test("vf_dans_les_sources", () => {
   const vf = (...titres) => parseQuality(titres.map((title) => ({ name: "Torrentio\n1080p", title }))).vf;
   assert.equal(vf("Bad Apples MULTI TRUEFRENCH ULTRA HD 4K x265 2026"), true);
   assert.equal(vf("Bad.Apples.2025.MULTi.VFF.2160p.WEB.H265.mkv"), true);
   assert.equal(vf("Film.2026.FRENCH.1080p.WEB.x264"), true);
-  assert.equal(vf("Film.2026.VFQ.1080p.WEB"), true);
+  assert.equal(vf("Film.2026.VFQ.1080p.WEB"), false);   // québécoise : pas la VF de France
   assert.equal(vf("Film 2026 1080p WEBRip\n👤 5 ⚙️ EXT\nMulti Audio / 🇬🇧 / 🇫🇷"), true);
   assert.equal(vf("Film 2026 1080p AMZN WEB-DL DDP5 1 H 264\n🇬🇧 / 🇯🇵 / 🇫🇷 / 🇩🇪"), false);
   assert.equal(vf("Film.2026.1080p.WEBRip\nMulti Audio / 🇬🇧 / 🇪🇸"), false);
@@ -121,7 +121,7 @@ test("langue_des_sources", () => {
   assert.equal(langue("Bad.Apples.2025.MULTi.VFF.2160p.WEB.H265.mkv", "Film.2025.FRENCH.1080p"), "multi");
   assert.equal(langue("Film 2026 1080p WEBRip\nMulti Audio / 🇬🇧 / 🇫🇷"), "multi");
   assert.equal(langue("Film.2026.TRUEFRENCH.1080p.WEB", "Film.2026.1080p.VOSTFR"), "vf");
-  for (const t of ["FRENCH", "VFF", "VFQ", "VFI", "VF2", "TRUEFRENCH"]) assert.equal(langue(`Film.2026.${t}.1080p`), "vf", t);
+  for (const t of ["FRENCH", "VFF", "VFI", "VF2", "TRUEFRENCH"]) assert.equal(langue(`Film.2026.${t}.1080p`), "vf", t);
   assert.equal(langue("Film.2026.1080p.VOSTFR.WEB", "Film.2026.1080p.WEB"), "vostfr");
   assert.equal(langue("Film.2026.SUBFRENCH.1080p"), "vostfr");
   // MULTI sans la VF (« Multi Audio » espagnol), drapeaux seuls : de la VO.
@@ -152,4 +152,17 @@ test("relais_v3_avec_la_vf", async () => {
   const ancien = async () => new Response(JSON.stringify({ uhd: true, extra: "HDR" }));
   const a = await qualityOf("movie", "tt10", null, ancien, "https://affiches.test");
   assert.deepEqual([a.vf, a.sources], [null, null]);
+});
+
+// Seule la VF de France compte : un flux québécois seul (VFQ, QUÉBEC, FRENCH.VFQ) n'est pas de la VF ; avec une VF de
+// France à côté (MULTi.VFF.VFQ, TRUEFRENCH), si.
+test("vfq_seule_pas_de_vf", () => {
+  const de = (...noms) => parseQuality(noms.map((title) => ({ name: "Torrentio 1080p", title })));
+  assert.deepEqual([de("By.Any.Means.2026.MULTi.VFQ.2160p.WEB").vf, de("By.Any.Means.2026.MULTi.VFQ.2160p.WEB").langue], [false, "vo"]);
+  assert.equal(de("Film.2026.FRENCH.VFQ.1080p").vf, false);
+  assert.equal(de("Film 2026 QUEBEC 1080p WEB").vf, false);
+  assert.deepEqual([de("Film.2026.MULTi.VFF.VFQ.1080p").vf, de("Film.2026.MULTi.VFF.VFQ.1080p").langue], [true, "multi"]);
+  assert.equal(de("Film.2026.TRUEFRENCH.1080p").vf, true);
+  assert.equal(de("Film.2026.MULTi.VFQ.2160p", "Film.2026.FRENCH.720p.WEBRIP").vf, true);
+  assert.equal(de("Film.2026.VOSTFR.1080p").langue, "vostfr");
 });

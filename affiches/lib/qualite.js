@@ -23,9 +23,14 @@ const HDR = /\bhdr(10\+?)?(?=\W|$)/i;
 const HDR10P = /\bhdr10(\+|plus)(?=\W|$)/i;
 const FHD = /\b1080p\b/i;
 const ATMOS = /\batmos\b/i;
-// VF dans le nom d'un flux : TRUEFRENCH, FRENCH, VFF, VFQ…, ou « Multi Audio » avec le drapeau français. Les drapeaux
+// VF dans le nom d'un flux : TRUEFRENCH, FRENCH, VFF…, ou « Multi Audio » avec le drapeau français. Les drapeaux
 // seuls ne comptent pas : une sortie WEB-DL en affiche quinze, surtout pour ses sous-titres.
-const VF = /\b(TRUEFRENCH|FRENCH|VFF|VFQ|VFI|VF2|VOF)\b|\bMULTI\b.*\bVF\b|Multi Audio.*🇫🇷/i;
+// Seule la VF de France compte (choix de la personne) : un flux québécois (VFQ, QUÉBEC) n'est pas de la VF, sauf s'il
+// porte aussi une VF de France (MULTi.VFF.VFQ, TRUEFRENCH). Comme StreamFusion, réglé pour écarter la VFQ.
+const VF = /\b(TRUEFRENCH|FRENCH|VFF|VFI|VF2|VOF)\b|\bMULTI\b.*\bVF\b|Multi Audio.*🇫🇷/i;
+const VFQ = /\b(VFQ|QU[EÉ]BEC|QU[EÉ]B[EÉ]COIS)\b/i;
+const VF_FRANCE = /\b(TRUEFRENCH|VFF|VFI|VF2)\b/i;
+const enVf = (t) => VF.test(t) && !(VFQ.test(t) && !VF_FRANCE.test(t));
 // Langue (badge « Langue » des affiches) : un flux VF qui porte aussi MULTI (ou « Multi Audio ») a la VF et la VO ;
 // sans VF, des sous-titres français (VOSTFR, SUBFRENCH) ; sinon de la VO seulement.
 const MULTI = /\bMULTI\b|Multi Audio/i;
@@ -34,9 +39,9 @@ const VOSTFR = /\b(VOSTFR|SUBFRENCH)\b/i;
 /** La meilleure langue des flux pour un Français : "multi", "vf", "vostfr", "vo", ou null sans aucun flux. */
 function langueDe(tous) {
   if (!tous.length) return null;
-  const enVf = tous.filter((t) => VF.test(t));
-  if (enVf.some((t) => MULTI.test(t))) return "multi";
-  if (enVf.length) return "vf";
+  const vf = tous.filter(enVf);
+  if (vf.some((t) => MULTI.test(t))) return "multi";
+  if (vf.length) return "vf";
   return tous.some((t) => VOSTFR.test(t)) ? "vostfr" : "vo";
 }
 
@@ -50,7 +55,7 @@ export function parseQuality(streams) {
   const uhd = tous.filter((t) => UHD.test(t));
   const extra = uhd.some((t) => DV.test(t)) ? "DV" : uhd.some((t) => HDR.test(t)) ? "HDR" : null;
   return { uhd: uhd.length > 0, extra, fhd: tous.some((t) => FHD.test(t)), hdr10p: uhd.some((t) => HDR10P.test(t)), atmos: tous.some((t) => ATMOS.test(t)),
-    vf: tous.some((t) => VF.test(t)), sources: tous.length, langue: langueDe(tous) };
+    vf: tous.some(enVf), sources: tous.length, langue: langueDe(tous) };
 }
 const LANGUES = ["multi", "vf", "vostfr", "vo"];
 

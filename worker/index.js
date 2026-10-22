@@ -2082,13 +2082,19 @@ const app = {
       const key = new Request(`https://cache.local/affiche-v${APERCU_V}/${af[1]}/${af[2]}/${id}?${q}&t=${jourTendances()}`);
       const hitA = await caches.default.match(key);
       if (hitA) return hitA;
-      const r = await fetch(src).catch(() => null);
+      // X-Apercu : le service attend la qualité plus longtemps (une affiche de régie sans son badge 4K faisait croire
+      // que cocher une case en retirait une autre).
+      const r = await fetch(src, { headers: { "X-Apercu": "1" } }).catch(() => null);
       if (!r || !r.ok || !/^image\//.test(r.headers.get("Content-Type") || "")) return new Response(null, { status: 404, headers: { ...HEADERS, "Cache-Control": "public, max-age=3600" } });
       // Gardée aussi longtemps que le service le demande, un jour au plus : une affiche partie sans son badge
       // (qualité en retard) n'est gardée qu'une heure, puis redemandée.
       const cc = r.headers.get("Cache-Control") || "", ma = /max-age=(\d+)/.exec(cc);
-      const garde = /no-store|no-cache/.test(cc) ? 0 : Math.min(86400, ma ? Number(ma[1]) : 3600);
-      const out = new Response(r.body, { headers: { "Access-Control-Allow-Origin": "*", "Content-Type": r.headers.get("Content-Type"), "Cache-Control": garde ? `public, max-age=${garde}` : "no-store" } });
+      // Partie « en retard » (X-Affiche-Etat, une donnée manquait) : jamais gardée, ni ici ni par le navigateur ; la
+      // régie la redemande quelques secondes plus tard.
+      const etat = r.headers.get("X-Affiche-Etat") === "retard" ? "retard" : "complete";
+      const garde = etat === "retard" || /no-store|no-cache/.test(cc) ? 0 : Math.min(86400, ma ? Number(ma[1]) : 3600);
+      const out = new Response(r.body, { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Expose-Headers": "X-Affiche-Etat", "X-Affiche-Etat": etat,
+        "Content-Type": r.headers.get("Content-Type"), "Cache-Control": garde ? `public, max-age=${garde}` : "no-store" } });
       if (garde) ctx.waitUntil(caches.default.put(key, out.clone()));
       return out;
     }

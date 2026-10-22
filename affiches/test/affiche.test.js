@@ -181,6 +181,22 @@ test("Torrentio lent : pas plus d'1 s d'attente, cache court", async () => {
   assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=600, stale-while-revalidate=3600");
 });
 
+// Aperçu de la régie (en-tête X-Apercu) : Torrentio attendu jusqu'à 4 s, l'affiche part complète avec son badge ;
+// sans l'en-tête (une carte de Nuvio), 1 s au plus et « retard ». L'état est dit dans X-Affiche-Etat.
+test("apercu_de_la_regie_attend_la_qualite", async () => {
+  const fetchImpl = internet({ torrentio: lent(2000, { streams: [{ name: "4k" }] }) });
+  const r = req("type=movie&shape=poster&id=tt15239678");
+  const apercu = await makeHandler({ fetchImpl, env })(new Request(r.url, { headers: { "X-Apercu": "1" } }));
+  assert.equal(apercu.status, 200);
+  assert.equal(apercu.headers.get("X-Affiche-Etat"), "complete");
+  assert.equal(apercu.headers.get("Cache-Control"), "public, max-age=604800");
+  assert.match(apercu.headers.get("Access-Control-Expose-Headers") || "", /X-Affiche-Etat/);
+});
+test("carte_de_nuvio_en_retard_le_dit", async () => {
+  const res = await makeHandler({ fetchImpl: internet({ torrentio: lent(2000, { streams: [{ name: "4k" }] }) }), env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(res.headers.get("X-Affiche-Etat"), "retard");
+});
+
 // En échec (et pas seulement en retard) : cache normal sans badge. Le relais garde l'échec 30 min ; un cache court
 // ferait redessiner chaque affiche toutes les 10 minutes pendant toute la panne.
 test("Torrentio en échec : cache normal sans badge", async () => {

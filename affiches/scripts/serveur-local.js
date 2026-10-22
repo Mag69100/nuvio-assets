@@ -31,7 +31,11 @@ createServer(async (req, res) => {
     if (a) {
       const q = new URLSearchParams(url.search);
       q.set("type", a[1]); q.set("shape", a[2]); q.set("id", decodeURIComponent(a[3]));
-      reponse = await affiche(new Request(`${url.origin}/api/affiche?${q}`, { headers: req.headers["if-none-match"] ? { "If-None-Match": req.headers["if-none-match"] } : {} }));
+      // If-None-Match (revérification) et X-Apercu (aperçu de la régie, attente plus longue) passent comme sur Vercel.
+      const entetes = {};
+      if (req.headers["if-none-match"]) entetes["If-None-Match"] = req.headers["if-none-match"];
+      if (req.headers["x-apercu"]) entetes["X-Apercu"] = req.headers["x-apercu"];
+      reponse = await affiche(new Request(`${url.origin}/api/affiche?${q}`, { headers: entetes }));
     } else if (t) {
       reponse = await tendances(new Request(`${url.origin}/api/tendances?type=${t[1]}`));
     } else if (/^\/notes\/tt\d{1,10}\.json$/.test(url.pathname)) {

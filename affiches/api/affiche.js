@@ -60,6 +60,11 @@ const SURCHARGE = { "Retry-After": "600" };
 const SECOURS = { "Retry-After": "3600" };
 const CORS = { "Access-Control-Allow-Origin": "*" };
 const ATTENTE_QUALITE_MS = 1000;
+// Aperçu de la régie (en-tête X-Apercu, envoyé par le relais /affiche de l'addon) : on peut attendre Torrentio plus
+// longtemps qu'une carte de Nuvio. Sinon chaque case cochée (une adresse nouvelle) risquait de partir sans son badge
+// 4K, et la régie semblait ajouter ou retirer des badges au hasard. L'en-tête ne change pas l'adresse : l'affiche
+// complète est gardée au CDN pour tout le monde.
+const ATTENTE_APERCU_MS = 4000;
 // Fichier des notes IMDb pas encore lu (instance qui démarre) : pas attendu plus longtemps (il peut prendre 8 s).
 const ATTENTE_NOTES_MS = 1500;
 
@@ -88,9 +93,9 @@ function fetchImages(fetchImpl) {
  * relais le garde 30 min) : cache normal sans badge, sinon chaque affiche serait redessinée toutes les 10 minutes
  * pendant toute la panne.
  */
-function qualiteATemps(type, facts, fetchImpl, relais, cle) {
+function qualiteATemps(type, facts, fetchImpl, relais, cle, attente = ATTENTE_QUALITE_MS) {
   let timer;
-  const delai = new Promise((ok) => { timer = setTimeout(() => ok({ enRetard: true, quality: null }), ATTENTE_QUALITE_MS); });
+  const delai = new Promise((ok) => { timer = setTimeout(() => ok({ enRetard: true, quality: null }), attente); });
   const lue = qualityOf(type, facts.imdbId, facts.lastSeason, fetchImpl, relais, cle).then((quality) => ({ enRetard: false, quality }));
   return Promise.race([lue, delai])
     .finally(() => clearTimeout(timer));
@@ -186,7 +191,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const [{ note: imdbRating, manque: imdbManque }, { rang: place, illisible: photoIllisible }, { enRetard: qualiteEnRetard, quality }, notes, filmsSaga, rangee] = await Promise.all([
         noteImdb && facts.imdbId ? lireNoteImdb(facts.imdbId, fetchImpl, ATTENTE_NOTES_MS) : { note: undefined, manque: false },
         tendance ? lireRang(env, type, facts.tmdbId, fetchImpl, relais) : { rang: null, illisible: false },
-        lireSources ? qualiteATemps(type, facts, fetchImpl, relais, env.RELAIS_KEY) : { enRetard: false, quality: null },
+        lireSources ? qualiteATemps(type, facts, fetchImpl, relais, env.RELAIS_KEY, request.headers.get("X-Apercu") === "1" ? ATTENTE_APERCU_MS : ATTENTE_QUALITE_MS) : { enRetard: false, quality: null },
         notesUtiles && facts.imdbId ? notesPlus(facts.imdbId, fetchImpl, relais, env.RELAIS_KEY) : undefined,
         sagaVoulue ? filmsDeLaSaga(env, facts.collection, fetchImpl) : null,
         saisonVoulue ? lireSaison(env, fetchImpl) : null,
@@ -222,7 +227,9 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const avance = content.avance && facts.nextEpisode ? secondesAvantJourParis(lendemain(facts.nextEpisode)) : undefined;
       const jusqua = avance && finSaison ? Math.min(avance, finSaison) : avance || finSaison;
       const cache = cacheDe({ enRetard, place, statut: suitLeCalendrier, jusqua });
-      const headers = { ...CORS, ...cache, ETag: etag };
+      // X-Affiche-Etat : « retard » quand une donnée manquait (badge qualité en route…) ; la régie redemande alors
+      // l'affiche un peu plus tard, et le relais de l'addon ne la garde pas.
+      const headers = { ...CORS, "Access-Control-Expose-Headers": "X-Affiche-Etat", "X-Affiche-Etat": enRetard ? "retard" : "complete", ...cache, ETag: etag };
       if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });
       let jpg;
       disjoncteur.compte();

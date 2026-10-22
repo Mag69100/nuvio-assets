@@ -113,7 +113,7 @@ const pageHTML = ({ id, chap, side, title, sub, body, parent }) =>
 export const AFFICHES_URL = "https://affiches-catalogue-fr.vercel.app";
 // Version des aperçus d'affiches du site (/affiche/…, gardés un jour par le navigateur) : à changer quand le
 // dessin change, pour qu'aucun aperçu dessiné par l'ancienne version ne ressorte du cache.
-export const APERCU_V = "2";
+export const APERCU_V = "3";
 export const POSTER_URL = AFFICHES_URL + "/{type}/{shape}/{id}.jpg?imdb={imdb_id?}";
 // Les réglages de la régie (salle 2) et leur écriture dans ce lien : worker/lien-affiches.js.
 

@@ -385,3 +385,33 @@ test("addon_titres_obscurs_gemini_consulte", async () => {
   assert.deepEqual(metas.map((m) => m.name), ["Bleach", "Ichigo 100%"]);
   assert.ok(urls.some((u) => u.hostname.includes("generativelanguage")));
 });
+
+// « shingeki no kyojin » sans clé Gemini : TMDB ne connaît pas ce nom, AniList le traduit (Attack on Titan, 2013).
+test("addon_anime_par_son_nom_japonais_sans_gemini", async () => {
+  oublierInfos();
+  const store = new Map(), urls = [];
+  globalThis.caches = { default: {
+    match: async (req) => (store.has(req.url) ? new Response(store.get(req.url)) : undefined),
+    put: async (req, res) => { store.set(req.url, await res.text()); },
+  } };
+  const AOT = serie(1429, "L'Attaque des Titans", 2013, 7000, { original_name: "進撃の巨人", genre_ids: [16] });
+  globalThis.fetch = async (url, init) => {
+    const u = new URL(String(url));
+    urls.push(u);
+    if (u.hostname === "graphql.anilist.co") return new Response(JSON.stringify({ data: {
+      a: { media: [{ title: { english: "Attack on Titan", romaji: "Shingeki no Kyojin" }, synonyms: [], format: "TV", startDate: { year: 2013 }, popularity: 1069303 }] },
+      c: { characters: [] } } }));
+    if (u.pathname === "/3/search/tv") {
+      const q = norm(u.searchParams.get("query"));
+      return new Response(JSON.stringify({ results: q === "attack on titan" && u.searchParams.get("language") === "en-US" ? [{ ...AOT, name: "Attack on Titan" }]
+        : q === "l attaque des titans" || u.searchParams.get("query") === "進撃の巨人" ? [AOT] : [], total_pages: 1 }));
+    }
+    const m = /^\/3\/tv\/(\d+)$/.exec(u.pathname);
+    if (m) return new Response(JSON.stringify({ id: Number(m[1]), external_ids: { imdb_id: `tt${m[1]}` } }));
+    return new Response(JSON.stringify({ results: [] }));
+  };
+  const res = await worker.fetch(new Request(`https://x/catalog/series/recherche-series/search=${encodeURIComponent("shingeki no kyojin")}.json`), { TMDB_API_KEY: "tmdb" }, { waitUntil: () => {} });
+  const { metas } = await res.json();
+  assert.equal(metas[0] && metas[0].name, "L'Attaque des Titans");
+  assert.ok(!urls.some((u) => u.hostname.includes("generativelanguage")));
+});

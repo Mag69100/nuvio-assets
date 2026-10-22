@@ -7,6 +7,7 @@
  *
  *   node --import ./tests/support/register.mjs scripts/banc-recherche.mjs [mot pour ne lancer que ces cas]
  *
+ * AniList (secours des animes) accepte 30 demandes par minute : le banc attend quand il refuse, comptez quelques minutes.
  * Clé TMDB : TMDB_API_KEY, sinon celle de .dev.vars. Sort avec le code 1 si un cas (hors « ia ») tombe mal.
  */
 import { readFileSync } from "node:fs";
@@ -33,8 +34,10 @@ const lignes = [];
 let rates = 0, ia = 0;
 for (let i = 0; i < cas.length; i += 4) {
   await Promise.all(cas.slice(i, i + 4).map(async ([type, q, attendu, seulIa]) => {
-    const res = await worker.fetch(new Request(`https://x/${seg}/debug/search/${type}/${encodeURIComponent(q)}`), { TMDB_API_KEY: cle, GEMINI_API_KEY: G }, { waitUntil: () => {} });
-    const t = await res.json();
+    const lance = async () => (await worker.fetch(new Request(`https://x/${seg}/debug/search/${type}/${encodeURIComponent(q)}`), { TMDB_API_KEY: cle, GEMINI_API_KEY: G }, { waitUntil: () => {} })).json();
+    let t = await lance();
+    // AniList refuse au-delà de 30 demandes par minute : on attend la fin de sa pause, puis on réessaie une fois.
+    if (t.ai && t.ai.anilist === "pas de réponse") { await new Promise((r) => setTimeout(r, 61e3)); t = await lance(); }
     const top = (t.final || []).slice(0, 3);
     const ok = attendu.split("|").some((a) => top.some((f) => norm(f).includes(norm(a))));
     if (ok) return;

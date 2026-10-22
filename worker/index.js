@@ -60,7 +60,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.6";
+const VERSION = "5.38.7";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -1408,10 +1408,10 @@ async function runSearch(env, type, query, page, opts, trace) {
   // Seulement des titres obscurs qui contiennent le mot (« ichigo » : Ichigo 100%, 17 votes) : c'est peut-être un
   // personnage ou un surnom (Ichigo, le héros de Bleach), Gemini est consulté comme sans résultat.
   const connu = classic.some((it) => strong.has(it.id) && (it.vote_count || 0) >= OBSCUR_VOTES);
-  // Orthographe corrigée sans titre qui ressemble au mot tapé (« luffy » → Buffy) : AniList seulement (un personnage
-  // d'anime ?), pas Gemini, pour qu'une vraie faute de frappe (« inseption ») reste aussi rapide.
+  // Seulement des titres approchants, aucun ne contient le mot tapé (« luffy » → Buffy, « eren » → Eden) : AniList
+  // seulement (un personnage d'anime ?), pas Gemini, pour qu'une vraie faute de frappe (« inseption ») reste aussi rapide.
   const why = descriptive ? "description" : stats.sure ? null : !strong.size ? "rien de proche" : !connu ? "rien de connu"
-    : stats.devine ? "orthographe devinée" : null;
+    : stats.devine ? "titres approchants" : null;
   if (trace) trace.ai = { descriptive, sure: !!stats.sure, strong: strong.size, why };
   if (!why) return classic;
   // Les titres retrouvés (AniList, Gemini) d'abord, puis seulement les titres de la recherche classique
@@ -1432,7 +1432,7 @@ async function runSearch(env, type, query, page, opts, trace) {
       found: aniFound.map((it) => it.title || it.name) };
     if (aniFound.length) return avecClassique(aniFound);
   }
-  if (why === "orthographe devinée") return classic;
+  if (why === "titres approchants") return classic;
   const job = ai || aiTitles(env, opts.ctx, query, aiOpts);
   const answer = await Promise.race([job, new Promise((r) => setTimeout(() => r(null), AI_WAIT_MS))]);
   // Pas de réponse à temps ou erreur : la recherche classique, sans la garder en cache, pour que

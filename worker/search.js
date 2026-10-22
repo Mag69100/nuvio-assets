@@ -953,6 +953,13 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   if (opts.stats) {
     opts.stats.strong = new Set(out.filter((it) => head.includes(it) || text.get(it.id) >= GOOD).map((it) => it.id));
     opts.stats.sure = !!headKind || otherKind || out.some((it) => text.get(it.id) >= EXACT && it.vote_count >= FAMOUS);
+    // Aucun titre ne contient les mots tapés (ou des mots qui commencent par eux), seulement des titres approchants
+    // (« luffy » → Buffy par la correction d'orthographe, « eren » → Eden, « vegeta » → Vegas) : peut-être un nom
+    // que TMDB ne connaît pas, un personnage d'anime. runSearch demande alors aussi à AniList.
+    const mots = norm(raw).split(" ").filter(Boolean);
+    const contient = (it) => titlesOf(it).some((t) => { const toks = norm(t).split(" "); return mots.every((w) => toks.some((x) => x.startsWith(w))); });
+    // Un titre obscur qui contient le mot ne compte pas (« Eren the Southpaw », 13 votes, pour le héros de L'Attaque des Titans).
+    opts.stats.devine = !headKind && mots.length > 0 && !out.some((it) => contient(it) && it.vote_count >= STRONG_VOTES);
   }
   if (trace) {
     Object.assign(trace, {

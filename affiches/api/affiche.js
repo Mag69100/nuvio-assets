@@ -229,7 +229,13 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const cache = cacheDe({ enRetard, place, statut: suitLeCalendrier, jusqua });
       // X-Affiche-Etat : « retard » quand une donnée manquait (badge qualité en route…) ; la régie redemande alors
       // l'affiche un peu plus tard, et le relais de l'addon ne la garde pas.
-      const headers = { ...CORS, "Access-Control-Expose-Headers": "X-Affiche-Etat", "X-Affiche-Etat": enRetard ? "retard" : "complete", ...cache, ETag: etag };
+      // X-Affiche-Sortie : de quoi comprendre une affiche grise ou un statut (« pas sorti » vient des dates, des sources
+      // ou des plateformes françaises que TMDB connaît au moment du dessin). Rien de privé.
+      const sortieVue = etatSortie(facts, aujourdhui, quality ? { vf: quality.vf, sources: quality.sources } : null);
+      const pourquoi = `${sortieVue.sorti ? "sorti" : "pas-sorti"} statut=${sortieVue.statut || "-"} vf=${quality ? quality.vf : "?"} sources=${quality ? quality.sources : "?"}`
+        + ` plateforme-fr=${facts.plateformeFrance ? 1 : 0} premiere=${facts.firstAir || facts.releaseDate || "-"} jour=${aujourdhui}`;
+      const headers = { ...CORS, "Access-Control-Expose-Headers": "X-Affiche-Etat, X-Affiche-Sortie", "X-Affiche-Etat": enRetard ? "retard" : "complete",
+        "X-Affiche-Sortie": pourquoi, ...cache, ETag: etag };
       if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });
       let jpg;
       disjoncteur.compte();

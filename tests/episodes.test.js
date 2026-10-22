@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { decoupageCinemeta, ficheRecomptee } from "../worker/episodes.js";
+import { decoupageCinemeta as decoupageAffiches } from "../affiches/lib/episodes.js";
 
 // Cinemeta : une vidéo par épisode, comme dans /meta/series/<imdb>.json.
 const cine = (...saisons) => saisons.flatMap((n, i) => Array.from({ length: n }, (_, k) => ({
@@ -71,4 +72,19 @@ test("fiche_tmdb_recomptee", () => {
 
 test("cinemeta_trop_incomplet_on_garde_tmdb", () => {
   assert.equal(decoupageCinemeta(tmdb(100), cine(10, 10)), null);
+});
+
+// Le service des affiches (sur Vercel) a sa copie du découpage (affiches/lib/episodes.js) : elle doit répondre pareil.
+test("affiches_meme_decoupage", () => {
+  const cas = [[tmdb(59), [...cine(24, 23, 12), { id: "tt1:4:1", season: 4, episode: 1, released: null }]],
+    [tmdb(28, 5), cine(10, 18)], [tmdb(30), cine(10, 18)], [tmdb(61, 16), cine(30, 46)], [tmdb(10, 10), cine(10, 10)], [tmdb(100), cine(10, 10)]];
+  for (const [saisons, videos] of cas) {
+    const a = decoupageCinemeta(saisons, videos), b = decoupageAffiches(saisons, videos);
+    assert.equal(!!a, !!b);
+    if (!a) continue;
+    assert.deepEqual(b.saisons, a.saisons);
+    assert.deepEqual(b.restants, a.restants);
+    for (const s of saisons) for (let e = 1; e <= s.episode_count + 2; e++) assert.deepEqual(b.place(s.season_number, e), a.place(s.season_number, e));
+    assert.deepEqual(b.place(2, 77), a.place(2, 77));
+  }
 });

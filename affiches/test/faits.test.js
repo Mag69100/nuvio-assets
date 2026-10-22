@@ -1,6 +1,7 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { titleFacts, tmdbIdDe, tailleMemo, resetMemo as resetTmdb } from "../lib/tmdb.js";
+import { resetMemo as resetEpisodes } from "../lib/episodes.js";
 import { ratingOf, lireNoteImdb, decodeRatings, resetMemo as resetNotes } from "../lib/notes.js";
 import { trendingRank, lireRang, photoTendances, prochaineBascule, secondesAvantBascule, resetMemo as resetTendances } from "../lib/tendances.js";
 
@@ -343,4 +344,31 @@ test("faits_v3", async () => {
     networks: [{ name: "AMC" }], production_companies: [{ name: "Sony Pictures Television" }], last_episode_to_air: { air_date: "2026-10-18", season_number: 2 } };
   const s = await titleFacts(env, { type: "series", id: "tmdb:94605", imdb: "" }, fauxFetch([["/tv/94605", json(serie)]]));
   assert.deepEqual([s.tagline, s.studio, s.director, s.lastEpisode], [null, "AMC", "Vince Gilligan", "2026-10-18"]);
+});
+
+// Jujutsu Kaisen : une « saison 1 » de 59 épisodes chez TMDB, 24 + 23 + 12 et la saison 4 annoncée chez Cinemeta.
+// Le statut (« SAISON 4 BIENTÔT », « S3 · ÉP. 4/12 », « 3 saisons ») et la qualité prennent les saisons de Cinemeta.
+test("anime_saisons_de_cinemeta", async () => {
+  resetEpisodes();
+  const jjk = { ...movie, id: 95479, release_date: undefined, first_air_date: "2020-10-03", genres: [{ id: 16 }, { id: 10759 }],
+    external_ids: { imdb_id: "tt12343534" },
+    seasons: [{ season_number: 0, episode_count: 10, air_date: "2020-01-01" }, { season_number: 1, episode_count: 59, air_date: "2020-10-03" }],
+    last_episode_to_air: { season_number: 1, episode_number: 59, air_date: "2026-03-26" },
+    next_episode_to_air: { season_number: 1, episode_number: 60, air_date: "2027-01-08" } };
+  const ep = (season, n, released) => Array.from({ length: n }, (_, k) => ({ season, episode: k + 1, released }));
+  const videos = [...ep(1, 24, "2020-10-03T00:00:00.000Z"), ...ep(2, 23, "2023-07-06T00:00:00.000Z"), ...ep(3, 12, "2026-01-08T00:00:00.000Z"), ...ep(4, 1, null)];
+  const f = fauxFetch([["/tv/95479", json(jjk)], ["/meta/series/tt12343534.json", json({ meta: { videos } })]]);
+  const facts = await titleFacts(env, { type: "series", id: "tmdb:95479", imdb: "" }, f);
+  assert.equal(facts.seasonsCount, 3);   // la saison 4 est annoncée, pas encore datée
+  assert.deepEqual([facts.lastSeason, facts.lastEpisodeNumber, facts.nextSeason, facts.nextEpisodeNumber], [3, 12, 4, 1]);
+  assert.deepEqual(facts.seasons.map((s) => [s.season_number, s.episode_count, s.air_date]),
+    [[0, 10, "2020-01-01"], [1, 24, "2020-10-03"], [2, 23, "2023-07-06"], [3, 12, "2026-01-08"], [4, 1, ""]]);
+  // Cinemeta en panne : les saisons de TMDB, sans erreur.
+  resetEpisodes();
+  const panne = await titleFacts(env, { type: "series", id: "tmdb:95479", imdb: "" }, fauxFetch([["/tv/95479", json(jjk)], ["/meta/series/", json({}, 503)]]));
+  assert.equal(panne.seasonsCount, 1);
+  // Pas une série d'animation : Cinemeta n'est pas lu.
+  const g = fauxFetch([["/tv/95479", json({ ...jjk, genres: [{ id: 18 }] })]]);
+  await titleFacts(env, { type: "series", id: "tmdb:95479", imdb: "" }, g);
+  assert.ok(!g.calls.some((u) => u.includes("cinemeta")));
 });

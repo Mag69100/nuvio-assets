@@ -14,6 +14,7 @@ export const NOUVEAUTES = [
     points: [
       "Jujutsu Kaisen, Frieren, Dan Da Dan, One Piece… : les épisodes sont rangés dans leurs vraies saisons, plus tout dans une seule. La saison annoncée apparaît aussi (Jujutsu Kaisen saison 4).",
       "Les sources des épisodes après la première saison se trouvent mieux : ils sont demandés avec le bon numéro de saison.",
+      "Les affiches et les rangées aussi : « Saison 3 terminée », « S3 · ÉP. 4/12 », « 3 saisons » au lieu de tout compter dans la saison 1.",
       "Si tu avais commencé un de ces animés, la progression des épisodes après la première saison peut être à refaire.",
     ],
   },

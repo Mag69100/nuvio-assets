@@ -2,8 +2,11 @@
  * Ce que TMDB dit d'un titre, pour dessiner son affiche : images (avec et sans texte), logo, genres,
  * année, note TMDB et dernière saison. Nuvio envoie « tt… » ou « tmdb:N » ; un « tt… » passe par /find.
  */
+import { videosCinemeta, decoupageCinemeta, faitsRecomptes } from "./episodes.js";
+
 export const TMDB = "https://api.themoviedb.org/3";
 const DELAI_MS = 3000;
+const ANIMATION = 16;   // genre TMDB
 
 // Correspondances « tt… » → identifiant TMDB, gardées en mémoire de l'instance (elles ne changent pas),
 // 5 000 au plus : les plus anciennes sortent.
@@ -116,7 +119,7 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
   }
   const logoSansLangue = tousLogos.find((x) => !x.iso_639_1);
   const date = (type === "series" ? d.first_air_date : d.release_date) || "";
-  return {
+  const facts = {
     tmdbId,
     type,
     imdbId: (d.external_ids && d.external_ids.imdb_id) || (id.startsWith("tt") ? id : null) || (/^tt\d+$/.test(imdb || "") ? imdb : null),
@@ -169,4 +172,9 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
     firstAir: type === "series" ? d.first_air_date || "" : "",
     seasons: type === "series" ? (d.seasons || []).map((s) => ({ season_number: s.season_number, air_date: s.air_date || "", episode_count: s.episode_count ?? null })) : [],
   };
+  // Série d'animation : les saisons de Cinemeta quand TMDB les découpe autrement (lib/episodes.js). En panne : TMDB.
+  if (type !== "series" || !facts.imdbId || !facts.genreIds.includes(ANIMATION)) return facts;
+  const videos = await videosCinemeta(facts.imdbId, fetchImpl);
+  const decoupage = videos && decoupageCinemeta(facts.seasons, videos);
+  return decoupage ? faitsRecomptes(facts, decoupage) : facts;
 }

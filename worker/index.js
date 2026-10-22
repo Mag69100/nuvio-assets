@@ -59,7 +59,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.1";
+const VERSION = "5.38.2";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -357,7 +357,7 @@ async function lireInfo(env, kind, tmdbId) {
   // Sans réponse (limite d'appels de Cloudflare ou de TMDB…) : le titre s'affiche quand même, sans ces infos, et la
   // page est marquée incomplète (rate). Un titre retiré de TMDB (404) n'y changera rien : pas compté.
   let rate = false;
-  const j = await fetch(url, { cf: { cacheTtl: 86400, cacheEverything: true } })
+  let j = await fetch(url, { cf: { cacheTtl: 86400, cacheEverything: true } })
     .then((res) => { if (res.ok) return res.json(); rate = res.status !== 404; return null; })
     .catch(() => { rate = true; return null; });
   if (!j) return { imdb: null, rate };
@@ -366,6 +366,16 @@ async function lireInfo(env, kind, tmdbId) {
   // Dates de sortie : seulement pays, type et date (releaseDates), pas les certifications ni les notes.
   const releases = movie ? ((j.release_dates && j.release_dates.results) || []).map((r) => ({ iso_3166_1: r.iso_3166_1,
     release_dates: (r.release_dates || []).map((x) => ({ type: x.type, release_date: x.release_date })) })) : null;
+  // Série d'animation dont la rangée dira l'épisode (sorti ce mois-ci, ou dans la semaine) : saison et numéro comptés
+  // comme Cinemeta (voir episodes.js), comme sa fiche. Seulement celles-là : un appel de plus par titre.
+  const imdbSerie = !movie && j.external_ids && j.external_ids.imdb_id;
+  const jour = new Date().toISOString().slice(0, 10);
+  const proche = (e, avant, apres) => e && e.air_date && e.air_date >= addDays(jour, -avant) && e.air_date <= addDays(jour, apres);
+  if (imdbSerie && (j.genres || []).some((g) => g.id === 16) && (proche(j.last_episode_to_air, 31, 0) || proche(j.next_episode_to_air, 0, 8))) {
+    const cine = await videosCinemeta(imdbSerie);
+    const decoupage = cine && decoupageCinemeta(j.seasons, cine);
+    if (decoupage) j = ficheRecomptee(j, decoupage);
+  }
   return {
     lu: true,
     imdb: (movie ? j.imdb_id : j.external_ids && j.external_ids.imdb_id) || null,

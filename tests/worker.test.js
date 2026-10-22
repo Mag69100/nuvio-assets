@@ -1076,3 +1076,24 @@ test("films_de_la_rangee_de_saison", async () => {
     assert.equal(calls.length, 0);
   } finally { mock.timers.reset(); }
 });
+
+// Rangée : un anime rangé en une saison par TMDB (Jujutsu Kaisen, 59 épisodes) dit son épisode avec les saisons de
+// Cinemeta, comme sa fiche : « Saison 3 terminée », pas « Saison 1 ».
+test("rangee_anime_saisons_de_cinemeta", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const ep = (season, n) => Array.from({ length: n }, (_, k) => ({ season, episode: k + 1, released: "2024-01-01T00:00:00.000Z" }));
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: [{ id: 95479, name: "Jujutsu Kaisen", first_air_date: "2020-10-03" }], page: 1, total_pages: 1 }));
+    if (/\/tv\/95479\?/.test(u)) return new Response(JSON.stringify({ id: 95479, name: "Jujutsu Kaisen", status: "Returning Series", genres: [{ id: 16 }],
+      external_ids: { imdb_id: "tt12343534" }, seasons: [{ season_number: 1, episode_count: 59, air_date: "2020-10-03" }],
+      last_episode_to_air: { season_number: 1, episode_number: 59, air_date: jour(-2) }, next_episode_to_air: null }));
+    if (u.includes("/meta/series/tt12343534.json")) return new Response(JSON.stringify({ meta: { videos: [...ep(1, 24), ...ep(2, 23), ...ep(3, 12)] } }));
+    return new Response("{}");
+  };
+  const { metas } = await (await get("/catalog/series/accueil-tendances-series.json")).json();
+  const texte = JSON.stringify(metas[0]);
+  assert.match(texte, /Saison 3 terminée/);
+  assert.doesNotMatch(texte, /Saison 1 /);
+});

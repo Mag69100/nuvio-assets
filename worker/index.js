@@ -55,11 +55,11 @@ import { galerieRoute } from "./galerie.js";
 import { secondesAvantBascule, jourTendances, routeTendances, prendrePhotos } from "./tendances.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.35.2";
+const VERSION = "5.35.3";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
-const CACHE_V = 1;
+const CACHE_V = 2;
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -543,6 +543,22 @@ function digitalGuess(releases) {
 }
 
 /**
+ * En VO seulement pour l'instant : le jour où la VF arrivera chez soi, s'il se déduit des dates — la même règle que
+ * l'affiche (affiches/lib/statut.js) : la VF existe dès une sortie francophone (salle, numérique…), et arrive chez soi
+ * avec la sortie numérique (annoncée n'importe où, sinon la salle + 45 jours). L'Odyssée : en salle en France en
+ * juillet, en numérique aux États-Unis le 17 nov. → « · dispo le 17 nov. ». Sans sortie francophone (Buddy, The Fix),
+ * rien : on ne sait pas quand elle viendra.
+ */
+function vfAVenir(releases, today) {
+  const vf = releaseDates(releases, [2, 3, 4, 5, 6], FRANCOPHONES)[0] || "";
+  const connu = releaseDates(releases, [4, 5, 6])[0] || "", salle = releaseDates(releases, [2, 3])[0] || "";
+  const chezSoi = connu || (salle ? addDays(salle, 45) : "");
+  const reunis = chezSoi && vf ? (chezSoi > vf ? chezSoi : vf) : "";
+  if (!reunis || reunis <= today || reunis > addDays(today, 200)) return "";
+  return ` · dispo ${connu && reunis === connu ? "le" : "vers le"} ${shortDate(reunis)}`;
+}
+
+/**
  * Quand le film sera visible :
  *   « Dispo le 27 oct. »          date annoncée
  *   « Dispo depuis le 9 oct. »    sortie récente (moins de 60 jours)
@@ -554,7 +570,7 @@ function releaseNote(releases, today, plateforme = {}) {
   // veut plus rien dire. Sources sans VF : « Pas encore en VF » (seule la VF compte). Seules les sources le disent :
   // les dates et les plateformes se trompent (Kraken, norvégien, sans date francophone, en VF sur Paramount+).
   if (!(known && known <= today) && plateforme.vf) return "Déjà dispo";
-  if (plateforme.vo && !plateforme.vf) return "Pas encore en VF";
+  if (plateforme.vo && !plateforme.vf) return "Pas encore en VF" + vfAVenir(releases, today);
   // Sur une plateforme en France, sans savoir si c'est en VF : pas d'estimation qui ne voudrait plus rien dire.
   if (!(known && known <= today) && plateforme.surPlateforme) return "";
   if (!releases || !releases.length) return "";

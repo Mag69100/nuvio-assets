@@ -863,6 +863,25 @@ test("fiche_vo_avec_date_connue", async () => {
   assert.doesNotMatch(m.description || "", /Dispo depuis|VO/);
 });
 
+// L'Odyssée : en salle en France (la VF existe), sources en VO seulement, sortie numérique annoncée aux États-Unis :
+// la fiche dit quand la VF arrivera chez soi, comme l'affiche (« DISPO LE 17 NOV. »).
+test("fiche_vo_avec_date_de_vf", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/vf.json")) return sourcesDe({ tt9004: { vf: false, sources: 30 } })(u);
+    if (/\/movie\/8004\?/.test(u)) return new Response(JSON.stringify({ id: 8004, title: "L'Odyssée", imdb_id: "tt9004", release_date: jour(-99), original_language: "en",
+      release_dates: { results: [
+        { iso_3166_1: "FR", release_dates: [{ type: 3, release_date: jour(-99) + "T00:00:00.000Z" }] },
+        { iso_3166_1: "US", release_dates: [{ type: 3, release_date: jour(-97) + "T00:00:00.000Z" }, { type: 4, release_date: jour(26) + "T00:00:00.000Z" }] },
+      ] } }));
+    return new Response("{}");
+  };
+  const m = (await (await get("/meta/movie/tmdb:8004.json")).json()).meta;
+  assert.match(m.description || "", /Pas encore en VF · dispo le \d+ \S+/);
+});
+
 // Le service d'affiches avec RELAIS_KEY ne lit une liste pas encore dans son cache que pour qui envoie la clé :
 // l'addon l'envoie quand il a la sienne (sans elle, aucun en-tête : voir les tests ci-dessus, inchangés).
 test("vf_json_avec_la_cle_du_relais", async () => {

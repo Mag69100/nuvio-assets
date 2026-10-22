@@ -42,6 +42,19 @@ import { GUICHET_DEPART, guichetHTML } from "./guichet.js";
 import { SOIREE_HTML } from "./soiree.js";
 import { GALERIE_BOUTON, GALERIE_HTML } from "./galerie.js";
 
+// Retour sur /configure (adresse tapée, favori, « Salle 2 » du hall) : la dernière programmation de cet appareil
+// se rouvre d'elle-même (gardée par update(), sans la clé Gemini, qui est rangée à part). Pas dans le guide, qui
+// a la sienne. Une fois par onglet et par adresse : un lien fixe supprimé renvoie sur /configure, il serait rouvert
+// sans fin ; au deuxième passage, l'adresse gardée est oubliée. Injectée telle quelle en tête de page.
+export const DERNIERE = "derniere-programmation";
+export function reprise(loc, ls, ss, racine) {
+  const p = ls.getItem("derniere-programmation");
+  if (loc.pathname !== "/configure" || !p || !/^\/[^/?#]+\/configure$/.test(p) || racine.classList.contains("dans-guide")) return;
+  if (ss.getItem("reprise") === p) { ls.removeItem("derniere-programmation"); return; }
+  ss.setItem("reprise", p);
+  loc.replace(p + loc.hash);
+}
+
 // Espace hébergeur d'une copie auto-hébergée (absent de l'instance principale) : connexion avec le mot de
 // passe ADMIN_PASSWORD, lien avec alertes (rangée « Mise à jour » dans Nuvio), bannière de mise à jour.
 const HOTE_HTML = `
@@ -144,6 +157,7 @@ export function configurePage({ origin, cfg, rows, discover, providers, collecti
 <meta charset="utf-8">
 ${STAGE_HEAD}
 <script>try{if(window.parent!==window&&parent.location.origin===location.origin)document.documentElement.classList.add("dans-guide")}catch(e){}</script>
+<script>try{(${reprise})(location,localStorage,sessionStorage,document.documentElement)}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${esc(cfg.n)} · Ta programmation</title>
 <meta name="description" content="Compose ton accueil Nuvio en français : rangées, plateformes, collections, filtres.">
@@ -277,7 +291,7 @@ ${copy ? HOTE_HTML : ""}
           <li><span><b>Mets Nuvio en français</b> : langue de l'appli et langue TMDB (Paramètres → Intégrations → TMDB).</span></li>
         </ol>
         <p class="sub">Nuvio est sur ton téléphone, ta tablette ou ton ordinateur ? Pas besoin de QR code : colle directement le lien d'addon de ton billet dans l'onglet Addons. Pour les collections, « Copier le contenu (PC/TEL) » copie tout le contenu de leur lien : dans Nuvio, onglet Collections, appuie sur le bouton presse-papiers en haut à droite, sur téléphone comme sur ordinateur.</p>
-        <p class="sub">Pour retrouver tes réglages plus tard, ouvre ton lien d'addon en remplaçant « manifest.json » par « configure ». Avec un lien fixe, fais-le sur l'appareil qui l'a créé (ou avec son lien pour modifier) : tes changements arrivent dans Nuvio sans réinstaller, avec « Actualiser les addons ». Les collections, elles, sont importées : après un changement de tuiles, supprime-les dans Nuvio et réimporte-les (« Copier le contenu (PC/TEL) », puis le bouton presse-papiers en haut à droite de l'onglet Collections). Tu pars de zéro ? <a href="${origin}/guide">Le guide complet</a> installe Nuvio et tous les addons, dans l'ordre.</p>
+        <p class="sub">Pour retrouver tes réglages plus tard : sur cet appareil, la salle 2 rouvre d'elle-même ta dernière programmation. Ailleurs, ouvre ton lien d'addon en remplaçant « manifest.json » par « configure ». Avec un lien fixe, fais-le sur l'appareil qui l'a créé (ou avec son lien pour modifier) : tes changements arrivent dans Nuvio sans réinstaller, avec « Actualiser les addons ». Les collections, elles, sont importées : après un changement de tuiles, supprime-les dans Nuvio et réimporte-les (« Copier le contenu (PC/TEL) », puis le bouton presse-papiers en haut à droite de l'onglet Collections). Tu pars de zéro ? <a href="${origin}/guide">Le guide complet</a> installe Nuvio et tous les addons, dans l'ordre.</p>
       </section>
 
       <button type="button" class="reset" id="reset">Revenir à la programmation d'origine</button>
@@ -2120,6 +2134,13 @@ function update() {
   // Gardée dans l'onglet pour le guide (lien d'addon, avec la clé) ; les liens « Salle 2 » du site la
   // reprennent sans la clé (scene.js).
   try { sessionStorage.setItem("programmation", configureUrl); } catch (e) {}
+  // Et sur l'appareil, pour la rouvrir au prochain passage sur /configure (reprise, en tête de page). Revenue
+  // par défaut après le démarrage (« Revenir à la programmation d'origine ») : plus rien à rouvrir.
+  try {
+    const chemin = new URL(pageUrl).pathname;
+    if (chemin !== "/configure") localStorage.setItem("${DERNIERE}", chemin);
+    else if (demarre) localStorage.removeItem("${DERNIERE}");
+  } catch (e) {}
   if (!$("qr").hidden) drawQr();
   $("u-manifest").textContent = manifest;
   $("u-collections").textContent = base + "/collections.json";
@@ -2701,6 +2722,14 @@ function repriseAttente() {
 }
 if (fixe && fixe.modif) lireSecrets();
 else demarre = true;
+// Rouverte toute seule depuis /configure (reprise) : on le dit, avec le moyen de repartir de zéro. Le message
+// attend la fin du chargement : scene.js, qui l'affiche, vient après ce script.
+try {
+  if (sessionStorage.getItem("reprise") === location.pathname) {
+    sessionStorage.removeItem("reprise");
+    addEventListener("DOMContentLoaded", () => effet("toast", "Ta dernière programmation est rouverte. Pour repartir de zéro : « Revenir à la programmation d'origine »."));
+  }
+} catch (e) {}
 
 // L'écran et le billet suivent le défilement. S'ils sont trop hauts ensemble pour la fenêtre,
 // seul l'écran suit (toujours en entier) et le billet attend en bas de la colonne.

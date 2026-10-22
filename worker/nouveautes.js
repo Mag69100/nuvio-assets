@@ -10,6 +10,14 @@ import { feuilles } from "./statique.js";
 export const NOUVEAUTES = [
   {
     date: "2026-10-22",
+    titre: "La salle 2 retrouve ta programmation",
+    points: [
+      "Reviens sur la salle 2 quand tu veux : sur le même appareil, elle rouvre d'elle-même ta dernière programmation (ton lien fixe si tu en as un). Plus besoin de tout refaire.",
+      "Pour repartir de zéro : « Revenir à la programmation d'origine ». Sur un autre appareil, le « lien pour modifier » de ton lien fixe ou le QR « Continuer sur le téléphone » emportent tes réglages.",
+    ],
+  },
+  {
+    date: "2026-10-22",
     titre: "Quand le film arrive en VF",
     points: [
       "Les fiches disent quand un film sera dispo chez toi : « Dispo le 17 nov. », ou « Dispo vers le … » quand la date n'est pas annoncée, estimée d'après le délai habituel de son distributeur (Universal sort ses films en numérique 18 jours après la salle, Disney 60…).",

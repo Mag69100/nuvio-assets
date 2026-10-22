@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { configurePage } from "../worker/page.js";
+import { configurePage, reprise, DERNIERE, SALLE2_JS } from "../worker/page.js";
 import { enLigne } from "./support/en-ligne.mjs";
 import { hallPage } from "../worker/hall.js";
 import { STAGE_JS } from "../worker/stage.js";
@@ -243,4 +243,36 @@ test("chemin_tmdb_de_la_salle_2", () => {
   const html = page();
   assert.doesNotMatch(html, /Paramètres → Enrichissement TMDB/);
   assert.ok(html.includes("Paramètres → Intégrations → TMDB"));
+});
+
+// Retour sur /configure : la dernière programmation de l'appareil se rouvre, une fois par onglet et par adresse.
+function essaiReprise({ chemin = "/configure", hash = "", garde = "/abc/configure", deja = null, guide = false } = {}) {
+  const ls = new Map(garde ? [[DERNIERE, garde]] : []), ss = new Map(deja ? [["reprise", deja]] : []);
+  const store = (m) => ({ getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, v), removeItem: (k) => m.delete(k) });
+  let vers = null;
+  reprise({ pathname: chemin, hash, replace: (u) => { vers = u; } }, store(ls), store(ss), { classList: { contains: (c) => guide && c === "dans-guide" } });
+  return { vers, garde: ls.get(DERNIERE), reprise: ss.get("reprise") };
+}
+test("reprise_de_la_derniere_programmation", () => {
+  assert.deepEqual(essaiReprise({ hash: "#s-hote" }), { vers: "/abc/configure#s-hote", garde: "/abc/configure", reprise: "/abc/configure" });
+  assert.equal(essaiReprise({ garde: "/f1234567890/configure" }).vers, "/f1234567890/configure");
+  // Rien à rouvrir : déjà sur une programmation, dans le guide, rien de gardé, adresse gardée bizarre.
+  assert.equal(essaiReprise({ chemin: "/xyz/configure" }).vers, null);
+  assert.equal(essaiReprise({ guide: true }).vers, null);
+  assert.equal(essaiReprise({ garde: null }).vers, null);
+  for (const garde of ["https://ailleurs.exemple/abc/configure", "//ailleurs.exemple/configure", "/abc/configure?x", "/a/b/configure", "/configure"]) {
+    assert.equal(essaiReprise({ garde }).vers, null, garde);
+  }
+  // Revenu sur /configure dans le même onglet sans que la page rouverte ait démarré (lien fixe supprimé) : oubliée.
+  assert.deepEqual(essaiReprise({ deja: "/abc/configure" }), { vers: null, garde: undefined, reprise: "/abc/configure" });
+});
+
+test("derniere_programmation_gardee_sans_cle", () => {
+  assert.ok(reprise.toString().includes(`"${DERNIERE}"`));
+  // L'adresse de la barre (pageUrl, sans la clé Gemini), jamais configureUrl ; oubliée après une remise d'origine.
+  assert.match(SALLE2_JS, /const chemin = new URL\(pageUrl\)\.pathname;\s*if \(chemin !== "\/configure"\) localStorage\.setItem\("derniere-programmation", chemin\);\s*else if \(demarre\) localStorage\.removeItem/);
+  assert.doesNotMatch(SALLE2_JS, /localStorage\.setItem\("derniere-programmation", [^)]*configureUrl/);
+  // La page rouverte le dit, et efface la marque de l'onglet.
+  assert.match(SALLE2_JS, /sessionStorage\.getItem\("reprise"\) === location\.pathname\) \{\s*sessionStorage\.removeItem\("reprise"\);\s*addEventListener\("DOMContentLoaded", \(\) => effet\("toast", "Ta dernière programmation est rouverte/);
+  assert.match(page(), /<script>try\{\(function reprise\(/);
 });

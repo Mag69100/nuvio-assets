@@ -385,8 +385,8 @@ test("tendances_du_jour_dans_l_ordre_tmdb", async () => {
   assert.ok(!calls.some((u) => u.includes("postersplus")));
 });
 
-// Avec la photo du jour du service d'affiches (celle des « N° ») : la rangée suit son ordre, les titres
-// absents de la photo à la suite, dans l'ordre de TMDB. Même chose avec les titres à venir (u).
+// Avec la photo du jour du service d'affiches (celle des « N° ») : la rangée montre ses titres classés, dans son ordre,
+// et rien d'autre (chaque carte a son N°). Avec les titres à venir (u) : l'ordre de la photo, puis les autres.
 test("tendances_du_jour_dans_l_ordre_de_la_photo", async () => {
   const { AFFICHES_URL } = await import("../worker/reglages.js");
   for (const prefixe of ["", `/${seg({ u: 1 })}`]) {
@@ -394,25 +394,25 @@ test("tendances_du_jour_dans_l_ordre_de_la_photo", async () => {
     globalThis.fetch = async (url) => {
       const u = String(url);
       calls.push(u);
-      if (u === `${AFFICHES_URL}/tendances/series.json?v=4`) return new Response(JSON.stringify({ ids: [1, 3, 9] }));
+      if (u === `${AFFICHES_URL}/tendances/series.json?v=5`) return new Response(JSON.stringify({ ids: [1, 3, 9] }));
       if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: u.includes("page=1") ? [serie(3), serie(77), serie(1)] : [], page: 1, total_pages: 1 }));
       return new Response("{}");
     };
     const { metas } = await (await get(`${prefixe}/catalog/series/accueil-tendances-series.json`)).json();
-    assert.deepEqual(metas.map((m) => m.id), ["tmdb:1", "tmdb:3", "tmdb:77"], prefixe);
+    assert.deepEqual(metas.map((m) => m.id), prefixe ? ["tmdb:1", "tmdb:3", "tmdb:77"] : ["tmdb:1", "tmdb:3"], prefixe);
   }
 });
 
 // La rangée reprend les N° de la photo tels quels : les titres classés en tête, dans l'ordre, sans refaire le tri
 // (le 3, « au cinéma seulement » maintenant, reste N°2) ; le 1, que TMDB ne range plus dans ses pages, est lu à part ;
-// les places vides (0) ne donnent rien ; le reste suit, trié comme avant.
+// les places vides (0) ne donnent rien ; le reste (le 2, sans N°) n'est pas montré, ni en page 2.
 test("tendances_du_jour_reprennent_les_numeros_de_la_photo", async () => {
   const { AFFICHES_URL } = await import("../worker/reglages.js");
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   globalThis.fetch = async (url) => {
     const u = String(url);
     calls.push(u);
-    if (u === `${AFFICHES_URL}/tendances/movie.json?v=4`) return new Response(JSON.stringify({ ids: [1, 3, ...Array(18).fill(0), 2] }));
+    if (u === `${AFFICHES_URL}/tendances/movie.json?v=5`) return new Response(JSON.stringify({ ids: [1, 3, ...Array(18).fill(0), 2] }));
     if (u.includes("/trending/movie/day")) {
       return new Response(JSON.stringify({ results: u.includes("page=1") ? [3, 2].map((id) => ({ id, title: `Film ${id}`, original_language: "en", release_date: jour(-60) })) : [], page: 1, total_pages: 1 }));
     }
@@ -425,7 +425,8 @@ test("tendances_du_jour_reprennent_les_numeros_de_la_photo", async () => {
     return new Response("{}");
   };
   const { metas } = await (await get("/catalog/movie/accueil-top10.json")).json();
-  assert.deepEqual(metas.map((m) => m.name), ["Film 1", "Film 3", "Film 2"]);
+  assert.deepEqual(metas.map((m) => m.name), ["Film 1", "Film 3"]);
+  assert.deepEqual((await (await get("/catalog/movie/accueil-top10/skip=2.json")).json()).metas, []);
 });
 
 // Télé-réalité : masquée de toutes les rangées de séries, sauf d'une rangée sur mesure qui la demande.

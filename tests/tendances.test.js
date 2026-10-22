@@ -68,8 +68,8 @@ test("tache_de_4h", async () => {
   await Promise.all(pas);
   assert.equal(jourTendances(quatreHeures), "2026-10-22");
   assert.equal(jourTendances(quatreHeures - 1), "2026-10-21");
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/movie:rangs")), [...vides(), 1, 2, 3]);
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/series:rangs")), [...vides(), 1, 2, 3]);
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/movie:rangs2")), [...vides(), 1, 2, 3]);
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/series:rangs2")), [...vides(), 1, 2, 3]);
   assert.ok(!env.LIENS.rows.has("2026-10-01/movie"));
   // Plus tard dans la journée, le classement a bougé : toujours la photo de 4 h.
   classement = [7];
@@ -109,10 +109,39 @@ test("photo_renumerotee_comme_la_rangee", async () => {
     return new Response("{}");
   };
   assert.deepEqual(await (await get("/tendances/movie.json")).json(), { ids: [2, 3, ...vides(18), 1, 4] });
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get(`${jourTendances()}/movie:rangs`)), [2, 3, ...vides(18), 1, 4]);
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get(`${jourTendances()}/movie:rangs2`)), [2, 3, ...vides(18), 1, 4]);
   // Le classement échoue : le classement brut, provisoire (la route le garde 5 minutes), jamais enregistré.
   env.LIENS.rows.clear();
   const brut = await photoDuJour(env, "movie", Date.now(), async () => { throw new Error("TMDB en panne"); });
   assert.deepEqual(brut, { ids: [1, 4, 2, 3], provisoire: true });
   assert.equal(env.LIENS.rows.size, 0);
+});
+
+// Séries : seulement ce qui est en VF chez soi, comme leurs affiches. 1 : nouvelle série japonaise, sources sans VF →
+// écartée ; 2 : nouvelle, mêmes sources, mais sur Netflix en France (qui double) → gardée ; 3 : vieille série, dernière
+// saison sans VF → gardée ; 4 : nouvelle, sources VF → gardée ; 5 : pas encore diffusée → écartée.
+test("photo_des_series_seulement_en_vf", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const premiere = { 1: jour(-20), 2: jour(-40), 3: "2009-01-01", 4: jour(-60), 5: jour(15) };
+  const langue = { 1: "ja", 2: "ko", 3: "en", 4: "zh", 5: "en" };
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: new URL(u).searchParams.get("page") === "1" ? [1, 2, 3, 4, 5].map((id) => ({ id, first_air_date: premiere[id] })) : [] }));
+    if (u.includes("/vf.json")) {
+      const v = (new URL(u).searchParams.get("v") || "").split(",");
+      return new Response(JSON.stringify(Object.fromEntries(v.map((k) => [k, { vf: k.startsWith("series/tt804:"), sources: 12 }]))));
+    }
+    const m = /\/tv\/(\d)\?/.exec(u);
+    if (m) {
+      const id = Number(m[1]);
+      return new Response(JSON.stringify({ id, first_air_date: premiere[id], original_language: langue[id], external_ids: { imdb_id: `tt80${id}` },
+        last_episode_to_air: { season_number: 1, episode_number: 3, air_date: jour(-2) },
+        "watch/providers": { results: id === 2 ? { FR: { flatrate: [{ provider_name: "Netflix" }] } } : {} } }));
+    }
+    return new Response("{}");
+  };
+  const { ids } = await (await get("/tendances/series.json")).json();
+  assert.deepEqual(ids.slice(0, 3), [2, 3, 4]);
+  assert.ok(!ids.slice(0, 20).includes(1) && !ids.slice(0, 20).includes(5));
 });

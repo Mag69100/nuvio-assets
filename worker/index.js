@@ -352,7 +352,8 @@ async function lireInfo(env, kind, tmdbId) {
     api_key: env.TMDB_API_KEY, language: "fr-FR", include_image_language: "fr,en,null", include_video_language: "fr,en",
     // Vidéos : la bande-annonce de l'accueil (Nuvio la prend dans la rangée, sans ouvrir la fiche).
     // Plateformes (films) : en France = VF disponible, même avant la sortie numérique américaine (enVfChezSoi).
-    append_to_response: movie ? "release_dates,images,videos,watch/providers" : "external_ids,images,videos",
+    // Séries : les plateformes aussi (une nouvelle série sur une plateforme en France qui la double : en VF).
+    append_to_response: movie ? "release_dates,images,videos,watch/providers" : "external_ids,images,videos,watch/providers",
   });
   // Sans réponse (limite d'appels de Cloudflare ou de TMDB…) : le titre s'affiche quand même, sans ces infos, et la
   // page est marquée incomplète (rate). Un titre retiré de TMDB (404) n'y changera rien : pas compté.
@@ -382,6 +383,9 @@ async function lireInfo(env, kind, tmdbId) {
     releases,
     plateformeFr: movie && vfSurPlateforme(j["watch/providers"], j.original_language),
     plateformeVo: movie && plateformeFrance(j["watch/providers"]),
+    // Série : de quoi savoir si elle est en VF chez soi (seriesRegardables), comme ses affiches.
+    serie: movie ? null : { firstAir: j.first_air_date || "", lastSeason: (j.last_episode_to_air && j.last_episode_to_air.season_number) || 1,
+      plateformeFr: vfSurPlateforme(j["watch/providers"], j.original_language) },
     episode: movie ? null : { next: slimEpisode(j.next_episode_to_air), last: slimEpisode(j.last_episode_to_air), counts: seasonCounts(j.seasons), status: j.status },
     logo: logo ? `${IMG}w500${logo.file_path.replace(/\.svg$/, ".png")}` : undefined,
     backdrop: backdrop ? backdrop.file_path : null,
@@ -653,6 +657,15 @@ async function sourcesVf(env, imdbs) {
   return new Map(ids.map((i) => [i, lus.get("movie/" + i)]).filter(([, x]) => x));
 }
 
+/** La VF des sources pour des séries ([{ imdb, saison }], 1er épisode de la saison) : Map tt… → { vf, sources }. */
+async function sourcesVfSeries(env, series) {
+  const liste = (series || []).filter((x) => /^tt\d{1,10}$/.test(x.imdb || "") && Number.isInteger(x.saison)).slice(0, 40);
+  if (!liste.length) return new Map();
+  const cle = (x) => `series/${x.imdb}:${x.saison}:1`;
+  const lus = await lireVf(env, liste.map(cle));
+  return new Map(liste.map((x) => [x.imdb, lus.get(cle(x))]).filter(([, x]) => x));
+}
+
 /**
  * Les sources d'une série (le 1er épisode de sa dernière saison, comme l'affiche) : { vf, sources, langue } ou null.
  * Seulement pour une série récente (moins d'un an) : c'est elle que l'affiche juge aussi.
@@ -897,8 +910,8 @@ function endpointAsDiscover(def) {
  */
 async function photoTendances(env, kind) {
   try {
-    // ?v=4 : la photo renumérotée (seulement ce que la rangée montre) ; les précédentes restent sous leurs adresses.
-    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json?v=4`, { cf: { cacheTtl: secondesAvantBascule(), cacheEverything: true } });
+    // ?v=5 : la photo renumérotée, séries en VF comprises ; les précédentes restent sous leurs adresses.
+    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json?v=5`, { cf: { cacheTtl: secondesAvantBascule(), cacheEverything: true } });
     const d = res.ok ? await res.json() : {};
     return new Map((Array.isArray(d.ids) ? d.ids : []).map((id, i) => [id, i]));
   } catch (e) { return new Map(); }
@@ -1024,6 +1037,8 @@ async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
   // photo). Refait à une autre heure, il en écartait parfois un (Colony, N°8) : un trou dans les N° de la rangée. Ceux
   // que TMDB ne range plus dans ses deux pages : lus à part. En page 1 seulement ; les pages suivantes ne les reprennent pas.
   const classes = tendancesDuJour(def) ? titresClasses(photo) : [];
+  // Seulement les titres classés : chaque carte de la rangée porte son N° (pas de page 2 sans numéros).
+  if (classes.length && page > 1) return [];
   const enTete = [];
   if (page === 1 && classes.length) {
     const vus = new Map(released.map((it) => [it.id, it]));
@@ -1031,7 +1046,7 @@ async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
       .then((d) => (d && d.id ? { ...d, genre_ids: (d.genres || []).map((g) => g.id) } : null))));
     enTete.push(...lus.filter(Boolean));
   }
-  const reste = released.filter((it) => !classes.includes(it.id));
+  const reste = classes.length ? [] : released;
   let picked = reste.slice(0, PAGE - enTete.length);
   if (kind === "movie" && picked.length) {
     const garde = await filmsRegardables(env, reste, today, PAGE - enTete.length);
@@ -1073,8 +1088,30 @@ async function filmsRegardables(env, released, today, max) {
 }
 
 /**
+ * Les séries déjà en VF chez soi parmi `released` (déjà diffusées, dans leur ordre), au plus `max` : { picked, infos }.
+ * Même règle que leurs affiches (affiches/lib/statut.js) : seule une nouvelle série (première diffusion il y a moins
+ * d'un an) est jugée, d'après les sources de sa dernière saison ; sans aucune VF (des sources, aucune en VF), elle est
+ * écartée, sauf sur une plateforme en France qui la double. Une vieille série reste toujours (sa dernière saison
+ * manque souvent de VF, pas la série) ; une série pas lue (fiche, sources) aussi.
+ */
+async function seriesRegardables(env, released, today, max) {
+  const nouvelle = (it) => (it.first_air_date || "") >= addDays(today, -365);
+  const aLire = released.slice(0, max + 8).filter(nouvelle).slice(0, MAX_CHECKED);
+  const lues = await Promise.all(aLire.map((it) => extraInfo(env, "series", it.id)));
+  const infos = new Map(aLire.map((it, i) => [it.id, lues[i]]));
+  const sources = await sourcesVfSeries(env, lues.filter((x) => x.imdb && x.serie).map((x) => ({ imdb: x.imdb, saison: x.serie.lastSeason })));
+  const picked = released.filter((it) => {
+    const info = infos.get(it.id);
+    if (!nouvelle(it) || !info || !info.serie || info.serie.plateformeFr) return true;
+    const lu = sources.get(info.imdb);
+    return !(lu && lu.vf === false && lu.sources > 0);
+  }).slice(0, max);
+  return { picked, infos };
+}
+
+/**
  * Les « N° » du jour (worker/tendances.js) : le classement TMDB (results, dans l'ordre) gardé seulement pour ce que la
- * rangée « Tendances du jour » montre (déjà sorti ; films regardables chez soi en VF), renuméroté sans trous, dans le
+ * rangée « Tendances du jour » montre (déjà sorti ; en VF chez soi : films regardables, séries), renuméroté sans trous, dans le
  * même ordre. Toujours 20 places (seules elles portent un N°) : moins de 20 titres gardés, les places en trop sont
  * des 0 (aucun titre), pour qu'un titre écarté n'hérite jamais d'un N°. Une fiche TMDB pas lue : on ne sait pas
  * trier, la photo n'est pas enregistrée (worker/tendances.js la reprend quelques minutes plus tard).
@@ -1083,12 +1120,9 @@ const RANGS = 20;
 async function classerTendances(env, kind, results) {
   const today = parisToday();
   const released = results.filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; });
-  let ids = released.slice(0, RANGS).map((it) => it.id);
-  if (kind === "movie") {
-    const garde = await filmsRegardables(env, released, today, RANGS);
-    if ([...garde.infos.values()].some((info) => !info.lu)) throw new Error("fiches TMDB pas toutes lues");
-    ids = garde.picked.map((it) => it.id);
-  }
+  const garde = kind === "movie" ? await filmsRegardables(env, released, today, RANGS) : await seriesRegardables(env, released, today, RANGS);
+  if ([...garde.infos.values()].some((info) => !info.lu)) throw new Error("fiches TMDB pas toutes lues");
+  const ids = garde.picked.map((it) => it.id);
   return [...ids, ...Array(RANGS - ids.length).fill(0)];
 }
 
@@ -2153,7 +2187,10 @@ export default {
   },
   // Tâche planifiée de 4 h UTC (wrangler.toml) : la photo du jour des tendances.
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(prendrePhotos(env, event.scheduledTime, classerTendances));
+    // Une demande à soi-même par photo (liaison SELF : chacune son budget de 50 appels sortants), sinon ici.
+    ctx.waitUntil(env.SELF
+      ? Promise.all(["movie", "series"].map((k) => env.SELF.fetch(`https://self/tendances/${k}.json`).catch(() => null)))
+      : prendrePhotos(env, event.scheduledTime, classerTendances));
     ctx.waitUntil(nettoyerReserve(env, event.scheduledTime));
   },
 };

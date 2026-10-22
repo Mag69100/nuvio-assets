@@ -12,8 +12,8 @@
  */
 export const BASCULE_UTC_H = 4;
 const TOP = 60, GARDE_JOURS = 7;
-// Clé de la photo en base : « movie:rangs » (renumérotée) ; la photo brute d'avant, « movie », n'est plus lue.
-const CLE = (kind) => `${kind}:rangs`;
+// Clé de la photo en base : « movie:rangs2 » (renumérotée, séries en VF) ; celles d'avant ne sont plus lues.
+const CLE = (kind) => `${kind}:rangs2`;
 
 export function secondesAvantBascule(now = Date.now()) {
   const d = new Date(now), b = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), BASCULE_UTC_H);
@@ -87,7 +87,7 @@ export const prendrePhotos = (env, now = Date.now(), classer = null) => Promise.
 /** /tendances/{movie|series}.json : { ids }, gardé par Cloudflare (et ceux qui la lisent) jusqu'au changement. */
 export async function routeTendances(env, kind, headers, classer = null) {
   if (!["movie", "series"].includes(kind)) return new Response(JSON.stringify({ error: "introuvable" }), { status: 404, headers: { ...headers, "Cache-Control": "public, max-age=3600" } });
-  const cle = new Request(`https://tendances.cache/rangs/${jourTendances()}/${kind}.json`);
+  const cle = new Request(`https://tendances.cache/rangs2/${jourTendances()}/${kind}.json`);
   const rendre = (corps, s = secondesAvantBascule()) => new Response(corps, { headers: { ...headers, "Cache-Control": `public, max-age=${s}` } });
   const hit = await caches.default.match(cle);
   if (hit) return rendre(await hit.text());

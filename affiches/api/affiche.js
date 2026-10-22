@@ -117,7 +117,10 @@ function fetchImages(fetchImpl) {
 function qualiteATemps(type, facts, fetchImpl, relais, cle, attente = ATTENTE_QUALITE_MS) {
   let timer;
   const delai = new Promise((ok) => { timer = setTimeout(() => ok({ enRetard: true, quality: null }), attente); });
-  const lue = qualityOf(type, facts.imdbId, facts.lastSeason, fetchImpl, relais, cle).then((quality) => ({ enRetard: false, quality }));
+  // Titre récent (film de moins d'un an déjà sorti, nouvelle série) : la VF vient aussi de StreamFusion.
+  const jour = jourParis(), ilYaUnAn = new Date(Date.parse(jour) - 365 * 86400000).toISOString().slice(0, 10);
+  const sf = type === "series" ? !!facts.firstAir && facts.firstAir <= jour && facts.firstAir >= ilYaUnAn : sourcesUtiles(facts, jour);
+  const lue = qualityOf(type, facts.imdbId, facts.lastSeason, fetchImpl, relais, cle, sf).then((quality) => ({ enRetard: false, quality }));
   return Promise.race([lue, delai])
     .finally(() => clearTimeout(timer));
 }

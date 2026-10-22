@@ -1,6 +1,6 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { parseQuality, qualityOf, resetMemo, tailleMemo } from "../lib/qualite.js";
+import { parseQuality, qualityOf, resetMemo, tailleMemo, avecStreamFusion } from "../lib/qualite.js";
 
 beforeEach(() => resetMemo());
 
@@ -165,4 +165,15 @@ test("vfq_seule_pas_de_vf", () => {
   assert.equal(de("Film.2026.TRUEFRENCH.1080p").vf, true);
   assert.equal(de("Film.2026.MULTi.VFQ.2160p", "Film.2026.FRENCH.720p.WEBRIP").vf, true);
   assert.equal(de("Film.2026.VOSTFR.1080p").langue, "vostfr");
+});
+
+// L'avis de StreamFusion corrige Torrentio : la VF et la langue le suivent (VFQ écartée, sites français lus) ; la 4K,
+// le DV… ceux de ses sources VF s'il en a, sinon Torrentio ; sans avis, Torrentio tel quel.
+test("avec_streamfusion", () => {
+  const t = { uhd: true, extra: "HDR", fhd: true, hdr10p: false, atmos: false, vf: true, sources: 30, langue: "multi" };
+  assert.equal(avecStreamFusion(t, null), t);
+  assert.deepEqual(avecStreamFusion(t, { vf: false, sources: 11 }), { ...t, vf: false, sources: 30, langue: "vo" });
+  assert.deepEqual(avecStreamFusion({ ...t, vf: false, langue: "vostfr" }, { vf: true, sources: 4, qualite: { u: 1, x: "DV", p: 1, f: 1, a: 1 } }),
+    { ...t, uhd: true, extra: "DV", hdr10p: true, fhd: true, atmos: true, vf: true, sources: 30, langue: "vf" });
+  assert.deepEqual(avecStreamFusion(null, { vf: true, sources: 2 }), { uhd: false, extra: null, fhd: false, hdr10p: false, atmos: false, vf: true, sources: 2, langue: "vf" });
 });

@@ -70,10 +70,11 @@ export async function lireTorrentio(video, fetchImpl = fetch) {
   } catch (e) { console.warn(`Torrentio injoignable pour ${video} : ${e && e.message}`); return null; }
 }
 
-async function lireRelais(relais, video, fetchImpl, cle) {
+async function lireRelais(relais, video, fetchImpl, cle, sf = false) {
   try {
-    // ?v=3 : avec la VF des sources ; les réponses d'avant restent au CDN sous leurs anciennes adresses.
-    const res = await fetchImpl(`${relais}/qualite/${video}.json?v=3`, { headers: enteteRelais(cle), signal: AbortSignal.timeout(DELAI_MS + 500) });
+    // ?v=3 : avec la VF des sources ; les réponses d'avant restent au CDN sous leurs anciennes adresses. &sf=1 : un
+    // titre récent, dont le relais demande aussi la VF à StreamFusion (api/qualite.js) : plus lent la première fois.
+    const res = await fetchImpl(`${relais}/qualite/${video}.json?v=3${sf ? "&sf=1" : ""}`, { headers: enteteRelais(cle), signal: AbortSignal.timeout(DELAI_MS + 500 + (sf ? SF_ATTENTE_MS : 0)) });
     if (!res.ok) return null;
     const d = await res.json();
     // Réponse gardée au CDN avant la qualité v2 : sans fhd, hdr10p ni atmos (lus false). { erreur: true } (Torrentio
@@ -89,16 +90,17 @@ async function lireRelais(relais, video, fetchImpl, cle) {
 /**
  * Qualité d'un film, ou d'une série (premier épisode de sa dernière saison) ; null si inconnue.
  * relais : adresse du service (sur Vercel) pour passer par son cache partagé ; sans relais, Torrentio directement.
- * cle : RELAIS_KEY, envoyée au relais (lib/relais.js).
+ * cle : RELAIS_KEY, envoyée au relais (lib/relais.js). sf : titre récent, la VF vient aussi de StreamFusion (relais).
  */
-export async function qualityOf(type, imdbId, lastSeason, fetchImpl = fetch, relais = null, cle = null) {
+export async function qualityOf(type, imdbId, lastSeason, fetchImpl = fetch, relais = null, cle = null, sf = false) {
   if (!imdbId) return null;
   const video = type === "series" ? `series/${imdbId}:${lastSeason || 1}:1` : `movie/${imdbId}`;
-  const now = Date.now(), hit = memo.get(video);
+  const memoCle = relais && sf ? video + "#sf" : video;
+  const now = Date.now(), hit = memo.get(memoCle);
   if (hit && now < hit.until) return hit.promesse;
-  const entry = { promesse: relais ? lireRelais(relais, video, fetchImpl, cle) : lireTorrentio(video, fetchImpl), until: now + GARDE_MS };
-  memo.delete(video);
-  memo.set(video, entry);
+  const entry = { promesse: relais ? lireRelais(relais, video, fetchImpl, cle, sf) : lireTorrentio(video, fetchImpl), until: now + GARDE_MS };
+  memo.delete(memoCle);
+  memo.set(memoCle, entry);
   // Mémoire plafonnée : les entrées les plus anciennes sortent (une Map garde l'ordre d'arrivée).
   while (memo.size > MAX_MEMO) memo.delete(memo.keys().next().value);
   entry.promesse.then((q) => { if (!q) entry.until = Date.now() + GARDE_ECHEC_MS; });
@@ -110,10 +112,28 @@ export async function qualityOf(type, imdbId, lastSeason, fetchImpl = fetch, rel
  * une adresse nouvelle est refusée). Jamais Torrentio, et rien n'est gardé en mémoire : un « inconnu » lu ainsi ne
  * doit pas répondre plus tard à la place d'une vraie lecture avec la clé.
  */
-export async function qualiteConnue(type, imdbId, lastSeason, fetchImpl = fetch, relais) {
+export async function qualiteConnue(type, imdbId, lastSeason, fetchImpl = fetch, relais, sf = false) {
   if (!imdbId || !relais) return null;
   const video = type === "series" ? `series/${imdbId}:${lastSeason || 1}:1` : `movie/${imdbId}`;
-  const hit = memo.get(video);
+  const hit = memo.get(sf ? video + "#sf" : video);
   if (hit && Date.now() < hit.until) return hit.promesse;
-  return lireRelais(relais, video, fetchImpl, null);
+  return lireRelais(relais, video, fetchImpl, null, sf);
 }
+
+/**
+ * La qualité de Torrentio corrigée par l'avis de StreamFusion ({ vf, sources, qualite? }, lu par l'addon : il lit les
+ * sites français et écarte la VFQ) : la VF et la langue suivent StreamFusion ; 4K, DV, HDR… ceux de ses sources VF
+ * s'il en a, sinon ceux de Torrentio. Sans avis : Torrentio tel quel.
+ */
+export function avecStreamFusion(t, avis) {
+  if (!avis || typeof avis.vf !== "boolean") return t;
+  const base = t || { uhd: false, extra: null, fhd: false, hdr10p: false, atmos: false, vf: false, sources: 0, langue: null };
+  const q = avis.qualite || null;
+  const qualite = q ? { uhd: q.u === 1, extra: q.x === "DV" || q.x === "HDR" ? q.x : null, hdr10p: q.p === 1, fhd: q.f === 1, atmos: q.a === 1 } : {};
+  const enVf = base.langue === "vf" || base.langue === "multi";
+  const langue = avis.vf ? (enVf ? base.langue : "vf") : (enVf ? "vo" : base.langue);
+  return { ...base, ...qualite, vf: avis.vf, sources: Math.max(base.sources || 0, avis.sources || 0, 1), langue };
+}
+
+/** Attente de StreamFusion (lu par l'addon), en plus de celle de Torrentio. */
+export const SF_ATTENTE_MS = 9000;

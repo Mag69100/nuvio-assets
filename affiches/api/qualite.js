@@ -4,10 +4,25 @@
  * une seule lecture sert à toutes les instances du service. Avec RELAIS_KEY, seul le service fait lire une adresse
  * pas encore au CDN (lib/relais.js).
  */
-import { lireTorrentio } from "../lib/qualite.js";
+import { lireTorrentio, avecStreamFusion, SF_ATTENTE_MS } from "../lib/qualite.js";
+import { ADDON_URL } from "../lib/tendances.js";
 import { relaisRefuse, refusRelais } from "../lib/relais.js";
 
 const VIDEO = { movie: /^tt\d{1,10}$/, series: /^tt\d{1,10}:\d{1,3}:1$/ };
+
+/**
+ * L'avis de StreamFusion pour un titre récent (&sf=1), lu chez l'addon (/sf/…, avec RELAIS_KEY : il a le lien
+ * StreamFusion et tient le plafond du jour). { vf, sources, qualite? }, { plafond: true }, ou null (pas de réponse).
+ */
+async function avisStreamFusion(env, type, video, fetchImpl) {
+  if (!env.RELAIS_KEY) return null;
+  try {
+    const res = await fetchImpl(`${env.ADDON_URL || ADDON_URL}/sf/${type}/${video}.json`, { headers: { "X-Relais-Cle": env.RELAIS_KEY }, signal: AbortSignal.timeout(SF_ATTENTE_MS) });
+    if (!res.ok) return null;
+    const d = await res.json();
+    return d && (typeof d.vf === "boolean" || d.plafond) ? d : null;
+  } catch { return null; }
+}
 
 export function makeQualite({ fetchImpl = fetch, env = process.env } = {}) {
   return async function GET(request) {
@@ -17,7 +32,9 @@ export function makeQualite({ fetchImpl = fetch, env = process.env } = {}) {
       return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" } });
     }
     if (relaisRefuse(request, env)) return refusRelais();
-    const qualite = await lireTorrentio(`${type}/${video}`, fetchImpl);
+    const sf = q.get("sf") === "1";
+    const [torrentio, avis] = await Promise.all([lireTorrentio(`${type}/${video}`, fetchImpl), sf ? avisStreamFusion(env, type, video, fetchImpl) : null]);
+    const qualite = avis && !avis.plafond ? avecStreamFusion(torrentio, avis) : torrentio;
     // Torrentio en panne ou qui refuse : { erreur: true } gardé 30 min (le CDN de Vercel ne garde jamais une 503 :
     // chaque affiche redemanderait Torrentio, et Vercel risquerait d'être bloqué).
     if (!qualite) {
@@ -25,8 +42,11 @@ export function makeQualite({ fetchImpl = fetch, env = process.env } = {}) {
         headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=1800", "Vercel-CDN-Cache-Control": "max-age=1800" },
       });
     }
+    // StreamFusion demandé mais sans réponse : Torrentio seul, gardé une heure (on le redemandera) ; plafond du jour
+    // atteint : six heures ; sinon un jour.
+    const s = !sf || (avis && !avis.plafond) ? 86400 : avis && avis.plafond ? 21600 : 3600;
     return new Response(JSON.stringify(qualite), {
-      headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=86400", "Vercel-CDN-Cache-Control": "max-age=86400, stale-if-error=86400" },
+      headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${s}`, "Vercel-CDN-Cache-Control": `max-age=${s}, stale-if-error=86400` },
     });
   };
 }

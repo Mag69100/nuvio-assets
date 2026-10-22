@@ -41,6 +41,7 @@ import { copiePage } from "./copie.js";
 import { nouveautesPage } from "./nouveautes.js";
 import { hallPage } from "./hall.js";
 import { routeCinemeta } from "./cinemeta.js";
+import { animesDe } from "./anilist.js";
 import { videosCinemeta, videosReduites, oublierCinemeta, decoupageCinemeta, ficheRecomptee } from "./episodes.js";
 import { routeJeu } from "./jeu.js";
 import { routeEtat } from "./etat.js";
@@ -721,9 +722,51 @@ async function lireVfStreamFusion(env, cles) {
   return new Map(lus.filter(Boolean));
 }
 
-/** La VF pour la photo du jour : StreamFusion s'il est réglé, Torrentio (lireVf) pour ce qu'il n'a pas dit. */
+/**
+ * Plafond de StreamFusion : 300 demandes par jour au plus (réglable : SF_PLAFOND), photo de 4 h comprise, comptées
+ * dans la base D1 (table sf_budget). C'est le compte de la personne : jamais plus, quoi qu'il arrive (au-delà,
+ * Torrentio jusqu'au lendemain). reserverStreamFusion(env, n) : true si les n demandes tiennent dans le plafond (et
+ * les compte), false sinon. Sans base : pas de StreamFusion.
+ */
+let budgetPret = null;
+async function reserverStreamFusion(env, n = 1) {
+  if (!env.LIENS || !env.STREAMFUSION_URL) return false;
+  const plafond = Number(env.SF_PLAFOND) > 0 ? Number(env.SF_PLAFOND) : 300;
+  try {
+    await (budgetPret = budgetPret || env.LIENS.prepare("CREATE TABLE IF NOT EXISTS sf_budget (j TEXT PRIMARY KEY, n INTEGER NOT NULL)").run()
+      .catch((e) => { budgetPret = null; throw e; }));
+    const r = await env.LIENS.prepare("INSERT INTO sf_budget (j, n) VALUES (?1, ?2) ON CONFLICT(j) DO UPDATE SET n = n + ?2 WHERE n + ?2 <= ?3 RETURNING n")
+      .bind(parisToday(), n, plafond).first();
+    return !!r && r.n <= plafond;
+  } catch (e) { console.warn(`plafond StreamFusion : ${e && e.message}`); return false; }
+}
+
+/**
+ * /sf/{movie|series}/{tt…|tt…:saison:1}.json : l'avis de StreamFusion pour un titre récent, demandé par le service
+ * d'affiches (relais /qualite, avec la clé RELAIS_KEY : sans elle, refusé). { vf, sources, qualite? } ; { plafond:
+ * true } (le plafond du jour est atteint) ; { erreur: true } (StreamFusion n'a pas répondu). Gardé un jour par
+ * Cloudflare : un titre n'est demandé qu'une fois par jour, d'où qu'il vienne.
+ */
+async function routeStreamFusion(request, env, cle) {
+  const entete = { ...HEADERS, "Cache-Control": "no-store" };
+  if (!env.RELAIS_KEY || (await sha256(request.headers.get("X-Relais-Cle") || "")) !== (await sha256(env.RELAIS_KEY))) {
+    return new Response(JSON.stringify({ error: "refusé" }), { status: 403, headers: entete });
+  }
+  const cache = new Request(`https://sf.cache/${parisToday()}/${cle}`);
+  const hit = await caches.default.match(cache);
+  if (hit) return new Response(await hit.text(), { headers: entete });
+  if (!(await reserverStreamFusion(env, 1))) return new Response(JSON.stringify({ plafond: true }), { headers: entete });
+  const avis = (await lireVfStreamFusion(env, [cle])).get(cle);
+  if (!avis) return new Response(JSON.stringify({ erreur: true }), { headers: entete });
+  const corps = JSON.stringify(avis);
+  await caches.default.put(cache, new Response(corps, { headers: { "Cache-Control": "public, max-age=86400" } }));
+  return new Response(corps, { headers: entete });
+}
+
+/** La VF pour la photo du jour : StreamFusion s'il est réglé (dans le plafond du jour), Torrentio (lireVf) pour ce qu'il n'a pas dit. */
 async function lireVfPhoto(env, cles) {
-  const sf = env.STREAMFUSION_URL ? await lireVfStreamFusion(env, cles) : new Map();
+  const pris = cles.slice(0, SF_MAX);
+  const sf = pris.length && (await reserverStreamFusion(env, pris.length)) ? await lireVfStreamFusion(env, pris) : new Map();
   const reste = cles.filter((c) => !sf.has(c));
   const tr = reste.length ? await lireVf(env, reste) : new Map();
   return new Map([...tr, ...sf]);
@@ -1365,9 +1408,31 @@ async function runSearch(env, type, query, page, opts, trace) {
   // Seulement des titres obscurs qui contiennent le mot (« ichigo » : Ichigo 100%, 17 votes) : c'est peut-être un
   // personnage ou un surnom (Ichigo, le héros de Bleach), Gemini est consulté comme sans résultat.
   const connu = classic.some((it) => strong.has(it.id) && (it.vote_count || 0) >= OBSCUR_VOTES);
-  const why = descriptive ? "description" : stats.sure ? null : !strong.size ? "rien de proche" : !connu ? "rien de connu" : null;
+  // Orthographe corrigée sans titre qui ressemble au mot tapé (« luffy » → Buffy) : AniList seulement (un personnage
+  // d'anime ?), pas Gemini, pour qu'une vraie faute de frappe (« inseption ») reste aussi rapide.
+  const why = descriptive ? "description" : stats.sure ? null : !strong.size ? "rien de proche" : !connu ? "rien de connu"
+    : stats.devine ? "orthographe devinée" : null;
   if (trace) trace.ai = { descriptive, sure: !!stats.sure, strong: strong.size, why };
   if (!why) return classic;
+  // Les titres retrouvés (AniList, Gemini) d'abord, puis seulement les titres de la recherche classique
+  // qui ressemblent à la requête (pas « Fils de personne » pour « des personnages bleus »). Un titre
+  // obscur qui est exactement la requête (série toute nouvelle, encore peu notée) reste en tête.
+  const exact = why === "rien de connu" ? classic.filter((it) => strong.has(it.id) && isExact(query, it)) : [];
+  const avecClassique = (found) => {
+    const seen = new Set();
+    return [...exact, ...found, ...classic.filter((it) => strong.has(it.id))]
+      .filter((it) => !seen.has(it.id) && seen.add(it.id)).slice(0, AI_MAX);
+  };
+  // Quelques mots, pas une description : un anime par son nom japonais ou un personnage (« ichigo »). AniList
+  // d'abord, sans clé et sans quota Gemini (voir anilist.js) ; Gemini seulement s'il ne trouve rien pour ce type.
+  if (!descriptive && norm(query).split(" ").length <= 4) {
+    const animes = await animesDe(query);
+    const aniFound = animes && animes.length ? await resolveTitles(animes, type, search, api) : [];
+    if (trace) trace.ai.anilist = animes === null ? "pas de réponse" : { picks: animes.map((t) => `${t.title} (${t.year || "?"}, ${t.type})`),
+      found: aniFound.map((it) => it.title || it.name) };
+    if (aniFound.length) return avecClassique(aniFound);
+  }
+  if (why === "orthographe devinée") return classic;
   const job = ai || aiTitles(env, opts.ctx, query, aiOpts);
   const answer = await Promise.race([job, new Promise((r) => setTimeout(() => r(null), AI_WAIT_MS))]);
   // Pas de réponse à temps ou erreur : la recherche classique, sans la garder en cache, pour que
@@ -1391,13 +1456,7 @@ async function runSearch(env, type, query, page, opts, trace) {
   // description, elle, n'a rien à voir avec les titres trouvés mot à mot (« la série avec le prof
   // de chimie » : Breaking Bad dans Séries, pas « La guerre des drogues » dans Films).
   if (!found.length && !descriptive) return classic;
-  // Les titres retrouvés par l'IA d'abord, puis seulement les titres de la recherche classique
-  // qui ressemblent à la requête (pas « Fils de personne » pour « des personnages bleus »). Un titre
-  // obscur qui est exactement la requête (série toute nouvelle, encore peu notée) reste en tête.
-  const seen = new Set();
-  const exact = why === "rien de connu" ? classic.filter((it) => strong.has(it.id) && isExact(query, it)) : [];
-  return [...exact, ...found, ...classic.filter((it) => strong.has(it.id))]
-    .filter((it) => !seen.has(it.id) && seen.add(it.id)).slice(0, AI_MAX);
+  return avecClassique(found);
 }
 
 /**
@@ -2158,7 +2217,7 @@ function json(data, maxAge) {
   });
 }
 
-const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie", "lien-fixe", "tendances", "saison.json", "seance", "diagnostic", "nouveautes", "cpu", "reserve"]);
+const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie", "lien-fixe", "tendances", "sf", "saison.json", "seance", "diagnostic", "nouveautes", "cpu", "reserve"]);
 
 async function loadCollections() {
   const res = await fetch(`${ASSETS}/collections/collections.json`, { cf: { cacheTtl: 600, cacheEverything: true } });
@@ -2383,6 +2442,9 @@ const app = {
     // La photo du jour des tendances, lue par le service d'affiches (worker/tendances.js).
     const tend = !cfgSeg && /^\/tendances\/([a-z]+)\.json$/.exec(path);
     if (tend) return routeTendances(env, tend[1], HEADERS, classerTendances);
+    // L'avis de StreamFusion pour un titre récent, demandé par le service d'affiches (voir routeStreamFusion).
+    const sfDemande = !cfgSeg && /^\/sf\/(movie\/tt\d{1,10}|series\/tt\d{1,10}:\d{1,3}:1)\.json$/.exec(path);
+    if (sfDemande) return routeStreamFusion(request, env, sfDemande[1]);
     // Guide : le mot de passe de la séance (seance.js) et le diagnostic par photo (diagnostic.js).
     const sc = /^\/seance\/([^/]+)$/.exec(path);
     if (sc) return routeSeance(request, env, sc[1]);

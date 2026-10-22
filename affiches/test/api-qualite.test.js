@@ -46,3 +46,28 @@ test("relais en erreur lu comme un échec", async () => {
   const relais = async () => new Response(JSON.stringify({ erreur: true }));
   assert.equal(await qualityOf("movie", "tt1", null, relais, "https://affiches.test"), null);
 });
+
+// &sf=1 (titre récent) : le relais demande aussi l'avis de StreamFusion à l'addon (avec la clé), qui corrige
+// Torrentio ; sans réponse : Torrentio seul, gardé une heure ; plafond du jour : six heures.
+test("relais_avec_streamfusion", async () => {
+  const torrentio = { streams: [{ name: "Torrentio 4k", title: "Film.2026.MULTi.VFQ.2160p.WEB" }] };
+  const faux = (avis) => async (u, opts) => {
+    const s = String(u);
+    if (s.includes("torrentio")) return new Response(JSON.stringify(torrentio));
+    if (s.startsWith("https://addon.test/sf/movie/tt9.json")) {
+      assert.equal(new Headers(opts.headers).get("X-Relais-Cle"), "k");
+      return avis === null ? new Response("", { status: 500 }) : new Response(JSON.stringify(avis));
+    }
+    return new Response("?", { status: 404 });
+  };
+  const env = { RELAIS_KEY: "k", ADDON_URL: "https://addon.test" };
+  const lire = (avis) => makeQualite({ fetchImpl: faux(avis), env })(new Request("https://affiches.test/api/qualite?type=movie&video=tt9&sf=1", { headers: { "X-Relais-Cle": "k" } }));
+  const ok = await lire({ vf: true, sources: 3, qualite: { u: 1, x: "DV", p: 0, f: 0, a: 0 } });
+  const d = await ok.json();
+  assert.deepEqual([d.vf, d.extra, d.langue], [true, "DV", "multi"].map((x, i) => (i === 2 ? "vf" : x)));
+  assert.match(ok.headers.get("Cache-Control"), /max-age=86400/);
+  const panne = await lire(null);
+  assert.equal((await panne.json()).vf, false);   // Torrentio seul : VFQ, pas de VF
+  assert.match(panne.headers.get("Cache-Control"), /max-age=3600/);
+  assert.match((await lire({ plafond: true })).headers.get("Cache-Control"), /max-age=21600/);
+});

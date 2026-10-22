@@ -14,7 +14,10 @@ function fakeD1() {
       if (sql.startsWith("DELETE")) { for (const cle of [...rows.keys()]) if (cle.split("/")[0] < args[0]) rows.delete(cle); return {}; }
       throw new Error("requête inattendue : " + sql);
     },
-    async first() { const ids = rows.get(`${args[0]}/${args[1]}`); return ids ? { ids } : null; },
+    async first() {
+      if (sql.startsWith("INSERT INTO sf_budget")) return { n: args[1] };   // plafond de StreamFusion : toujours la place ici
+      const ids = rows.get(`${args[0]}/${args[1]}`); return ids ? { ids } : null;
+    },
   });
   return { rows, prepare: (sql) => stmt(sql) };
 }

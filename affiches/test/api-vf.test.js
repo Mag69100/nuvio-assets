@@ -21,8 +21,8 @@ test("vf_de_plusieurs_titres_en_un_appel", async () => {
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { "movie/tt1": { vf: true, sources: 12 }, "movie/tt2": { vf: false, sources: 30 }, "series/tt3:2:1": { vf: true, sources: 4 }, "movie/tt4": null });
   assert.deepEqual(calls.sort(), [
-    "https://affiches.test/qualite/movie/tt1.json?v=3", "https://affiches.test/qualite/movie/tt2.json?v=3",
-    "https://affiches.test/qualite/movie/tt4.json?v=3", "https://affiches.test/qualite/series/tt3:2:1.json?v=3",
+    "https://affiches.test/qualite/movie/tt1.json?v=3&sf=1", "https://affiches.test/qualite/movie/tt2.json?v=3&sf=1",
+    "https://affiches.test/qualite/movie/tt4.json?v=3&sf=1", "https://affiches.test/qualite/series/tt3:2:1.json?v=3&sf=1",
   ]);
   // Un titre pas lu : cache court, pour réessayer.
   assert.equal(res.headers.get("Vercel-CDN-Cache-Control"), "max-age=600");

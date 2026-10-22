@@ -6,6 +6,9 @@
 # node:22-bookworm-slim (docker buildx imagetools inspect node:22-bookworm-slim).
 FROM node:22-bookworm-slim@sha256:3ed98443660ff48413b5af19ecefce3b9d50845a901a43420d47cc63a9fddbe9
 
+# Certificats racines : l'image slim les retire, et sous Linux workerd ne lit que ceux du système (Node a les
+# siens, pas lui). Sans eux, chaque appel https (TMDB…) échoue : « TLS peer's certificate is not trusted ».
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN npm install -g wrangler@4.151.1 && npm cache clean --force
 
 WORKDIR /app

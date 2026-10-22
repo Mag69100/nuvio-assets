@@ -65,6 +65,11 @@ test("image_de_base_fixee_et_etat_de_sante", () => {
   assert.match(dockerfile, /^HEALTHCHECK .*\n\s+CMD \["node", "-e", ".*\/manifest\.json/m);
 });
 
+// workerd lit les certificats racines du système, absents de l'image slim : sans eux, aucun appel https.
+test("certificats_racines_installes", () => {
+  assert.match(readFileSync("Dockerfile", "utf8"), /^RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates /m);
+});
+
 // Au démarrage, seuls les fichiers du volume qui ne sont pas à « node » changent de propriétaire.
 test("pas_de_chown_complet_du_volume", () => {
   const ep = readFileSync("docker/entrypoint.sh", "utf8");

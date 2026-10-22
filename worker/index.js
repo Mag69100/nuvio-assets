@@ -579,8 +579,9 @@ function releaseNote(releases, langue, today, etat = {}) {
     if (date > today) return date <= addDays(today, 200) ? `Dispo le ${shortDate(date)}` : "";
     return date >= addDays(today, -60) ? `Dispo depuis le ${shortDate(date)}` : "";
   }
-  if (date < addDays(today, -120)) return "";
-  return `Dispo vers le ${shortDate(date > today ? date : addDays(today, 7))}`;
+  // Estimation déjà passée : regardable, comme l'affiche (en couleur) ; pas de date qu'on ne connaît pas.
+  if (date <= today) return "";
+  return `Dispo vers le ${shortDate(date)}`;
 }
 
 /**

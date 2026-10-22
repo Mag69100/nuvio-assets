@@ -909,6 +909,9 @@ test("fiche_selon_le_calendrier_americain", async () => {
     8104: ["en", [["FR", 3, -40], ["US", 4, -5]]],
     // Sorti en numérique aux États-Unis il y a 5 jours, aucune source : la date dit vrai.
     8105: ["en", [["US", 4, -5]]],
+    // Au cinéma aux États-Unis il y a 60 jours, sans date numérique (estimation passée), sources pas lues : regardable,
+    // comme l'affiche (en couleur) ; la fiche n'invente pas de date.
+    8106: ["en", [["US", 3, -60]]],
   };
   const lus = { tt9104: { vf: true, sources: 18 }, tt9105: { vf: false, sources: 0 } };
   globalThis.fetch = async (url) => {
@@ -929,6 +932,7 @@ test("fiche_selon_le_calendrier_americain", async () => {
   assert.equal(await note(8103), point(`📅 Dispo le ${court(jour(12))}`));
   assert.equal(await note(8104), point(`📅 Dispo depuis le ${court(jour(-5))}`));
   assert.equal(await note(8105), point(`📅 Dispo depuis le ${court(jour(-5))}`));
+  assert.doesNotMatch(await note(8106), /Dispo|Pas encore/);
 });
 
 // « Bientôt dispo » suit la même date : un film en numérique au Royaume-Uni dans 3 jours mais aux États-Unis dans

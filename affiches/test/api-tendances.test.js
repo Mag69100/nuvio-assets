@@ -42,7 +42,8 @@ test("series_et_demandes_invalides", async () => {
 test("addon_injoignable_tmdb_en_secours", async () => {
   const calls = [];
   const res = await makeTendances({ fetchImpl: sources(calls, null), env })(req("type=movie"));
-  assert.deepEqual(await res.json(), { ids: [10, 11, 20, 21, 30, 31] });
+  // Signalé comme secours : les affiches ne s'en servent pas pour leurs N° (lib/tendances.js, lireRang).
+  assert.deepEqual(await res.json(), { ids: [10, 11, 20, 21, 30, 31], secours: true });
   assert.ok(age(res, "Cache-Control") <= 300 && age(res, "Vercel-CDN-Cache-Control") <= 300, res.headers.get("Cache-Control"));
   assert.ok(calls.some((u) => u.includes("/trending/movie/day")));
   // Le secours n'est pas gardé jusqu'au changement : l'addon revenu, sa photo est servie.

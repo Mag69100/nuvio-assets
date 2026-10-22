@@ -650,19 +650,19 @@ function enVfChezSoi(releases, langue, today, lu, plateformeFr = false, vod = nu
  * Map tt… → { vf, sources }. Un seul appel pour toute une page (50 appels sortants au plus par requête). Les
  * titres pas lus, ou le service muet : absents de la Map, et les dates décident (enVfChezSoi).
  */
-async function sourcesVf(env, imdbs) {
+async function sourcesVf(env, imdbs, lire = lireVf) {
   const ids = [...new Set((imdbs || []).filter((x) => /^tt\d{1,10}$/.test(x || "")))].slice(0, 40);
   if (!ids.length) return new Map();
-  const lus = await lireVf(env, ids.map((i) => "movie/" + i));
+  const lus = await lire(env, ids.map((i) => "movie/" + i));
   return new Map(ids.map((i) => [i, lus.get("movie/" + i)]).filter(([, x]) => x));
 }
 
 /** La VF des sources pour des séries ([{ imdb, saison }], 1er épisode de la saison) : Map tt… → { vf, sources }. */
-async function sourcesVfSeries(env, series) {
+async function sourcesVfSeries(env, series, lire = lireVf) {
   const liste = (series || []).filter((x) => /^tt\d{1,10}$/.test(x.imdb || "") && Number.isInteger(x.saison)).slice(0, 40);
   if (!liste.length) return new Map();
   const cle = (x) => `series/${x.imdb}:${x.saison}:1`;
-  const lus = await lireVf(env, liste.map(cle));
+  const lus = await lire(env, liste.map(cle));
   return new Map(liste.map((x) => [x.imdb, lus.get(cle(x))]).filter(([, x]) => x));
 }
 
@@ -677,6 +677,42 @@ async function sourcesSerie(env, imdb, saison) {
 }
 
 /** /vf.json du service d'affiches pour des clés « movie/tt… » ou « series/tt…:S:1 » : Map clé → { vf, sources, langue }. */
+/**
+ * La VF d'après StreamFusion (secret STREAMFUSION_URL : un lien d'addon StreamFusion réglé pour écarter l'anglais et le
+ * VOSTFR), pour la photo du jour seulement (une quarantaine de titres par jour, pas à chaque affiche). Il lit les
+ * sites français que Torrentio ne voit pas : des sources = de la VF (VFF, MULTi…) ; « Aucun résultat » = pas de VF
+ * (« N exclus » : des sources, en VO ou VOSTFR). Map clé → { vf, sources } ; un titre qui n'a pas répondu en est
+ * absent (Torrentio prend le relais, lireVfPhoto). 18 au plus par photo : la limite de 50 appels sortants.
+ */
+const SF_MAX = 18, SF_ATTENTE_MS = 15000;
+async function lireVfStreamFusion(env, cles) {
+  const base = String(env.STREAMFUSION_URL || "").trim().replace(/\/manifest\.json$/, "");
+  if (!/^https:\/\//.test(base)) return new Map();
+  const lus = await Promise.all(cles.slice(0, SF_MAX).map(async (cle) => {
+    try {
+      const res = await fetch(`${base}/stream/${cle}.json`, { signal: AbortSignal.timeout(SF_ATTENTE_MS) });
+      if (!res.ok) return null;
+      const streams = ((await res.json()) || {}).streams || [];
+      const texte = (s) => `${s.name || ""} ${s.title || ""} ${s.description || ""}`;
+      const vides = streams.filter((s) => /aucun r[ée]sultat/i.test(texte(s)));
+      if (vides.length) {
+        const exclus = Number((/(\d+)\s+exclus/i.exec(texte(vides[0])) || [])[1]) || 0;
+        return [cle, { vf: false, sources: exclus }];
+      }
+      return [cle, { vf: streams.length > 0, sources: streams.length }];
+    } catch (e) { return null; }
+  }));
+  return new Map(lus.filter(Boolean));
+}
+
+/** La VF pour la photo du jour : StreamFusion s'il est réglé, Torrentio (lireVf) pour ce qu'il n'a pas dit. */
+async function lireVfPhoto(env, cles) {
+  const sf = env.STREAMFUSION_URL ? await lireVfStreamFusion(env, cles) : new Map();
+  const reste = cles.filter((c) => !sf.has(c));
+  const tr = reste.length ? await lireVf(env, reste) : new Map();
+  return new Map([...tr, ...sf]);
+}
+
 async function lireVf(env, cles) {
   try {
     const url = `${env.AFFICHES_URL || AFFICHES_URL}/vf.json?v=${cles.join(",")}`;
@@ -911,8 +947,11 @@ function endpointAsDiscover(def) {
 async function photoTendances(env, kind) {
   try {
     // ?v=6 : la photo renumérotée, séries en VF comprises (même sans source) ; les précédentes restent sous leurs adresses.
-    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json?v=6`, { cf: { cacheTtl: secondesAvantBascule(), cacheEverything: true } });
+    // Gardée par Cloudflare le temps que dit le service (jusqu'au changement ; 5 minutes pour un secours, le classement
+    // brut de TMDB quand l'addon n'a pas répondu à temps) : jamais un secours toute la journée.
+    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json?v=6`, { cf: { cacheEverything: true } });
     const d = res.ok ? await res.json() : {};
+    if (d.secours) return new Map();
     return new Map((Array.isArray(d.ids) ? d.ids : []).map((id, i) => [id, i]));
   } catch (e) { return new Map(); }
 }
@@ -1065,7 +1104,7 @@ async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
  * sources (un appel pour tous), sinon les dates, comme les affiches (enVfChezSoi) ; un vieux film reste (ses sources
  * ne sont pas lues). 4 de plus examinés pour remplacer les titres en VO seulement.
  */
-async function filmsRegardables(env, released, today, max) {
+async function filmsRegardables(env, released, today, max, lire = lireVf) {
   const infos = new Map();
   let picked = [];
   for (let i = 0; i < released.length && picked.length < max + 4 && infos.size < MAX_CHECKED;) {
@@ -1078,7 +1117,7 @@ async function filmsRegardables(env, released, today, max) {
     });
   }
   const recent = (it) => !!infos.get(it.id).releases && filmRecent(infos.get(it.id).releases, today);
-  const sources = await sourcesVf(env, picked.filter(recent).map((it) => infos.get(it.id).imdb));
+  const sources = await sourcesVf(env, picked.filter(recent).map((it) => infos.get(it.id).imdb), lire);
   picked = picked.filter((it) => {
     if (!recent(it)) return true;
     const info = infos.get(it.id);
@@ -1095,12 +1134,12 @@ async function filmsRegardables(env, released, today, max) {
  * France qui la double. Une vieille série reste toujours (sa dernière saison
  * manque souvent de VF, pas la série) ; une série pas lue (fiche, sources) aussi.
  */
-async function seriesRegardables(env, released, today, max) {
+async function seriesRegardables(env, released, today, max, lire = lireVf) {
   const nouvelle = (it) => (it.first_air_date || "") >= addDays(today, -365);
   const aLire = released.slice(0, max + 8).filter(nouvelle).slice(0, MAX_CHECKED);
   const lues = await Promise.all(aLire.map((it) => extraInfo(env, "series", it.id)));
   const infos = new Map(aLire.map((it, i) => [it.id, lues[i]]));
-  const sources = await sourcesVfSeries(env, lues.filter((x) => x.imdb && x.serie).map((x) => ({ imdb: x.imdb, saison: x.serie.lastSeason })));
+  const sources = await sourcesVfSeries(env, lues.filter((x) => x.imdb && x.serie).map((x) => ({ imdb: x.imdb, saison: x.serie.lastSeason })), lire);
   const picked = released.filter((it) => {
     const info = infos.get(it.id);
     if (!nouvelle(it) || !info || !info.serie || info.serie.plateformeFr) return true;
@@ -1121,7 +1160,8 @@ const RANGS = 20;
 async function classerTendances(env, kind, results) {
   const today = parisToday();
   const released = results.filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; });
-  const garde = kind === "movie" ? await filmsRegardables(env, released, today, RANGS) : await seriesRegardables(env, released, today, RANGS);
+  // La VF : StreamFusion s'il est réglé (lireVfPhoto), sinon Torrentio.
+  const garde = kind === "movie" ? await filmsRegardables(env, released, today, RANGS, lireVfPhoto) : await seriesRegardables(env, released, today, RANGS, lireVfPhoto);
   if ([...garde.infos.values()].some((info) => !info.lu)) throw new Error("fiches TMDB pas toutes lues");
   const ids = garde.picked.map((it) => it.id);
   return [...ids, ...Array(RANGS - ids.length).fill(0)];

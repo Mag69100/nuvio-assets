@@ -15,7 +15,7 @@ export function makeTendances({ fetchImpl = fetch, env = process.env } = {}) {
     const photo = await photoDuJour(env, type, fetchImpl);
     if (!photo) return new Response(null, { status: 503, headers: { "Cache-Control": "no-store" } });
     const s = photo.secours ? Math.min(300, secondesAvantBascule()) : secondesAvantBascule();
-    return new Response(JSON.stringify({ ids: photo.ids }), {
+    return new Response(JSON.stringify(photo.secours ? { ids: photo.ids, secours: true } : { ids: photo.ids }), {
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Cache-Control": `public, max-age=${s}`, "Vercel-CDN-Cache-Control": `max-age=${s}` },
     });
   };

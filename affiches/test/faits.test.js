@@ -372,3 +372,14 @@ test("anime_saisons_de_cinemeta", async () => {
   await titleFacts(env, { type: "series", id: "tmdb:95479", imdb: "" }, g);
   assert.ok(!g.calls.some((u) => u.includes("cinemeta")));
 });
+
+// Le relais a servi un secours (le classement brut de TMDB, l'addon n'ayant pas répondu à temps) : pas de N°, plutôt
+// qu'un faux gardé toute la journée ; « illisible », pour un cache court.
+test("tendances : un secours du relais ne donne pas de N°", async () => {
+  resetTendances();
+  const f = async () => json({ ids: [7, 8, 9], secours: true });
+  assert.deepEqual(await lireRang(env, "movie", 8, f, "https://affiches.test"), { rang: null, illisible: true });
+  resetTendances();
+  const g = async () => json({ ids: [7, 8, 9] });
+  assert.deepEqual(await lireRang(env, "movie", 8, g, "https://affiches.test"), { rang: 2, illisible: false });
+});

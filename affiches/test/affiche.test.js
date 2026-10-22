@@ -45,7 +45,9 @@ function internet({ detail = json(film), torrentio, collection, saison } = {}) {
     const relais = /^https:\/\/affiches\.test\/qualite\/(movie|series)\/(.+)\.json(\?v=[23])?$/.exec(u);
     if (relais) return makeQualite({ fetchImpl: lireTorrentio })(new Request(`https://affiches.test/api/qualite?type=${relais[1]}&video=${relais[2]}`));
     const photo = /^https:\/\/affiches\.test\/tendances\/(movie|series)\.json$/.exec(u);
-    if (photo) return makeTendances({ fetchImpl: f, env: { TMDB_API_KEY: "k" } })(new Request(`https://affiches.test/api/tendances?type=${photo[1]}`));
+    if (photo) return makeTendances({ fetchImpl: f, env: { TMDB_API_KEY: "k", ADDON_URL: "https://addon.test" } })(new Request(`https://affiches.test/api/tendances?type=${photo[1]}`));
+    // L'addon qui prend la photo du jour : ici, personne de classé.
+    if (/^https:\/\/addon\.test\/tendances\/(movie|series)\.json$/.test(u)) return json({ ids: [] });
     if (u.includes("/find/")) return json({ movie_results: [{ id: 693134 }], tv_results: [] });
     if (u.includes("/trending/")) return json({ results: [] });
     if (u.includes("/collection/")) return collection ? collection.clone() : new Response("?", { status: 404 });

@@ -146,3 +146,33 @@ test("photo_des_series_seulement_en_vf", async () => {
   assert.deepEqual(ids.slice(0, 3), [2, 3, 4]);
   assert.ok(![1, 5, 6].some((id) => ids.slice(0, 20).includes(id)));
 });
+
+// StreamFusion (STREAMFUSION_URL, réglé sans anglais ni VOSTFR) décide de la VF pour la photo : 1 a des sources (VF) ;
+// 2 « Aucun résultat, 6 exclus » (VO) → écarté ; 3 : StreamFusion ne répond pas → Torrentio (vf.json), qui a la VF.
+test("photo_avec_streamfusion_et_torrentio_en_secours", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const film = (id) => ({ id, imdb_id: `tt97${id}`, original_language: "en",
+    release_dates: { results: [{ iso_3166_1: "US", release_dates: [{ type: 3, release_date: jour(-80) + "T00:00:00.000Z" }, { type: 4, release_date: jour(-20) + "T00:00:00.000Z" }] }] } });
+  const appels = [];
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/trending/movie/day")) return new Response(JSON.stringify({ results: new URL(u).searchParams.get("page") === "1" ? [71, 72, 73].map((id) => ({ id, release_date: jour(-80), original_language: "en" })) : [] }));
+    if (u.startsWith("https://sf.test/config/stream/")) {
+      appels.push(u);
+      if (u.includes("tt9773")) throw new Error("délai dépassé");
+      return new Response(JSON.stringify({ streams: u.includes("tt9772")
+        ? [{ name: "Stream-Fusion", title: "Aucun résultat trouvé, 6 exclus en raison du ou des paramètre(s) suivant(s) : exclusion langues (en, vostfr)" }]
+        : [{ name: "instant / AllDebrid / (1080p)", title: "Film.2026.MULTi.VFF.1080p.WEB" }] }));
+    }
+    if (u.includes("/vf.json")) return new Response(JSON.stringify({ "movie/tt9773": { vf: true, sources: 30 } }));
+    const m = /\/movie\/(7\d)\?/.exec(u);
+    if (m) return new Response(JSON.stringify(film(Number(m[1]))));
+    return new Response("{}");
+  };
+  const { ids } = await (await get("/tendances/movie.json", { ...env, STREAMFUSION_URL: "https://sf.test/config/manifest.json" })).json();
+  assert.deepEqual(ids.slice(0, 2), [71, 73]);
+  assert.ok(!ids.slice(0, 20).includes(72));
+  assert.equal(appels.length, 3);
+  assert.ok(calls.some((u) => u.includes("/vf.json") && u.includes("tt9773") && !u.includes("tt9771")));
+});

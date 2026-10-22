@@ -41,7 +41,9 @@ async function lireRelais(relais, type, fetchImpl) {
     const res = await fetchImpl(`${relais}/tendances/${type}.json`, { signal: AbortSignal.timeout(DELAI_MS) });
     if (!res.ok) return null;
     const d = await res.json();
-    return Array.isArray(d && d.ids) ? d.ids : null;
+    if (!Array.isArray(d && d.ids)) return null;
+    // Le relais du service a lui-même servi un secours (classement brut) : il le dit.
+    return d.secours ? Object.assign(d.ids.slice(), { secours: true }) : d.ids;
   } catch { return null; }
 }
 
@@ -61,7 +63,7 @@ async function lireSource(env, type, fetchImpl) {
 export function photoDuJour(env, type, fetchImpl = fetch, relais = null) {
   const cle = relais ? type + "@relais" : type, now = Date.now(), hit = memo.get(cle);
   if (hit && now < hit.until) return hit.promesse;
-  const lue = relais ? lireRelais(relais, type, fetchImpl).then((ids) => (ids ? { ids, secours: false } : null)) : lireSource(env, type, fetchImpl);
+  const lue = relais ? lireRelais(relais, type, fetchImpl).then((ids) => (ids ? { ids, secours: !!ids.secours } : null)) : lireSource(env, type, fetchImpl);
   const entry = { promesse: lue, until: prochaineBascule(now) };
   memo.set(cle, entry);
   entry.promesse.then((p) => { if (!p || p.secours) entry.until = Date.now() + GARDE_ECHEC_MS; });
@@ -76,8 +78,11 @@ export const photoTendances = (env, type, fetchImpl = fetch, relais = null) => p
  * injoignables) — l'affiche part sans N°, avec le cache court, pour le prendre ensuite }.
  */
 export async function lireRang(env, type, tmdbId, fetchImpl = fetch, relais = null) {
-  const ids = await photoTendances(env, type, fetchImpl, relais);
-  if (!ids) return { rang: null, illisible: true };
+  const photo = await photoDuJour(env, type, fetchImpl, relais);
+  // Pas de photo, ou un secours servi par le relais (le classement brut, l'addon n'ayant pas répondu à temps) : pas de
+  // N°, plutôt qu'un faux gardé toute la journée ; cache court (illisible), pour avoir le bon ensuite.
+  if (!photo || (relais && photo.secours)) return { rang: null, illisible: true };
+  const ids = photo.ids;
   const i = ids.indexOf(tmdbId);
   return { rang: i < 0 ? null : i + 1, illisible: false };
 }

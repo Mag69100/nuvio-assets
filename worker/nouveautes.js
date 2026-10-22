@@ -10,6 +10,15 @@ import { feuilles } from "./statique.js";
 export const NOUVEAUTES = [
   {
     date: "2026-10-22",
+    titre: "Les animés retrouvent leurs saisons",
+    points: [
+      "Jujutsu Kaisen, Frieren, Dan Da Dan, One Piece… : les épisodes sont rangés dans leurs vraies saisons, plus tout dans une seule. La saison annoncée apparaît aussi (Jujutsu Kaisen saison 4).",
+      "Les sources des épisodes après la première saison se trouvent mieux : ils sont demandés avec le bon numéro de saison.",
+      "Si tu avais commencé un de ces animés, la progression des épisodes après la première saison peut être à refaire.",
+    ],
+  },
+  {
+    date: "2026-10-22",
     titre: "La salle 2 retrouve ta programmation",
     points: [
       "Reviens sur la salle 2 quand tu veux : sur le même appareil, elle rouvre d'elle-même ta dernière programmation (ton lien fixe si tu en as un). Plus besoin de tout refaire.",

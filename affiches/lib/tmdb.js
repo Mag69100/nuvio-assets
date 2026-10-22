@@ -162,6 +162,9 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
     collection: type !== "series" && d.belongs_to_collection ? d.belongs_to_collection.id || null : null,
     originalLanguage: d.original_language || "",
     plateformeFrance: plateformeFrance(d),
+    // Pour le diagnostic (X-Affiche-Sortie) : ce que TMDB dit des plateformes en France, et sa langue d'origine.
+    plateformesVues: Object.entries(((d["watch/providers"] || {}).results || {}).FR || {}).filter(([, v]) => Array.isArray(v)).map(([k, v]) => `${k}:${v.length}`).join("+")
+      + (d["watch/providers"] ? "" : "(absent)") + `/${d.original_language || "?"}`,
     age: ageDe(type, d),
     firstAir: type === "series" ? d.first_air_date || "" : "",
     seasons: type === "series" ? (d.seasons || []).map((s) => ({ season_number: s.season_number, air_date: s.air_date || "", episode_count: s.episode_count ?? null })) : [],

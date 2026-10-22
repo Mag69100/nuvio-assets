@@ -233,7 +233,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       // ou des plateformes françaises que TMDB connaît au moment du dessin). Rien de privé.
       const sortieVue = etatSortie(facts, aujourdhui, quality ? { vf: quality.vf, sources: quality.sources } : null);
       const pourquoi = `${sortieVue.sorti ? "sorti" : "pas-sorti"} statut=${sortieVue.statut || "-"} vf=${quality ? quality.vf : "?"} sources=${quality ? quality.sources : "?"}`
-        + ` plateforme-fr=${facts.plateformeFrance ? 1 : 0} premiere=${facts.firstAir || facts.releaseDate || "-"} jour=${aujourdhui}`;
+        + ` plateforme-fr=${facts.plateformeFrance ? 1 : 0} tmdb-fr=${facts.plateformesVues || "-"} premiere=${facts.firstAir || facts.releaseDate || "-"} jour=${aujourdhui}`;
       const headers = { ...CORS, "Access-Control-Expose-Headers": "X-Affiche-Etat, X-Affiche-Sortie", "X-Affiche-Etat": enRetard ? "retard" : "complete",
         "X-Affiche-Sortie": pourquoi, ...cache, ETag: etag };
       if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });

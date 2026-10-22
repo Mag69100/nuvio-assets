@@ -1006,12 +1006,25 @@ async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
   const released = dansLOrdre(lists.flatMap((d) => d.results || []), photo)
     .filter((it, i, all) => all.findIndex((x) => x.id === it.id) === i)
     .filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; });
-  let picked = released.slice(0, PAGE);
-  if (kind === "movie") {
-    const garde = await filmsRegardables(env, released, today, PAGE);
+  // Les titres classés de la photo (N°1 à 20) : tels quels et dans l'ordre, sans refaire le tri (déjà fait à la
+  // photo). Refait à une autre heure, il en écartait parfois un (Colony, N°8) : un trou dans les N° de la rangée. Ceux
+  // que TMDB ne range plus dans ses deux pages : lus à part. En page 1 seulement ; les pages suivantes ne les reprennent pas.
+  const classes = tendancesDuJour(def) ? titresClasses(photo) : [];
+  const enTete = [];
+  if (page === 1 && classes.length) {
+    const vus = new Map(released.map((it) => [it.id, it]));
+    const lus = await Promise.all(classes.map((id) => vus.get(id) || tmdb(env, `/${kind === "series" ? "tv" : "movie"}/${id}`, {}, opts.lang)
+      .then((d) => (d && d.id ? { ...d, genre_ids: (d.genres || []).map((g) => g.id) } : null))));
+    enTete.push(...lus.filter(Boolean));
+  }
+  const reste = released.filter((it) => !classes.includes(it.id));
+  let picked = reste.slice(0, PAGE - enTete.length);
+  if (kind === "movie" && picked.length) {
+    const garde = await filmsRegardables(env, reste, today, PAGE - enTete.length);
     picked = garde.picked;
     opts = { ...opts, infos: garde.infos, sources: garde.sources };
   }
+  picked = [...enTete, ...picked];
   if (!picked.length) return [];
   const metas = await toMetas(env, ctx, picked, kind, opts, today);
   return metas.map(sansInternes);
@@ -1048,15 +1061,25 @@ async function filmsRegardables(env, released, today, max) {
 /**
  * Les « N° » du jour (worker/tendances.js) : le classement TMDB (results, dans l'ordre) gardé seulement pour ce que la
  * rangée « Tendances du jour » montre (déjà sorti ; films regardables chez soi en VF), renuméroté sans trous, dans le
- * même ordre. Les 20 premiers : seuls eux portent un N°.
+ * même ordre. Toujours 20 places (seules elles portent un N°) : moins de 20 titres gardés, les places en trop sont
+ * des 0 (aucun titre), pour qu'un titre écarté n'hérite jamais d'un N°. Une fiche TMDB pas lue : on ne sait pas
+ * trier, la photo n'est pas enregistrée (worker/tendances.js la reprend quelques minutes plus tard).
  */
 const RANGS = 20;
 async function classerTendances(env, kind, results) {
   const today = parisToday();
   const released = results.filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; });
-  if (kind !== "movie") return released.slice(0, RANGS).map((it) => it.id);
-  return (await filmsRegardables(env, released, today, RANGS)).picked.map((it) => it.id);
+  let ids = released.slice(0, RANGS).map((it) => it.id);
+  if (kind === "movie") {
+    const garde = await filmsRegardables(env, released, today, RANGS);
+    if ([...garde.infos.values()].some((info) => !info.lu)) throw new Error("fiches TMDB pas toutes lues");
+    ids = garde.picked.map((it) => it.id);
+  }
+  return [...ids, ...Array(RANGS - ids.length).fill(0)];
 }
+
+/** Les titres qui portent un N° sur la photo du jour (Map id → place), dans l'ordre. */
+const titresClasses = (photo) => [...photo].filter(([id, i]) => id && i < RANGS).sort((a, b) => a[1] - b[1]).map(([id]) => id);
 
 /**
  * Film arrivé chez soi : la date de dispoChezSoi passée (sortie numérique américaine, ou son estimation), ou déjà sur

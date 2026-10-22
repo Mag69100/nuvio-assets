@@ -41,19 +41,21 @@ beforeEach(() => {
 });
 const ctx = { waitUntil: () => {} };
 const get = (path, e = env) => worker.fetch(new Request(`https://x${path}`), e, ctx);
+// Les 20 places des N° : des 0 quand aucun titre ne les prend (ici, des titres sans date de sortie : rien de sorti).
+const vides = (n = 20) => Array(n).fill(0);
 
 // La photo est prise une fois : plus tard dans la journée, le classement a bougé, la photo non.
 test("photo_prise_une_fois_par_jour", async () => {
   const res = await get("/tendances/movie.json");
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { ids: [1, 2, 3] });
+  assert.deepEqual(await res.json(), { ids: [...vides(), 1, 2, 3] });
   assert.equal(res.headers.get("Access-Control-Allow-Origin"), "*");
   assert.ok(calls.every((u) => u.includes("/trending/movie/day")));
   classement = [3, 2, 1];
   store.clear();   // un autre serveur de Cloudflare, sans cache : il la lit dans la base
-  assert.deepEqual(await (await get("/tendances/movie.json")).json(), { ids: [1, 2, 3] });
-  assert.deepEqual(await photoDuJour(env, "movie"), { ids: [1, 2, 3], provisoire: false });
-  assert.deepEqual(await (await get("/tendances/series.json")).json(), { ids: [3, 2, 1] });   // séries : leur propre photo
+  assert.deepEqual(await (await get("/tendances/movie.json")).json(), { ids: [...vides(), 1, 2, 3] });
+  assert.deepEqual(await photoDuJour(env, "movie"), { ids: [...vides(), 1, 2, 3], provisoire: false });
+  assert.deepEqual(await (await get("/tendances/series.json")).json(), { ids: [...vides(), 3, 2, 1] });   // séries : leur propre photo
   assert.ok(calls.some((u) => u.includes("/trending/tv/day")));
 });
 
@@ -66,21 +68,21 @@ test("tache_de_4h", async () => {
   await Promise.all(pas);
   assert.equal(jourTendances(quatreHeures), "2026-10-22");
   assert.equal(jourTendances(quatreHeures - 1), "2026-10-21");
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/movie:rangs")), [1, 2, 3]);
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/series:rangs")), [1, 2, 3]);
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/movie:rangs")), [...vides(), 1, 2, 3]);
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/series:rangs")), [...vides(), 1, 2, 3]);
   assert.ok(!env.LIENS.rows.has("2026-10-01/movie"));
   // Plus tard dans la journée, le classement a bougé : toujours la photo de 4 h.
   classement = [7];
   mock.timers.enable({ apis: ["Date"], now: quatreHeures + 3 * 3600000 });
-  try { assert.deepEqual((await photoDuJour(env, "movie")).ids, [1, 2, 3]); } finally { mock.timers.reset(); }
+  try { assert.deepEqual((await photoDuJour(env, "movie")).ids, [...vides(), 1, 2, 3]); } finally { mock.timers.reset(); }
 });
 
 // Sans base (Docker) : le classement du moment, gardé par Cloudflare jusqu'au changement. TMDB en panne : 503.
 test("sans_base_et_tmdb_en_panne", async () => {
   const sansBase = { TMDB_API_KEY: "tmdb" };
-  assert.deepEqual(await (await get("/tendances/movie.json", sansBase)).json(), { ids: [1, 2, 3] });
+  assert.deepEqual(await (await get("/tendances/movie.json", sansBase)).json(), { ids: [...vides(), 1, 2, 3] });
   classement = [3, 2, 1];
-  assert.deepEqual(await (await get("/tendances/movie.json", sansBase)).json(), { ids: [1, 2, 3] });
+  assert.deepEqual(await (await get("/tendances/movie.json", sansBase)).json(), { ids: [...vides(), 1, 2, 3] });
   store.clear();
   globalThis.fetch = async () => new Response("", { status: 500 });
   const res = await get("/tendances/series.json");
@@ -106,8 +108,8 @@ test("photo_renumerotee_comme_la_rangee", async () => {
     if (m) return new Response(JSON.stringify(fiches[m[1]]));
     return new Response("{}");
   };
-  assert.deepEqual(await (await get("/tendances/movie.json")).json(), { ids: [2, 3, 1, 4] });
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get(`${jourTendances()}/movie:rangs`)), [2, 3, 1, 4]);
+  assert.deepEqual(await (await get("/tendances/movie.json")).json(), { ids: [2, 3, ...vides(18), 1, 4] });
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get(`${jourTendances()}/movie:rangs`)), [2, 3, ...vides(18), 1, 4]);
   // Le classement échoue : le classement brut, provisoire (la route le garde 5 minutes), jamais enregistré.
   env.LIENS.rows.clear();
   const brut = await photoDuJour(env, "movie", Date.now(), async () => { throw new Error("TMDB en panne"); });

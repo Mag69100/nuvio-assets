@@ -396,6 +396,31 @@ test("tendances_du_jour_dans_l_ordre_de_la_photo", async () => {
   }
 });
 
+// La rangée reprend les N° de la photo tels quels : les titres classés en tête, dans l'ordre, sans refaire le tri
+// (le 3, « au cinéma seulement » maintenant, reste N°2) ; le 1, que TMDB ne range plus dans ses pages, est lu à part ;
+// les places vides (0) ne donnent rien ; le reste suit, trié comme avant.
+test("tendances_du_jour_reprennent_les_numeros_de_la_photo", async () => {
+  const { AFFICHES_URL } = await import("../worker/reglages.js");
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u === `${AFFICHES_URL}/tendances/movie.json?v=4`) return new Response(JSON.stringify({ ids: [1, 3, ...Array(18).fill(0), 2] }));
+    if (u.includes("/trending/movie/day")) {
+      return new Response(JSON.stringify({ results: u.includes("page=1") ? [3, 2].map((id) => ({ id, title: `Film ${id}`, original_language: "en", release_date: jour(-60) })) : [], page: 1, total_pages: 1 }));
+    }
+    if (/\/movie\/1\?/.test(u) && !u.includes("append_to_response")) return new Response(JSON.stringify({ id: 1, title: "Film 1", original_language: "en", release_date: jour(-90), genres: [{ id: 18 }] }));
+    const m = /\/movie\/(\d)\?/.exec(u);
+    // 3 : au cinéma en France seulement (pas regardable chez soi) ; 2 : sorti chez soi, en VF.
+    if (m) return new Response(JSON.stringify({ id: Number(m[1]), imdb_id: `tt90${m[1]}`, original_language: "en", release_dates: { results: m[1] === "3"
+      ? [{ iso_3166_1: "FR", release_dates: [{ type: 3, release_date: jour(-5) + "T00:00:00.000Z" }] }]
+      : [{ iso_3166_1: "FR", release_dates: [{ type: 3, release_date: jour(-120) + "T00:00:00.000Z" }] }, { iso_3166_1: "US", release_dates: [{ type: 4, release_date: jour(-60) + "T00:00:00.000Z" }] }] } }));
+    return new Response("{}");
+  };
+  const { metas } = await (await get("/catalog/movie/accueil-top10.json")).json();
+  assert.deepEqual(metas.map((m) => m.name), ["Film 1", "Film 3", "Film 2"]);
+});
+
 // Télé-réalité : masquée de toutes les rangées de séries, sauf d'une rangée sur mesure qui la demande.
 test("rangee_sur_mesure_tele_realite", async () => {
   const { GENRES } = await import("../worker/config.js");

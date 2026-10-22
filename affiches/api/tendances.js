@@ -16,7 +16,8 @@ export function makeTendances({ fetchImpl = fetch, env = process.env } = {}) {
     if (!photo) return new Response(null, { status: 503, headers: { "Cache-Control": "no-store" } });
     const s = photo.secours ? Math.min(300, secondesAvantBascule()) : secondesAvantBascule();
     const vf = photo.vf && Object.keys(photo.vf).length ? { vf: photo.vf } : {};
-    return new Response(JSON.stringify(photo.secours ? { ids: photo.ids, secours: true } : { ids: photo.ids, ...vf }), {
+    const q = photo.q && Object.keys(photo.q).length ? { q: photo.q } : {};
+    return new Response(JSON.stringify(photo.secours ? { ids: photo.ids, secours: true } : { ids: photo.ids, ...vf, ...q }), {
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Cache-Control": `public, max-age=${s}`, "Vercel-CDN-Cache-Control": `max-age=${s}` },
     });
   };

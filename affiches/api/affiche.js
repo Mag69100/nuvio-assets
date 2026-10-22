@@ -79,12 +79,13 @@ const absent = () => new Response(null, { status: 404, headers: { ...CORS, ...AB
 const panne = () => new Response(null, { status: 502, headers: { ...CORS, "Cache-Control": "no-store" } });
 /**
  * La qualité lue chez Torrentio, corrigée par l'avis VF de l'addon quand il a examiné le titre (photo du jour :
- * StreamFusion, qui lit les sites français, sinon Torrentio) : la VF et la langue suivent cet avis, le reste
- * (4K, HDR…) reste celui de Torrentio. Sans avis : telle quelle.
+ * StreamFusion, qui lit les sites français, sinon Torrentio) : la VF et la langue suivent cet avis. 4K, DV, HDR,
+ * HDR10+, 1080p et Atmos : ceux des sources VF de StreamFusion s'il en a (« 4K DV » = en VF), sinon Torrentio.
+ * Sans avis : telle quelle.
  */
-function avecAvisVf(q, avis) {
+function avecAvisVf(q, avis, qualiteVf = null) {
   if (typeof avis !== "boolean") return q;
-  const base = q || { uhd: false, extra: null, fhd: false, hdr10p: false, atmos: false, sources: 0, langue: null };
+  const base = { ...(q || { uhd: false, extra: null, fhd: false, hdr10p: false, atmos: false, sources: 0, langue: null }), ...(qualiteVf || {}) };
   const enVf = base.langue === "vf" || base.langue === "multi";
   const langue = avis ? (enVf ? base.langue : "vf") : (enVf ? "vo" : base.langue);
   return { ...base, vf: avis, sources: Math.max(1, base.sources || 0), langue };
@@ -235,14 +236,14 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       // (StreamFusion).
       const [{ note: imdbRating, manque: imdbManque }, photoLue, { enRetard: qualiteEnRetard, quality: qualiteTorrentio }, notes, filmsSaga, rangee] = await Promise.all([
         noteImdb && facts.imdbId ? lireNoteImdb(facts.imdbId, fetchImpl, ATTENTE_NOTES_MS) : { note: undefined, manque: false },
-        tendance || lireSources ? lireRang(env, type, facts.tmdbId, fetchImpl, relais).catch(() => ({ rang: null, illisible: true, vf: null })) : { rang: null, illisible: false, vf: null },
+        tendance || lireSources ? lireRang(env, type, facts.tmdbId, fetchImpl, relais).catch(() => ({ rang: null, illisible: true, vf: null, qualite: null })) : { rang: null, illisible: false, vf: null, qualite: null },
         lireSources ? qualiteATemps(type, facts, fetchImpl, relais, env.RELAIS_KEY, request.headers.get("X-Apercu") === "1" ? ATTENTE_APERCU_MS : ATTENTE_QUALITE_MS) : { enRetard: false, quality: null },
         notesUtiles && facts.imdbId ? notesPlus(facts.imdbId, fetchImpl, relais, env.RELAIS_KEY) : undefined,
         sagaVoulue ? filmsDeLaSaga(env, facts.collection, fetchImpl) : null,
         saisonVoulue ? lireSaison(env, fetchImpl) : null,
       ]);
       const place = tendance ? photoLue.rang : null, photoIllisible = tendance && photoLue.illisible;
-      const quality = avecAvisVf(qualiteTorrentio, photoLue.vf);
+      const quality = avecAvisVf(qualiteTorrentio, photoLue.vf, photoLue.qualite);
       const saga = sagaVoulue ? rangSaga(filmsSaga, facts.tmdbId, aujourdhui) : null;
       // Une donnée qui manque pour une panne passagère (fichier IMDb pas lu : note TMDB en attendant ; photo des
       // tendances illisible : pas de N° ; image sans texte pas vérifiée) : cache court, pour l'avoir ensuite.

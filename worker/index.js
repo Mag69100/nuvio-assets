@@ -691,6 +691,15 @@ async function sourcesSerie(env, imdb, saison) {
  * absent (Torrentio prend le relais, lireVfPhoto). 18 au plus par photo : la limite de 50 appels sortants.
  */
 const SF_MAX = 18, SF_ATTENTE_MS = 15000;
+// La qualité des sources VF (mêmes règles que affiches/lib/qualite.js) : DV, HDR et HDR10+ comptent seulement en 4K.
+const SF_UHD = /\b(2160p|4k|uhd)\b/i, SF_DV = /\b(dv|dovi|dolby ?vision)\b/i, SF_HDR = /\bhdr(10\+?)?(?=\W|$)/i;
+const SF_HDR10P = /\bhdr10(\+|plus)(?=\W|$)/i, SF_FHD = /\b1080p\b/i, SF_ATMOS = /\batmos\b/i;
+/** { u, x, p, f, a } : 4K, « DV » ou « HDR », HDR10+, 1080p, Atmos, d'après les noms des sources. */
+function qualiteDesSources(textes) {
+  const uhd = textes.filter((t) => SF_UHD.test(t));
+  return { u: uhd.length ? 1 : 0, x: uhd.some((t) => SF_DV.test(t)) ? "DV" : uhd.some((t) => SF_HDR.test(t)) ? "HDR" : null,
+    p: uhd.some((t) => SF_HDR10P.test(t)) ? 1 : 0, f: textes.some((t) => SF_FHD.test(t)) ? 1 : 0, a: textes.some((t) => SF_ATMOS.test(t)) ? 1 : 0 };
+}
 async function lireVfStreamFusion(env, cles) {
   const base = String(env.STREAMFUSION_URL || "").trim().replace(/\/manifest\.json$/, "");
   if (!/^https:\/\//.test(base)) return new Map();
@@ -705,7 +714,8 @@ async function lireVfStreamFusion(env, cles) {
         const exclus = Number((/(\d+)\s+exclus/i.exec(texte(vides[0])) || [])[1]) || 0;
         return [cle, { vf: false, sources: exclus }];
       }
-      return [cle, { vf: streams.length > 0, sources: streams.length }];
+      // Des sources VF (celles qu'on peut lire, en cache chez le débrideur) : leur qualité aussi (« 4K DV » en VF).
+      return [cle, { vf: streams.length > 0, sources: streams.length, ...(streams.length ? { qualite: qualiteDesSources(streams.map(texte)) } : {}) }];
     } catch (e) { return null; }
   }));
   return new Map(lus.filter(Boolean));
@@ -954,10 +964,10 @@ function endpointAsDiscover(def) {
  */
 async function photoTendances(env, kind) {
   try {
-    // ?v=7 : la photo avec l'avis VF de StreamFusion ; les précédentes restent sous leurs adresses.
+    // ?v=8 : la photo avec l'avis VF et la qualité de StreamFusion ; les précédentes restent sous leurs adresses.
     // Gardée par Cloudflare le temps que dit le service (jusqu'au changement ; 5 minutes pour un secours, le classement
     // brut de TMDB quand l'addon n'a pas répondu à temps) : jamais un secours toute la journée.
-    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json?v=7`, { cf: { cacheEverything: true } });
+    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json?v=8`, { cf: { cacheEverything: true } });
     const d = res.ok ? await res.json() : {};
     if (d.secours) return new Map();
     return new Map((Array.isArray(d.ids) ? d.ids : []).map((id, i) => [id, i]));
@@ -1176,12 +1186,14 @@ async function classerTendances(env, kind, results) {
   const ids = garde.picked.map((it) => it.id);
   // L'avis VF de chaque titre examiné (StreamFusion, sinon Torrentio) : publié avec la photo, les affiches s'en servent
   // à la place de Torrentio (StreamFusion n'est appelé qu'ici, pas à chaque affiche).
-  const vf = {};
+  // Et la qualité des sources VF de StreamFusion (4K, DV, HDR…) : les affiches la préfèrent à celle de Torrentio.
+  const vf = {}, q = {};
   for (const [id, info] of garde.infos) {
     const lu = info && info.imdb ? garde.sources.get(info.imdb) : null;
     if (lu && typeof lu.vf === "boolean") vf[id] = lu.vf ? 1 : 0;
+    if (lu && lu.qualite) q[id] = lu.qualite;
   }
-  return { ids: [...ids, ...Array(RANGS - ids.length).fill(0)], vf };
+  return { ids: [...ids, ...Array(RANGS - ids.length).fill(0)], vf, q };
 }
 
 /** Les titres qui portent un N° sur la photo du jour (Map id → place), dans l'ordre. */

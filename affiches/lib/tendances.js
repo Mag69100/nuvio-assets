@@ -37,7 +37,8 @@ async function lireTmdb(env, type, fetchImpl) {
 
 /**
  * La photo publiée à cette adresse (relais du service, ou l'addon qui la prend) : { ids, vf, secours }, ou null.
- * vf : l'avis VF de l'addon (StreamFusion, sinon Torrentio) pour les titres qu'il a examinés, tmdbId → 1 ou 0 ;
+ * vf : l'avis VF de l'addon (StreamFusion, sinon Torrentio) pour les titres qu'il a examinés, tmdbId → 1 ou 0 ; q : la
+ * qualité de leurs sources VF chez StreamFusion, tmdbId → { u: 4K, x: « DV » | « HDR », p: HDR10+, f: 1080p, a: Atmos } ;
  * secours : le relais a lui-même servi le classement brut (l'addon n'avait pas répondu).
  */
 async function lireRelais(relais, type, fetchImpl) {
@@ -46,14 +47,14 @@ async function lireRelais(relais, type, fetchImpl) {
     if (!res.ok) return null;
     const d = await res.json();
     if (!Array.isArray(d && d.ids)) return null;
-    return { ids: d.ids, vf: d.vf && typeof d.vf === "object" ? d.vf : {}, secours: !!d.secours };
+    return { ids: d.ids, vf: d.vf && typeof d.vf === "object" ? d.vf : {}, q: d.q && typeof d.q === "object" ? d.q : {}, secours: !!d.secours };
   } catch { return null; }
 }
 
 /** La photo de l'addon ({ ids, vf, secours: false }), sinon le classement du moment chez TMDB ({ ids, secours: true }), ou null. */
 async function lireSource(env, type, fetchImpl) {
   const photo = await lireRelais(env.ADDON_URL || ADDON_URL, type, fetchImpl);
-  if (photo) return { ids: photo.ids, vf: photo.vf, secours: false };
+  if (photo) return { ids: photo.ids, vf: photo.vf, q: photo.q, secours: false };
   const tmdb = await lireTmdb(env, type, fetchImpl);
   return tmdb ? { ids: tmdb, vf: {}, secours: true } : null;
 }
@@ -84,12 +85,15 @@ export async function lireRang(env, type, tmdbId, fetchImpl = fetch, relais = nu
   const photo = await photoDuJour(env, type, fetchImpl, relais);
   // Pas de photo, ou un secours servi par le relais (le classement brut, l'addon n'ayant pas répondu à temps) : pas de
   // N°, plutôt qu'un faux gardé toute la journée ; cache court (illisible), pour avoir le bon ensuite.
-  if (!photo || (relais && photo.secours)) return { rang: null, illisible: true, vf: null };
+  if (!photo || (relais && photo.secours)) return { rang: null, illisible: true, vf: null, qualite: null };
   const ids = photo.ids;
   const i = ids.indexOf(tmdbId);
   // vf : l'avis VF de l'addon pour ce titre (true, false), ou null s'il ne l'a pas examiné.
   const avis = photo.vf ? photo.vf[tmdbId] : undefined;
-  return { rang: i < 0 ? null : i + 1, illisible: false, vf: avis === 1 ? true : avis === 0 ? false : null };
+  // qualite : celle des sources VF de StreamFusion pour ce titre, ou null.
+  const q = photo.q && photo.q[tmdbId];
+  const qualite = q && typeof q === "object" ? { uhd: q.u === 1, extra: q.x === "DV" || q.x === "HDR" ? q.x : null, hdr10p: q.p === 1, fhd: q.f === 1, atmos: q.a === 1 } : null;
+  return { rang: i < 0 ? null : i + 1, illisible: false, vf: avis === 1 ? true : avis === 0 ? false : null, qualite };
 }
 
 /** Place (1 à 60) du titre sur la photo du jour, ou null (absent, ou photo illisible). */

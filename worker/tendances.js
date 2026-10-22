@@ -12,8 +12,8 @@
  */
 export const BASCULE_UTC_H = 4;
 const TOP = 60, GARDE_JOURS = 7;
-// Clé de la photo en base : « movie:rangs4 » ({ ids, vf } : renumérotée, avec l'avis VF) ; celles d'avant ne sont plus lues.
-const CLE = (kind) => `${kind}:rangs4`;
+// Clé de la photo en base : « movie:rangs5 » ({ ids, vf, q } : renumérotée, avec l'avis VF et la qualité) ; celles d'avant ne sont plus lues.
+const CLE = (kind) => `${kind}:rangs5`;
 
 export function secondesAvantBascule(now = Date.now()) {
   const d = new Date(now), b = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), BASCULE_UTC_H);
@@ -60,7 +60,8 @@ async function prendre(env, kind, classer) {
   const rangs = Array.isArray(classe) ? classe : classe && classe.ids;
   if (!Array.isArray(rangs)) return { ids, vf: {}, provisoire: true };
   const premiers = new Set(rangs);
-  return { ids: [...rangs, ...ids.filter((id) => !premiers.has(id))], vf: (classe && classe.vf) || {}, provisoire: false };
+  const q = classe && classe.q && Object.keys(classe.q).length ? { q: classe.q } : {};
+  return { ids: [...rangs, ...ids.filter((id) => !premiers.has(id))], vf: (classe && classe.vf) || {}, ...q, provisoire: false };
 }
 
 /**
@@ -77,7 +78,7 @@ export async function photoDuJour(env, kind, now = Date.now(), classer = null) {
     const photo = await prendre(env, kind, classer);
     if (!photo || photo.provisoire) return photo;
     // Une autre demande a pu la prendre entre-temps : la sienne reste, et c'est elle qu'on rend.
-    await env.LIENS.prepare("INSERT OR IGNORE INTO tendances (j, k, ids) VALUES (?, ?, ?)").bind(jour, CLE(kind), JSON.stringify({ ids: photo.ids, vf: photo.vf })).run();
+    await env.LIENS.prepare("INSERT OR IGNORE INTO tendances (j, k, ids) VALUES (?, ?, ?)").bind(jour, CLE(kind), JSON.stringify({ ids: photo.ids, vf: photo.vf, ...(photo.q ? { q: photo.q } : {}) })).run();
     await env.LIENS.prepare("DELETE FROM tendances WHERE j < ?").bind(jourTendances(now - GARDE_JOURS * 86400000)).run();
     return { ...((await lueEnBase(env, jour, CLE(kind))) || photo), provisoire: false };
   } catch (e) {
@@ -92,14 +93,15 @@ export const prendrePhotos = (env, now = Date.now(), classer = null) => Promise.
 /** /tendances/{movie|series}.json : { ids }, gardé par Cloudflare (et ceux qui la lisent) jusqu'au changement. */
 export async function routeTendances(env, kind, headers, classer = null) {
   if (!["movie", "series"].includes(kind)) return new Response(JSON.stringify({ error: "introuvable" }), { status: 404, headers: { ...headers, "Cache-Control": "public, max-age=3600" } });
-  const cle = new Request(`https://tendances.cache/rangs4/${jourTendances()}/${kind}.json`);
+  const cle = new Request(`https://tendances.cache/rangs5/${jourTendances()}/${kind}.json`);
   const rendre = (corps, s = secondesAvantBascule()) => new Response(corps, { headers: { ...headers, "Cache-Control": `public, max-age=${s}` } });
   const hit = await caches.default.match(cle);
   if (hit) return rendre(await hit.text());
   const photo = await photoDuJour(env, kind, Date.now(), classer);
   if (!photo) return new Response(JSON.stringify({ error: "TMDB injoignable" }), { status: 503, headers: { ...headers, "Cache-Control": "no-store" } });
   // vf : l'avis VF des titres examinés (tmdbId → 1 ou 0), seulement s'il y en a.
-  const corps = JSON.stringify(photo.vf && Object.keys(photo.vf).length ? { ids: photo.ids, vf: photo.vf } : { ids: photo.ids });
+  // q : la qualité des sources VF de StreamFusion (tmdbId → { u, x, p, f, a }), seulement s'il y en a.
+  const corps = JSON.stringify({ ids: photo.ids, ...(photo.vf && Object.keys(photo.vf).length ? { vf: photo.vf } : {}), ...(photo.q && Object.keys(photo.q).length ? { q: photo.q } : {}) });
   // Classement brut (le classement a échoué) : 5 minutes, pour reprendre la vraie photo ensuite.
   if (photo.provisoire) return rendre(corps, Math.min(300, secondesAvantBascule()));
   await caches.default.put(cle, new Response(corps, { headers: { "Cache-Control": `public, max-age=${secondesAvantBascule()}` } }));

@@ -68,8 +68,8 @@ test("tache_de_4h", async () => {
   await Promise.all(pas);
   assert.equal(jourTendances(quatreHeures), "2026-10-22");
   assert.equal(jourTendances(quatreHeures - 1), "2026-10-21");
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/movie:rangs4")).ids, [...vides(), 1, 2, 3]);
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/series:rangs4")).ids, [...vides(), 1, 2, 3]);
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/movie:rangs5")).ids, [...vides(), 1, 2, 3]);
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/series:rangs5")).ids, [...vides(), 1, 2, 3]);
   assert.ok(!env.LIENS.rows.has("2026-10-01/movie"));
   // Plus tard dans la journée, le classement a bougé : toujours la photo de 4 h.
   classement = [7];
@@ -109,7 +109,7 @@ test("photo_renumerotee_comme_la_rangee", async () => {
     return new Response("{}");
   };
   assert.deepEqual(await (await get("/tendances/movie.json")).json(), { ids: [2, 3, ...vides(18), 1, 4] });
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get(`${jourTendances()}/movie:rangs4`)).ids, [2, 3, ...vides(18), 1, 4]);
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get(`${jourTendances()}/movie:rangs5`)).ids, [2, 3, ...vides(18), 1, 4]);
   // Le classement échoue : le classement brut, provisoire (la route le garde 5 minutes), jamais enregistré.
   env.LIENS.rows.clear();
   const brut = await photoDuJour(env, "movie", Date.now(), async () => { throw new Error("TMDB en panne"); });
@@ -163,15 +163,17 @@ test("photo_avec_streamfusion_et_torrentio_en_secours", async () => {
       if (u.includes("tt9773")) throw new Error("délai dépassé");
       return new Response(JSON.stringify({ streams: u.includes("tt9772")
         ? [{ name: "Stream-Fusion", title: "Aucun résultat trouvé, 6 exclus en raison du ou des paramètre(s) suivant(s) : exclusion langues (en, vostfr)" }]
-        : [{ name: "instant / AllDebrid / (1080p)", title: "Film.2026.MULTi.VFF.1080p.WEB" }] }));
+        : [{ name: "instant / AllDebrid / (2160p)", title: "Film.2026.MULTi.VFF.2160p.WEB.DV.HDR" }, { name: "instant / AllDebrid / (1080p)", title: "Film.2026.MULTi.VFF.1080p.WEB" }] }));
     }
     if (u.includes("/vf.json")) return new Response(JSON.stringify({ "movie/tt9773": { vf: true, sources: 30 } }));
     const m = /\/movie\/(7\d)\?/.exec(u);
     if (m) return new Response(JSON.stringify(film(Number(m[1]))));
     return new Response("{}");
   };
-  const { ids } = await (await get("/tendances/movie.json", { ...env, STREAMFUSION_URL: "https://sf.test/config/manifest.json" })).json();
+  const { ids, q } = await (await get("/tendances/movie.json", { ...env, STREAMFUSION_URL: "https://sf.test/config/manifest.json" })).json();
   assert.deepEqual(ids.slice(0, 2), [71, 73]);
+  // La qualité des sources VF de StreamFusion, publiée pour les affiches (pas pour 73, vu par Torrentio seulement).
+  assert.deepEqual(q, { 71: { u: 1, x: "DV", p: 0, f: 1, a: 0 } });
   assert.ok(!ids.slice(0, 20).includes(72));
   assert.equal(appels.length, 3);
   assert.ok(calls.some((u) => u.includes("/vf.json") && u.includes("tt9773") && !u.includes("tt9771")));

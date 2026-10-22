@@ -1634,8 +1634,10 @@ function carteDe(v) {
       plus: () => r.image.cadre === "couleur"
         ? [nuancier("Couleur du cadre", r.image.cadreC, (x) => regle((r) => { r.image.cadreC = x || "e"; }))]
         : [aide("Choisis « Couleur » pour prendre une teinte du nuancier.")] },
-    saison: { nom: "Habillage de la saison", ...onOff("saison"),
-      principal: () => [aide("Halloween, Noël, Saint-Valentin, Pâques, été : un cadre et des ornements sur les films de la rangée « Spécial … », le temps de la fête.")],
+    saison: { nom: "Habillage de la saison", on: () => r.saison.on, bascule: () => { regle((r) => { r.saison.on = !r.saison.on; }); regieSaisonMontre(); },
+      principal: () => [aide(regieSaison && regieSaison.fete === null
+        ? "Pas de fête en ce moment : l'habillage s'allumera tout seul à la prochaine (Halloween, Noël, Saint-Valentin, Pâques, été)."
+        : "Seulement sur les films de la rangée « " + ((regieSaison && regieSaison.nom) || "Spécial …") + " », le temps de la fête : un cadre et des ornements. Un film de cette rangée passe sur la scène pour le voir.")],
       plus: () => [aide("Nuvio ne dit pas de quelle rangée vient une affiche : un film de la rangée de saison est habillé partout où il apparaît (Tendances, recherche, fiche).")] },
     sortie: { nom: "Pas encore sorti", on: () => r.sortie.nb, bascule: () => regle((r) => { r.sortie.nb = !r.sortie.nb; }),
       principal: () => [choix("Note", [[true, "Cachée"], [false, "Montrée"]], r.sortie.cacherNote, (x) => regle((r) => { r.sortie.cacherNote = x; }))],
@@ -1761,17 +1763,16 @@ function regieChange(modif, cle) {
 }
 
 function regieApercus() {
+  // Habillage allumé ou éteint autrement que par sa carte (style tout prêt, Annuler, lien importé) : le film de la
+  // saison rejoint ou quitte les coulisses.
+  const saison = regieSaisonVisible(), present = !!saison && regieTitres.some((x) => x.id === saison.id && x.legende === saison.legende);
+  if (regieDemo.length && !!saison !== present) regieCoulisses();
   const t = regieTitres[regieChoisi];
   const grande = $("regie-grande");
   $("regie-plateau").classList.toggle("paysage", regieForme === "landscape");
   if (t) {
     const src = NV.ppSrc(t, regieForme, regieForme === "landscape" && regieRP ? regieRP : regieR);
-    if (src && grande.dataset.src !== src) {
-      grande.classList.add("attente");
-      grande.onload = () => grande.classList.remove("attente");
-      grande.onerror = () => grande.classList.remove("attente");
-      grande.dataset.src = src; grande.src = src;
-    }
+    if (src && grande.dataset.src !== src) regieImage(grande, src, true);
     grande.alt = "Affiche de " + (t.name || "ce titre");
     $("regie-legende").textContent = (t.name || "") + (t.legende ? " · " + t.legende : "");
   }
@@ -1779,9 +1780,29 @@ function regieApercus() {
   $("regie-coulisses").classList.toggle("paysage", regieForme === "landscape");
   document.querySelectorAll("#regie-coulisses button").forEach((b, i) => {
     const img = b.querySelector("img"), src = NV.ppSrc(regieTitres[i], regieForme, regieForme === "landscape" && regieRP ? regieRP : regieR);
-    if (src && img.dataset.src !== src) { img.dataset.src = src; img.src = src; }
+    if (src && img.dataset.src !== src) regieImage(img, src);
     b.setAttribute("aria-pressed", String(i === regieChoisi));
   });
+}
+
+// Une affiche de la régie : lue par fetch pour savoir si elle est partie complète (X-Affiche-Etat). Une affiche
+// « en retard » (le badge 4K pas encore lu chez Torrentio…) est redemandée 4 s puis 8 s plus tard : sans ça, chaque
+// case cochée, une adresse nouvelle, pouvait arriver sans ses badges et semblait en retirer d'autres. Le relais
+// ne la garde pas, le paramètre essai passe le cache du navigateur.
+function regieImage(img, src, grande, essai = 0) {
+  clearTimeout(img._relance);
+  img.dataset.src = src;
+  if (grande) img.classList.add("attente");
+  fetch(essai ? src + "&essai=" + essai : src).then(async (r) => {
+    if (img.dataset.src !== src) return;   // un autre réglage est passé entre-temps
+    if (!r.ok) throw new Error(r.status);
+    const etat = r.headers.get("X-Affiche-Etat"), blob = await r.blob();
+    if (img.dataset.src !== src) return;
+    if (img._url) URL.revokeObjectURL(img._url);
+    img._url = URL.createObjectURL(blob); img.src = img._url;
+    img.classList.remove("attente");
+    if (etat === "retard" && essai < 2) img._relance = setTimeout(() => { if (img.dataset.src === src) regieImage(img, src, false, essai + 1); }, 4000 * (essai + 1));
+  }).catch(() => { if (img.dataset.src === src) img.classList.remove("attente"); });
 }
 
 // Vignettes des styles tout prêts : une vraie petite affiche du premier titre de démonstration dans chaque style
@@ -1831,14 +1852,47 @@ let regieMonTitre = (() => {
   } catch (e) { return null; }
 })();
 function regieCoulisses() {
-  regieTitres = regieMonTitre ? [{ ...regieMonTitre, legende: "Ton choix" }, ...regieDemo.slice(0, 5)] : regieDemo.slice(0, 6);
-  if (regieChoisi >= regieTitres.length) regieChoisi = 0;
+  const saison = regieSaisonVisible(), vu = regieTitres[regieChoisi];
+  regieTitres = [...(regieMonTitre ? [{ ...regieMonTitre, legende: "Ton choix" }] : []), ...(saison ? [saison] : []), ...regieDemo].slice(0, 6);
+  // Le titre regardé reste sur la scène s'il est toujours là (sinon le premier : ton choix, ou le titre du moment).
+  const garde = vu ? regieTitres.findIndex((x) => x.id === vu.id && x.legende === vu.legende) : -1;
+  regieChoisi = garde >= 0 ? garde : 0;
   const c = $("regie-coulisses");
   c.textContent = "";
   regieTitres.forEach((t, i) => c.append(el("button", { type: "button", "aria-pressed": "false", "aria-label": "Voir " + (t.name || "ce titre") + " en grand",
     onclick: () => { regieChoisi = i; regieApercus(); } }, el("img", { alt: "" }), el("span", { text: t.legende }))));
   $("regie-retirer").hidden = !regieMonTitre;
 }
+// Habillage de la saison : il ne se pose que sur les films de la rangée de saison (/saison.json de l'addon), que
+// les titres de démonstration ne sont presque jamais. Réglage allumé : un film de cette rangée rejoint la scène.
+// regieSaison : undefined (pas encore lu), { fete: null } (pas de fête), { fete, nom, titre }.
+let regieSaison;
+const FETES = { halloween: "Spécial Halloween", noel: "Spécial Noël", "saint-valentin": "Spécial Saint-Valentin", paques: "Spécial Pâques", ete: "Spécial été" };
+const regieSaisonAllumee = () => !!((regieR && regieR.saison && regieR.saison.on) || (regieRP && regieRP.saison && regieRP.saison.on));
+const regieSaisonVisible = () => (regieSaisonAllumee() && regieSaison && regieSaison.titre ? regieSaison.titre : null);
+async function regieSaisonLue() {
+  if (regieSaison !== undefined) return regieSaison;
+  try {
+    const d = await fetchJSON(NV_ORIG + "/saison.json");
+    if (!d || !d.saison || !Array.isArray(d.ids) || !d.ids.length) return (regieSaison = { fete: null });
+    const id = d.ids[0], m = ((await fetchJSON(NV_ORIG + "/meta/movie/tmdb:" + id + ".json")) || {}).meta || {};
+    const imdb = /^tt\\d+$/.test(m.imdb_id || "") ? m.imdb_id : /^tt\\d+$/.test(m.id || "") ? m.id : undefined;
+    regieSaison = { fete: d.saison, nom: FETES[d.saison] || "Spécial …",
+      titre: { id: "tmdb:" + id, type: "movie", name: m.name || "", imdb_id: imdb, legende: FETES[d.saison] || "Rangée de saison" } };
+  } catch (e) { regieSaison = undefined; return { fete: undefined }; }   // réessayé à la prochaine bascule
+  return regieSaison;
+}
+// Réglage allumé : le film de la saison sur la scène (la carte dit aussi s'il n'y a pas de fête en ce moment).
+async function regieSaisonMontre() {
+  if (!regieSaisonAllumee()) { regieCoulisses(); regieApercus(); return; }
+  await regieSaisonLue();
+  regieDessine();
+  regieCoulisses();
+  const i = regieTitres.findIndex((t) => regieSaison && regieSaison.titre && t.id === regieSaison.titre.id);
+  if (i >= 0) regieChoisi = i;
+  regieApercus();
+}
+
 function regieGardeTitre() {
   try { if (regieMonTitre) localStorage.setItem(REGIE_TITRE, JSON.stringify(regieMonTitre)); else localStorage.removeItem(REGIE_TITRE); } catch (e) {}
 }
@@ -1862,7 +1916,7 @@ $("regie-retirer").addEventListener("click", () => {
   const prend = (m) => {
     regieMonTitre = { id: m.id, type: m.type, name: m.name, imdb_id: m.imdb_id };
     regieGardeTitre();
-    regieChoisi = 0; regieCoulisses(); regieApercus();
+    regieCoulisses(); regieChoisi = 0; regieApercus();   // le titre choisi, en premier, passe en grand
     q.value = ""; ferme();
     if (window.sfx) sfx.click();
   };
@@ -1928,7 +1982,8 @@ function regieOuvre(declencheur) {
   regieFond = [...document.body.children].filter((n) => n !== $("regie") && !n.classList.contains("toast") && n.tagName !== "SCRIPT" && !n.inert);
   regieFond.forEach((n) => { n.inert = true; });
   regieDessine();
-  regieCharge().then(regieApercus);
+  // La fête du moment est lue avec les titres : le texte de la carte « Habillage » et son film sur la scène en dépendent.
+  Promise.all([regieCharge(), regieSaisonLue()]).then(() => { regieCoulisses(); regieDessine(true); regieApercus(); });
   $("regie-fermer").focus();
 }
 let regieFond = [];

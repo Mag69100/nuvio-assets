@@ -55,11 +55,11 @@ import { galerieRoute } from "./galerie.js";
 import { secondesAvantBascule, jourTendances, routeTendances, prendrePhotos } from "./tendances.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.35.3";
+const VERSION = "5.35.4";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
-const CACHE_V = 2;
+const CACHE_V = 3;
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
@@ -586,14 +586,14 @@ function releaseNote(releases, today, plateforme = {}) {
 /**
  * Film pas encore sorti (« Les plus attendus ») : sa sortie au cinéma dans le pays choisi, sinon
  * sa première sortie ailleurs. L'année n'est ajoutée que si ce n'est pas l'année en cours.
- *   « Au cinéma le 3 déc. »   « Sortie le 12 mars 2027 »   « Date de sortie pas encore annoncée »
+ *   « Au cinéma le 3 déc. »   « Sort le 12 mars 2027 »   « Date de sortie pas encore annoncée »
  */
 function cinemaNote(releases, region, date, today) {
   const withYear = (iso) => shortDate(iso) + (iso.slice(0, 4) === today.slice(0, 4) ? "" : ` ${iso.slice(0, 4)}`);
   const here = cinemaHere(releases, region, today);
   if (here) return `Au cinéma le ${withYear(here)}`;
   const first = releaseDates(releases, [1, 2, 3, 4]).find((d) => d > today) || (date > today ? date : "");
-  return first ? `Sortie le ${withYear(first)}` : "Date de sortie pas encore annoncée";
+  return first ? `Sort le ${withYear(first)}` : "Date de sortie pas encore annoncée";
 }
 const cinemaHere = (releases, region, today) => releaseDates(releases, [2, 3], [region]).find((d) => d > today) || "";
 

@@ -33,9 +33,10 @@ export const GENRES_COMPLETS = {
 const LIBELLES_STATUT = { bientot: "BIENTÔT", salle: "AU CINÉMA", nouveau: "NOUVEAU", saison: "NOUVELLE SAISON" };
 const LIBELLES_LANGUE = { multi: "MULTI", vf: "VF", vostfr: "VOSTFR", vo: "VO" };
 const MOIS = ["JANV.", "FÉVR.", "MARS", "AVR.", "MAI", "JUIN", "JUIL.", "AOÛT", "SEPT.", "OCT.", "NOV.", "DÉC."];
-const DEBUTS = { dispo: "DISPO LE", cinema: "SORTIE LE", sortie: "SORTIE LE" };
+// « SORT LE », pas « SORTIE LE » : « sortie » se lisait comme « déjà sorti ».
+const DEBUTS = { dispo: "DISPO LE", cinema: "SORT LE", sortie: "SORT LE" };
 
-const DEBUTS_COMPTE = { dispo: "DISPO", cinema: "SORTIE", sortie: "SORTIE" };
+const DEBUTS_COMPTE = { dispo: "DISPO", cinema: "SORT", sortie: "SORT" };
 const jours = (de, a) => Math.round((Date.parse(a) - Date.parse(de)) / 86400000);
 
 /** Compte à rebours : « AU CINÉMA DANS 57 JOURS », « DISPO DANS ENV. 35 JOURS », « AU CINÉMA DEMAIN ». */
@@ -45,7 +46,7 @@ function libelleCompte({ quoi, date, vers }, today) {
   return `${DEBUTS_COMPTE[quoi]} ${quand}`;
 }
 
-/** « DISPO LE 2 NOV. », « DISPO VERS LE 3 DÉC. », « SORTIE LE 12 MARS 2027 »… (comme les rangées de l'addon). */
+/** « DISPO LE 2 NOV. », « DISPO VERS LE 3 DÉC. », « SORT LE 12 MARS 2027 »… (comme les rangées de l'addon). */
 function libelleDate({ quoi, date, vers }, today) {
   const jour = `${Number(date.slice(8, 10))} ${MOIS[Number(date.slice(5, 7)) - 1]}`;
   const debut = vers ? DEBUTS[quoi].replace(/ LE$/, " VERS LE") : DEBUTS[quoi];
@@ -152,7 +153,7 @@ export function posterContent(facts, { imdbRating, rank, quality, notes, saga, s
   }
   // Pas encore sorti : la date quand on la connaît, plutôt que « Bientôt » ou « En salle ».
   // Au cinéma en ce moment : « AU CINÉMA », et en petit dessous la date où on pourra le voir chez soi.
-  // Pas encore sorti : la date (« SORTIE LE 4 NOV. ») quand on la connaît, sinon « BIENTÔT ».
+  // Pas encore sorti : la date (« SORT LE 4 NOV. ») quand on la connaît, sinon « BIENTÔT ».
   const dateDe = (q) => (r.statut.forme === "compte" ? libelleCompte(q, today) : libelleDate(q, today));
   let libelle = null, libelle2 = null;
   if (r.statut.on && statut) {

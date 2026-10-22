@@ -86,7 +86,7 @@ function sortieFilm(facts, today, sources) {
   // (seule la VF compte, et on ne sait pas quand elle viendra).
   if (s && !s.vf && s.sources > 0 && !cinema) return { sorti: false, statut: "bientot" };
   // Déjà sorti quelque part (Bad Apples : au cinéma en Allemagne) : son arrivée chez soi, annoncée ou estimée,
-  // comme la rangée « Bientôt dispo » ; jamais la sortie d'un autre pays (« SORTIE LE » se lirait comme en France).
+  // comme la rangée « Bientôt dispo » ; jamais la sortie d'un autre pays (« SORT LE » se lirait comme en France).
   const dejaSorti = commerciales.some((d) => d <= today);
   const chezSoiAVenir = dejaSorti && chezSoi > today ? { quoi: "dispo", date: chezSoi, vers: !chezSoiConnu } : null;
   const ailleurs = dejaSorti ? "" : releaseDates(facts.releases, [2, 3, 4]).find((d) => d > today);

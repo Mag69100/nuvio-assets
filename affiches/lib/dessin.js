@@ -335,7 +335,7 @@ function positionBloc(m, place, descente) {
 
 /** Bandeau en coin : une bande à la couleur d'accent, en diagonale, qui porte le statut ou le N° de tendance. */
 /**
- * Taille du texte du bandeau : celle des badges, réduite pour qu'un texte long (« SORTIE LE 12 MARS 2027 »)
+ * Taille du texte du bandeau : celle des badges, réduite pour qu'un texte long (« SORT LE 12 MARS 2027 »)
  * tienne dans la partie visible de la bande (environ 62 % de sa longueur ; une lettre ≈ 0,62 de la taille).
  */
 export function tailleBandeau(texte, t, L) {

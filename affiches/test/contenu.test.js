@@ -115,7 +115,7 @@ test("source_tmdb", () => {
 
 test("bientot_gris_sans_note", () => {
   const c = contenu(bientot, plein);
-  assert.equal(c.statut, "SORTIE LE 16 DÉC.");
+  assert.equal(c.statut, "SORT LE 16 DÉC.");
   assert.equal(c.gris, true);
   assert.deepEqual(c.line, { genre: "SF", annee: "2024" });
   assert.equal(contenu(bientot, plein, "poster", reglages("B0")).gris, false);
@@ -168,12 +168,12 @@ test("statut_en_dates", () => {
   const fr = (...d) => [{ iso_3166_1: "FR", release_dates: d.map(([type, release_date]) => ({ type, release_date })) }];
   assert.equal(avec(fr([3, "2026-10-10"], [4, "2026-11-02"])), "AU CINÉMA");
   assert.equal(contenu({ ...facts, releases: fr([3, "2026-10-10"], [4, "2026-11-02"]) }, plein).statut2, "DISPO LE 2 NOV.");
-  assert.equal(avec(fr([3, "2027-03-12"]), "2027-03-12"), "SORTIE LE 12 MARS 2027");
-  assert.equal(avec([{ iso_3166_1: "US", release_dates: [{ type: 3, release_date: "2027-01-05" }] }]), "SORTIE LE 5 JANV. 2027");
-  assert.equal(avec([], "2026-12-01"), "SORTIE LE 1 DÉC.");
+  assert.equal(avec(fr([3, "2027-03-12"]), "2027-03-12"), "SORT LE 12 MARS 2027");
+  assert.equal(avec([{ iso_3166_1: "US", release_dates: [{ type: 3, release_date: "2027-01-05" }] }]), "SORT LE 5 JANV. 2027");
+  assert.equal(avec([], "2026-12-01"), "SORT LE 1 DÉC.");
   assert.equal(avec([], ""), "BIENTÔT");
   const serie = { ...facts, type: "series", releases: [], releaseDate: "", firstAir: "2026-11-01", seasons: [] };
-  assert.equal(contenu(serie, plein).statut, "SORTIE LE 1 NOV.");
+  assert.equal(contenu(serie, plein).statut, "SORT LE 1 NOV.");
 });
 
 test("note_seule_sans_logo", () => {
@@ -305,11 +305,11 @@ test("v3_statut_episode_et_compte", () => {
   assert.equal(contenu(serie, plein, "poster", reglages("3c1")).statut, "NOUVEL ÉPISODE");
   assert.equal(contenu({ ...serie, lastEpisode: "2026-10-01" }, plein, "poster", reglages("3c1")).statut, null);
   assert.equal(contenu(serie, plein).statut, null);
-  assert.equal(contenu(bientot, plein, "poster", reglages("3dc")).statut, "SORTIE DANS 57 JOURS");
+  assert.equal(contenu(bientot, plein, "poster", reglages("3dc")).statut, "SORT DANS 57 JOURS");
   assert.equal(contenu(enSalle, plein, "poster", reglages("3dc")).statut, "AU CINÉMA");
   assert.equal(contenu(enSalle, plein, "poster", reglages("3dc")).statut2, "DISPO DANS ENV. 35 JOURS");
   const demain = { ...facts, releases: [{ iso_3166_1: "FR", release_dates: [{ type: 3, release_date: "2026-10-21" }] }], releaseDate: "2026-10-21" };
-  assert.equal(contenu(demain, plein, "poster", reglages("3dc")).statut, "SORTIE DEMAIN");
+  assert.equal(contenu(demain, plein, "poster", reglages("3dc")).statut, "SORT DEMAIN");
 });
 
 test("v3_styles_hors_defaut", () => {

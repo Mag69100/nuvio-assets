@@ -161,7 +161,7 @@ test("date : sortie ailleurs seulement → sortie le, sinon rien", () => {
   assert.equal(etatSortie(film([], ""), AUJ).quand, undefined);
 });
 
-// Bad Apples : déjà au cinéma en Allemagne, prochaine sortie en Australie dans un mois. Pas « SORTIE LE » (la date
+// Bad Apples : déjà au cinéma en Allemagne, prochaine sortie en Australie dans un mois. Pas « SORT LE » (la date
 // d'un autre pays), mais l'arrivée chez soi estimée (salle + 45 jours), comme la rangée « Bientôt dispo ».
 test("date : déjà sorti en salle ailleurs → dispo vers, pas la sortie d'un autre pays", () => {
   assert.deepEqual(etatSortie(film([pays("DE", [3, jours(-41)]), pays("AU", [3, jours(29)])]), AUJ).quand, { quoi: "dispo", date: jours(4), vers: true });
@@ -216,7 +216,7 @@ test("sources : série récente sans VF → pas sortie", () => {
 });
 
 // 3670 : projeté en festival et sorti en Corée il y a plus d'un an, sortie au cinéma en France dans un mois : pas un
-// vieux film (« SORTIE LE … »). Une vraie reprise d'un vieux film (Quand la mer monte, 2004) reste un vieux film.
+// vieux film (« SORT LE … »). Une vraie reprise d'un vieux film (Quand la mer monte, 2004) reste un vieux film.
 test("vieux film : pas avec une sortie en France à venir, sauf vraie reprise", () => {
   const f3670 = film([pays("KR", [1, jours(-540)], [3, jours(-413)]), pays("FR", [1, jours(-357)], [3, jours(28)])], "", "ko");
   assert.deepEqual(etatSortie(f3670, AUJ), { sorti: false, statut: "bientot", quand: { quoi: "cinema", date: jours(28), vers: false } });

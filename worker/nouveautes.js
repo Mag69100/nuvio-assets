@@ -16,7 +16,7 @@ export const NOUVEAUTES = [
       "Les sources des épisodes après la première saison se trouvent mieux : ils sont demandés avec le bon numéro de saison.",
       "Les affiches et les rangées aussi : « Saison 3 terminée », « S3 · ÉP. 4/12 », « 3 saisons » au lieu de tout compter dans la saison 1.",
       "Si tu avais commencé un de ces animés, la progression des épisodes après la première saison peut être à refaire.",
-      "Recherche : « bleach » donne Bleach (et plus la filmographie d'un acteur du même nom), « ichigo » retrouve Bleach par son héros.",
+      "Recherche : « bleach » ou « jojo » donnent l'animé (et plus la filmographie d'un acteur ou d'une chanteuse du même nom), « hitchcock » le film puis les films d'Alfred Hitchcock, « ichigo » retrouve Bleach par son héros.",
     ],
   },
   {

@@ -23,6 +23,9 @@ const NIXON = personne(38025, "Cynthia Nixon", "Acting", 6000);
 const NOLAN = personne(525, "Christopher Nolan", "Directing", 35000);
 // Un acteur presque inconnu (popularité < 1) avec un petit rôle dans un très gros film (Avengers : L'Ère d'Ultron).
 const JULIAN_BLEACH = { ...personne(5000, "Julian Bleach", "Acting", 25000), popularity: 0.99 };
+// La chanteuse JoJo (popularité 1,67) et Alfred Hitchcock (3,98).
+const JOJO = { ...personne(5001, "JoJo", "Acting", 1854), popularity: 1.67 };
+const HITCHCOCK = { ...personne(2636, "Alfred Hitchcock", "Directing", 11367), popularity: 3.98 };
 
 const HEAT = film(949, "Heat", 1995, 8800);
 const PARRAIN2 = film(240, "Le Parrain, 2e partie", 1974, 14500);
@@ -47,6 +50,8 @@ const CREDITS = {
   "31/movie": { cast: [{ ...SEATTLE, order: 0 }, { ...MESSAGE, order: 0 }, { ...film(13, "Forrest Gump", 1994, 28000), order: 0 }] },
   "5344/movie": { cast: [{ ...SEATTLE, order: 1 }, { ...MESSAGE, order: 1 }, { ...film(639, "Quand Harry rencontre Sally", 1989, 4000), order: 1 }] },
   "5000/movie": { cast: [{ ...film(99861, "Avengers : L'Ère d'Ultron", 2015, 25000), order: 30 }, { ...film(14784, "The Fall", 2008, 1600), order: 5 }] },
+  "5001/tv": { cast: [{ ...serie(9103, "Une série de JoJo", 2010, 300), episode_count: 10 }] },
+  "2636/movie": { crew: [{ ...film(539, "Psychose", 1960, 11367), job: "Director" }, { ...film(426, "Sueurs froides", 1958, 6572), job: "Director" }] },
   "11108/movie": { cast: [{ ...film(4638, "Hot Fuzz", 2007, 7000), order: 1 }, { ...film(9999, "Un film ensemble", 2015, 400), order: 2 }] },
   "38025/movie": { cast: [{ ...film(9999, "Un film ensemble", 2015, 400), order: 0 }] },
   "525/movie": { crew: [{ ...film(27205, "Inception", 2010, 38000), job: "Director" }, { ...film(157336, "Interstellar", 2014, 37000), job: "Director" }] },
@@ -58,7 +63,7 @@ const CREDITS = {
 
 const PEOPLE = {
   pacino: [PACINO], "de niro": [DE_NIRO], scorsese: [SCORSESE], "tom hanks": [HANKS], "meg ryan": [RYAN],
-  frost: [FROST], nixon: [NIXON], nolan: [NOLAN], bleach: [JULIAN_BLEACH],
+  frost: [FROST], nixon: [NIXON], nolan: [NOLAN], bleach: [JULIAN_BLEACH], jojo: [JOJO], hitchcock: [HITCHCOCK],
 };
 
 // Résultats des recherches de titres (requête sans accents → résultats).
@@ -70,6 +75,8 @@ const TITLES = {
   "harry potter": [film(671, "Harry Potter à l'école des sorciers", 2001, 28000, { original_title: "Harry Potter and the Philosopher's Stone" })],
   "tom et jerry": [film(15602, "Tom et Jerry, le film", 1992, 600)],
   bleach: [film(9100, "Bleach", 2018, 599), film(9101, "Bleach : Memories of Nobody", 2006, 239)],
+  jojo: [serie(45790, "JoJo's Bizarre Adventure", 2012, 1686)],
+  hitchcock: [film(112336, "Hitchcock", 2012, 1677), film(9102, "Hitchcock : la face cachée du maître du suspense", 2022, 20)],
 };
 
 const HORREUR_80 = [film(4488, "Vendredi 13", 1980, 3500, { genre_ids: [27] }), film(694, "Shining", 1980, 18000, { genre_ids: [27] }),
@@ -246,6 +253,16 @@ test("titre_avant_une_personne_peu_connue", async () => {
   const r = await cherche("bleach");
   assert.equal(r.trace.head, null);
   assert.equal(r.names[0], "Bleach");
+});
+
+// « jojo » : l'animé (1 686 votes) passe devant la chanteuse JoJo, pas assez populaire pour que ses titres phares
+// (1 854 votes) comptent. « hitchcock » : Alfred Hitchcock est bien plus connu que le film Hitchcock (2012), qui reste
+// en tête, suivi de ses films (pas des documentaires sur lui).
+test("titre_proche_et_personne", async () => {
+  assert.equal((await cherche("jojo", "series")).names[0], "JoJo's Bizarre Adventure");
+  const h = await cherche("hitchcock");
+  assert.deepEqual(h.names.slice(0, 3), ["Hitchcock", "Psychose", "Sueurs froides"]);
+  assert.equal(h.trace.head, "titre puis personne Alfred Hitchcock");
 });
 
 test("une_seule_personne_inchangee", async () => {

@@ -913,16 +913,22 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   // (11 000 votes) passe devant le chanteur Mario (titres phares à 4 000 votes).
   // Les votes de ses titres phares ne comptent que pour une personne populaire : Julian Bleach (popularité 0,99) a un
   // petit rôle dans Avengers : L'Ère d'Ultron (25 000 votes), sa filmographie passait devant l'animé Bleach.
+  // Pareil face à un titre proche : la chanteuse JoJo (1,67) passait devant JoJo's Bizarre Adventure (1 686 votes).
   const nearVotes = Math.max(0, ...pool.filter((it) => text.get(it.id) >= 0.7).map((it) => it.vote_count || 0));
   const renom = (p) => ((p.popularity || 0) >= PERSON_POP ? topVotes(p) : 0);
+  // Un titre exact connu, mais moins que la personne : il reste en tête, sa filmographie suit (« hitchcock » : le film
+  // Hitchcock, 1 700 votes, puis Psychose, Fenêtre sur cour… d'Alfred Hitchcock, titres phares à 11 000 votes).
+  const titres = Math.max(exactVotes, otherVotes);
   if (people && !joint.length) {
     const person = results(people).slice(0, 5).find((p) => knownPerson(p) && personMatch(main, p.name)
-      && Math.max(exactVotes, otherVotes) < Math.max(FAMOUS, 0.1 * renom(p))
-      && nearVotes < Math.max(FAMOUS, 2 * topVotes(p)));
+      && (titres < Math.max(FAMOUS, 0.1 * renom(p)) || titres < renom(p))
+      && nearVotes < Math.max(FAMOUS, 2 * renom(p)));
     if (person) {
       const credits = await api(`/person/${person.id}/${kind === "series" ? "tv" : "movie"}_credits`);
       const films = dedupe(usable(filmography(person, credits, kind))).slice(0, PERSON_MAX);
-      if (films.length) { head = films; headKind = `personne ${person.name}`; }
+      const avant = titres < Math.max(FAMOUS, 0.1 * renom(person)) ? []
+        : pool.filter((it) => isExact(main, it)).sort((a, b) => fame(b) - fame(a));
+      if (films.length) { head = dedupe([...avant, ...films]); headKind = `${avant.length ? "titre puis " : ""}personne ${person.name}`; }
     }
   }
 

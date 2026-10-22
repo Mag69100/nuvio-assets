@@ -126,8 +126,9 @@ function optionsNormales(q, id) {
 
 export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
   const disjoncteur = disjoncteurDe(env);
-  let dernierAvis = 0;
+  let dernierAvis = 0, dessins = 0;
   return async function GET(request) {
+    const cpu0 = process.cpuUsage();
     const q = new URL(request.url).searchParams;
     const type = q.get("type"), shape = q.get("shape"), id = q.get("id") || "";
     const imdb = /^tt\d{1,10}$/.test(q.get("imdb") || "") ? q.get("imdb") : "";
@@ -264,7 +265,12 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
         console.error(`dessin ${type}/${shape}/${id} : ${e && e.message}`);
         return indisponible(SECOURS);
       }
-      return new Response(jpg, { status: 200, headers: { ...headers, "Content-Type": "image/jpeg" } });
+      // X-Affiche-Cpu : temps de calcul (limite Hobby : 4 h de CPU actif par mois). « requete » compte aussi les
+      // demandes servies en même temps par l'instance ; « instance / dessins » donne le coût moyen d'un dessin.
+      dessins++;
+      const ms = (c) => Math.round((c.user + c.system) / 1000);
+      const cpu = `requete=${ms(process.cpuUsage(cpu0))} instance=${ms(process.cpuUsage())} dessins=${dessins} depuis=${Math.round(process.uptime())}`;
+      return new Response(jpg, { status: 200, headers: { ...headers, "X-Affiche-Cpu": cpu, "Content-Type": "image/jpeg" } });
     } catch (e) {
       console.error(`affiche ${type}/${shape}/${id} : ${e && e.message}`);
       return panne();

@@ -98,9 +98,11 @@ export async function animesDe(query) {
       body: JSON.stringify({ query: QUERY, variables: { s: query } }), signal: AbortSignal.timeout(WAIT_MS),
     });
     if (r.status === 429) pauseJusqua = Date.now() + PAUSE_MS;
-    if (!r.ok) return null;
+    // Dans les journaux (wrangler tail) : un refus d'AniList se voit, la recherche continue sans lui.
+    if (!r.ok) { console.log(`anilist ${r.status} pour « ${query} »`); return null; }
     data = (await r.json()).data;
   } catch (e) {
+    console.log(`anilist ${e && e.name} pour « ${query} »`);
     return null;
   }
   const picks = oeuvresDe(query, data);

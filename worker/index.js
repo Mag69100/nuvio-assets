@@ -60,7 +60,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.7";
+const VERSION = "5.38.8";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -1427,6 +1427,8 @@ async function runSearch(env, type, query, page, opts, trace) {
   // d'abord, sans clé et sans quota Gemini (voir anilist.js) ; Gemini seulement s'il ne trouve rien pour ce type.
   if (!descriptive && norm(query).split(" ").length <= 4) {
     const animes = await animesDe(query);
+    // Pas de réponse (panne, quota) : la page n'est pas gardée, la même recherche refaite lui redemandera.
+    if (animes === null) opts.partial = true;
     const aniFound = animes && animes.length ? await resolveTitles(animes, type, search, api) : [];
     if (trace) trace.ai.anilist = animes === null ? "pas de réponse" : { picks: animes.map((t) => `${t.title} (${t.year || "?"}, ${t.type})`),
       found: aniFound.map((it) => it.title || it.name) };

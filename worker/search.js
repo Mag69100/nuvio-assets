@@ -911,10 +911,13 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   // Un titre qui correspond l'emporte s'il est connu au regard de la personne : le documentaire
   // « Spielberg » (300 votes) ne cache pas les films de Spielberg, mais Super Mario Bros.
   // (11 000 votes) passe devant le chanteur Mario (titres phares à 4 000 votes).
+  // Les votes de ses titres phares ne comptent que pour une personne populaire : Julian Bleach (popularité 0,99) a un
+  // petit rôle dans Avengers : L'Ère d'Ultron (25 000 votes), sa filmographie passait devant l'animé Bleach.
   const nearVotes = Math.max(0, ...pool.filter((it) => text.get(it.id) >= 0.7).map((it) => it.vote_count || 0));
+  const renom = (p) => ((p.popularity || 0) >= PERSON_POP ? topVotes(p) : 0);
   if (people && !joint.length) {
     const person = results(people).slice(0, 5).find((p) => knownPerson(p) && personMatch(main, p.name)
-      && Math.max(exactVotes, otherVotes) < Math.max(FAMOUS, 0.1 * topVotes(p))
+      && Math.max(exactVotes, otherVotes) < Math.max(FAMOUS, 0.1 * renom(p))
       && nearVotes < Math.max(FAMOUS, 2 * topVotes(p)));
     if (person) {
       const credits = await api(`/person/${person.id}/${kind === "series" ? "tv" : "movie"}_credits`);

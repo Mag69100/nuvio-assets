@@ -1098,3 +1098,23 @@ test("rangee_anime_saisons_de_cinemeta", async () => {
   assert.match(texte, /Saison 3 terminée/);
   assert.doesNotMatch(texte, /Saison 1 /);
 });
+
+// Une rangée pleine d'animes en cours de diffusion : 3 appels à Cinemeta au plus par page (50 appels sortants au plus
+// par requête chez Cloudflare) ; ceux pas recomptés ne sont pas gardés et le sont à la page suivante.
+test("rangee_anime_budget_cinemeta", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const ids = Array.from({ length: 12 }, (_, i) => 96000 + i);
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: ids.map((id) => ({ id, name: `Anime ${id}`, first_air_date: "2020-01-01" })), page: 1, total_pages: 1 }));
+    const m = /\/tv\/(\d+)\?/.exec(u);
+    if (m) return new Response(JSON.stringify({ id: Number(m[1]), name: "Anime", status: "Returning Series", genres: [{ id: 16 }],
+      external_ids: { imdb_id: `tt${m[1]}` }, seasons: [{ season_number: 1, episode_count: 30, air_date: "2020-01-01" }],
+      last_episode_to_air: { season_number: 1, episode_number: 30, air_date: jour(-2) }, next_episode_to_air: null }));
+    if (u.includes("/meta/series/")) return new Response(JSON.stringify({ meta: { videos: Array.from({ length: 30 }, (_, k) => ({ season: k < 15 ? 1 : 2, episode: (k % 15) + 1 })) } }));
+    return new Response("{}");
+  };
+  await get("/catalog/series/accueil-tendances-series.json");
+  assert.equal(calls.filter((u) => u.includes("/meta/series/")).length, 3);
+});

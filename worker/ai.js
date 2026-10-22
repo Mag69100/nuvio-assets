@@ -50,7 +50,7 @@ export function looksDescriptive(query) {
   return /["«»“”]/.test(query) || (q.split(" ").length >= 3 && CUES.test(q));
 }
 
-const PROMPT = `Tu aides à retrouver des films et des séries à partir de ce qu'un utilisateur français tape dans une barre de recherche : une description (« le film où un homme revit la même journée »), un souvenir flou, une scène, une ambiance, un acteur, ou un titre mal écrit.
+const PROMPT = `Tu aides à retrouver des films et des séries à partir de ce qu'un utilisateur français tape dans une barre de recherche : une description (« le film où un homme revit la même journée »), un souvenir flou, une scène, une ambiance, un acteur, un personnage (« ichigo » : Bleach, dont c'est le héros), ou un titre mal écrit.
 Réponds avec les titres qui correspondent le mieux, du plus probable au moins probable, 15 au maximum :
 - title : le titre original exact s'il s'écrit en alphabet latin, sinon le titre anglais international ;
 - title_fr : le titre français s'il existe, sinon le même que title ;

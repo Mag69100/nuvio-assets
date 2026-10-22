@@ -21,6 +21,8 @@ const RYAN = personne(5344, "Meg Ryan", "Acting", 5000);
 const FROST = personne(11108, "Nick Frost", "Acting", 8000);
 const NIXON = personne(38025, "Cynthia Nixon", "Acting", 6000);
 const NOLAN = personne(525, "Christopher Nolan", "Directing", 35000);
+// Un acteur presque inconnu (popularité < 1) avec un petit rôle dans un très gros film (Avengers : L'Ère d'Ultron).
+const JULIAN_BLEACH = { ...personne(5000, "Julian Bleach", "Acting", 25000), popularity: 0.99 };
 
 const HEAT = film(949, "Heat", 1995, 8800);
 const PARRAIN2 = film(240, "Le Parrain, 2e partie", 1974, 14500);
@@ -44,6 +46,7 @@ const CREDITS = {
     { ...HEAT, job: "Producer" }] },
   "31/movie": { cast: [{ ...SEATTLE, order: 0 }, { ...MESSAGE, order: 0 }, { ...film(13, "Forrest Gump", 1994, 28000), order: 0 }] },
   "5344/movie": { cast: [{ ...SEATTLE, order: 1 }, { ...MESSAGE, order: 1 }, { ...film(639, "Quand Harry rencontre Sally", 1989, 4000), order: 1 }] },
+  "5000/movie": { cast: [{ ...film(99861, "Avengers : L'Ère d'Ultron", 2015, 25000), order: 30 }, { ...film(14784, "The Fall", 2008, 1600), order: 5 }] },
   "11108/movie": { cast: [{ ...film(4638, "Hot Fuzz", 2007, 7000), order: 1 }, { ...film(9999, "Un film ensemble", 2015, 400), order: 2 }] },
   "38025/movie": { cast: [{ ...film(9999, "Un film ensemble", 2015, 400), order: 0 }] },
   "525/movie": { crew: [{ ...film(27205, "Inception", 2010, 38000), job: "Director" }, { ...film(157336, "Interstellar", 2014, 37000), job: "Director" }] },
@@ -55,7 +58,7 @@ const CREDITS = {
 
 const PEOPLE = {
   pacino: [PACINO], "de niro": [DE_NIRO], scorsese: [SCORSESE], "tom hanks": [HANKS], "meg ryan": [RYAN],
-  frost: [FROST], nixon: [NIXON], nolan: [NOLAN],
+  frost: [FROST], nixon: [NIXON], nolan: [NOLAN], bleach: [JULIAN_BLEACH],
 };
 
 // Résultats des recherches de titres (requête sans accents → résultats).
@@ -66,6 +69,7 @@ const TITLES = {
   1917: [film(530915, "1917", 2020, 13000)], "les annees folles": [film(8001, "Les Années folles", 1960, 40)],
   "harry potter": [film(671, "Harry Potter à l'école des sorciers", 2001, 28000, { original_title: "Harry Potter and the Philosopher's Stone" })],
   "tom et jerry": [film(15602, "Tom et Jerry, le film", 1992, 600)],
+  bleach: [film(9100, "Bleach", 2018, 599), film(9101, "Bleach : Memories of Nobody", 2006, 239)],
 };
 
 const HORREUR_80 = [film(4488, "Vendredi 13", 1980, 3500, { genre_ids: [27] }), film(694, "Shining", 1980, 18000, { genre_ids: [27] }),
@@ -236,6 +240,14 @@ test("titre_avant_les_personnes", async () => {
   }
 });
 
+// « bleach » : l'animé (et ses films), pas la filmographie de Julian Bleach, que seul un petit rôle dans un très gros
+// film rendait « connu ». Une personne peu populaire ne passe plus devant un titre exact vu (300 votes et plus).
+test("titre_avant_une_personne_peu_connue", async () => {
+  const r = await cherche("bleach");
+  assert.equal(r.trace.head, null);
+  assert.equal(r.names[0], "Bleach");
+});
+
 test("une_seule_personne_inchangee", async () => {
   const r = await cherche("nolan");
   assert.equal(r.trace.head, "personne Christopher Nolan");
@@ -324,4 +336,35 @@ test("addon_genre_sans_gemini", async () => {
   assert.ok(!urls.some((u) => u.hostname.includes("generativelanguage")), "Gemini appelé pour un genre");
   // 50 appels sortants au plus par requête (Cloudflare) : recherche + fiches.
   assert.ok(urls.length < 50, `${urls.length} appels`);
+});
+
+// « ichigo » : seulement des titres obscurs qui contiennent le mot (Ichigo 100%, 17 votes). C'est le héros de Bleach :
+// Gemini est consulté, ses titres passent devant.
+test("addon_titres_obscurs_gemini_consulte", async () => {
+  oublierInfos();
+  const store = new Map(), urls = [];
+  globalThis.caches = { default: {
+    match: async (req) => (store.has(req.url) ? new Response(store.get(req.url)) : undefined),
+    put: async (req, res) => { store.set(req.url, await res.text()); },
+  } };
+  const BLEACH = serie(30984, "Bleach", 2004, 2306, { genre_ids: [16] });
+  const ICHIGO = serie(20200, "Ichigo 100%", 2005, 17, { genre_ids: [16] });
+  globalThis.fetch = async (url) => {
+    const u = new URL(String(url));
+    urls.push(u);
+    if (u.hostname.includes("generativelanguage")) return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ titles: [
+      { title: "Bleach", title_fr: "Bleach", title_en: "Bleach", year: 2004, type: "serie", saga: false }] }) }] } }] }));
+    if (u.pathname === "/3/search/tv") {
+      const q = norm(u.searchParams.get("query"));
+      return new Response(JSON.stringify({ results: q === "bleach" ? [BLEACH] : q === "ichigo" && u.searchParams.get("page") === "1" ? [ICHIGO] : [], total_pages: 1 }));
+    }
+    const m = /^\/3\/tv\/(\d+)$/.exec(u.pathname);
+    if (m) return new Response(JSON.stringify({ id: Number(m[1]), external_ids: { imdb_id: `tt${m[1]}` } }));
+    return new Response(JSON.stringify({ results: [] }));
+  };
+  const cfg = Buffer.from(JSON.stringify({ k: "AIzaSyCleDeTest0123456789abcdefghijkl" })).toString("base64url");
+  const res = await worker.fetch(new Request(`https://x/${cfg}/catalog/series/recherche-series/search=ichigo.json`), { TMDB_API_KEY: "tmdb" }, { waitUntil: () => {} });
+  const { metas } = await res.json();
+  assert.deepEqual(metas.map((m) => m.name), ["Bleach", "Ichigo 100%"]);
+  assert.ok(urls.some((u) => u.hostname.includes("generativelanguage")));
 });

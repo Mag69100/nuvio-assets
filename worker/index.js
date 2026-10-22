@@ -41,7 +41,7 @@ import { copiePage } from "./copie.js";
 import { nouveautesPage } from "./nouveautes.js";
 import { hallPage } from "./hall.js";
 import { routeCinemeta } from "./cinemeta.js";
-import { videosCinemeta, decoupageCinemeta, ficheRecomptee } from "./episodes.js";
+import { videosCinemeta, videosReduites, oublierCinemeta, decoupageCinemeta, ficheRecomptee } from "./episodes.js";
 import { routeJeu } from "./jeu.js";
 import { routeEtat } from "./etat.js";
 import { statique } from "./statique.js";
@@ -59,13 +59,14 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.2";
+const VERSION = "5.38.3";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
 const CACHE_V = 6;
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
+const OBSCUR_VOTES = 100;           // recherche : en dessous, un titre trouvé mot à mot ne suffit pas, Gemini est consulté
 // Cloudflare (offre gratuite) : 50 appels sortants au plus par requête, sinon tout échoue. Une
 // recherche en garde 20 pour les fiches (un appel par titre affiché), quelques-uns pour le cache et
 // Gemini, et SEARCH_BUDGET pour chercher dans TMDB : au-delà, ses appels renvoient vide.
@@ -316,13 +317,14 @@ async function tmdb(env, path, params = {}, lang = "fr-FR") {
 const INFOS = new Map();
 const INFOS_MAX = 3000, INFOS_MS = 3 * 3600e3;
 /** Pour les tests : oublie les résumés gardés en mémoire, et la table des estimations. */
-export const oublierInfos = () => { INFOS.clear(); oublierEstimations(); };
+export const oublierInfos = () => { INFOS.clear(); oublierEstimations(); oublierCinemeta(); };
 
-async function extraInfo(env, kind, tmdbId) {
+async function extraInfo(env, kind, tmdbId, budget) {
   const k = `${kind}:${tmdbId}`, memo = INFOS.get(k);
   if (memo && Date.now() - memo.at < INFOS_MS) return avecEstimation(memo.info);
-  const info = await lireInfo(env, kind, tmdbId);
-  if (info.lu) {
+  const info = await lireInfo(env, kind, tmdbId, budget);
+  // Saisons pas recomptées faute de budget (voir lireInfo) : pas gardé, recompté à une prochaine page.
+  if (info.lu && !info.provisoire) {
     INFOS.delete(k);
     INFOS.set(k, { at: Date.now(), info });
     if (INFOS.size > INFOS_MAX) INFOS.delete(INFOS.keys().next().value);   // le plus ancien
@@ -343,7 +345,7 @@ async function avecEstimation(info) {
 /** Ce qui sert d'un épisode TMDB (episodeNote, isFinale). */
 const slimEpisode = (e) => e && { air_date: e.air_date, season_number: e.season_number, episode_number: e.episode_number, episode_type: e.episode_type };
 
-async function lireInfo(env, kind, tmdbId) {
+async function lireInfo(env, kind, tmdbId, budget) {
   const movie = kind !== "series";
   const url = new URL(`https://api.themoviedb.org/3/${movie ? "movie" : "tv"}/${tmdbId}`);
   // Même appel qu'avant, avec en plus les images : logo (en français si possible) et fond
@@ -368,17 +370,20 @@ async function lireInfo(env, kind, tmdbId) {
   const releases = movie ? ((j.release_dates && j.release_dates.results) || []).map((r) => ({ iso_3166_1: r.iso_3166_1,
     release_dates: (r.release_dates || []).map((x) => ({ type: x.type, release_date: x.release_date })) })) : null;
   // Série d'animation dont la rangée dira l'épisode (sorti ce mois-ci, ou dans la semaine) : saison et numéro comptés
-  // comme Cinemeta (voir episodes.js), comme sa fiche. Seulement celles-là : un appel de plus par titre.
+  // comme Cinemeta (voir episodes.js), comme sa fiche. Seulement celles-là, et quelques appels par page (budget).
   const imdbSerie = !movie && j.external_ids && j.external_ids.imdb_id;
+  let provisoire = false;
   const jour = new Date().toISOString().slice(0, 10);
   const proche = (e, avant, apres) => e && e.air_date && e.air_date >= addDays(jour, -avant) && e.air_date <= addDays(jour, apres);
   if (imdbSerie && (j.genres || []).some((g) => g.id === 16) && (proche(j.last_episode_to_air, 31, 0) || proche(j.next_episode_to_air, 0, 8))) {
-    const cine = await videosCinemeta(imdbSerie);
+    const cine = await videosReduites(imdbSerie, budget);
+    provisoire = cine === undefined;
     const decoupage = cine && decoupageCinemeta(j.seasons, cine);
     if (decoupage) j = ficheRecomptee(j, decoupage);
   }
   return {
     lu: true,
+    provisoire,
     imdb: (movie ? j.imdb_id : j.external_ids && j.external_ids.imdb_id) || null,
     releases,
     plateformeFr: movie && vfSurPlateforme(j["watch/providers"], j.original_language),
@@ -809,7 +814,9 @@ async function toMetas(env, ctx, results, kind, opts, today) {
   // « Pour qui » de toute la page préparés en arrière-plan (pas pendant la recherche, au budget compté).
   if (!opts.search) prefetchProfiles(env, ctx, results, kind);
   // Infos déjà lues pour trier la page (Tendances) : pas un second appel par titre.
-  const infos = await Promise.all(results.map((it) => (opts.infos && opts.infos.get(it.id)) || extraInfo(env, kind, it.id)));
+  // Pendant une recherche (budget d'appels compté au plus juste) : Cinemeta seulement s'il est déjà en mémoire.
+  const budget = { cinemeta: opts.search ? 0 : CINEMETA_PAR_PAGE };
+  const infos = await Promise.all(results.map((it) => (opts.infos && opts.infos.get(it.id)) || extraInfo(env, kind, it.id, budget)));
   if (opts.bilan) { opts.bilan.vus += infos.length; opts.bilan.rates += infos.filter((x) => x.rate).length; }
   const ids = infos.map((x) => x.imdb);
   // VF déjà trouvée par une fiche (Allociné + YouTube) : un seul appel pour toute la page, pas pendant
@@ -1062,6 +1069,7 @@ function moitieParSelf(env, prefixe, type, id) {
 const MAX_CHECKED = 30;   // Tendances : titres examinés pour en garder 20 déjà regardables en VF
 const MAX_FILL = 8;       // « Prochainement » : titres de la page TMDB suivante pour compléter la page
 const MAX_VF = 28;        // « Dispo depuis peu », « Bientôt dispo » : candidats examinés
+const CINEMETA_PAR_PAGE = 3;   // saisons d'animes recomptées (lireInfo) : appels à Cinemeta au plus, la mémoire en plus
 async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
   // Dans l'ordre de la photo du jour (celle des « N° » des affiches maison), sinon de TMDB.
   const [lists, photo] = await Promise.all([
@@ -1137,7 +1145,8 @@ async function filmsRegardables(env, released, today, max, lire = lireVf) {
 async function seriesRegardables(env, released, today, max, lire = lireVf) {
   const nouvelle = (it) => (it.first_air_date || "") >= addDays(today, -365);
   const aLire = released.slice(0, max + 8).filter(nouvelle).slice(0, MAX_CHECKED);
-  const lues = await Promise.all(aLire.map((it) => extraInfo(env, "series", it.id)));
+  const budget = { cinemeta: CINEMETA_PAR_PAGE };
+  const lues = await Promise.all(aLire.map((it) => extraInfo(env, "series", it.id, budget)));
   const infos = new Map(aLire.map((it, i) => [it.id, lues[i]]));
   const sources = await sourcesVfSeries(env, lues.filter((x) => x.imdb && x.serie).map((x) => ({ imdb: x.imdb, saison: x.serie.lastSeason })), lire);
   const picked = released.filter((it) => {
@@ -1333,7 +1342,10 @@ async function runSearch(env, type, query, page, opts, trace) {
   // Titre connu, personne, saga ou studio : la recherche classique suffit, sans attendre Gemini
   // (s'il est déjà parti, il finit en arrière-plan et remplit son cache).
   const strong = stats.strong || new Set();
-  const why = descriptive ? "description" : stats.sure ? null : !strong.size ? "rien de proche" : null;
+  // Seulement des titres obscurs qui contiennent le mot (« ichigo » : Ichigo 100%, 17 votes) : c'est peut-être un
+  // personnage ou un surnom (Ichigo, le héros de Bleach), Gemini est consulté comme sans résultat.
+  const connu = classic.some((it) => strong.has(it.id) && (it.vote_count || 0) >= OBSCUR_VOTES);
+  const why = descriptive ? "description" : stats.sure ? null : !strong.size ? "rien de proche" : !connu ? "rien de connu" : null;
   if (trace) trace.ai = { descriptive, sure: !!stats.sure, strong: strong.size, why };
   if (!why) return classic;
   const job = ai || aiTitles(env, opts.ctx, query, aiOpts);
@@ -1360,9 +1372,11 @@ async function runSearch(env, type, query, page, opts, trace) {
   // de chimie » : Breaking Bad dans Séries, pas « La guerre des drogues » dans Films).
   if (!found.length && !descriptive) return classic;
   // Les titres retrouvés par l'IA d'abord, puis seulement les titres de la recherche classique
-  // qui ressemblent à la requête (pas « Fils de personne » pour « des personnages bleus »).
+  // qui ressemblent à la requête (pas « Fils de personne » pour « des personnages bleus »). Un titre
+  // obscur qui est exactement la requête (série toute nouvelle, encore peu notée) reste en tête.
   const seen = new Set();
-  return [...found, ...classic.filter((it) => strong.has(it.id))]
+  const exact = why === "rien de connu" ? classic.filter((it) => strong.has(it.id) && isExact(query, it)) : [];
+  return [...exact, ...found, ...classic.filter((it) => strong.has(it.id))]
     .filter((it) => !seen.has(it.id) && seen.add(it.id)).slice(0, AI_MAX);
 }
 

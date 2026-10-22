@@ -29,7 +29,28 @@ export async function videosCinemeta(imdb) {
   }
 }
 
-const ordre = (a, b) => a.season - b.season || a.episode - b.episode;
+// Rangées : les épisodes de Cinemeta réduits (saison, numéro, date) gardés 6 h dans la mémoire de l'instance. Une page
+// n'a droit qu'à quelques appels à Cinemeta (budget.cinemeta) : 50 appels sortants au plus par requête chez Cloudflare.
+const MEMO_MS = 6 * 3600e3, MAX_MEMO = 300;
+const memo = new Map();
+export const oublierCinemeta = () => memo.clear();
+
+/** Comme videosCinemeta, réduites et gardées ; undefined quand le budget de la page est épuisé (pas lues). */
+export async function videosReduites(imdb, budget) {
+  const m = memo.get(imdb);
+  if (m && Date.now() - m.at < MEMO_MS) return m.videos;
+  if (!budget || !(budget.cinemeta > 0)) return undefined;
+  budget.cinemeta--;
+  const brut = await videosCinemeta(imdb);
+  if (!brut) return null;
+  const videos = brut.map((v) => ({ season: v.season, episode: v.episode, released: v.released || null }));
+  memo.delete(imdb);
+  memo.set(imdb, { at: Date.now(), videos });
+  if (memo.size > MAX_MEMO) memo.delete(memo.keys().next().value);
+  return videos;
+}
+
+const ordre =(a, b) => a.season - b.season || a.episode - b.episode;
 
 /**
  * seasons = d.seasons de TMDB, videos = celles de Cinemeta → null (même découpage, ou Cinemeta trop incomplet

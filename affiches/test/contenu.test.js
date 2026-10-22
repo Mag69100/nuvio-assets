@@ -115,7 +115,7 @@ test("source_tmdb", () => {
 
 test("bientot_gris_sans_note", () => {
   const c = contenu(bientot, plein);
-  assert.equal(c.statut, "SORT LE 16 DÉC.");
+  assert.equal(c.statut, "PRÉVU LE 16 DÉC.");
   assert.equal(c.gris, true);
   assert.deepEqual(c.line, { genre: "SF", annee: "2024" });
   assert.equal(contenu(bientot, plein, "poster", reglages("B0")).gris, false);
@@ -142,17 +142,17 @@ test("sorti_sans_vf_pas_encore_sorti", () => {
   assert.deepEqual([contenu(sansVf, plein).statut, contenu(sansVf, plein).gris], ["NOUVEAU", false]);
 });
 
-// L'Odyssée : sources en VO seulement, sortie numérique américaine le 17 nov. → « DISPO LE 17 NOV. » en noir et blanc
-// (sous « AU CINÉMA » s'il est en salle en France), jamais « BIENTÔT » seul. Sans date américaine : « DISPO VERS LE ».
+// L'Odyssée : sources en VO seulement, sortie numérique américaine le 17 nov. → « DÈS LE 17 NOV. » en noir et blanc
+// (« DISPO LE » sous « AU CINÉMA » s'il est en salle en France), jamais « BIENTÔT » seul. Sans date américaine : « PRÉVU VERS LE ».
 test("vo_avant_la_date_americaine", () => {
   const vo = { ...plein, quality: { uhd: false, extra: null, vf: false, sources: 30 } };
   const us = { iso_3166_1: "US", release_dates: [{ type: 3, release_date: "2026-07-17" }, { type: 4, release_date: "2026-11-17" }] };
   const ailleurs = contenu({ ...facts, originalLanguage: "en", releases: [us], releaseDate: "2026-07-17" }, vo);
-  assert.deepEqual([ailleurs.statut, ailleurs.gris], ["DISPO LE 17 NOV.", true]);
+  assert.deepEqual([ailleurs.statut, ailleurs.gris], ["DÈS LE 17 NOV.", true]);
   const enSalleFr = contenu({ ...facts, originalLanguage: "en", releases: [{ iso_3166_1: "FR", release_dates: [{ type: 3, release_date: "2026-07-15" }] }, us], releaseDate: "2026-07-15" }, vo);
   assert.deepEqual([enSalleFr.statut, enSalleFr.statut2, enSalleFr.gris], ["AU CINÉMA", "DISPO LE 17 NOV.", true]);
   const estime = contenu({ ...facts, originalLanguage: "en", releases: [{ iso_3166_1: "US", release_dates: [{ type: 3, release_date: "2026-10-10" }] }], releaseDate: "2026-10-10" }, vo);
-  assert.deepEqual([estime.statut, estime.gris], ["DISPO VERS LE 24 NOV.", true]);
+  assert.deepEqual([estime.statut, estime.gris], ["PRÉVU VERS LE 24 NOV.", true]);
   // Le jour venu, sources VF : en couleur.
   const vf = contenu({ ...facts, originalLanguage: "en", releases: [us], releaseDate: "2026-07-17" }, { ...plein, quality: { uhd: false, extra: null, vf: true, sources: 30 } }, "poster", DEFAUT_REGLAGES);
   assert.equal(vf.gris, false);
@@ -187,12 +187,12 @@ test("statut_en_dates", () => {
   const fr = (...d) => [{ iso_3166_1: "FR", release_dates: d.map(([type, release_date]) => ({ type, release_date })) }];
   assert.equal(avec(fr([3, "2026-10-10"], [4, "2026-11-02"])), "AU CINÉMA");
   assert.equal(contenu({ ...facts, releases: fr([3, "2026-10-10"], [4, "2026-11-02"]) }, plein).statut2, "DISPO LE 2 NOV.");
-  assert.equal(avec(fr([3, "2027-03-12"]), "2027-03-12"), "SORT LE 12 MARS 2027");
-  assert.equal(avec([{ iso_3166_1: "US", release_dates: [{ type: 3, release_date: "2027-01-05" }] }]), "SORT LE 5 JANV. 2027");
-  assert.equal(avec([], "2026-12-01"), "SORT LE 1 DÉC.");
+  assert.equal(avec(fr([3, "2027-03-12"]), "2027-03-12"), "PRÉVU LE 12 MARS 2027");
+  assert.equal(avec([{ iso_3166_1: "US", release_dates: [{ type: 3, release_date: "2027-01-05" }] }]), "PRÉVU LE 5 JANV. 2027");
+  assert.equal(avec([], "2026-12-01"), "PRÉVU LE 1 DÉC.");
   assert.equal(avec([], ""), "BIENTÔT");
   const serie = { ...facts, type: "series", releases: [], releaseDate: "", firstAir: "2026-11-01", seasons: [] };
-  assert.equal(contenu(serie, plein).statut, "SORT LE 1 NOV.");
+  assert.equal(contenu(serie, plein).statut, "PRÉVU LE 1 NOV.");
 });
 
 test("note_seule_sans_logo", () => {

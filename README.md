@@ -53,6 +53,7 @@ Le plus simple : ouvrir le site, salle 1 (le guide) si tu n'as pas encore Nuvio,
 | `/<config ou f…>/programmation.json` | « Soirée à deux » (salle 2) : les rangées d'un lien, sans clé Gemini ni jeton d'alerte | `worker/soiree.js` |
 | `/galerie/…` | Galerie des styles d'affiches de la régie (table `galerie` de la même base D1, limite facultative `LIMITE_GALERIE`) | `worker/galerie.js` |
 | `/copie` | Monte ta propre salle : héberger sa copie | `worker/copie.js` |
+| `/nouveautes` | Ce qui a changé, du plus récent au plus ancien (pour qui ne suit pas le Discord) | `worker/nouveautes.js` |
 | `/lien#u=…` | Ouverte par les QR codes du guide, pour copier un lien sur le téléphone | `worker/lien.js` |
 | `/tv` | Adresse courte pour Downloader : télécharge l'APK de Nuvio TV | |
 

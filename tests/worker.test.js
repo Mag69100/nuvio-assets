@@ -267,6 +267,13 @@ test("route_copie", async () => {
   assert.match(await res.text(), /docker compose up -d/);
 });
 
+test("route_nouveautes", async () => {
+  const res = await at("https://nuvio-assets.xnzxflix.workers.dev/nouveautes");
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("Content-Type"), /text\/html/);
+  assert.match(await res.text(), /Les nouveautés/);
+});
+
 // Bande-annonce VF trouvée : gardée 30 jours (elle ne change presque jamais ; moins de recherches sur
 // YouTube, qui peut bloquer les serveurs de Cloudflare). Pas de VF : revérifié tous les 2 jours.
 test("vf_gardee_30_jours", () => {

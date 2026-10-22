@@ -1,0 +1,130 @@
+/**
+ * Page « Nouveautés » (servie sur /nouveautes) : ce qui a changé sur le site et dans l'addon, pour qui ne suit
+ * pas le Discord. Écrite pour les utilisateurs (pas le détail des versions, qui reste dans les commits), la plus
+ * récente en haut. Le hall en reprend la dernière (voir hall.js).
+ * Pour en ajouter une : un objet en tête de NOUVEAUTES (date au format AAAA-MM-JJ, titre, points en HTML).
+ */
+
+import { feuilles } from "./statique.js";
+
+export const NOUVEAUTES = [
+  {
+    date: "2026-10-22",
+    titre: "Quand le film arrive en VF",
+    points: [
+      "Les fiches disent quand un film sera dispo chez toi : « Dispo le 17 nov. », ou « Dispo vers le … » quand la date n'est pas annoncée, estimée d'après le délai habituel de son distributeur (Universal sort ses films en numérique 18 jours après la salle, Disney 60…).",
+      "Sans VF, la fiche dit ce qu'on peut déjà regarder, et depuis quand : « Pas encore en VF · en VOSTFR depuis le 20 oct. ».",
+      "« SORT LE 4 NOV. » au lieu de « SORTIE LE 4 NOV. » sur les affiches : « sortie » se lisait comme « déjà sorti ».",
+      "La recherche comprend deux acteurs ensemble (« pacino de niro ») et un genre avec une époque ou un pays (« horreur années 80 », « comédie française »).",
+      "<b>Tes affiches</b> : « Essayer sur un titre » montre tes réglages sur n'importe quel film, série ou animé.",
+      "Rangée de saison : Spécial Halloween.",
+      "Copies Docker : « Erreur inattendue » à l'import des collections, c'est corrigé (il manquait des certificats dans l'image). Mets-la à jour avec <code>docker compose pull</code> puis <code>docker compose up -d</code>.",
+    ],
+  },
+  {
+    date: "2026-10-22",
+    titre: "Le guichet, la soirée à deux et le film du jour",
+    points: [
+      "<b>Le guichet</b> (salle 2) : ta programmation en 3 questions, ou 4 toutes prêtes (Cinéphile, Famille, Binge, Anime).",
+      "<b>La soirée à deux</b> : reprends les rangées du billet d'un ami.",
+      "<b>La galerie des styles d'affiches</b> : publie ton style, essaie celui des autres.",
+      "Lien fixe : « Ta TV l'a reçu ✓ » sur le billet dès que Nuvio a lu tes réglages.",
+      "Guide : le mot de passe de la séance (le guide voit que l'addon marche dans Nuvio), « Vérifier ma clé » AllDebrid, et un diagnostic à partir d'une photo de ton écran.",
+      "Hall : l'avant / après (Nuvio de base contre le résultat du guide), <a href=\"/jeu\">le film du jour à deviner</a> et <a href=\"/etat\">la salle des machines</a>.",
+      "Affiches, au choix dans la régie : la langue (VF, MULTI, VOSTFR, VO), série terminée ou annulée, avancement de la saison.",
+    ],
+  },
+  {
+    date: "2026-10-21",
+    titre: "Des affiches plus justes, un site plus léger",
+    points: [
+      "Les affiches donnent une date au lieu de « Bientôt » et « En salle » : « Dispo le 2 nov. », « Au cinéma le 16 déc. ».",
+      "Plus d'affiches étrangères avec du texte sous le logo (Conjuring, Les Soprano).",
+      "Les Tendances du jour suivent le même classement que les N° des affiches : une photo par jour, la même pour tout le monde.",
+      "Dans la régie : police Cinéma, note en badge IMDb ou TMDB, âge conseillé (-12, -16…), titre à gauche ou au centre, fondu flou et un style tout prêt « Ciné ».",
+      "Pages plus légères : la salle 2 se charge cinq fois plus vite.",
+      "Guide : le chemin exact du réglage TMDB dans Nuvio, et un avertissement pour les Fire TV sous Vega OS.",
+    ],
+  },
+  {
+    date: "2026-10-20",
+    titre: "Affiches maison et liens fixes",
+    points: [
+      "<b>Les affiches maison</b> remplacent Posters+ : logo du titre, note, genre, année, rang des tendances et qualité (4K, HDR, Dolby Vision). Plus besoin de clé TMDB à l'étape 8 du guide.",
+      "<b>La régie</b> (salle 2 → « Régler mes affiches ») : tes vraies affiches sur scène, des styles tout prêts, et chaque élément à allumer, éteindre ou agrandir.",
+      "Un titre pas encore dispo en VF passe en noir et blanc.",
+      "<b>Les liens fixes</b> : « Créer mon lien fixe » sur le billet. L'adresse ne change plus et tes réglages arrivent dans Nuvio sans réinstaller (« Actualiser les addons »).",
+      "Rangées : Téléréalité au choix (Koh-Lanta, Les Marseillais…) ; Découvrir, Populaires et Nouveautés ne montrent que les films déjà dispo dans ton pays ; Marvel, Warner et DC passent dans les Studios.",
+      "Collections : choisis l'ordre des tuiles, et « Copier le contenu » pour les importer sur PC ou téléphone. Après un changement, supprime-les dans Nuvio et réimporte leur lien.",
+    ],
+  },
+];
+
+const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+// « 2026-10-22 » → « 22 octobre » (« 1er » le premier du mois).
+export function jourEnClair(date) {
+  const [, m, j] = date.split("-").map(Number);
+  return (j === 1 ? "1er" : j) + " " + MOIS[m - 1];
+}
+
+export function nouveautesPage({ origin, version }) {
+  const LOGO = origin + "/logo.png";
+  const entrees = NOUVEAUTES.map((n) => `
+  <article class="entree">
+    <p class="jour"><time datetime="${n.date}">${jourEnClair(n.date)}</time></p>
+    <h2>${n.titre}</h2>
+    <ul>${n.points.map((p) => `
+      <li>${p}</li>`).join("")}
+    </ul>
+  </article>`).join("");
+  return `<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nouveautés · Nuvio en français</title>
+<meta name="description" content="Ce qui a changé dans le Catalogue FR pour Nuvio : affiches, rangées, recherche et site.">
+<link rel="icon" href="${LOGO}">
+${feuilles("polices.css")}
+<style>
+:root { --velvet: #170c12; --velvet-2: #22121b; --seat: #3d2230; --cream: #f5ead8; --dim: #b9a59c; --bulb: #ffcf6b; --ink: #2a1a14; --red: #e5413a; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; color: var(--cream); font: 16px/1.55 "Figtree", system-ui, sans-serif;
+  background: radial-gradient(ellipse 90% 40% at 50% -5%, rgba(229,65,58,.25), transparent 70%), var(--velvet);
+  padding: max(28px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(32px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+main { max-width: 720px; margin: 0 auto; display: grid; gap: 22px; }
+a { color: var(--bulb); text-underline-offset: 3px; }
+.ticket { display: grid; gap: 6px; padding: 18px 20px; border-radius: 14px; background: var(--cream); color: var(--ink); }
+.ticket small { font: 800 .72rem "Figtree"; letter-spacing: .16em; text-transform: uppercase; color: #7a5a4c; }
+h1, h2 { margin: 0; font-family: "Bebas Neue", Impact, sans-serif; font-weight: 400; letter-spacing: .03em; line-height: 1; }
+h1 { font-size: clamp(2.2rem, 7vw, 3rem); }
+h2 { font-size: 1.7rem; color: var(--bulb); }
+p { margin: 0; }
+.dim { color: var(--dim); }
+.entree { display: grid; gap: 10px; padding: 18px; border-radius: 16px; background: var(--velvet-2); border: 1px solid var(--seat); }
+.entree:first-of-type { border-color: var(--bulb); }
+.jour { font: 800 .72rem "Figtree"; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.entree ul { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; }
+code { font: .9em "Courier Prime", monospace; background: #0f080c; padding: 1px 6px; border-radius: 6px; white-space: nowrap; }
+.fin { display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: space-between; font-weight: 800; }
+</style>
+</head>
+<body>
+<main>
+  <div class="ticket">
+    <small>Au programme</small>
+    <h1>Les nouveautés</h1>
+    <p>Ce qui a changé dans le Catalogue FR, du plus récent au plus ancien. La plupart arrivent toutes seules dans Nuvio, sans rien réinstaller.</p>
+  </div>
+${entrees}
+
+  <p class="dim">Version actuelle : ${version}.</p>
+
+  <nav class="fin" aria-label="Retour">
+    <a href="${origin}/">← Retour au hall</a>
+    <a href="${origin}/configure">Composer mon accueil →</a>
+  </nav>
+</main>
+</body>
+</html>`;
+}

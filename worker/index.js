@@ -38,6 +38,7 @@ import { AFFICHES_URL, APERCU_V } from "./reglages.js";
 import { lireReglages, ecrireReglages } from "./lien-affiches.js";
 import { lienPage } from "./lien.js";
 import { copiePage } from "./copie.js";
+import { nouveautesPage } from "./nouveautes.js";
 import { hallPage } from "./hall.js";
 import { routeCinemeta } from "./cinemeta.js";
 import { routeJeu } from "./jeu.js";
@@ -2007,7 +2008,7 @@ function json(data, maxAge) {
   });
 }
 
-const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie", "lien-fixe", "tendances", "saison.json", "seance", "diagnostic"]);
+const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie", "lien-fixe", "tendances", "saison.json", "seance", "diagnostic", "nouveautes"]);
 
 async function loadCollections() {
   const res = await fetch(`${ASSETS}/collections/collections.json`, { cf: { cacheTtl: 600, cacheEverything: true } });
@@ -2204,6 +2205,7 @@ const app = {
     if (path === "/guide") return html(guidePage({ origin: url.origin, season: decorSaison(url, today) }));
     if (path === "/lien") return html(lienPage({ origin: url.origin }));   // ouvert par les QR codes du guide
     if (path === "/copie") return html(copiePage({ origin: url.origin }));   // « Monte ta propre salle » : héberger sa copie
+    if (path === "/nouveautes") return html(nouveautesPage({ origin: url.origin, version: VERSION }));   // ce qui a changé, pour qui n'a pas Discord
     if (path === "/tv") return Response.redirect(NUVIO_TV_APK, 302);   // adresse courte pour Downloader : télécharge l'APK
     // Styles et scripts communs aux pages du site, gardés en cache par le navigateur (voir statique.js).
     if (path.startsWith("/statique/")) return statique(path.slice(10), url.searchParams.get("v")) || new Response("introuvable", { status: 404 });

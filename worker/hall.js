@@ -7,6 +7,7 @@ import { STAGE_HEAD, stageTop, secretsHTML, BEAM_HTML, CREDITS_HTML } from "./st
 import { ICONE_APERCU, ICONE_AVANT_APRES, apercuDonnees } from "./apercu.js";
 import { feuilles, scripts, adresseStatique } from "./statique.js";
 import { esc } from "./outils-serveur.js";
+import { NOUVEAUTES, jourEnClair } from "./nouveautes.js";
 
 
 export function hallPage({ origin, season, copy = false }) {
@@ -124,6 +125,9 @@ footer { text-align: center; }
 .propre-salle { justify-self: center; margin-top: -8px; text-align: center; color: var(--dim); font-size: .95rem; }
 .propre-salle a { color: inherit; font-weight: 800; text-underline-offset: 3px; }
 .propre-salle a:hover { color: var(--cream, #f5ead8); }
+/* La dernière nouveauté, pour qui ne suit pas le Discord (voir nouveautes.js). */
+.nouveautes-lien { justify-self: center; margin-top: -8px; text-align: center; color: var(--dim); font-size: .95rem; }
+.nouveautes-lien a { color: var(--bulb); font-weight: 800; text-underline-offset: 3px; }
 @media (max-width: 760px) {
   .portes { grid-template-columns: 1fr; }
   .affiches { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -151,6 +155,7 @@ ${secretsHTML("hall")}
   </nav>
 ${copy ? "" : `  <p class="propre-salle">Tu veux ta propre salle, avec tes clés et ton quota ? <a href="${origin}/copie">Monte-la</a></p>
 `}
+  <p class="nouveautes-lien">Nouveau le ${jourEnClair(NOUVEAUTES[0].date)} : ${NOUVEAUTES[0].titre}. <a href="${origin}/nouveautes">Toutes les nouveautés</a></p>
   <div class="apercu-boutons">
     <button type="button" class="apercu-lien" data-resultat>${ICONE_APERCU}Voir l'accueil que tu auras à la fin</button>
     <button type="button" class="apercu-lien" data-resultat data-avant-apres>${ICONE_AVANT_APRES}Avant / après le guide</button>

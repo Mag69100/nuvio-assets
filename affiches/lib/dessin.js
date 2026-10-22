@@ -6,6 +6,10 @@
  * est celui de la maquette « Gras + léger » validée, en pixels d'une affiche de 400 px de large.
  */
 import sharp from "sharp";
+
+// Un seul fil de calcul par image : sur une instance Vercel (1 processeur), plusieurs fils se gênent. Mesuré : ~10 %
+// de CPU en moins par dessin, pour quelques millisecondes de plus.
+sharp.concurrency(1);
 import satori from "satori";
 import { FONTS } from "./polices.js";
 import { calqueSaison } from "./habillage.js";

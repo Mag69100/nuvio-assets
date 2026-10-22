@@ -2,8 +2,8 @@
  * Disjoncteur des dessins : chaque lien valable et nouveau (options × titres × formes) fait dessiner une affiche,
  * de 0,25 à 0,8 s par réponse, dont 0,1 à 0,2 s de calcul compté (README), et l'offre gratuite de Vercel n'en donne
  * que 4 h par mois (dépassées : service coupé 30 jours). Au-delà d'un nombre de dessins par minute ou par heure sur une instance, on ne dessine plus : l'affiche
- * d'origine de TMDB, le temps que ça se calme. Compté par instance (sans base partagée) : une limite de débit dans
- * le pare-feu de Vercel complète ce garde-fou.
+ * d'origine de TMDB, le temps que ça se calme. Compté par instance, contre les pointes ; le total du mois, toutes
+ * instances comprises, est tenu par le budget de calcul (lib/budget.js).
  */
 
 /**

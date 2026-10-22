@@ -54,6 +54,7 @@ import { sha256 } from "./outils-serveur.js";
 import { programmationPublique } from "./soiree.js";
 import { galerieRoute } from "./galerie.js";
 import { secondesAvantBascule, jourTendances, routeTendances, prendrePhotos } from "./tendances.js";
+import { routeCpu } from "./cpu.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
 const VERSION = "5.38.0";
@@ -2008,7 +2009,7 @@ function json(data, maxAge) {
   });
 }
 
-const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie", "lien-fixe", "tendances", "saison.json", "seance", "diagnostic", "nouveautes"]);
+const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie", "lien-fixe", "tendances", "saison.json", "seance", "diagnostic", "nouveautes", "cpu"]);
 
 async function loadCollections() {
   const res = await fetch(`${ASSETS}/collections/collections.json`, { cf: { cacheTtl: 600, cacheEverything: true } });
@@ -2126,6 +2127,8 @@ const app = {
     let path = url.pathname.replace(/\/+$/, "");
     // Galerie des styles d'affiches de la régie (salle 2) : jamais derrière une config (voir galerie.js).
     if (path.startsWith("/galerie/")) return galerieRoute(request, env, url, path);
+    // Compteur de calcul du service d'affiches (offre Hobby de Vercel : 4 h de CPU par mois, voir cpu.js).
+    if (path === "/cpu") return routeCpu(request, env, url);
     const today = parisToday();
     const rows = allRows(today, null);
     // Nuvio « de base » de l'avant / après des aperçus : les rangées de Cinemeta, relayées (voir cinemeta.js).

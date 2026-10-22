@@ -5,7 +5,7 @@ import { makeHandler } from "../api/affiche.js";
 import { makeQualite } from "../api/qualite.js";
 import { makeTendances } from "../api/tendances.js";
 import { secondesAvantBascule } from "../lib/tendances.js";
-import { secondesAvantMinuitParis } from "../lib/jour.js";
+import { secondesAvantMinuitParis, jourParis } from "../lib/jour.js";
 import { posterContent, contentKey } from "../lib/contenu.js";
 import { resetMemo as r1 } from "../lib/tmdb.js";
 import { resetMemo as r2 } from "../lib/notes.js";
@@ -414,14 +414,29 @@ test("ancien_lien_redirige_puis_servi", async () => {
 const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
 const avecSorties = (...dates) => json({ ...film, release_dates: { results: [{ iso_3166_1: "FR", release_dates: dates.map(([type, d]) => ({ type, release_date: d })) }] } });
 
+// Jours comptés depuis aujourd'hui à Paris (le jour des statuts), pas en UTC : le soir, les deux diffèrent.
+const jourParisDans = (n) => new Date(Date.parse(jourParis()) + n * 86400000).toISOString().slice(0, 10);
+
 test("statut_cache_court", async () => {
-  // Avec un statut (« Nouveau », une date…) : jusqu'au changement quotidien (photo des tendances, ou minuit à
-  // Paris s'il vient avant), dans l'appli comme au CDN.
-  const res = await makeHandler({ fetchImpl: internet({ detail: avecSorties([4, jour(-5)]) }), env })(req("type=movie&shape=poster&id=tt15239678"));
+  // Avec un statut (« Nouveau », une date…) : jusqu'au changement quotidien de la photo des tendances, dans l'appli
+  // comme au CDN. « NOUVEAU » depuis 5 jours le sera encore demain : pas besoin de le redessiner à minuit.
+  const res = await makeHandler({ fetchImpl: internet({ detail: avecSorties([4, jourParisDans(-5)]) }), env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(res.status, 200);
+  const s = secondesAvantBascule();
+  assert.ok(Math.abs(age(res, "Cache-Control") - s) <= 2, res.headers.get("Cache-Control"));
+  assert.ok(Math.abs(age(res, "Vercel-CDN-Cache-Control") - s) <= 2);
+});
+
+test("statut_qui_change_demain_expire_a_minuit", async () => {
+  // Dispo demain : sa date sur l'affiche aujourd'hui, plus demain. L'affiche expire à minuit à Paris (ou au
+  // changement de photo s'il vient avant). Dispo après-demain : rien ne change demain, seulement la photo.
+  const res = await makeHandler({ fetchImpl: internet({ detail: avecSorties([4, jourParisDans(1)]) }), env })(req("type=movie&shape=poster&id=tt15239678"));
   assert.equal(res.status, 200);
   const s = Math.min(secondesAvantBascule(), secondesAvantMinuitParis());
   assert.ok(Math.abs(age(res, "Cache-Control") - s) <= 2, res.headers.get("Cache-Control"));
   assert.ok(Math.abs(age(res, "Vercel-CDN-Cache-Control") - s) <= 2);
+  const plusTard = await makeHandler({ fetchImpl: internet({ detail: avecSorties([4, jourParisDans(3)]) }), env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.ok(Math.abs(age(plusTard, "Cache-Control") - secondesAvantBascule()) <= 2, plusTard.headers.get("Cache-Control"));
 });
 
 // Pas encore sorti : dessiné en gris, jamais redirigé vers l'image TMDB en couleur.

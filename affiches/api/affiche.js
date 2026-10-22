@@ -24,6 +24,7 @@ import { draw, imageUrls } from "../lib/dessin.js";
 import { choisirSansTexte } from "../lib/texte.js";
 import { jourParis, secondesAvantMinuitParis, secondesAvantJourParis } from "../lib/jour.js";
 import { disjoncteurDe } from "../lib/disjoncteur.js";
+import { creerBudget } from "../lib/budget.js";
 
 // CDN : 7 jours, comme l'appli, puis redessinée en arrière-plan (limite de calcul gratuite : 4 h par mois). Une
 // affiche sans statut ni N° ne change qu'avec sa note (fichier IMDb de la semaine) ou son badge 4K : quelques jours
@@ -36,15 +37,17 @@ const COURT = { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Contr
 /**
  * Durées de cache d'une réponse. Une affiche classée ou presque (place sur la photo des tendances), ou avec un
  * statut (une date, « Nouveau »…), expire au changement de photo des tendances, dans l'appli comme au CDN :
- * son N° et sa date restent ceux du jour. Un statut expire aussi à minuit à Paris (« DEMAIN » devient
- * « AUJOURD'HUI »). Une donnée en retard (Torrentio pas encore lu…) : cache court, pour l'avoir ensuite.
+ * son N° et sa date restent ceux du jour. minuit : l'affiche du lendemain ne sera pas la même (« DEMAIN » devient
+ * « AUJOURD'HUI ») ; elle expire aussi à minuit à Paris. Avant, toute affiche à statut expirait aussi à minuit et
+ * était dessinée deux fois par nuit, le plus souvent à l'identique. Une donnée en retard (Torrentio pas encore
+ * lu…) : cache court, pour l'avoir ensuite.
  * Au CDN, la première demande après l'expiration reçoit encore l'ancienne pendant qu'on la redessine (une heure au plus).
  * jusqua (secondes, facultatif) : une autre échéance (prochain épisode d'une série avec sa barre d'avancement…).
  */
-function cacheDe({ enRetard, place, statut, jusqua }) {
+function cacheDe({ enRetard, place, statut, minuit, jusqua }) {
   const base = enRetard ? COURT : OK_CACHE;
   if (!place && !statut && !jusqua) return base;
-  const s = Math.min(...(place || statut ? [statut ? Math.min(secondesAvantBascule(), secondesAvantMinuitParis()) : secondesAvantBascule()] : []), ...(jusqua ? [jusqua] : []));
+  const s = Math.min(...(place || statut ? [statut && minuit ? Math.min(secondesAvantBascule(), secondesAvantMinuitParis()) : secondesAvantBascule()] : []), ...(jusqua ? [jusqua] : []));
   const age = (h) => Number(/max-age=(\d+)/.exec(base[h])[1]);
   return { "Cache-Control": `public, max-age=${Math.min(age("Cache-Control"), s)}`,
     "Vercel-CDN-Cache-Control": `max-age=${Math.min(age("Vercel-CDN-Cache-Control"), s)}, stale-while-revalidate=3600${enRetard ? "" : ", stale-if-error=86400"}` };
@@ -126,8 +129,14 @@ function optionsNormales(q, id) {
 
 export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
   const disjoncteur = disjoncteurDe(env);
-  let dernierAvis = 0, dessins = 0;
+  const budget = creerBudget({ env, fetchImpl });
+  let dernierAvis = 0, dernierAvisBudget = 0, dessins = 0;
+  // Le CPU de l'instance part chez l'addon (une fois par minute au plus) pendant qu'on répond.
   return async function GET(request) {
+    const envoi = budget.noter();
+    try { return await repondre(request); } finally { await envoi; }
+  };
+  async function repondre(request) {
     const cpu0 = process.cpuUsage();
     const q = new URL(request.url).searchParams;
     const type = q.get("type"), shape = q.get("shape"), id = q.get("id") || "";
@@ -140,6 +149,12 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
     const normales = optionsNormales(q, id);
     if (String(recues) !== normales) {
       return new Response(null, { status: 308, headers: { ...CORS, ...CANONIQUE, Location: `/${type}/${shape}/${id}.jpg${normales ? "?" + normales : ""}` } });
+    }
+    // Budget de calcul des 31 jours dépensé (lib/budget.js) : rien à lire ni à dessiner, l'appli montre l'affiche
+    // d'origine (le CDN ressert encore un jour celles qu'il a). Vérifié avant TMDB : lire la fiche coûte aussi.
+    if (budget.epuise()) {
+      if (Date.now() - dernierAvisBudget > 60000) { dernierAvisBudget = Date.now(); console.warn("budget de calcul dépensé : affiches d'origine pour l'instant"); }
+      return indisponible(SURCHARGE);
     }
     const tendance = reglages.tendance.on, qualite = reglages.qualite.on && env.QUALITE !== "off";
     // Langue des sources (réglage Langue) : lue avec la qualité, chez Torrentio.
@@ -241,7 +256,9 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       // Barre d'avancement d'une série : jusqu'au lendemain de son prochain épisode (date connue de TMDB).
       const avance = content.avance && facts.nextEpisode ? secondesAvantJourParis(lendemain(facts.nextEpisode)) : undefined;
       const jusqua = avance && finSaison ? Math.min(avance, finSaison) : avance || finSaison;
-      const cache = cacheDe({ enRetard, place, statut: suitLeCalendrier, jusqua });
+      // L'affiche de demain, avec les mêmes données : seule la date change. Différente : elle expire à minuit.
+      const minuit = !!suitLeCalendrier && contentKey(posterContent(facts, { imdbRating, rank: place, quality, notes, saga, saison }, shape, reglages, lendemain(aujourdhui))) !== contentKey(content);
+      const cache = cacheDe({ enRetard, place, statut: suitLeCalendrier, minuit, jusqua });
       // X-Affiche-Etat : « retard » quand une donnée manquait (badge qualité en route…) ; la régie redemande alors
       // l'affiche un peu plus tard, et le relais de l'addon ne la garde pas.
       // X-Affiche-Sortie : de quoi comprendre une affiche grise ou un statut (« pas sorti » vient des dates, des sources
@@ -255,6 +272,11 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const headers = { ...CORS, "Access-Control-Expose-Headers": "X-Affiche-Etat, X-Affiche-Sortie", "X-Affiche-Etat": enRetard ? "retard" : "complete",
         "X-Affiche-Sortie": pourquoi, ...cache, ETag: etag };
       if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });
+      // Une ligne par dessin dans les journaux de Vercel : ce qui fait dessiner (options, durée au CDN, donnée en
+      // retard : q qualité, i note IMDb, t tendances, x image sans texte, s saga ou saison, e estimation).
+      const retard = [[qualiteEnRetard, "q"], [imdbManque, "i"], [photoIllisible, "t"], [imageIncertaine, "x"],
+        [(sagaVoulue && !filmsSaga) || (saisonVoulue && !rangee), "s"], [estimationManque, "e"]].filter(([v]) => v).map(([, c]) => c).join("");
+      console.log(`dessin ${type}/${shape}/${id}${normales ? "?" + normales : ""} cdn=${/max-age=(\d+)/.exec(cache["Vercel-CDN-Cache-Control"])[1]}${retard ? " retard=" + retard : ""}`);
       let jpg;
       disjoncteur.compte();
       try {
@@ -275,7 +297,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       console.error(`affiche ${type}/${shape}/${id} : ${e && e.message}`);
       return panne();
     }
-  };
+  }
 }
 
 export const GET = makeHandler();

@@ -167,7 +167,7 @@ export const statutDe = (facts, today) => etatSortie(facts, today).statut;
 // 1. la sortie (etatSortie : « BIENTÔT », la date ou le compte à rebours, « AU CINÉMA », « NOUVEAU », « NOUVELLE SAISON ») ;
 // 2. « NOUVEL ÉPISODE » (réglage Épisodes) : un épisode sorti il y a moins de 7 jours ;
 // 3. « TERMINÉE » ou « ANNULÉE » (réglage Fin) : statut TMDB Ended ou Canceled.
-// L'avancement de la saison (réglage Avancement) n'est pas un libellé : « S1 · 4/8 » sous le libellé (ou seul),
+// L'avancement de la saison (réglage Avancement) n'est pas un libellé : un petit badge « S1 · ÉP. 4/8 » sous le libellé (ou seul),
 // pour une série pas finie dont la saison en cours n'est pas complète.
 const FINS = { Ended: "TERMINÉE", Canceled: "ANNULÉE" };
 export const LIBELLES_FIN = Object.freeze(Object.values(FINS));

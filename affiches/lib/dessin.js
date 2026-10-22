@@ -208,7 +208,7 @@ function badgeCulte(t, accent, b) {
 }
 
 /**
- * Petit badge d'information (langue des sources, rang dans la saga) : le style commun des badges s'il est choisi
+ * Petit badge d'information (langue des sources, rang dans la saga, avancement de la saison) : le style commun des badges s'il est choisi
  * (plein, verre, contour), sinon un contour blanc fin sur un léger voile ; avec la qualité en pastille, une pastille.
  */
 function badgeInfo(texte, t, b, ombre, pastille = false) {
@@ -250,10 +250,6 @@ function boite(badges, t, accent, ombre = OMBRES.normale) {
  * Avancement de la saison en cours : une barre fine (épisodes diffusés sur épisodes de la saison) à la couleur
  * d'accent, et « S2 · 5/8 » à côté (du côté de l'image, pour rester aligné sur le bord).
  */
-/** L'avancement de la saison en chiffres, sans barre (trop petite pour se lire) : « S1 · 4/8 ». */
-function ligneAvance({ s, n, t: total }, t, ombre) {
-  return h("div", { display: "flex", marginTop: t * 0.02, fontSize: t * 0.56, fontWeight: 700, letterSpacing: t * 0.04, color: "#fff", opacity: 0.9, textShadow: ombre }, `S${s} · ${n}/${total}`);
-}
 
 /** Le statut, puis le rang de tendance dessous (en haut à gauche, ou à droite si les côtés sont inversés). */
 function blocStatut(content, m, accent, place, descente) {
@@ -268,7 +264,8 @@ function blocStatut(content, m, accent, place, descente) {
     // Petite ligne sous le statut (« AU CINÉMA », puis « DISPO LE 1 DÉC. »).
     if (content.statut2) pile.push(h("div", { display: "flex", marginTop: -t * 0.12, fontSize: t * 0.5, fontWeight: 700, letterSpacing: t * 0.05, color: "#fff", opacity: 0.85, textShadow: m.ombre }, content.statut2));
   }
-  if (content.avance) pile.push(ligneAvance(content.avance, t, m.ombre));
+  // L'avancement de la saison dans un petit badge, comme la saga : « S28 · ÉP. 2/8 » (en simple texte, il se lisait mal).
+  if (content.avance) pile.push(badgeInfo(`S${content.avance.s} · ÉP. ${content.avance.n}/${content.avance.t}`, t, b, m.ombre));
   if (content.rank) {
     if (b) {
       pile.push(h("div", { ...b, fontSize: t * 0.86, fontWeight: 800 }, [fleche(t * 0.86, b.color === ENCRE ? ENCRE : accent), h("span", {}, `N°${content.rank}`)]));

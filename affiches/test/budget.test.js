@@ -49,6 +49,8 @@ test("budget_reglable", async () => {
   assert.equal(b.epuise(), false);
   const c = creerBudget({ env: { CPU_BUDGET_MIN: "1" }, fetchImpl: addon().fetchImpl, cpu: () => 60000 });
   assert.equal(c.epuise(), true);
+  assert.equal(c.minutes, 1);
+  assert.equal(creerBudget({ env: {} }).minutes, 140);
 });
 
 test("budget_sans_cle_ne_demande_rien", async () => {

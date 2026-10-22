@@ -304,7 +304,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       // demandes servies en même temps par l'instance ; « instance / dessins » donne le coût moyen d'un dessin.
       dessins++;
       const ms = (c) => Math.round((c.user + c.system) / 1000);
-      const cpu = `requete=${ms(process.cpuUsage(cpu0))} instance=${ms(process.cpuUsage())} dessins=${dessins} depuis=${Math.round(process.uptime())}`;
+      const cpu = `requete=${ms(process.cpuUsage(cpu0))} instance=${ms(process.cpuUsage())} dessins=${dessins} depuis=${Math.round(process.uptime())} budget=${budget.minutes}`;
       await reserve.garder(cle, jpg);
       return new Response(jpg, { status: 200, headers: { ...headers, "X-Affiche-Cpu": cpu, "Content-Type": "image/jpeg" } });
     } catch (e) {

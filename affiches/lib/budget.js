@@ -40,6 +40,8 @@ export function creerBudget({ env = process.env, fetchImpl = fetch, cpu = cpuPro
   }
 
   return {
+    /** Le budget lu (minutes), pour l'en-tête X-Affiche-Cpu : de quoi vérifier le réglage de Vercel. */
+    minutes: budgetMs / 60000,
     /** Le budget des 31 jours est dépensé : plus de dessin. */
     epuise: () => total + (cpu() - envoye) >= budgetMs,
     /** La marge aussi : plus rien du tout. */

@@ -560,8 +560,8 @@ test("affiche_relais_suit_le_cache_du_service", async () => {
   assert.ok([...store.keys()].some((k) => k.includes("affiche-v" + APERCU_V) || k.includes("v=" + APERCU_V)), [...store.keys()].join(" "));
 });
 
-// « Au cinéma · Prochainement » : un film déjà regardable chez soi en VF (sorti en VOD, avec une sortie
-// francophone) n'y est plus, même si sa sortie en salle en France est à venir (Hope : VOD aux États-Unis, salle au Québec).
+// « Au cinéma · Prochainement » : un film déjà regardable chez soi en VF (sorti en numérique aux États-Unis, sources
+// pas lues) n'y est plus, même si sa sortie en salle en France est à venir (Hope : VOD aux États-Unis il y a 8 jours).
 test("prochainement_sans_les_films_deja_dispo", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   const dates = (...l) => ({ results: l.map(([pays, type, d]) => ({ iso_3166_1: pays, release_dates: [{ type, release_date: d + "T00:00:00.000Z" }] })) });
@@ -580,7 +580,8 @@ test("prochainement_sans_les_films_deja_dispo", async () => {
   assert.deepEqual(metas.map((m) => m.name), ["Pas encore"]);
 });
 
-// Sur une plateforme en France (Netflix…) sans aucune date francophone chez TMDB : VF disponible, donc retiré aussi.
+// Sur une plateforme en France (Netflix…) avant sa sortie numérique américaine : VF disponible, donc retiré aussi
+// (sources pas lues). Sur Netflix aux États-Unis seulement, pas encore arrivé chez soi : gardé.
 test("prochainement_sans_les_films_sur_une_plateforme_en_france", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   const dates = (...l) => ({ results: l.map(([pays, type, d]) => ({ iso_3166_1: pays, release_dates: [{ type, release_date: d + "T00:00:00.000Z" }] })) });
@@ -593,8 +594,8 @@ test("prochainement_sans_les_films_sur_une_plateforme_en_france", async () => {
       { id: 3, title: "En Suisse", original_language: "en", release_date: jour(7) },
     ], page: 1, total_pages: 1 }));
     const netflix = (pays) => ({ results: { [pays]: { flatrate: [{ provider_name: "Netflix" }] } } });
-    if (/\/movie\/1\?/.test(u)) return new Response(JSON.stringify({ release_dates: dates(["US", 4, jour(-4)]), "watch/providers": netflix("FR") }));
-    if (/\/movie\/2\?/.test(u)) return new Response(JSON.stringify({ release_dates: dates(["US", 4, jour(-4)]), "watch/providers": netflix("US") }));
+    if (/\/movie\/1\?/.test(u)) return new Response(JSON.stringify({ release_dates: dates(["US", 4, jour(4)]), "watch/providers": netflix("FR") }));
+    if (/\/movie\/2\?/.test(u)) return new Response(JSON.stringify({ release_dates: dates(["US", 4, jour(4)]), "watch/providers": netflix("US") }));
     if (/\/movie\/3\?/.test(u)) return new Response(JSON.stringify({ release_dates: dates(["DE", 3, jour(-40)]), "watch/providers": netflix("CH") }));
     return new Response("{}");
   };
@@ -658,7 +659,7 @@ test("prochainement_pages_pleines_et_fiches_lues_une_fois", async () => {
     }
     const m = /\/movie\/(\d+)\?/.exec(u);
     if (m) {
-      // Le film 105 est déjà en VOD avec une sortie francophone : retiré.
+      // Le film 105 est déjà en VOD aux États-Unis : retiré.
       const dispo = m[1] === "105";
       const dates = dispo ? [{ iso_3166_1: "US", release_dates: [{ type: 4, release_date: jour(-5) + "T00:00:00.000Z" }] }, { iso_3166_1: "CA", release_dates: [{ type: 3, release_date: jour(-30) + "T00:00:00.000Z" }] }]
         : [{ iso_3166_1: "FR", release_dates: [{ type: 3, release_date: jour(10) + "T00:00:00.000Z" }] }];
@@ -685,9 +686,10 @@ const filmVod = (n, langue, dates, fr) => ({ id: n, imdb_id: "tt" + (900 + n), o
   ...(fr ? { "watch/providers": { results: { FR: { flatrate: [{ provider_name: "Netflix" }] } } } } : {}) });
 
 // Tendances du jour : seulement ce qu'on peut regarder chez soi en VF (seule la VF compte). The Weight (1) : sorti
-// chez soi aux États-Unis, sources sans VF → retiré ; 2 : sources VF → gardé ; 3 : pas de sources lues, sortie
-// numérique américaine seulement → retiré ; 4 : pas de sources lues, sorti au cinéma en France → gardé ; 5 : vieux film
-// sans date francophone → gardé (ses sources ne sont pas lues, comme sur les affiches).
+// chez soi aux États-Unis, sources sans VF → retiré ; 2 : sources VF → gardé ; 3 : pas de sources lues, sorti en
+// numérique aux États-Unis → gardé (la date dit vrai) ; 4 : pas de sources lues, jamais sorti aux États-Unis, au cinéma
+// en France il y a 100 jours (+ 45) → gardé ; 5 : vieux film → gardé (ses sources ne sont pas lues, comme sur les
+// affiches) ; 6 : au cinéma aux États-Unis depuis 20 jours, pas encore chez soi → retiré.
 test("tendances_du_jour_seulement_en_vf", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   const fiches = {
@@ -696,25 +698,26 @@ test("tendances_du_jour_seulement_en_vf", async () => {
     3: filmVod(3, "en", [["US", 4, jour(-10)]]),
     4: filmVod(4, "en", [["FR", 3, jour(-100)]]),
     5: filmVod(5, "en", [["US", 3, "2001-05-01"]]),
+    6: filmVod(6, "en", [["US", 3, jour(-20)], ["FR", 3, jour(-60)]]),
   };
   globalThis.fetch = async (url) => {
     const u = String(url);
     calls.push(u);
     if (u.includes("/vf.json")) return sourcesDe({ tt901: { vf: false, sources: 47 }, tt902: { vf: true, sources: 12 } })(u);
     if (u.includes("/trending/movie/day")) {
-      return new Response(JSON.stringify({ results: u.includes("page=1") ? [1, 2, 3, 4, 5].map((id) => ({ id, title: `Film ${id}`, original_language: "en", release_date: jour(-35) })) : [], page: 1, total_pages: 1 }));
+      return new Response(JSON.stringify({ results: u.includes("page=1") ? [1, 2, 3, 4, 5, 6].map((id) => ({ id, title: `Film ${id}`, original_language: "en", release_date: jour(-35) })) : [], page: 1, total_pages: 1 }));
     }
     const m = /\/movie\/(\d)\?/.exec(u);
     if (m) return new Response(JSON.stringify(fiches[m[1]]));
     return new Response("{}");
   };
   const { metas } = await (await get("/catalog/movie/accueil-top10.json")).json();
-  assert.deepEqual(metas.map((m) => m.name), ["Film 2", "Film 4", "Film 5"]);
+  assert.deepEqual(metas.map((m) => m.name), ["Film 2", "Film 3", "Film 4", "Film 5"]);
   assert.equal(calls.filter((u) => u.includes("/vf.json")).length, 1, "un seul appel pour la page");
 });
 
-// Kraken (norvégien) dans une rangée qui ne lit pas les sources : sorti chez soi aux États-Unis, aucune date
-// francophone, sur Paramount+ en France — et pourtant en VF. Sans sources, la fiche ne dit jamais « Pas encore en VF ».
+// Kraken (norvégien) dans une rangée qui ne lit pas les sources : sorti chez soi aux États-Unis, sur Paramount+ en
+// France — et en VF. Sans sources, la fiche ne dit jamais « Pas encore en VF ».
 test("rangee_sans_sources_ne_dit_pas_pas_encore_en_vf", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   globalThis.fetch = async (url) => {
@@ -745,7 +748,7 @@ test("dispo_depuis_peu_selon_les_sources", async () => {
       { id: 2, title: "VF trouvée", original_language: "en", release_date: jour(-60), popularity: 8 },
       { id: 3, title: "Pas lu", original_language: "en", release_date: jour(-60), popularity: 7 },
     ], page: 1, total_pages: 1 }));
-    // 1 : les dates disent VF (Québec) mais les sources non ; 2 : les dates disent non, les sources oui ; 3 : pas lu → dates (VF).
+    // 1 : sorti en numérique aux États-Unis, mais les sources n'ont pas la VF ; 2 : sources VF ; 3 : pas lu → la date dit vrai.
     const m = /\/movie\/(\d)\?/.exec(u);
     if (m && m[1] === "1") return new Response(JSON.stringify(filmVod(1, "en", [["US", 4, jour(-5)], ["CA", 3, jour(-60)]])));
     if (m && m[1] === "2") return new Response(JSON.stringify(filmVod(2, "en", [["US", 4, jour(-5)]])));
@@ -821,8 +824,9 @@ test("fiche_selon_les_sources", async () => {
     calls.push(u);
     if (u.includes("/vf.json")) return sourcesDe(lus)(u);
     const m = /\/movie\/(800[12])\?/.exec(u);
-    if (m) return new Response(JSON.stringify({ id: Number(m[1]), title: "Film " + m[1], imdb_id: "tt900" + m[1].slice(3), release_date: jour(-40), original_language: "nl",
-      release_dates: { results: [{ iso_3166_1: "NL", release_dates: [{ type: 3, release_date: jour(-40) + "T00:00:00.000Z" }] }] } }));
+    // Jamais sorti aux États-Unis : au cinéma aux Pays-Bas il y a 60 jours, arrivé chez soi vers il y a 15 jours.
+    if (m) return new Response(JSON.stringify({ id: Number(m[1]), title: "Film " + m[1], imdb_id: "tt900" + m[1].slice(3), release_date: jour(-60), original_language: "nl",
+      release_dates: { results: [{ iso_3166_1: "NL", release_dates: [{ type: 3, release_date: jour(-60) + "T00:00:00.000Z" }] }] } }));
     return new Response("{}");
   };
   const vf = (await (await get("/meta/movie/tmdb:8001.json")).json()).meta;
@@ -847,7 +851,8 @@ test("prochainement_garde_les_ressorties", async () => {
   assert.deepEqual(metas.map((m) => m.name), ["Les Diables"]);
 });
 
-// Buddy : sorti chez soi aux États-Unis (date connue), sources sans VF : « Pas encore en VF », pas « Dispo depuis le … ».
+// Buddy, The Fix : sortis chez soi aux États-Unis (date passée), sources sans VF : « Pas encore en VF » sans date (on ne
+// sait pas quand elle viendra), pas « Dispo depuis le … ».
 test("fiche_vo_avec_date_connue", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   globalThis.fetch = async (url) => {
@@ -863,8 +868,9 @@ test("fiche_vo_avec_date_connue", async () => {
   assert.doesNotMatch(m.description || "", /Dispo depuis|VO/);
 });
 
-// L'Odyssée : en salle en France (la VF existe), sources en VO seulement, sortie numérique annoncée aux États-Unis :
-// la fiche dit quand la VF arrivera chez soi, comme l'affiche (« DISPO LE 17 NOV. »).
+// L'Odyssée : en salle en France, sources en VO seulement, sortie numérique annoncée aux États-Unis dans 26 jours : le
+// fichier américain n'est pas sorti, la fiche dit seulement la date, comme l'affiche (« DISPO LE 17 NOV. »), jamais
+// « Pas encore en VF ». Nuvio montre aussi ce jour-là comme date de sortie.
 test("fiche_vo_avec_date_de_vf", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   globalThis.fetch = async (url) => {
@@ -879,7 +885,77 @@ test("fiche_vo_avec_date_de_vf", async () => {
     return new Response("{}");
   };
   const m = (await (await get("/meta/movie/tmdb:8004.json")).json()).meta;
-  assert.match(m.description || "", /Pas encore en VF · dispo le \d+ \S+/);
+  assert.ok((m.description || "").startsWith(`📅 Dispo le ${court(jour(26))}`), m.description);
+  assert.doesNotMatch(m.description || "", /Pas encore en VF/);
+  assert.equal(m.released, `${jour(26)}T00:00:00.000Z`);
+});
+
+// Le calendrier américain des sorties numériques décide de la date, comme sur l'affiche (affiches/lib/statut.js) :
+// la sortie numérique aux États-Unis, sinon leur salle + 45 jours (« vers ») ; un film français garde ses dates ; un
+// film jamais sorti aux États-Unis, sa première sortie numérique où que ce soit, sinon sa première salle + 45 jours.
+const MOIS_COURTS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+const court = (iso) => `${Number(iso.slice(8, 10))} ${MOIS_COURTS[Number(iso.slice(5, 7)) - 1]}`;
+const point = (s) => (s.endsWith(".") ? s : s + ".");
+test("fiche_selon_le_calendrier_americain", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const films = {
+    // Au cinéma aux États-Unis il y a 10 jours, déjà en numérique au Royaume-Uni : estimation américaine (+ 35 jours).
+    8101: ["en", [["FR", 3, -20], ["US", 3, -10], ["GB", 4, -5]]],
+    // Film français : ses dates (numérique en France dans 10 jours), pas sa sortie américaine.
+    8102: ["fr", [["FR", 3, -20], ["FR", 4, 10], ["US", 3, 30]]],
+    // Film coréen jamais sorti aux États-Unis : sa sortie numérique en Corée.
+    8103: ["ko", [["KR", 3, -30], ["KR", 4, 12], ["FR", 3, 30]]],
+    // Sorti en numérique aux États-Unis il y a 5 jours, sources VF : disponible.
+    8104: ["en", [["FR", 3, -40], ["US", 4, -5]]],
+    // Sorti en numérique aux États-Unis il y a 5 jours, aucune source : la date dit vrai.
+    8105: ["en", [["US", 4, -5]]],
+  };
+  const lus = { tt9104: { vf: true, sources: 18 }, tt9105: { vf: false, sources: 0 } };
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/vf.json")) return sourcesDe(lus)(u);
+    const m = /\/movie\/(81\d\d)\?/.exec(u);
+    if (m) {
+      const [langue, dates] = films[m[1]];
+      return new Response(JSON.stringify({ id: Number(m[1]), title: "Film " + m[1], imdb_id: "tt9" + m[1].slice(1), release_date: jour(-30), original_language: langue,
+        release_dates: { results: dates.map(([pays, type, n]) => ({ iso_3166_1: pays, release_dates: [{ type, release_date: jour(n) + "T00:00:00.000Z" }] })) } }));
+    }
+    return new Response("{}");
+  };
+  const note = async (id) => ((await (await get(`/meta/movie/tmdb:${id}.json`)).json()).meta.description || "").split("\n")[0];
+  assert.equal(await note(8101), point(`📅 Dispo vers le ${court(jour(35))}`));
+  assert.equal(await note(8102), point(`📅 Dispo le ${court(jour(10))}`));
+  assert.equal(await note(8103), point(`📅 Dispo le ${court(jour(12))}`));
+  assert.equal(await note(8104), point(`📅 Dispo depuis le ${court(jour(-5))}`));
+  assert.equal(await note(8105), point(`📅 Dispo depuis le ${court(jour(-5))}`));
+});
+
+// « Bientôt dispo » suit la même date : un film en numérique au Royaume-Uni dans 3 jours mais aux États-Unis dans
+// 60 jours (hors de la fenêtre de 45 jours) n'y est pas ; un film en numérique aux États-Unis dans 10 jours, si.
+// « Dispo depuis peu » : la sortie américaine d'il y a 5 jours, pas celle d'Allemagne d'il y a 30 jours.
+test("rangees_selon_le_calendrier_americain", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/vf.json")) return sourcesDe({})(u);
+    if (u.includes("/discover/movie")) return new Response(JSON.stringify({ results: [
+      { id: 1, title: "Loin aux États-Unis", original_language: "en", release_date: jour(-30), popularity: 9 },
+      { id: 2, title: "Bientôt aux États-Unis", original_language: "en", release_date: jour(-30), popularity: 8 },
+      { id: 3, title: "Arrivé aux États-Unis", original_language: "en", release_date: jour(-40), popularity: 7 },
+    ], page: 1, total_pages: 1 }));
+    const m = /\/movie\/(\d)\?/.exec(u);
+    if (m && m[1] === "1") return new Response(JSON.stringify(filmVod(1, "en", [["US", 3, jour(-30)], ["GB", 4, jour(3)], ["US", 4, jour(60)]])));
+    if (m && m[1] === "2") return new Response(JSON.stringify(filmVod(2, "en", [["US", 3, jour(-30)], ["US", 4, jour(10)]])));
+    if (m && m[1] === "3") return new Response(JSON.stringify(filmVod(3, "en", [["DE", 4, jour(-30)], ["US", 4, jour(-5)]])));
+    return new Response(JSON.stringify({ results: [] }));
+  };
+  const bientot = (await (await get("/catalog/movie/accueil-vod-bientot.json")).json()).metas;
+  assert.deepEqual(bientot.map((m) => m.name), ["Bientôt aux États-Unis"]);
+  assert.match(bientot[0].description, new RegExp(`Dispo le ${court(jour(10))}`));
+  const recents = (await (await get("/catalog/movie/accueil-vod-semaine.json")).json()).metas;
+  assert.deepEqual(recents.map((m) => m.name), ["Arrivé aux États-Unis"]);
 });
 
 // Le service d'affiches avec RELAIS_KEY ne lit une liste pas encore dans son cache que pour qui envoie la clé :

@@ -65,8 +65,8 @@ function plateformeDe(d) {
 }
 
 /**
- * Le titre (film ou série) est-il en VF sur une plateforme (abonnement, gratuit, pub, location, achat) en France, même sans date de
- * sortie francophone chez TMDB (films Netflix sortis partout le même jour) ? Oui pour un film en anglais ou en
+ * Le titre (film ou série) est-il en VF sur une plateforme (abonnement, gratuit, pub, location, achat) en France, même avant
+ * sa sortie numérique américaine (films Netflix sortis partout le même jour, sans date chez TMDB) ? Oui pour un film en anglais ou en
  * français ; un autre film étranger seulement sur Netflix ou Disney+ en abonnement, qui doublent presque tout (EB,
  * néerlandais, est sur Prime Video en VO seulement). La France seule : en Suisse ou au Canada, la plateforme peut
  * n'avoir que l'allemand ou l'anglais. Sert au statut (lib/statut.js).

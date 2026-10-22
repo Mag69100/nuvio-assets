@@ -132,11 +132,30 @@ test("en_salle_pas_encore_sorti", () => {
   assert.equal(c.line.note, undefined);
 });
 
+// The Fix : sorti en numérique aux États-Unis, sources sans VF → en noir et blanc, « BIENTÔT » (sans date : on ne sait
+// pas quand la VF viendra). Sans sources lues, la date américaine passée dit vrai : en couleur, « NOUVEAU ».
 test("sorti_sans_vf_pas_encore_sorti", () => {
   const sansVf = { ...facts, originalLanguage: "en", releases: [{ iso_3166_1: "US", release_dates: [{ type: 4, release_date: "2026-10-01" }] }], releaseDate: "2026-09-01" };
-  const c = contenu(sansVf, plein);
+  const c = contenu(sansVf, { ...plein, quality: { uhd: false, extra: null, vf: false, sources: 12 } });
   assert.equal(c.gris, true);
   assert.equal(c.statut, "BIENTÔT");
+  assert.deepEqual([contenu(sansVf, plein).statut, contenu(sansVf, plein).gris], ["NOUVEAU", false]);
+});
+
+// L'Odyssée : sources en VO seulement, sortie numérique américaine le 17 nov. → « DISPO LE 17 NOV. » en noir et blanc
+// (sous « AU CINÉMA » s'il est en salle en France), jamais « BIENTÔT » seul. Sans date américaine : « DISPO VERS LE ».
+test("vo_avant_la_date_americaine", () => {
+  const vo = { ...plein, quality: { uhd: false, extra: null, vf: false, sources: 30 } };
+  const us = { iso_3166_1: "US", release_dates: [{ type: 3, release_date: "2026-07-17" }, { type: 4, release_date: "2026-11-17" }] };
+  const ailleurs = contenu({ ...facts, originalLanguage: "en", releases: [us], releaseDate: "2026-07-17" }, vo);
+  assert.deepEqual([ailleurs.statut, ailleurs.gris], ["DISPO LE 17 NOV.", true]);
+  const enSalleFr = contenu({ ...facts, originalLanguage: "en", releases: [{ iso_3166_1: "FR", release_dates: [{ type: 3, release_date: "2026-07-15" }] }, us], releaseDate: "2026-07-15" }, vo);
+  assert.deepEqual([enSalleFr.statut, enSalleFr.statut2, enSalleFr.gris], ["AU CINÉMA", "DISPO LE 17 NOV.", true]);
+  const estime = contenu({ ...facts, originalLanguage: "en", releases: [{ iso_3166_1: "US", release_dates: [{ type: 3, release_date: "2026-10-10" }] }], releaseDate: "2026-10-10" }, vo);
+  assert.deepEqual([estime.statut, estime.gris], ["DISPO VERS LE 24 NOV.", true]);
+  // Le jour venu, sources VF : en couleur.
+  const vf = contenu({ ...facts, originalLanguage: "en", releases: [us], releaseDate: "2026-07-17" }, { ...plein, quality: { uhd: false, extra: null, vf: true, sources: 30 } }, "poster", DEFAUT_REGLAGES);
+  assert.equal(vf.gris, false);
 });
 
 test("age_sur_demande", () => {

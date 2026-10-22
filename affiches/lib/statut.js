@@ -1,18 +1,19 @@
 /**
  * Sortie d'un titre, vue de France : est-il disponible chez soi en VF (« sorti »), et quel statut afficher
  * au-dessus de son rang (« Bientôt », « En salle », « Nouveau », « Nouvelle saison ») ?
- * Mêmes règles que les rangées de l'addon (worker/index.js : firstDigital, digitalGuess, likelyVf) :
- * - chez soi = première sortie numérique, vidéo ou télé, où que ce soit (les sources suivent), sinon salle + 45 jours ;
- * - VF probable = film français, ou déjà sorti en France, Belgique, Suisse, Luxembourg ou au Canada, ou sur une
- *   plateforme en France (facts.plateformeFrance : films Netflix sans date francophone chez TMDB) ;
- * - sorti = chez soi ET VF probable. Pas sorti : noir et blanc et note cachée sur l'affiche (réglage « Pas sorti »).
- * Pour un titre de moins d'un an, les sources lues chez Torrentio (avec la qualité) décident quand on les a : ce
- * qu'on obtient en faisant « Lire ». Des sources sans VF : pas sorti (seule la VF compte), « Bientôt » en noir et
- * blanc. Les dates ne servent plus qu'en repli
- * (vérifié sur 69 films récents : les dates seules se trompaient pour 9 d'entre eux).
+ * Mêmes règles que les rangées et les fiches de l'addon (worker/index.js : dispoChezSoi, enVfChezSoi, releaseNote) :
+ * - chez soi = le calendrier américain des sorties numériques (Premium VOD) seulement : c'est le fichier américain qui
+ *   fait apparaître les sources, souvent déjà avec la VF ; la chronologie des médias française ne compte pas
+ *   (dispoChezSoi) ;
+ * - avant ce jour : pas sorti, avec la date (« DISPO LE 17 NOV. », « DISPO VERS LE … ») ;
+ * - à partir de ce jour, les sources lues chez Torrentio (avec la qualité, ce qu'on obtient en faisant « Lire »)
+ *   disent si le fichier a la VF : sans VF, pas sorti (seule la VF compte), « Bientôt » sans date (on ne sait pas
+ *   quand elle viendra) ; avec la VF, sans sources lues ou sans aucune source : sorti, la date dit vrai.
+ * Pas sorti : noir et blanc et note cachée sur l'affiche (réglage « Pas sorti »). Des sources VF suffisent, même avant
+ * la date (sortie française plus tôt, film français) ; sans sources lues, une plateforme en France aussi
+ * (facts.plateformeFrance, en VF d'après lib/tmdb.js).
  */
 const NOUVEAU_JOURS = 30, SALLE_JOURS = 45;
-const FRANCOPHONES = ["FR", "BE", "CH", "LU", "CA"];
 
 const ajoute = (iso, n) => new Date(Date.parse(iso) + n * 86400000).toISOString().slice(0, 10);
 
@@ -24,6 +25,28 @@ function releaseDates(releases, types, pays) {
     .map((r) => (r.release_date || "").slice(0, 10))
     .filter(Boolean)
     .sort();
+}
+
+/**
+ * Le jour où un film arrive chez soi, et si ce n'est qu'une estimation (vers) : { date, vers }, date vide sans aucune
+ * sortie. Le calendrier américain seulement (le fichier américain fait les sources, avec ou sans VF) :
+ *   - sa sortie numérique aux États-Unis, annoncée (L'Odyssée : le 17 nov., même en salle en France depuis juillet) ;
+ *   - sinon sa sortie en salle aux États-Unis + 45 jours (délai habituel), en estimation ;
+ *   - film français (rarement sorti aux États-Unis), ou film étranger jamais sorti aux États-Unis : ses propres dates,
+ *     la première sortie numérique (vidéo, télé) où que ce soit, sinon la première salle + 45 jours.
+ * La même fonction que dispoChezSoi dans worker/index.js : l'affiche et la fiche disent le même jour.
+ */
+export function dispoChezSoi(releases, langue) {
+  if (langue !== "fr") {
+    const numerique = releaseDates(releases, [4], ["US"])[0];
+    if (numerique) return { date: numerique, vers: false };
+    const salle = releaseDates(releases, [2, 3], ["US"])[0];
+    if (salle) return { date: ajoute(salle, SALLE_JOURS), vers: true };
+  }
+  const connu = releaseDates(releases, [4, 5, 6])[0];
+  if (connu) return { date: connu, vers: false };
+  const salle = releaseDates(releases, [2, 3])[0];
+  return salle ? { date: ajoute(salle, SALLE_JOURS), vers: true } : { date: "", vers: false };
 }
 
 /**
@@ -60,38 +83,36 @@ function sortieFilm(facts, today, sources) {
     return facts.releaseDate ? { sorti, statut: "bientot", quand: { quoi: "sortie", date: facts.releaseDate, vers: false } } : { sorti, statut: "bientot" };
   }
   if (estVieux(facts, today)) return { sorti: true, statut: null };
-  const commerciales = releaseDates(facts.releases, [2, 3, 4, 5, 6]);
   const s = lues(sources);
-  const salleMonde = releaseDates(facts.releases, [2, 3])[0] || "";
-  const chezSoiConnu = releaseDates(facts.releases, [4, 5, 6])[0] || "";
-  const chezSoi = chezSoiConnu || (salleMonde ? ajoute(salleMonde, SALLE_JOURS) : "");
-  const vf = facts.originalLanguage === "fr" ? chezSoi : releaseDates(facts.releases, [2, 3, 4, 5, 6], FRANCOPHONES)[0] || "";
-  // Disponible en VF le jour où les deux sont réunis. Sur une plateforme en France : disponible aujourd'hui au
-  // plus tard (depuis sa sortie chez soi si on la connaît).
-  const reunis = chezSoi && vf ? (chezSoi > vf ? chezSoi : vf) : "";
-  const dispo = facts.plateformeFrance && !(reunis && reunis <= today) ? (chezSoi && chezSoi <= today ? chezSoi : today) : reunis;
-  // Des sources VF : disponible (depuis la date connue, sinon aujourd'hui). Sans sources lues : les dates.
-  if (s && s.vf) {
-    const depuis = dispo && dispo <= today ? dispo : chezSoi && chezSoi <= today ? chezSoi : today;
-    return { sorti: true, statut: depuis >= ajoute(today, -NOUVEAU_JOURS) ? "nouveau" : null };
-  }
-  if (!s && dispo && dispo <= today) return { sorti: true, statut: dispo >= ajoute(today, -NOUVEAU_JOURS) ? "nouveau" : null };
-  // Pas encore chez soi en VF : « En salle » s'il est au cinéma en France, sinon « Bientôt », avec la date
-  // à venir la plus utile (comme les rangées) : dispo chez soi, sortie au cinéma en France, ou sortie ailleurs.
+  const { date: dispo, vers } = dispoChezSoi(facts.releases, facts.originalLanguage);
+  const arrive = !!dispo && dispo <= today;
+  // Des sources, aucune en VF : le fichier est là, pas la VF.
+  const vo = !!s && !s.vf && s.sources > 0;
+  const nouveau = (depuis) => (depuis >= ajoute(today, -NOUVEAU_JOURS) ? "nouveau" : null);
+  // Des sources VF : disponible, même avant la date (sortie française plus tôt…), depuis la date si elle est passée.
+  if (s && s.vf) return { sorti: true, statut: nouveau(arrive ? dispo : today) };
+  // La date passée, le fichier américain est sorti : disponible, sauf si ses sources n'ont pas la VF. Sans sources lues
+  // (Torrentio en panne) ou sans aucune source : la date dit vrai.
+  if (arrive && !vo) return { sorti: true, statut: nouveau(dispo) };
+  // Sur une plateforme en France (en VF), sources pas lues : disponible aujourd'hui, même avant la date américaine.
+  if (!s && facts.plateformeFrance) return { sorti: true, statut: nouveau(today) };
+  // Pas encore chez soi en VF : « En salle » s'il est au cinéma en France, sinon « Bientôt », avec la date à venir la
+  // plus utile (comme les rangées) : dispo chez soi, sortie au cinéma en France, ou première sortie.
   const sallesFrance = releaseDates(facts.releases, [2, 3], ["FR"]);
-  const dispoAVenir = dispo > today ? { quoi: "dispo", date: dispo, vers: !chezSoiConnu } : null;
-  if (sallesFrance[0] && sallesFrance[0] <= today) return { sorti: false, statut: "salle", ...(dispoAVenir ? { quand: dispoAVenir } : {}) };
+  const aVenir = dispo > today ? { quoi: "dispo", date: dispo, vers } : null;
+  if (sallesFrance[0] && sallesFrance[0] <= today) return { sorti: false, statut: "salle", ...(aVenir ? { quand: aVenir } : {}) };
   const cinema = sallesFrance.find((d) => d > today);
-  // Des sources, mais aucune en VF (et pas de sortie au cinéma en France à venir) : pas sorti, « Bientôt » sans date
-  // (seule la VF compte, et on ne sait pas quand elle viendra).
-  if (s && !s.vf && s.sources > 0 && !cinema) return { sorti: false, statut: "bientot" };
-  // Déjà sorti quelque part (Bad Apples : au cinéma en Allemagne) : son arrivée chez soi, annoncée ou estimée,
-  // comme la rangée « Bientôt dispo » ; jamais la sortie d'un autre pays (« SORT LE » se lirait comme en France).
-  const dejaSorti = commerciales.some((d) => d <= today);
-  const chezSoiAVenir = dejaSorti && chezSoi > today ? { quoi: "dispo", date: chezSoi, vers: !chezSoiConnu } : null;
-  const ailleurs = dejaSorti ? "" : releaseDates(facts.releases, [2, 3, 4]).find((d) => d > today);
-  const quand = cinema ? { quoi: "cinema", date: cinema, vers: false } : dispoAVenir || chezSoiAVenir || (ailleurs ? { quoi: "sortie", date: ailleurs, vers: false } : null);
-  return { sorti: false, statut: "bientot", ...(quand ? { quand } : {}) };
+  if (cinema) return { sorti: false, statut: "bientot", quand: { quoi: "cinema", date: cinema, vers: false } };
+  // La date passée, sources sans VF (The Fix) : « Bientôt » sans date (seule la VF compte, et on ne sait pas quand
+  // elle viendra). Avant la date, sources en VO ou pas : la date (« DISPO LE 17 NOV. »), jamais « Bientôt » seul.
+  if (!aVenir) return { sorti: false, statut: "bientot" };
+  // Déjà sorti quelque part (Bad Apples : au cinéma en Allemagne) : son arrivée chez soi, annoncée ou estimée, comme la
+  // rangée « Bientôt dispo ». Sorti nulle part : sa première sortie (« SORT LE ») ; « DISPO LE » seulement s'il sort
+  // directement chez soi ce jour-là.
+  const dejaSorti = releaseDates(facts.releases, [2, 3, 4, 5, 6]).some((d) => d <= today);
+  const premiere = dejaSorti ? "" : releaseDates(facts.releases, [2, 3, 4]).find((d) => d > today);
+  const quand = premiere && (vers || premiere < dispo) ? { quoi: "sortie", date: premiere, vers: false } : aVenir;
+  return { sorti: false, statut: "bientot", quand };
 }
 
 /**

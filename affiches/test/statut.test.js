@@ -9,20 +9,74 @@ const sorties = (...dates) => [{ iso_3166_1: "FR", release_dates: dates.map(([ty
 const pays = (code, ...dates) => ({ iso_3166_1: code, release_dates: dates.map(([type, d]) => ({ type, release_date: d + "T00:00:00.000Z" })) });
 const film = (releases, date = "", langue = "en") => ({ type: "movie", releases, releaseDate: date, originalLanguage: langue });
 
-// « Sorti » = disponible chez soi en VF, comme pour les rangées de l'addon : sortie chez soi (numérique, vidéo,
-// télé, sinon salle + 45 jours) ET une VF probable (film français, ou sorti en France, Belgique, Suisse,
-// Luxembourg ou au Canada).
-test("VF : sorti chez soi aux États-Unis seulement → pas sorti, bientôt", () => {
+// « Sorti » = disponible chez soi en VF, comme pour les rangées de l'addon : le calendrier américain des sorties
+// numériques (dispoChezSoi), puis les sources disent si le fichier a la VF. Sans sources lues, la date dit vrai.
+test("VF : sorti en numérique aux États-Unis, sources pas lues → sorti, nouveau", () => {
   const e = etatSortie(film([pays("US", [4, jours(-20)])]), AUJ);
-  assert.deepEqual(e, { sorti: false, statut: "bientot" });
+  assert.deepEqual(e, { sorti: true, statut: "nouveau" });
 });
 
 test("VF : film français sorti en numérique → sorti, nouveau", () => {
   assert.deepEqual(etatSortie(film([pays("US", [4, jours(-5)])], "", "fr"), AUJ), { sorti: true, statut: "nouveau" });
 });
 
-test("VF : numérique aux États-Unis il y a 40 jours, en France il y a 10 jours → nouveau depuis la VF", () => {
-  assert.deepEqual(etatSortie(film([pays("US", [4, jours(-40)]), pays("FR", [4, jours(-10)])]), AUJ), { sorti: true, statut: "nouveau" });
+// La chronologie des médias française ne compte pas : « Nouveau » compté depuis la sortie américaine.
+test("VF : numérique aux États-Unis il y a 40 jours, en France il y a 10 jours → sorti depuis la date américaine", () => {
+  assert.deepEqual(etatSortie(film([pays("US", [4, jours(-40)]), pays("FR", [4, jours(-10)])]), AUJ), { sorti: true, statut: null });
+});
+
+test("dispo_chez_soi : le calendrier américain", async () => {
+  const { dispoChezSoi } = await import("../lib/statut.js");
+  // Sortie numérique américaine, même plus tard qu'ailleurs, et même en salle en France depuis longtemps.
+  assert.deepEqual(dispoChezSoi([pays("FR", [3, jours(-99)]), pays("GB", [4, jours(5)]), pays("US", [3, jours(-97)], [4, jours(26)])], "en"), { date: jours(26), vers: false });
+  // Pas de date numérique américaine : leur salle + 45 jours, en estimation (pas la sortie numérique anglaise).
+  assert.deepEqual(dispoChezSoi([pays("FR", [3, jours(-20)]), pays("US", [3, jours(-10)]), pays("GB", [4, jours(-5)])], "en"), { date: jours(35), vers: true });
+  // Film français : ses dates, pas les américaines.
+  assert.deepEqual(dispoChezSoi([pays("FR", [3, jours(-20)], [4, jours(10)]), pays("US", [3, jours(30)])], "fr"), { date: jours(10), vers: false });
+  assert.deepEqual(dispoChezSoi([pays("FR", [3, jours(-20)]), pays("US", [4, jours(60)])], "fr"), { date: jours(60), vers: false });
+  assert.deepEqual(dispoChezSoi([pays("FR", [3, jours(-20)])], "fr"), { date: jours(25), vers: true });
+  // Film étranger jamais sorti aux États-Unis (une avant-première n'est pas une sortie) : sa première sortie numérique
+  // où que ce soit, sinon sa première salle + 45 jours.
+  assert.deepEqual(dispoChezSoi([pays("KR", [3, jours(-30)], [4, jours(12)]), pays("US", [1, jours(-60)])], "ko"), { date: jours(12), vers: false });
+  assert.deepEqual(dispoChezSoi([pays("KR", [3, jours(-30)]), pays("FR", [3, jours(30)])], "ko"), { date: jours(15), vers: true });
+  assert.deepEqual(dispoChezSoi([], "en"), { date: "", vers: false });
+});
+
+// L'Odyssée : en salle en France, sources en VO seulement, sortie numérique américaine dans 26 jours → « AU CINÉMA »
+// et la date (« DISPO LE … »), jamais « Bientôt » sans date. Pas en salle en France : « Bientôt » avec la date.
+test("sources en VO avant la date américaine → la date", () => {
+  const odyssee = [pays("FR", [3, jours(-99)]), pays("US", [3, jours(-97)], [4, jours(26)])];
+  assert.deepEqual(etatSortie(film(odyssee), AUJ, { vf: false, sources: 30 }), { sorti: false, statut: "salle", quand: { quoi: "dispo", date: jours(26), vers: false } });
+  const ailleurs = [pays("DE", [3, jours(-99)]), pays("US", [3, jours(-97)], [4, jours(26)])];
+  assert.deepEqual(etatSortie(film(ailleurs), AUJ, { vf: false, sources: 30 }), { sorti: false, statut: "bientot", quand: { quoi: "dispo", date: jours(26), vers: false } });
+  // Sans date américaine annoncée : l'estimation (salle américaine + 45 jours).
+  const estime = [pays("DE", [3, jours(-20)]), pays("US", [3, jours(-15)])];
+  assert.deepEqual(etatSortie(film(estime), AUJ, { vf: false, sources: 12 }).quand, { quoi: "dispo", date: jours(30), vers: true });
+});
+
+// The Fix : sorti en numérique aux États-Unis, sources sans VF → pas sorti, « Bientôt » sans date. Avec des sources
+// VF : sorti. Sans aucune source, ou sans sources lues : la date dit vrai.
+test("sources après la date américaine → elles décident", () => {
+  const fix = film([pays("US", [3, jours(-60)], [4, jours(-10)])]);
+  assert.deepEqual(etatSortie(fix, AUJ, { vf: false, sources: 25 }), { sorti: false, statut: "bientot" });
+  assert.deepEqual(etatSortie(fix, AUJ, { vf: true, sources: 25 }), { sorti: true, statut: "nouveau" });
+  assert.deepEqual(etatSortie(fix, AUJ, { vf: false, sources: 0 }), { sorti: true, statut: "nouveau" });
+  assert.deepEqual(etatSortie(fix, AUJ, null), { sorti: true, statut: "nouveau" });
+  // Des sources VF avant la date américaine (sortie française plus tôt) : sorti aussi.
+  assert.deepEqual(etatSortie(film([pays("FR", [4, jours(-3)]), pays("US", [4, jours(20)])]), AUJ, { vf: true, sources: 4 }), { sorti: true, statut: "nouveau" });
+});
+
+// Film français : ses propres dates, comme avant (pas la sortie américaine).
+test("film français : ses dates", () => {
+  const f = film([pays("FR", [3, jours(-20)], [4, jours(10)]), pays("US", [3, jours(-5)])], "", "fr");
+  assert.deepEqual(etatSortie(f, AUJ), { sorti: false, statut: "salle", quand: { quoi: "dispo", date: jours(10), vers: false } });
+  assert.deepEqual(etatSortie(film([pays("FR", [3, jours(-50)])], "", "fr"), AUJ), { sorti: true, statut: "nouveau" });
+});
+
+// Pas encore sorti nulle part : « SORT LE » (sa première sortie), sauf s'il sort directement chez soi ce jour-là.
+test("pas encore sorti : sort le, ou dispo le en sortie directe", () => {
+  assert.deepEqual(etatSortie(film([pays("US", [3, jours(10)], [4, jours(55)])]), AUJ).quand, { quoi: "sortie", date: jours(10), vers: false });
+  assert.deepEqual(etatSortie(film([pays("US", [4, jours(10)])]), AUJ).quand, { quoi: "dispo", date: jours(10), vers: false });
 });
 
 test("VF : au cinéma en France, pas encore chez soi → pas sorti, en salle", () => {
@@ -41,17 +95,22 @@ test("film : avant-première ancienne, sortie récente hors de France → pas so
   assert.equal(etatSortie(film([pays("CA", [1, jours(-900)])], jours(-900)), AUJ).sorti, true);
 });
 
-// « On va s'arrêter là » (Netflix) : sorti partout en streaming, sur Netflix France, mais aucune date
-// francophone chez TMDB. Sur une plateforme en France = VF disponible.
-test("VF : sur une plateforme en France sans date francophone → sorti", () => {
+// « On va s'arrêter là » (Netflix) : sorti partout en streaming, sur Netflix France. Sur une plateforme en France
+// (en VF), sources pas lues : disponible, même avant la date américaine.
+test("VF : sur une plateforme en France → sorti", () => {
   const f = { ...film([pays("AR", [1, jours(-12)], [4, jours(-4)]), pays("US", [4, jours(-4)])], jours(-12), "es"), plateformeFrance: true };
   assert.deepEqual(etatSortie(f, AUJ), { sorti: true, statut: "nouveau" });
-  assert.equal(etatSortie({ ...f, plateformeFrance: false }, AUJ).sorti, false);
+  // Sans plateforme : la date américaine passée suffit (sources pas lues).
+  assert.equal(etatSortie({ ...f, plateformeFrance: false }, AUJ).sorti, true);
   // Sans aucune date de sortie chez soi connue : disponible quand même (elle y est).
   assert.equal(etatSortie({ ...film([pays("AR", [1, jours(-12)])], jours(-12), "es"), plateformeFrance: true }, AUJ).sorti, true);
-  // Plus tard en France qu'ailleurs : « Nouveau » compté depuis la date française.
+  // Avant la date américaine : disponible aujourd'hui ; sources lues sans VF : elles décident (la date).
+  const avant = { ...film([pays("AR", [3, jours(-12)]), pays("US", [4, jours(20)])], jours(-12), "es"), plateformeFrance: true };
+  assert.deepEqual(etatSortie(avant, AUJ), { sorti: true, statut: "nouveau" });
+  assert.deepEqual(etatSortie(avant, AUJ, { vf: false, sources: 6 }), { sorti: false, statut: "bientot", quand: { quoi: "dispo", date: jours(20), vers: false } });
+  // « Nouveau » compté depuis la date américaine, pas la française.
   const tard = { ...film([pays("US", [4, jours(-40)]), pays("FR", [4, jours(-10)])]), plateformeFrance: true };
-  assert.deepEqual(etatSortie(tard, AUJ), { sorti: true, statut: "nouveau" });
+  assert.deepEqual(etatSortie(tard, AUJ), { sorti: true, statut: null });
 });
 
 test("film : rien de sorti → bientôt", () => {
@@ -181,13 +240,13 @@ test("sources : la VF trouvée décide pour un film récent", () => {
   const oasis = film([pays("FR", [3, jours(-42)]), pays("US", [3, jours(-40)], [4, jours(-12)])]);
   assert.equal(etatSortie(oasis, AUJ).sorti, true);
   assert.deepEqual(etatSortie(oasis, AUJ, { vf: false, sources: 20 }), { sorti: false, statut: "salle" });
-  // Bad Apples : aucune date francophone, mais des sources VF.
+  // Bad Apples : pas encore chez soi d'après les dates, mais des sources VF.
   assert.deepEqual(etatSortie(film([pays("DE", [3, jours(-41)])]), AUJ, { vf: true, sources: 36 }), { sorti: true, statut: "nouveau" });
   // Sorti en VO seulement, pas au cinéma en France : pas sorti (seule la VF compte), « Bientôt » sans date.
   const vo = film([pays("US", [3, jours(-60)], [4, jours(-20)]), pays("CA", [3, jours(-59)])]);
   assert.deepEqual(etatSortie(vo, AUJ, { vf: false, sources: 30 }), { sorti: false, statut: "bientot" });
-  // Aucune source du tout : pas dispo.
-  assert.equal(etatSortie(vo, AUJ, { vf: false, sources: 0 }).statut, "bientot");
+  // Aucune source du tout : rien ne contredit la date américaine passée, dispo.
+  assert.deepEqual(etatSortie(vo, AUJ, { vf: false, sources: 0 }), { sorti: true, statut: "nouveau" });
   // Sources inconnues (Torrentio en panne, ancienne réponse) : les dates.
   assert.deepEqual(etatSortie(vo, AUJ, null), etatSortie(vo, AUJ));
   assert.deepEqual(etatSortie(vo, AUJ, { vf: null, sources: null }), etatSortie(vo, AUJ));
@@ -216,10 +275,14 @@ test("sources : série récente sans VF → pas sortie", () => {
 });
 
 // 3670 : projeté en festival et sorti en Corée il y a plus d'un an, sortie au cinéma en France dans un mois : pas un
-// vieux film (« SORT LE … »). Une vraie reprise d'un vieux film (Quand la mer monte, 2004) reste un vieux film.
-test("vieux film : pas avec une sortie en France à venir, sauf vraie reprise", () => {
+// vieux film, ses sources sont lues (« SORT LE … » tant qu'elles n'ont pas la VF ; sans sources lues, sa date d'arrivée
+// chez soi, la salle coréenne + 45 jours, est passée). Une vraie reprise d'un vieux film (Quand la mer monte, 2004)
+// reste un vieux film.
+test("vieux film : pas avec une sortie en France à venir, sauf vraie reprise", async () => {
+  const { sourcesUtiles } = await import("../lib/statut.js");
   const f3670 = film([pays("KR", [1, jours(-540)], [3, jours(-413)]), pays("FR", [1, jours(-357)], [3, jours(28)])], "", "ko");
-  assert.deepEqual(etatSortie(f3670, AUJ), { sorti: false, statut: "bientot", quand: { quoi: "cinema", date: jours(28), vers: false } });
+  assert.equal(sourcesUtiles(f3670, AUJ), true);
+  assert.deepEqual(etatSortie(f3670, AUJ, { vf: false, sources: 9 }), { sorti: false, statut: "bientot", quand: { quoi: "cinema", date: jours(28), vers: false } });
   assert.equal(etatSortie(film([pays("FR", [3, "2004-10-27"], [3, jours(28)])], "", "fr"), AUJ).sorti, true);
 });
 

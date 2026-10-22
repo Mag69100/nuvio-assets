@@ -14,7 +14,7 @@ import { lireNoteImdb } from "../lib/notes.js";
 import { lireRang, secondesAvantBascule } from "../lib/tendances.js";
 import { qualityOf } from "../lib/qualite.js";
 import { posterContent, contentKey } from "../lib/contenu.js";
-import { etatSortie, sourcesUtiles, LIBELLES_FIN } from "../lib/statut.js";
+import { etatSortie, sourcesUtiles, dispoChezSoi, LIBELLES_FIN } from "../lib/statut.js";
 import { lireReglages, lireReglagesPaysage, ecrireReglages } from "../lib/lien-affiches.js";
 import { notesPlus } from "../lib/notes-plus.js";
 import { filmsDeLaSaga, rangSaga } from "../lib/saga.js";
@@ -232,7 +232,10 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       // X-Affiche-Sortie : de quoi comprendre une affiche grise ou un statut (« pas sorti » vient des dates, des sources
       // ou des plateformes françaises que TMDB connaît au moment du dessin). Rien de privé.
       const sortieVue = etatSortie(facts, aujourdhui, quality ? { vf: quality.vf, sources: quality.sources } : null);
+      // dispo : le jour d'arrivée chez soi d'un film (calendrier américain, lib/statut.js), « ~ » si estimé.
+      const chezSoi = type === "movie" ? dispoChezSoi(facts.releases, facts.originalLanguage) : null;
       const pourquoi = `${sortieVue.sorti ? "sorti" : "pas-sorti"} statut=${sortieVue.statut || "-"} vf=${quality ? quality.vf : "?"} sources=${quality ? quality.sources : "?"}`
+        + (chezSoi ? ` dispo=${chezSoi.date ? chezSoi.date + (chezSoi.vers ? "~" : "") : "-"}` : "")
         + ` plateforme-fr=${facts.plateformeFrance ? 1 : 0} tmdb-fr=${facts.plateformesVues || "-"} premiere=${facts.firstAir || facts.releaseDate || "-"} jour=${aujourdhui}`;
       const headers = { ...CORS, "Access-Control-Expose-Headers": "X-Affiche-Etat, X-Affiche-Sortie", "X-Affiche-Etat": enRetard ? "retard" : "complete",
         "X-Affiche-Sortie": pourquoi, ...cache, ETag: etag };

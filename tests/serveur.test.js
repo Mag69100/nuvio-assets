@@ -73,6 +73,22 @@ test("cles_de_cache_sans_la_version", async () => {
   for (const k of cles) assert.ok(!k.includes(version), k);
 });
 
+// Recherches : gardées sous la version de l'addon (une mise en ligne qui corrige la recherche se voit tout de suite),
+// et une minute seulement dans Nuvio (cache disque de Nuvio TV, qui suit max-age) : « bleach » resservi corrigé.
+test("recherche_cle_avec_la_version_et_une_minute_dans_nuvio", async () => {
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    if (String(url).includes("/search/tv")) return new Response(JSON.stringify({ results: [{ id: 5, name: "Bleach", first_air_date: "2004-10-05", vote_count: 2306, poster_path: "/b.jpg" }], total_pages: 1 }));
+    return new Response(JSON.stringify({ results: [] }));
+  };
+  const res = await get("/catalog/series/recherche-series/search=bleach.json");
+  assert.equal(res.headers.get("Cache-Control"), "public, max-age=60");
+  const version = /const VERSION = "([\d.]+)"/.exec(await import("node:fs").then((fs) => fs.readFileSync(new URL("../worker/index.js", import.meta.url), "utf8")))[1];
+  assert.ok([...store.keys()].some((k) => k.includes("/catalog/series/recherche-series/") && k.includes(version)), [...store.keys()].join("\n"));
+  // Relue dans le cache de Cloudflare : toujours une minute.
+  assert.equal((await get("/catalog/series/recherche-series/search=bleach.json")).headers.get("Cache-Control"), "public, max-age=60");
+});
+
 // Survol d'une affiche dans l'aperçu du site (?leger=1) : l'IA relit son cache, jamais d'appel à Gemini.
 test("fiche_legere_sans_appel_gemini", async () => {
   globalThis.fetch = async (url) => {

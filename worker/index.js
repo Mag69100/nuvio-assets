@@ -59,7 +59,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.4";
+const VERSION = "5.38.5";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -83,6 +83,7 @@ const CACHE_CLIENT_S = 300;        // et 5 min seulement dans le cache de Nuvio 
 // réglages, rien à attendre pour voir un changement. Celles d'un lien fixe gardent leur adresse quand les réglages
 // changent : 5 min, pour que « Actualiser les addons » montre vite les nouvelles rangées.
 const CACHE_CLIENT_LONG_S = 900;
+const CACHE_CLIENT_SEARCH_S = 60;   // une recherche : 1 min dans Nuvio (lettres tapées puis effacées), voir la route des rangées
 const CACHE_DEGRADE_S = 300;       // page incomplète (fiches refusées par TMDB) : 5 min seulement
 const CACHE_IMDB_S = 30 * 86400;    // correspondance TMDB → IMDb : 30 jours
 
@@ -2528,9 +2529,13 @@ const app = {
     }
     const aiTag = extra.search ? `&ai=${env.GEMINI_API_KEY ? 1 : 0}` : "";
     // La clé change aussi avec la photo des tendances (4 h UTC) : les rangées suivent les « N° » du jour.
-    const cacheKey = new Request(`https://cache.local/c${CACHE_V}/${today}${path}?k=${await sha(contentKey(cfg))}${aiTag}&t=${jourTendances()}`);
+    // Une recherche, elle, suit la version de l'addon : une mise en ligne qui corrige la recherche se voit tout de suite
+    // (peu d'appels à refaire : TMDB reste en cache par adresse, Gemini dans le sien). Et Nuvio ne la garde qu'une
+    // minute (Nuvio TV : cache disque OkHttp, qui suit max-age) : « bleach » y restait 5 min l'ancienne réponse.
+    const cacheKey = new Request(`https://cache.local/${extra.search ? `s${VERSION}` : `c${CACHE_V}`}/${today}${path}?k=${await sha(contentKey(cfg))}${aiTag}&t=${jourTendances()}`);
     const hit = await caches.default.match(cacheKey);
-    const clientCc = fixedId ? `public, max-age=${CACHE_CLIENT_S}` : `public, max-age=${CACHE_CLIENT_LONG_S}, stale-while-revalidate=${CACHE_CLIENT_LONG_S}`;
+    const clientCc = extra.search ? `public, max-age=${CACHE_CLIENT_SEARCH_S}`
+      : fixedId ? `public, max-age=${CACHE_CLIENT_S}` : `public, max-age=${CACHE_CLIENT_LONG_S}, stale-while-revalidate=${CACHE_CLIENT_LONG_S}`;
     // Page gardée incomplète (X-Partiel) : Nuvio ne la garde qu'une minute.
     if (hit) {
       const partiel = hit.headers.get("X-Partiel") ? { "X-Partiel": "1" } : {};

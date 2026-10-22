@@ -52,7 +52,7 @@ test("photo_prise_une_fois_par_jour", async () => {
   classement = [3, 2, 1];
   store.clear();   // un autre serveur de Cloudflare, sans cache : il la lit dans la base
   assert.deepEqual(await (await get("/tendances/movie.json")).json(), { ids: [1, 2, 3] });
-  assert.deepEqual(await photoDuJour(env, "movie"), [1, 2, 3]);
+  assert.deepEqual(await photoDuJour(env, "movie"), { ids: [1, 2, 3], provisoire: false });
   assert.deepEqual(await (await get("/tendances/series.json")).json(), { ids: [3, 2, 1] });   // séries : leur propre photo
   assert.ok(calls.some((u) => u.includes("/trending/tv/day")));
 });
@@ -66,13 +66,13 @@ test("tache_de_4h", async () => {
   await Promise.all(pas);
   assert.equal(jourTendances(quatreHeures), "2026-10-22");
   assert.equal(jourTendances(quatreHeures - 1), "2026-10-21");
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/movie")), [1, 2, 3]);
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/series")), [1, 2, 3]);
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/movie:rangs")), [1, 2, 3]);
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/series:rangs")), [1, 2, 3]);
   assert.ok(!env.LIENS.rows.has("2026-10-01/movie"));
   // Plus tard dans la journée, le classement a bougé : toujours la photo de 4 h.
   classement = [7];
   mock.timers.enable({ apis: ["Date"], now: quatreHeures + 3 * 3600000 });
-  try { assert.deepEqual(await photoDuJour(env, "movie"), [1, 2, 3]); } finally { mock.timers.reset(); }
+  try { assert.deepEqual((await photoDuJour(env, "movie")).ids, [1, 2, 3]); } finally { mock.timers.reset(); }
 });
 
 // Sans base (Docker) : le classement du moment, gardé par Cloudflare jusqu'au changement. TMDB en panne : 503.
@@ -87,4 +87,30 @@ test("sans_base_et_tmdb_en_panne", async () => {
   assert.equal(res.status, 503);
   assert.equal(res.headers.get("Cache-Control"), "no-store");
   assert.equal((await get("/tendances/anime.json")).status, 404);
+});
+
+// Le N° est la place dans la rangée : le classement TMDB, dans son ordre, sans ce qu'elle ne montre pas (1 : au cinéma
+// seulement ; 4 : pas encore sorti), renuméroté sans trous ; le reste suit, sans N°. Le classement brut n'est jamais
+// enregistré : il ne sert que si le classement échoue, 5 minutes.
+test("photo_renumerotee_comme_la_rangee", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const film = (id, dates) => ({ id, imdb_id: "tt" + (900 + id), original_language: "en",
+    release_dates: { results: dates.map(([pays, type, d]) => ({ iso_3166_1: pays, release_dates: [{ type, release_date: d + "T00:00:00.000Z" }] })) } });
+  const fiches = { 1: film(1, [["FR", 3, jour(-5)]]), 2: film(2, [["FR", 3, jour(-80)], ["US", 4, jour(-30)]]), 3: film(3, [["US", 3, "2001-05-01"]]), 4: film(4, []) };
+  const dates = { 1: jour(-5), 2: jour(-80), 3: "2001-05-01", 4: jour(30) };
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/trending/movie/day")) return new Response(JSON.stringify({ results: new URL(u).searchParams.get("page") === "1" ? [1, 4, 2, 3].map((id) => ({ id, release_date: dates[id], original_language: "en" })) : [] }));
+    const m = /\/movie\/(\d)\?/.exec(u);
+    if (m) return new Response(JSON.stringify(fiches[m[1]]));
+    return new Response("{}");
+  };
+  assert.deepEqual(await (await get("/tendances/movie.json")).json(), { ids: [2, 3, 1, 4] });
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get(`${jourTendances()}/movie:rangs`)), [2, 3, 1, 4]);
+  // Le classement échoue : le classement brut, provisoire (la route le garde 5 minutes), jamais enregistré.
+  env.LIENS.rows.clear();
+  const brut = await photoDuJour(env, "movie", Date.now(), async () => { throw new Error("TMDB en panne"); });
+  assert.deepEqual(brut, { ids: [1, 4, 2, 3], provisoire: true });
+  assert.equal(env.LIENS.rows.size, 0);
 });

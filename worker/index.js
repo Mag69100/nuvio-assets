@@ -756,8 +756,8 @@ function endpointAsDiscover(def) {
  */
 async function photoTendances(env, kind) {
   try {
-    // ?v=3 : la photo unique, prise par l'addon ; v=2 a été lue une fois chez l'ancien service, gardée jusqu'à 4 h.
-    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json?v=3`, { cf: { cacheTtl: secondesAvantBascule(), cacheEverything: true } });
+    // ?v=4 : la photo renumérotée (seulement ce que la rangée montre) ; les précédentes restent sous leurs adresses.
+    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json?v=4`, { cf: { cacheTtl: secondesAvantBascule(), cacheEverything: true } });
     const d = res.ok ? await res.json() : {};
     return new Map((Array.isArray(d.ids) ? d.ids : []).map((id, i) => [id, i]));
   } catch (e) { return new Map(); }
@@ -881,31 +881,54 @@ async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
     .filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; });
   let picked = released.slice(0, PAGE);
   if (kind === "movie") {
-    const infos = new Map();
-    picked = [];
-    for (let i = 0; i < released.length && picked.length < PAGE + 4 && infos.size < MAX_CHECKED;) {
-      const batch = released.slice(i, i + Math.min(PAGE + 4 - picked.length, MAX_CHECKED - infos.size));
-      i += batch.length;
-      const got = await Promise.all(batch.map((it) => extraInfo(env, kind, it.id)));
-      batch.forEach((it, k) => {
-        infos.set(it.id, got[k]);
-        if (picked.length < PAGE + 4 && watchable(got[k], it, today)) picked.push(it);
-      });
-    }
-    // En VF : les sources (un appel pour la page), sinon les dates, comme les affiches (enVfChezSoi) ; un vieux film
-    // reste (ses sources ne sont pas lues). 4 de plus gardés pour remplacer les titres en VO seulement.
-    const recent = (it) => !!infos.get(it.id).releases && filmRecent(infos.get(it.id).releases, today);
-    const sources = await sourcesVf(env, picked.filter(recent).map((it) => infos.get(it.id).imdb));
-    picked = picked.filter((it) => {
-      if (!recent(it)) return true;
-      const info = infos.get(it.id);
-      return enVfChezSoi(info.releases, it.original_language, today, sources.get(info.imdb), info.plateformeFr);
-    }).slice(0, PAGE);
-    opts = { ...opts, infos, sources };
+    const garde = await filmsRegardables(env, released, today, PAGE);
+    picked = garde.picked;
+    opts = { ...opts, infos: garde.infos, sources: garde.sources };
   }
   if (!picked.length) return [];
   const metas = await toMetas(env, ctx, picked, kind, opts, today);
   return metas.map(sansInternes);
+}
+
+/**
+ * Les films déjà regardables chez soi en VF parmi `released` (dans leur ordre), au plus `max` :
+ * { picked, infos, sources } (infos et sources resservent pour les fiches). Regardable : voir watchable ; en VF : les
+ * sources (un appel pour tous), sinon les dates, comme les affiches (enVfChezSoi) ; un vieux film reste (ses sources
+ * ne sont pas lues). 4 de plus examinés pour remplacer les titres en VO seulement.
+ */
+async function filmsRegardables(env, released, today, max) {
+  const infos = new Map();
+  let picked = [];
+  for (let i = 0; i < released.length && picked.length < max + 4 && infos.size < MAX_CHECKED;) {
+    const batch = released.slice(i, i + Math.min(max + 4 - picked.length, MAX_CHECKED - infos.size));
+    i += batch.length;
+    const got = await Promise.all(batch.map((it) => extraInfo(env, "movie", it.id)));
+    batch.forEach((it, k) => {
+      infos.set(it.id, got[k]);
+      if (picked.length < max + 4 && watchable(got[k], it, today)) picked.push(it);
+    });
+  }
+  const recent = (it) => !!infos.get(it.id).releases && filmRecent(infos.get(it.id).releases, today);
+  const sources = await sourcesVf(env, picked.filter(recent).map((it) => infos.get(it.id).imdb));
+  picked = picked.filter((it) => {
+    if (!recent(it)) return true;
+    const info = infos.get(it.id);
+    return enVfChezSoi(info.releases, it.original_language, today, sources.get(info.imdb), info.plateformeFr);
+  }).slice(0, max);
+  return { picked, infos, sources };
+}
+
+/**
+ * Les « N° » du jour (worker/tendances.js) : le classement TMDB (results, dans l'ordre) gardé seulement pour ce que la
+ * rangée « Tendances du jour » montre (déjà sorti ; films regardables chez soi en VF), renuméroté sans trous, dans le
+ * même ordre. Les 20 premiers : seuls eux portent un N°.
+ */
+const RANGS = 20;
+async function classerTendances(env, kind, results) {
+  const today = parisToday();
+  const released = results.filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; });
+  if (kind !== "movie") return released.slice(0, RANGS).map((it) => it.id);
+  return (await filmsRegardables(env, released, today, RANGS)).picked.map((it) => it.id);
 }
 
 /**
@@ -1933,7 +1956,7 @@ export default {
   },
   // Tâche planifiée de 4 h UTC (wrangler.toml) : la photo du jour des tendances.
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(prendrePhotos(env, event.scheduledTime));
+    ctx.waitUntil(prendrePhotos(env, event.scheduledTime, classerTendances));
   },
 };
 
@@ -2043,7 +2066,7 @@ const app = {
     if (path === "/programmation.json") return json(programmationPublique(cfg), fixedId ? 60 : 86400);
     // La photo du jour des tendances, lue par le service d'affiches (worker/tendances.js).
     const tend = !cfgSeg && /^\/tendances\/([a-z]+)\.json$/.exec(path);
-    if (tend) return routeTendances(env, tend[1], HEADERS);
+    if (tend) return routeTendances(env, tend[1], HEADERS, classerTendances);
     // Guide : le mot de passe de la séance (seance.js) et le diagnostic par photo (diagnostic.js).
     const sc = /^\/seance\/([^/]+)$/.exec(path);
     if (sc) return routeSeance(request, env, sc[1]);

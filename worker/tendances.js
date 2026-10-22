@@ -5,10 +5,15 @@
  * la publie sur /tendances/{movie|series}.json (N° des affiches) en la lisant ici, et les rangées « Tendances du
  * jour » s'y rangent. Avant, chacun la prenait à sa première demande de la journée, sur un classement qui bouge
  * d'heure en heure : les N° et l'ordre des rangées ne se suivaient plus.
+ * Le N° est la place dans la rangée : le classement TMDB, dans son ordre, sans ce que la rangée ne montre pas (au
+ * cinéma seulement, pas encore en VF… : classer, dans worker/index.js), renuméroté sans trous ; le reste suit, sans N°.
+ * Classement impossible (TMDB, sources) : le classement brut, gardé 5 minutes seulement et jamais enregistré.
  * Sans base (Docker, ou base pas encore prête) : le classement du moment, gardé par Cloudflare jusqu'au changement.
  */
 export const BASCULE_UTC_H = 4;
 const TOP = 60, GARDE_JOURS = 7;
+// Clé de la photo en base : « movie:rangs » (renumérotée) ; la photo brute d'avant, « movie », n'est plus lue.
+const CLE = (kind) => `${kind}:rangs`;
 
 export function secondesAvantBascule(now = Date.now()) {
   const d = new Date(now), b = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), BASCULE_UTC_H);
@@ -17,7 +22,7 @@ export function secondesAvantBascule(now = Date.now()) {
 /** Le jour de la photo en cours (elle change à 4 h UTC). */
 export const jourTendances = (now = Date.now()) => new Date(now - BASCULE_UTC_H * 3600000).toISOString().slice(0, 10);
 
-/** Le classement TMDB du moment (3 pages, sans doublon), lu sans cache ; null si TMDB ne répond pas. */
+/** Le classement TMDB du moment (3 pages, sans doublon : les titres, dans l'ordre), lu sans cache ; null si TMDB ne répond pas. */
 async function lireTmdb(env, kind) {
   try {
     const pages = await Promise.all([1, 2, 3].map(async (page) => {
@@ -27,8 +32,8 @@ async function lireTmdb(env, kind) {
       if (!res.ok) throw new Error(`TMDB ${res.status}`);
       return res.json();
     }));
-    const ids = pages.flatMap((d) => (d && d.results) || []).map((it) => it.id);
-    return ids.length ? ids.filter((id, i) => ids.indexOf(id) === i).slice(0, TOP) : null;
+    const titres = pages.flatMap((d) => (d && d.results) || []).filter((it, i, all) => all.findIndex((x) => x.id === it.id) === i);
+    return titres.length ? titres.slice(0, TOP) : null;
   } catch (e) { return null; }
 }
 
@@ -42,39 +47,55 @@ async function lueEnBase(env, jour, kind) {
   return r ? JSON.parse(r.ids) : null;
 }
 
-/** La photo du jour (prise maintenant si personne ne l'a encore prise), ou null si TMDB ne répond pas. */
-export async function photoDuJour(env, kind, now = Date.now()) {
+/** La photo renumérotée : { ids, provisoire } (provisoire : le classement brut, le classement ayant échoué), ou null. */
+async function prendre(env, kind, classer) {
+  const titres = await lireTmdb(env, kind);
+  if (!titres) return null;
+  const ids = titres.map((it) => it.id);
+  const rangs = classer ? await classer(env, kind, titres).catch((e) => { console.warn(`classement des tendances : ${e && e.message}`); return null; }) : null;
+  if (!Array.isArray(rangs)) return { ids, provisoire: true };
+  const premiers = new Set(rangs);
+  return { ids: [...rangs, ...ids.filter((id) => !premiers.has(id))], provisoire: false };
+}
+
+/**
+ * La photo du jour (prise maintenant si personne ne l'a encore prise) : { ids, provisoire }, ou null si TMDB ne répond
+ * pas. classer(env, kind, titres) : les identifiants qui portent un N°, dans l'ordre (worker/index.js).
+ */
+export async function photoDuJour(env, kind, now = Date.now(), classer = null) {
   const jour = jourTendances(now);
-  if (!env.LIENS) return lireTmdb(env, kind);
+  if (!env.LIENS) return prendre(env, kind, classer);
   try {
     await table(env);
-    const deja = await lueEnBase(env, jour, kind);
-    if (deja) return deja;
-    const ids = await lireTmdb(env, kind);
-    if (!ids) return null;
+    const deja = await lueEnBase(env, jour, CLE(kind));
+    if (deja) return { ids: deja, provisoire: false };
+    const photo = await prendre(env, kind, classer);
+    if (!photo || photo.provisoire) return photo;
     // Une autre demande a pu la prendre entre-temps : la sienne reste, et c'est elle qu'on rend.
-    await env.LIENS.prepare("INSERT OR IGNORE INTO tendances (j, k, ids) VALUES (?, ?, ?)").bind(jour, kind, JSON.stringify(ids)).run();
+    await env.LIENS.prepare("INSERT OR IGNORE INTO tendances (j, k, ids) VALUES (?, ?, ?)").bind(jour, CLE(kind), JSON.stringify(photo.ids)).run();
     await env.LIENS.prepare("DELETE FROM tendances WHERE j < ?").bind(jourTendances(now - GARDE_JOURS * 86400000)).run();
-    return (await lueEnBase(env, jour, kind)) || ids;
+    return { ids: (await lueEnBase(env, jour, CLE(kind))) || photo.ids, provisoire: false };
   } catch (e) {
     console.warn(`photo des tendances : ${e && e.message}`);
-    return lireTmdb(env, kind);
+    return prendre(env, kind, classer);
   }
 }
 
 /** Tâche planifiée de 4 h UTC : la photo des films et celle des séries. */
-export const prendrePhotos = (env, now = Date.now()) => Promise.all(["movie", "series"].map((kind) => photoDuJour(env, kind, now)));
+export const prendrePhotos = (env, now = Date.now(), classer = null) => Promise.all(["movie", "series"].map((kind) => photoDuJour(env, kind, now, classer)));
 
 /** /tendances/{movie|series}.json : { ids }, gardé par Cloudflare (et ceux qui la lisent) jusqu'au changement. */
-export async function routeTendances(env, kind, headers) {
+export async function routeTendances(env, kind, headers, classer = null) {
   if (!["movie", "series"].includes(kind)) return new Response(JSON.stringify({ error: "introuvable" }), { status: 404, headers: { ...headers, "Cache-Control": "public, max-age=3600" } });
-  const cle = new Request(`https://tendances.cache/${jourTendances()}/${kind}.json`);
-  const rendre = (corps) => new Response(corps, { headers: { ...headers, "Cache-Control": `public, max-age=${secondesAvantBascule()}` } });
+  const cle = new Request(`https://tendances.cache/rangs/${jourTendances()}/${kind}.json`);
+  const rendre = (corps, s = secondesAvantBascule()) => new Response(corps, { headers: { ...headers, "Cache-Control": `public, max-age=${s}` } });
   const hit = await caches.default.match(cle);
   if (hit) return rendre(await hit.text());
-  const ids = await photoDuJour(env, kind);
-  if (!ids) return new Response(JSON.stringify({ error: "TMDB injoignable" }), { status: 503, headers: { ...headers, "Cache-Control": "no-store" } });
-  const corps = JSON.stringify({ ids });
+  const photo = await photoDuJour(env, kind, Date.now(), classer);
+  if (!photo) return new Response(JSON.stringify({ error: "TMDB injoignable" }), { status: 503, headers: { ...headers, "Cache-Control": "no-store" } });
+  const corps = JSON.stringify({ ids: photo.ids });
+  // Classement brut (le classement a échoué) : 5 minutes, pour reprendre la vraie photo ensuite.
+  if (photo.provisoire) return rendre(corps, Math.min(300, secondesAvantBascule()));
   await caches.default.put(cle, new Response(corps, { headers: { "Cache-Control": `public, max-age=${secondesAvantBascule()}` } }));
   return rendre(corps);
 }

@@ -160,7 +160,7 @@ chaque correction. Rien ne change sans ton accord.
 | `catalogs.json` | Définition des catalogues et rangées |
 | `collections/` | Les collections Nuvio |
 | `assets.json`, `genres/`, `seasons/`, `gifs/`, `titles/` | Images des tuiles de collections (1280×720) et animations au survol |
-| `data/` | Données communes : notes IMDb, vocabulaire de recherche, plateformes |
+| `data/` | Données communes : notes IMDb, vocabulaire de recherche, plateformes, fenêtres salle → numérique des distributeurs (`estimations-vod.json`, lues aussi par les copies) |
 | `scripts/` | Scripts Python lancés par GitHub Actions |
 | `addon/` | Ancien addon statique (encore construit chaque nuit pour les anciennes installations) |
 | `Dockerfile`, `docker/`, `docker-compose.yml` | Image des copies Docker |
@@ -186,7 +186,7 @@ workflow « Tests ».
 | Workflow | Quand | Ce qu'il fait |
 |---|---|---|
 | Tests | à chaque push et pull request | Les trois suites de tests |
-| Mettre à jour l'addon | chaque nuit, et à chaque changement de `catalogs.json`, `scripts/update_addon.py` ou `scripts/build_search_words.py` | Addon statique, saison en cours, vocabulaire de recherche |
+| Mettre à jour l'addon | chaque nuit, et à chaque changement de `catalogs.json`, `scripts/update_addon.py`, `scripts/build_search_words.py` ou `scripts/build_fenetres_vod.py` | Addon statique, saison en cours, vocabulaire de recherche, fenêtres des distributeurs américains (dates « Dispo vers le ») |
 | Notes IMDb | chaque lundi, et à chaque changement de `scripts/build_imdb_ratings.py` | Refait `data/imdb-ratings.bin`, puis relance l'image Docker s'il a changé |
 | Générer les images des collections | à chaque changement d'`assets.json`, `scripts/make_assets.py` ou `fonts/` | Tuiles et GIF |
 | Image Docker | à chaque changement du Worker, de `catalogs.json`, `wrangler.toml`, `Dockerfile` ou `docker/`, et après de nouvelles notes IMDb | Publie `ghcr.io/xnzx07/nuvio-assets` |

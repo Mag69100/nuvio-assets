@@ -6,6 +6,7 @@ on:
     paths:
       - "scripts/update_addon.py"
       - "scripts/build_search_words.py"
+      - "scripts/build_fenetres_vod.py"
       - "catalogs.json"
   schedule:
     - cron: "17 3 * * *"   # chaque nuit vers 5 h (heure de Paris en été)
@@ -61,6 +62,14 @@ jobs:
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: python scripts/build_search_words.py
+      - name: Fenêtres salle → numérique des distributeurs (dates « Dispo vers le »)
+        id: vod
+        # En échec (TMDB ou Wikidata en panne, apprentissage trop maigre), le fichier de la veille reste : l'addon et
+        # les affiches continuent de l'utiliser (bilan en rouge).
+        continue-on-error: true
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: python scripts/build_fenetres_vod.py
       - name: Enregistrer
         run: |
           git config user.name "github-actions[bot]"
@@ -75,13 +84,15 @@ jobs:
           done
           exit 1
       - name: Bilan
-        if: steps.addon.outputs.code == '3' || steps.words.outcome == 'failure'
+        if: steps.addon.outputs.code == '3' || steps.words.outcome == 'failure' || steps.vod.outcome == 'failure'
         env:
           CODE: ${{ steps.addon.outputs.code }}
           MOTS: ${{ steps.words.outcome }}
+          VOD: ${{ steps.vod.outcome }}
         run: |
           [ "$CODE" != 3 ] || echo "::error::Des listes ont échoué : elles gardent leurs pages de la veille (voir addon/state.json)."
           [ "$MOTS" != failure ] || echo "::error::Vocabulaire de la recherche non refait : l'ancien reste."
+          [ "$VOD" != failure ] || echo "::error::Fenêtres des distributeurs non refaites : data/estimations-vod.json de la veille reste."
           exit 1
       - name: Signaler l'échec
         if: failure()

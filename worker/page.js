@@ -372,6 +372,7 @@ ${copy ? HOTE_HTML : ""}
         <div class="regie-import regie-qr" id="regie-qr" role="region" aria-label="QR code du lien d'affiches" hidden>
           <div id="regie-qr-code" class="regie-qr-code">Impression du QR code…</div>
           <p>Scanne-le avec ton téléphone : ton lien d'affiches s'ouvre, prêt à copier. Colle-le ensuite dans Nuvio : Paramètres → Disposition → Custom Poster Source. Le QR code suit tes réglages.</p>
+          <p>Sur iPhone, vérifie que le lien collé garde ses accolades (<code>{type}/{shape}</code>, pas <code>%7Btype%7D</code>) : sinon Nuvio TV n'applique tes affiches qu'en portrait.</p>
         </div>
       </div>
       <div class="regie-corps">

@@ -536,6 +536,7 @@ ${secretsHTML("guide")}
       <li>Dans Nuvio : <span class="path">Paramètres → Disposition → Custom Poster Source</span>. Le plus simple : <b>Configure via Phone</b>, puis colle le lien depuis ton téléphone.</li>
       <li>En dessous, dans « Apply to », laisse tout activé (Home, Collections, Library, Search, Details Screen…). Les affiches se mettent à jour au fil de la navigation.</li>
     </ol>
+    <p class="small">Sur iPhone, le lien se colle souvent abîmé : <code>%7Btype%7D/%7Bshape%7D…</code> au lieu de <code>{type}/{shape}…</code>. Nuvio TV n'applique alors tes affiches qu'en portrait, jamais en paysage. Vérifie les accolades avant d'enregistrer, ou ouvre la page « Configure via Phone » sur ton ordinateur et colle le lien depuis là.</p>
   </section>
 
 

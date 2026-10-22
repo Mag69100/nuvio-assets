@@ -15,10 +15,11 @@ import { resetMemo as r5 } from "../lib/texte.js";
 import { resetMemo as r6 } from "../lib/notes-plus.js";
 import { resetMemo as r7 } from "../lib/saga.js";
 import { resetMemo as r8 } from "../lib/saison.js";
+import { resetMemo as r9, ESTIMATIONS_URL } from "../lib/estimations.js";
 import { readFileSync } from "node:fs";
 import satori from "satori";
 
-beforeEach(() => { r1(); r2(); r3(); r4(); r5(); r6(); r7(); r8(); });
+beforeEach(() => { r1(); r2(); r3(); r4(); r5(); r6(); r7(); r8(); r9(); });
 
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status });
 const film = {
@@ -667,4 +668,30 @@ test("langue_lue_dans_les_sources", async () => {
   const off = multi();
   await makeHandler({ fetchImpl: off, env: { ...env, QUALITE: "off" } })(req("type=movie&shape=poster&id=tt15239678&s=1.Q03g1"));
   assert.ok(!off.calls.some((u) => u.includes("/qualite/")));
+});
+
+// En salle aux États-Unis depuis 10 jours, sans date numérique : la date estimée d'après la fenêtre de son distributeur
+// américain (data/estimations-vod.json : Disney, 60 jours), la même que la fiche de l'addon. Table illisible : la salle
+// + 45 jours, et le cache court pour l'avoir ensuite.
+test("dispo_estimee_d_apres_le_distributeur", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const enSalle = { ...film, release_date: jour(-10), original_language: "en",
+    release_dates: { results: [{ iso_3166_1: "US", release_dates: [{ type: 3, release_date: jour(-10) + "T00:00:00.000Z" }] }] } };
+  const table = { maj: jour(0), mediane: 32, fenetres: {}, films: { tt15239678: { date: jour(50), distributeur: "Q1323594", jours: 60 } } };
+  const avec = (reponse) => {
+    const base = internet({ detail: json(enSalle) });
+    const f = async (u, o) => { if (String(u) !== ESTIMATIONS_URL) return base(u, o); base.calls.push(String(u)); return reponse(); };
+    f.calls = base.calls;
+    return f;
+  };
+  const f = avec(() => json(table));
+  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("X-Affiche-Sortie"), new RegExp(` dispo=${jour(50)}~ `));
+  assert.equal(res.headers.get("X-Affiche-Etat"), "complete");
+  assert.equal(f.calls.filter((u) => u === ESTIMATIONS_URL).length, 1);
+  r9();
+  const sans = await makeHandler({ fetchImpl: avec(() => new Response("?", { status: 404 })), env })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.match(sans.headers.get("X-Affiche-Sortie"), new RegExp(` dispo=${jour(35)}~ `));
+  assert.equal(sans.headers.get("X-Affiche-Etat"), "retard");
 });

@@ -329,3 +329,16 @@ test("série : nouvelle saison bientôt", () => {
   assert.equal(etatSortie({ ...s, nextEpisode: jours(90), nextSeason: 3, nextEpisodeNumber: 1 }, AUJ).statut, null);
   assert.equal(etatSortie({ ...serie(jours(20)), nextEpisode: jours(20), nextSeason: 1, nextEpisodeNumber: 1 }, AUJ).statut, "bientot");
 });
+
+// Sans date numérique américaine : la salle + la fenêtre du distributeur américain (facts.vod, lib/estimations.js),
+// « DISPO VERS LE » comme avant ; une date annoncée l'emporte toujours.
+test("dispo_estimee_d_apres_le_distributeur", async () => {
+  const { estimationDe, tableVod } = await import("../lib/statut.js");
+  const table = tableVod({ mediane: 32, fenetres: {}, films: { tt1: { date: jours(50), distributeur: "Q1323594", jours: 60 } } });
+  const enSalle = [pays("US", [3, jours(-10)])];
+  const avec = (releases, imdb) => ({ ...film(releases), vod: estimationDe(table, imdb) });
+  assert.deepEqual(etatSortie(avec(enSalle, "tt1"), AUJ), { sorti: false, statut: "bientot", quand: { quoi: "dispo", date: jours(50), vers: true } });
+  assert.deepEqual(etatSortie(avec(enSalle, "tt2"), AUJ).quand, { quoi: "dispo", date: jours(22), vers: true });
+  assert.deepEqual(etatSortie(film(enSalle), AUJ).quand, { quoi: "dispo", date: jours(35), vers: true });
+  assert.deepEqual(etatSortie(avec([pays("US", [3, jours(-10)], [4, jours(5)])], "tt1"), AUJ).quand, { quoi: "dispo", date: jours(5), vers: false });
+});

@@ -311,19 +311,29 @@ async function tmdb(env, path, params = {}, lang = "fr-FR") {
  */
 const INFOS = new Map();
 const INFOS_MAX = 3000, INFOS_MS = 3 * 3600e3;
-/** Pour les tests : oublie les résumés gardés en mémoire. */
-export const oublierInfos = () => INFOS.clear();
+/** Pour les tests : oublie les résumés gardés en mémoire, et la table des estimations. */
+export const oublierInfos = () => { INFOS.clear(); oublierEstimations(); };
 
 async function extraInfo(env, kind, tmdbId) {
   const k = `${kind}:${tmdbId}`, memo = INFOS.get(k);
-  if (memo && Date.now() - memo.at < INFOS_MS) return memo.info;
+  if (memo && Date.now() - memo.at < INFOS_MS) return avecEstimation(memo.info);
   const info = await lireInfo(env, kind, tmdbId);
   if (info.lu) {
     INFOS.delete(k);
     INFOS.set(k, { at: Date.now(), info });
     if (INFOS.size > INFOS_MAX) INFOS.delete(INFOS.keys().next().value);   // le plus ancien
   }
-  return info;
+  return avecEstimation(info);
+}
+
+/**
+ * Un film en salle aux États-Unis sans date numérique : ses infos avec son estimation (vod, voir estimationDe), pour
+ * dispoChezSoi. Ajoutée à chaque lecture, pas gardée avec le résumé : la table change chaque nuit. Les autres titres
+ * ne lisent pas la table (aucun appel pour une page qui n'en a pas besoin).
+ */
+async function avecEstimation(info) {
+  if (!info.releases || !besoinEstimation(info.releases)) return info;
+  return { ...info, vod: estimationDe(await estimationsVod(), info.imdb) };
 }
 
 /** Ce qui sert d'un épisode TMDB (episodeNote, isFinale). */
@@ -468,6 +478,83 @@ function betweenSeasons(ep, today) {
     && !(next && next.season_number === last.season_number));
 }
 
+// ---------- Fenêtres salle → numérique des distributeurs américains ----------
+// data/estimations-vod.json, refait chaque nuit par scripts/build_fenetres_vod.py : la fenêtre habituelle de chaque
+// distributeur (mesurée sur ses films des deux dernières années) et l'estimation des films en salle aux États-Unis
+// sans sortie numérique annoncée. Lu sur le dépôt principal (ASSETS), comme les copies : rien à régler chez elles.
+// Gardé 1 h dans la mémoire de l'instance (et par Cloudflare) : au plus un appel par requête, aucun d'habitude.
+// Illisible : la salle + 45 jours, comme avant. Le service d'affiches lit le même fichier (affiches/lib/estimations.js).
+const VOD_URL = `${ASSETS}/data/estimations-vod.json`;
+const VOD_MS = 3600e3, VOD_ECHEC_MS = 5 * 60e3, VOD_DELAI_MS = 3000;
+const SALLE_JOURS = 45;   // sans le fichier : le délai habituel d'avant (salle + 45 jours)
+let VOD = null;           // { table (ou null), until, promesse (lecture en cours, ou null) }
+
+const joursValides = (n) => Number.isInteger(n) && n >= 0 && n <= 200;
+/** Le fichier lu, vérifié : { mediane (ou null), films, fenetres }, ou null s'il n'a pas la bonne forme. */
+function tableVod(d) {
+  if (!d || typeof d !== "object" || !d.films || typeof d.films !== "object") return null;
+  return { mediane: joursValides(d.mediane) ? d.mediane : null, films: d.films, fenetres: d.fenetres && typeof d.fenetres === "object" ? d.fenetres : {} };
+}
+
+/**
+ * La table des estimations, ou null (pas lue, illisible). Une seule lecture à la fois pour toute l'instance ; une
+ * requête qui arrive pendant celle d'une autre ne l'attend pas plus de VOD_DELAI_MS (l'autre requête peut finir avant).
+ * Échec : l'ancienne table sert encore, nouvel essai dans 5 minutes.
+ */
+function estimationsVod() {
+  const now = Date.now();
+  if (!VOD || (!VOD.promesse && now >= VOD.until)) {
+    const ancienne = VOD ? VOD.table : null;
+    const etat = { table: ancienne, until: Infinity, promesse: null };
+    etat.promesse = fetch(VOD_URL, { signal: AbortSignal.timeout(VOD_DELAI_MS), cf: { cacheTtl: 3600, cacheEverything: true } })
+      .then((r) => (r.ok ? r.json() : null)).then(tableVod).catch(() => null)
+      .then((t) => {
+        etat.table = t || ancienne;
+        etat.until = Date.now() + (t ? VOD_MS : VOD_ECHEC_MS);
+        etat.promesse = null;
+        return etat.table;
+      });
+    VOD = etat;
+  }
+  const etat = VOD;
+  if (!etat.promesse) return Promise.resolve(etat.table);
+  let timer;
+  return Promise.race([etat.promesse, new Promise((ok) => { timer = setTimeout(() => ok(etat.table), VOD_DELAI_MS + 500); })])
+    .finally(() => clearTimeout(timer));
+}
+
+/** L'entrée d'un film (identifiant IMDb) dans la table, et la médiane générale, pour dispoChezSoi ; null sans table. */
+function estimationDe(table, imdb) {
+  if (!table) return null;
+  return { film: imdb && Object.hasOwn(table.films, imdb) ? table.films[imdb] : null, mediane: table.mediane };
+}
+
+/**
+ * Jours entre la salle américaine et l'estimation de la sortie numérique : la fenêtre du distributeur du film (table),
+ * sinon la médiane de tous les films mesurés, sinon 45 jours. On ajoute les jours de la table à la salle connue
+ * aujourd'hui (pas sa date toute faite) : une sortie en salle repoussée depuis la nuit décale l'estimation aussi.
+ */
+function fenetreVod(vod) {
+  const f = vod && vod.film;
+  if (f && joursValides(f.jours)) return f.jours;
+  return vod && joursValides(vod.mediane) ? vod.mediane : SALLE_JOURS;
+}
+
+/**
+ * [plus courte, plus longue] fenêtre de la table (distributeurs, films estimés, médiane générale) ; [45, 45] sans
+ * table. Un film resté longtemps en salle sans date a une estimation plus lointaine que la fenêtre de son distributeur.
+ */
+function bornesVod(table) {
+  const jours = table ? [table.mediane, ...[...Object.values(table.fenetres), ...Object.values(table.films)].map((f) => f && f.jours)].filter(joursValides) : [];
+  return jours.length ? [Math.min(...jours), Math.max(...jours)] : [SALLE_JOURS, SALLE_JOURS];
+}
+
+/** Une estimation à faire : sortie en salle aux États-Unis, sans sortie numérique américaine annoncée. */
+const besoinEstimation = (releases) => releaseDates(releases, [2, 3], ["US"]).length > 0 && !releaseDates(releases, [4], ["US"]).length;
+
+/** Pour les tests : oublie la table gardée en mémoire. */
+const oublierEstimations = () => { VOD = null; };
+
 /** Dates de sortie (AAAA-MM-JJ, triées) des types demandés, dans les pays demandés (tous sans pays). */
 function releaseDates(releases, types, countries) {
   return (releases || [])
@@ -485,22 +572,23 @@ function releaseDates(releases, types, countries) {
  * apparaître les sources, souvent déjà avec la VF (les sources le disent ensuite) ; la chronologie des médias française
  * ne compte pas.
  *   - sa sortie numérique aux États-Unis, annoncée (L'Odyssée : le 17 nov., même en salle en France depuis juillet) ;
- *   - sinon sa sortie en salle aux États-Unis + 45 jours (délai habituel), en estimation ;
+ *   - sinon sa sortie en salle aux États-Unis + la fenêtre habituelle de son distributeur américain, en estimation
+ *     (vod = estimationDe : Universal 18 jours, Disney 60…, voir fenetreVod) ;
  *   - film français (rarement sorti aux États-Unis), ou film étranger jamais sorti aux États-Unis : ses propres dates,
  *     la première sortie numérique (vidéo, télé) où que ce soit, sinon la première salle + 45 jours.
  * La même fonction que dispoChezSoi dans affiches/lib/statut.js : la fiche et l'affiche disent le même jour.
  */
-function dispoChezSoi(releases, langue) {
+export function dispoChezSoi(releases, langue, vod = null) {
   if (langue !== "fr") {
     const numerique = releaseDates(releases, [4], ["US"])[0];
     if (numerique) return { date: numerique, vers: false };
     const salle = releaseDates(releases, [2, 3], ["US"])[0];
-    if (salle) return { date: addDays(salle, 45), vers: true };
+    if (salle) return { date: addDays(salle, fenetreVod(vod)), vers: true };
   }
   const connu = releaseDates(releases, [4, 5, 6])[0];
   if (connu) return { date: connu, vers: false };
   const salle = releaseDates(releases, [2, 3])[0];
-  return salle ? { date: addDays(salle, 45), vers: true } : { date: "", vers: false };
+  return salle ? { date: addDays(salle, SALLE_JOURS), vers: true } : { date: "", vers: false };
 }
 
 /**
@@ -530,11 +618,11 @@ const enVo = (lu) => !!lu && !lu.vf && lu.sources > 0;
  * date), sinon la date de dispoChezSoi passée — le fichier américain est sorti —, sauf si ses sources n'ont pas la VF ;
  * sans sources lues (vieux film, service muet) ou sans aucune source, la date dit vrai. Sources pas lues : une
  * plateforme en France (en VF, vfSurPlateforme) suffit, même avant la date.
- * lu = { vf, sources } des sources (ou rien), plateformeFr = vfSurPlateforme.
+ * lu = { vf, sources } des sources (ou rien), plateformeFr = vfSurPlateforme, vod = estimationDe (voir dispoChezSoi).
  */
-function enVfChezSoi(releases, langue, today, lu, plateformeFr = false) {
+function enVfChezSoi(releases, langue, today, lu, plateformeFr = false, vod = null) {
   if (lu && lu.vf) return true;
-  const { date } = dispoChezSoi(releases, langue);
+  const { date } = dispoChezSoi(releases, langue, vod);
   if (date && date <= today) return !enVo(lu);
   return !lu && !!plateformeFr;
 }
@@ -594,15 +682,16 @@ function filmRecent(releases, today) {
  * Quand le film sera visible chez soi en VF (dispoChezSoi : le calendrier américain), comme l'affiche :
  *   « Dispo le 17 nov. »          date annoncée, à venir (même si les sources n'ont encore que la VO : le fichier
  *                                 américain n'est pas sorti, on ne dit pas « Pas encore en VF »)
- *   « Dispo vers le 3 déc. »      pas de date annoncée : estimation (salle + 45 jours)
+ *   « Dispo vers le 3 déc. »      pas de date annoncée : estimation (salle + la fenêtre du distributeur américain,
+ *                                 sans le nommer)
  *   « Dispo depuis le 9 oct. »    date passée depuis moins de 60 jours
  *   « Pas encore en VF »          date passée, sources sans VF (The Fix) : on ne sait pas quand elle viendra
  *   « Déjà dispo »                en VF avant la date (sources VF, ou plateforme en France quand on n'a pas lu les sources)
  * etat = { vf: sources VF (ou plateforme en France en VF, sources pas lues), vo: sources sans VF, surPlateforme: sur
- * une plateforme en France sans savoir si c'est en VF (sources pas lues) }.
+ * une plateforme en France sans savoir si c'est en VF (sources pas lues) }. vod = estimationDe (voir dispoChezSoi).
  */
-function releaseNote(releases, langue, today, etat = {}) {
-  const { date, vers } = dispoChezSoi(releases || [], langue);
+function releaseNote(releases, langue, today, etat = {}, vod = null) {
+  const { date, vers } = dispoChezSoi(releases || [], langue, vod);
   const connuPasse = !!date && !vers && date <= today;
   // Les dates et les plateformes se trompent (Kraken, norvégien, en VF sur Paramount+) : seules les sources disent
   // « Pas encore en VF », et seulement une fois le fichier sorti.
@@ -669,8 +758,8 @@ async function toMetas(env, ctx, results, kind, opts, today) {
     const recent = kind === "movie" && filmRecent(infos[i].releases, today);
     const lu = recent ? sources.get(ids[i]) : null;
     // En VF chez soi aujourd'hui : la date américaine passée, ou les sources (voir enVfChezSoi), comme les affiches.
-    const chezSoi = kind === "movie" ? dispoChezSoi(infos[i].releases, it.original_language) : { date: "", vers: false };
-    const vf = kind === "movie" && enVfChezSoi(infos[i].releases, it.original_language, today, lu, infos[i].plateformeFr);
+    const chezSoi = kind === "movie" ? dispoChezSoi(infos[i].releases, it.original_language, infos[i].vod) : { date: "", vers: false };
+    const vf = kind === "movie" && enVfChezSoi(infos[i].releases, it.original_language, today, lu, infos[i].plateformeFr, infos[i].vod);
     // « Pas encore en VF » : le fichier est sorti (date passée), ses sources n'ont pas la VF. Avant la date, la date.
     const vo = enVo(lu) && !(chezSoi.date > today);
     const date = it.release_date || it.first_air_date || "";
@@ -679,7 +768,7 @@ async function toMetas(env, ctx, results, kind, opts, today) {
     const note = kind !== "movie" ? episodeNote(infos[i].episode, today)
       : opts.upcoming ? cinemaNote(infos[i].releases, opts.region, date, today)
       : releaseNote(infos[i].releases, it.original_language, today,
-        lu ? { vf: lu.vf, vo: enVo(lu), langue: lu.langue } : { vf: infos[i].plateformeFr, surPlateforme: !!infos[i].plateformeVo });
+        lu ? { vf: lu.vf, vo: enVo(lu), langue: lu.langue } : { vf: infos[i].plateformeFr, surPlateforme: !!infos[i].plateformeVo }, infos[i].vod);
     // Pas encore regardable : la date affichée par Nuvio (carrousel, « date de sortie
     // complète ») devient la date de dispo plutôt que la sortie en salle.
     const dispo = chezSoi.date;
@@ -852,7 +941,7 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
         // Sans dates (TMDB muet) : gardé. Une ressortie (Les Diables, 1971) aussi : un vieux film a sa VF, mais il
         // revient au cinéma, sa place est ici.
         if (!info.releases || !filmRecent(info.releases, today)) return true;
-        return !enVfChezSoi(info.releases, it.original_language, today, sources.get(info.imdb), info.plateformeFr);
+        return !enVfChezSoi(info.releases, it.original_language, today, sources.get(info.imdb), info.plateformeFr, info.vod);
       });
     };
     let gardes = await garder(data.results);
@@ -951,7 +1040,7 @@ async function filmsRegardables(env, released, today, max) {
   picked = picked.filter((it) => {
     if (!recent(it)) return true;
     const info = infos.get(it.id);
-    return enVfChezSoi(info.releases, it.original_language, today, sources.get(info.imdb), info.plateformeFr);
+    return enVfChezSoi(info.releases, it.original_language, today, sources.get(info.imdb), info.plateformeFr, info.vod);
   }).slice(0, max);
   return { picked, infos, sources };
 }
@@ -975,7 +1064,7 @@ async function classerTendances(env, kind, results) {
  */
 function watchable(info, it, today) {
   if (!info.releases || info.plateformeFr) return true;
-  const { date } = dispoChezSoi(info.releases, it.original_language);
+  const { date } = dispoChezSoi(info.releases, it.original_language, info.vod);
   return date ? date <= today : (it.release_date || "") <= addDays(today, -45);
 }
 
@@ -1008,9 +1097,9 @@ async function fetchUpcomingPage(env, ctx, kind, page, today, opts) {
 /**
  * Rangées « Dispo depuis peu » / « Bientôt dispo » : films dont l'arrivée chez soi (dispoChezSoi : la sortie
  * numérique aux États-Unis, la même date que la fiche et l'affiche) tombe dans la fenêtre. Pour « Bientôt », on
- * ajoute les films encore sans date annoncée dont l'estimation (salle + 45 jours) tombe dans la fenêtre. Les
- * recherches TMDB (sorties numériques ou en salle de tous pays dans la fenêtre) ramènent de quoi trier : c'est
- * la date de dispoChezSoi qui décide ensuite.
+ * ajoute les films encore sans date annoncée dont l'estimation (salle + la fenêtre de leur distributeur, voir
+ * dispoChezSoi) tombe dans la fenêtre. Les recherches TMDB (sorties numériques ou en salle de tous pays dans la
+ * fenêtre) ramènent de quoi trier : c'est la date de dispoChezSoi qui décide ensuite.
  */
 async function fetchVfPage(env, ctx, def, kind, page, today, opts) {
   const future = def.digital[0] > 0;
@@ -1019,8 +1108,11 @@ async function fetchVfPage(env, ctx, def, kind, page, today, opts) {
   base["primary_release_date.gte"] = maxDate(base["primary_release_date.gte"], addDays(today, -365));
   const reqs = [tmdb(env, "/discover/movie", { ...base, with_release_type: "4",
     "release_date.gte": addDays(today, def.digital[0]), "release_date.lte": addDays(today, def.digital[1]) }, opts.lang)];
+  // Sorties en salle dont l'estimation peut tomber dans la fenêtre : de la plus longue à la plus courte fenêtre des
+  // distributeurs (la même table que dispoChezSoi, déjà lue pour les fiches de la page).
+  const [court, long] = future ? bornesVod(await estimationsVod()) : [SALLE_JOURS, SALLE_JOURS];
   if (future) reqs.push(tmdb(env, "/discover/movie", { ...base, with_release_type: "3|2",
-    "release_date.gte": addDays(today, def.digital[0] - 45), "release_date.lte": addDays(today, def.digital[1] - 45) }, opts.lang));
+    "release_date.gte": addDays(today, def.digital[0] - long), "release_date.lte": addDays(today, def.digital[1] - court) }, opts.lang));
   // « Bientôt dispo » : aussi les films déjà sortis chez soi (depuis moins de 90 jours) mais pas encore en VF, d'après
   // leurs sources (The Weight) — la fiche dit « Pas encore en VF » : ils ont leur place ici, à la fin.
   if (future) reqs.push(tmdb(env, "/discover/movie", { ...base, with_release_type: "4",
@@ -1431,9 +1523,11 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
   const lu = recent ? (await sourcesVf(env, [imdb])).get(imdb) : null;
   // En VO seulement (comme pas sorti : seule la VF compte) : d'après les sources seulement (voir releaseNote).
   const etat = lu ? { vf: lu.vf, vo: enVo(lu), langue: lu.langue } : { vf: movie && vfSurPlateforme(wp, d.original_language), surPlateforme: plateformeFrance(wp) };
-  const note = movie ? releaseNote(releases, d.original_language, today, etat) : await noteSerie(env, d, imdb, wp, today);
-  // La même date que l'affiche et les rangées : la sortie numérique américaine (dispoChezSoi).
-  const dispo = movie ? dispoChezSoi(releases, d.original_language).date : "";
+  // Sans date numérique américaine : l'estimation d'après son distributeur (table lue seulement dans ce cas).
+  const vod = movie && besoinEstimation(releases) ? estimationDe(await estimationsVod(), imdb) : null;
+  const note = movie ? releaseNote(releases, d.original_language, today, etat, vod) : await noteSerie(env, d, imdb, wp, today);
+  // La même date que l'affiche et les rangées : la sortie numérique américaine (dispoChezSoi), ou son estimation.
+  const dispo = movie ? dispoChezSoi(releases, d.original_language, vod).date : "";
   const shownDate = dispo && dispo > today ? dispo : date;
   const credits = d.credits || {};
   const castList = movie ? credits.cast || [] : (d.aggregate_credits && d.aggregate_credits.cast || []).map((c) => ({ ...c, character: (c.roles || [])[0] && c.roles[0].character }));

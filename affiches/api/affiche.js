@@ -14,7 +14,8 @@ import { lireNoteImdb } from "../lib/notes.js";
 import { lireRang, secondesAvantBascule } from "../lib/tendances.js";
 import { qualityOf } from "../lib/qualite.js";
 import { posterContent, contentKey } from "../lib/contenu.js";
-import { etatSortie, sourcesUtiles, dispoChezSoi, LIBELLES_FIN } from "../lib/statut.js";
+import { etatSortie, sourcesUtiles, dispoChezSoi, estimationDe, besoinEstimation, LIBELLES_FIN } from "../lib/statut.js";
+import { lireEstimations } from "../lib/estimations.js";
 import { lireReglages, lireReglagesPaysage, ecrireReglages } from "../lib/lien-affiches.js";
 import { notesPlus } from "../lib/notes-plus.js";
 import { filmsDeLaSaga, rangSaga } from "../lib/saga.js";
@@ -67,6 +68,8 @@ const ATTENTE_QUALITE_MS = 1000;
 const ATTENTE_APERCU_MS = 4000;
 // Fichier des notes IMDb pas encore lu (instance qui démarre) : pas attendu plus longtemps (il peut prendre 8 s).
 const ATTENTE_NOTES_MS = 1500;
+// Table des fenêtres des distributeurs (lib/estimations.js) pas encore lue : pas attendue plus longtemps non plus.
+const ATTENTE_ESTIMATIONS_MS = 1500;
 
 const absent = () => new Response(null, { status: 404, headers: { ...CORS, ...ABSENT } });
 const panne = () => new Response(null, { status: 502, headers: { ...CORS, "Cache-Control": "no-store" } });
@@ -148,10 +151,20 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       // Notes IMDb et tendances ne dépendent pas du titre : sur une instance qui démarre, on les charge
       // pendant que TMDB répond (elles sont ensuite gardées en mémoire).
       if (noteImdb) lireNoteImdb("tt0", fetchImpl, 0).catch(() => {});
+      if (type === "movie") lireEstimations(fetchImpl, 0).catch(() => {});
       const relais = new URL(request.url).origin;
       if (tendance) lireRang(env, type, 0, fetchImpl, relais).catch(() => {});
       let facts = await titleFacts(env, { type, id, imdb }, fetchImpl, { plateforme: reglages.plateforme.on, vo: reglages.titre.on && reglages.titre.langue === "vo", credits: reglages.titre.on && reglages.infos.ligne2 === "realisateur" });
       if (!facts) return absent();
+      // Film en salle aux États-Unis sans date numérique : son estimation d'après son distributeur américain, la même
+      // que celle de l'addon. Table pas lue à temps : la salle + 45 jours, et le cache court pour l'avoir ensuite. Un
+      // film en français garde ses propres dates (dispoChezSoi) : la table ne lui sert pas.
+      let estimationManque = false;
+      if (type === "movie" && facts.originalLanguage !== "fr" && besoinEstimation(facts.releases)) {
+        const { table, manque } = await lireEstimations(fetchImpl, ATTENTE_ESTIMATIONS_MS);
+        facts = { ...facts, vod: estimationDe(table, facts.imdbId) };
+        estimationManque = manque;
+      }
       // Trop de dessins sur cette instance (robot, liens au hasard) : rien à analyser ni à dessiner, l'appli montre
       // l'affiche d'origine. Mieux vaut des affiches nues un moment qu'un service coupé 30 jours.
       if (disjoncteur.plein()) {
@@ -202,7 +215,8 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       // Notes des autres sites demandées mais pas lues (quota, panne) : cache normal sans elles (le relais garde
       // l'échec une heure ; un cache court ferait redessiner sans fin pendant toute la panne).
       // Saga ou rangée de saison demandées mais pas lues (TMDB ou l'addon en panne) : cache court aussi.
-      const enRetard = qualiteEnRetard || imdbManque || photoIllisible || imageIncertaine || (sagaVoulue && !filmsSaga) || (saisonVoulue && !rangee);
+      const enRetard = qualiteEnRetard || imdbManque || photoIllisible || imageIncertaine || (sagaVoulue && !filmsSaga) || (saisonVoulue && !rangee)
+        || estimationManque;
       const saison = saisonVoulue ? habillageDe(rangee, facts.tmdbId, aujourdhui) : null;
       const content = posterContent(facts, { imdbRating, rank: place, quality, notes, saga, saison }, shape, reglages, aujourdhui);
       // Réglage Saison, sur un film : jusqu'au prochain changement de fête (minuit à Paris), habillé ou pas, redirection
@@ -233,7 +247,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       // ou des plateformes françaises que TMDB connaît au moment du dessin). Rien de privé.
       const sortieVue = etatSortie(facts, aujourdhui, quality ? { vf: quality.vf, sources: quality.sources } : null);
       // dispo : le jour d'arrivée chez soi d'un film (calendrier américain, lib/statut.js), « ~ » si estimé.
-      const chezSoi = type === "movie" ? dispoChezSoi(facts.releases, facts.originalLanguage) : null;
+      const chezSoi = type === "movie" ? dispoChezSoi(facts.releases, facts.originalLanguage, facts.vod) : null;
       const pourquoi = `${sortieVue.sorti ? "sorti" : "pas-sorti"} statut=${sortieVue.statut || "-"} vf=${quality ? quality.vf : "?"} sources=${quality ? quality.sources : "?"}`
         + (chezSoi ? ` dispo=${chezSoi.date ? chezSoi.date + (chezSoi.vers ? "~" : "") : "-"}` : "")
         + ` plateforme-fr=${facts.plateformeFrance ? 1 : 0} tmdb-fr=${facts.plateformesVues || "-"} premiere=${facts.firstAir || facts.releaseDate || "-"} jour=${aujourdhui}`;

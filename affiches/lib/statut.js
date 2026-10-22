@@ -5,7 +5,8 @@
  * - chez soi = le calendrier américain des sorties numériques (Premium VOD) seulement : c'est le fichier américain qui
  *   fait apparaître les sources, souvent déjà avec la VF ; la chronologie des médias française ne compte pas
  *   (dispoChezSoi) ;
- * - avant ce jour : pas sorti, avec la date (« DISPO LE 17 NOV. », « DISPO VERS LE … ») ;
+ * - avant ce jour : pas sorti, avec la date (« DISPO LE 17 NOV. », « DISPO VERS LE … » : estimée d'après la fenêtre
+ *   habituelle du distributeur américain, facts.vod, voir lib/estimations.js) ;
  * - à partir de ce jour, les sources lues chez Torrentio (avec la qualité, ce qu'on obtient en faisant « Lire »)
  *   disent si le fichier a la VF : sans VF, pas sorti (seule la VF compte), « Bientôt » sans date (on ne sait pas
  *   quand elle viendra) ; avec la VF, sans sources lues ou sans aucune source : sorti, la date dit vrai.
@@ -27,21 +28,52 @@ function releaseDates(releases, types, pays) {
     .sort();
 }
 
+// ---------- Fenêtres salle → numérique des distributeurs américains ----------
+// Les mêmes fonctions que dans worker/index.js (tableVod, estimationDe, fenetreVod, besoinEstimation) : la table
+// data/estimations-vod.json (lue par lib/estimations.js) donne la fenêtre du distributeur d'un film.
+const joursValides = (n) => Number.isInteger(n) && n >= 0 && n <= 200;
+/** Le fichier lu, vérifié : { mediane (ou null), films, fenetres }, ou null s'il n'a pas la bonne forme. */
+export function tableVod(d) {
+  if (!d || typeof d !== "object" || !d.films || typeof d.films !== "object") return null;
+  return { mediane: joursValides(d.mediane) ? d.mediane : null, films: d.films, fenetres: d.fenetres && typeof d.fenetres === "object" ? d.fenetres : {} };
+}
+
+/** L'entrée d'un film (identifiant IMDb) dans la table, et la médiane générale, pour dispoChezSoi ; null sans table. */
+export function estimationDe(table, imdb) {
+  if (!table) return null;
+  return { film: imdb && Object.hasOwn(table.films, imdb) ? table.films[imdb] : null, mediane: table.mediane };
+}
+
+/**
+ * Jours entre la salle américaine et l'estimation de la sortie numérique : la fenêtre du distributeur du film (table),
+ * sinon la médiane de tous les films mesurés, sinon 45 jours. Ajoutés à la salle connue aujourd'hui (pas la date toute
+ * faite de la table) : une sortie en salle repoussée depuis la nuit décale l'estimation aussi.
+ */
+function fenetreVod(vod) {
+  const f = vod && vod.film;
+  if (f && joursValides(f.jours)) return f.jours;
+  return vod && joursValides(vod.mediane) ? vod.mediane : SALLE_JOURS;
+}
+
+/** Une estimation à faire : sortie en salle aux États-Unis, sans sortie numérique américaine annoncée. */
+export const besoinEstimation = (releases) => releaseDates(releases, [2, 3], ["US"]).length > 0 && !releaseDates(releases, [4], ["US"]).length;
+
 /**
  * Le jour où un film arrive chez soi, et si ce n'est qu'une estimation (vers) : { date, vers }, date vide sans aucune
  * sortie. Le calendrier américain seulement (le fichier américain fait les sources, avec ou sans VF) :
  *   - sa sortie numérique aux États-Unis, annoncée (L'Odyssée : le 17 nov., même en salle en France depuis juillet) ;
- *   - sinon sa sortie en salle aux États-Unis + 45 jours (délai habituel), en estimation ;
+ *   - sinon sa sortie en salle aux États-Unis + la fenêtre habituelle de son distributeur américain, en estimation
+ *     (vod = estimationDe : Universal 18 jours, Disney 60…, voir fenetreVod) ;
  *   - film français (rarement sorti aux États-Unis), ou film étranger jamais sorti aux États-Unis : ses propres dates,
  *     la première sortie numérique (vidéo, télé) où que ce soit, sinon la première salle + 45 jours.
  * La même fonction que dispoChezSoi dans worker/index.js : l'affiche et la fiche disent le même jour.
  */
-export function dispoChezSoi(releases, langue) {
+export function dispoChezSoi(releases, langue, vod = null) {
   if (langue !== "fr") {
     const numerique = releaseDates(releases, [4], ["US"])[0];
     if (numerique) return { date: numerique, vers: false };
     const salle = releaseDates(releases, [2, 3], ["US"])[0];
-    if (salle) return { date: ajoute(salle, SALLE_JOURS), vers: true };
+    if (salle) return { date: ajoute(salle, fenetreVod(vod)), vers: true };
   }
   const connu = releaseDates(releases, [4, 5, 6])[0];
   if (connu) return { date: connu, vers: false };
@@ -84,7 +116,7 @@ function sortieFilm(facts, today, sources) {
   }
   if (estVieux(facts, today)) return { sorti: true, statut: null };
   const s = lues(sources);
-  const { date: dispo, vers } = dispoChezSoi(facts.releases, facts.originalLanguage);
+  const { date: dispo, vers } = dispoChezSoi(facts.releases, facts.originalLanguage, facts.vod);
   const arrive = !!dispo && dispo <= today;
   // Des sources, aucune en VF : le fichier est là, pas la VF.
   const vo = !!s && !s.vf && s.sources > 0;

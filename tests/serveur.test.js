@@ -213,7 +213,8 @@ test("rangee_melangee_sans_self_lue_ici", async () => {
   assert.equal(n.self.length, 0);
 });
 
-// Au pire 37 (appels sortants, SELF et cache comptés) : de quoi relire un lien fixe (cache, base) sous 40.
+// Au pire 38 (appels sortants, SELF et cache comptés) : de quoi relire un lien fixe (cache, base) sous 40. Dont un pour
+// la table des estimations (data/estimations-vod.json), lue au plus une fois par requête, gardée ensuite une heure.
 test("budget_pire_cas_des_rangees", async () => {
   for (const path of ["/catalog/movie/accueil-top10.json", "/catalog/movie/accueil-vod-bientot.json", "/catalog/movie/accueil-vod-semaine.json",
     "/catalog/movie/films-cinema/genre=Prochainement.json", "/catalog/movie/accueil-attendus.json", "/catalog/series/accueil-series-a-devorer.json"]) {
@@ -221,7 +222,7 @@ test("budget_pire_cas_des_rangees", async () => {
     oublierInfos();
     const n = compteur();
     const { metas } = await (await get(cle + path, avecSelf(n))).json();
-    assert.ok(n.sortants + n.cache <= 37, `${path} : ${n.sortants} appels sortants + ${n.cache} accès au cache`);
+    assert.ok(n.sortants + n.cache <= 38, `${path} : ${n.sortants} appels sortants + ${n.cache} accès au cache`);
     if (path.includes("top10")) assert.ok(metas.length > 0 && n.sortants >= 33, `${path} : pire cas pas atteint (${n.sortants})`);
   }
 });

@@ -851,8 +851,8 @@ test("prochainement_garde_les_ressorties", async () => {
   assert.deepEqual(metas.map((m) => m.name), ["Les Diables"]);
 });
 
-// Buddy, The Fix : sortis chez soi aux États-Unis (date passée), sources sans VF : « Pas encore en VF » sans date (on ne
-// sait pas quand elle viendra), pas « Dispo depuis le … ».
+// Buddy, The Fix : sortis chez soi aux États-Unis (date passée), sources sans VF : « Pas encore en VF », puis ce qu'il
+// y a et depuis quand (« en VO depuis le … ») — jamais « Dispo depuis le … » (on ne sait pas quand la VF viendra).
 test("fiche_vo_avec_date_connue", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   globalThis.fetch = async (url) => {
@@ -864,8 +864,44 @@ test("fiche_vo_avec_date_connue", async () => {
     return new Response("{}");
   };
   const m = (await (await get("/meta/movie/tmdb:8003.json")).json()).meta;
-  assert.match(m.description || "", /Pas encore en VF/);
-  assert.doesNotMatch(m.description || "", /Dispo depuis|VO/);
+  assert.equal((m.description || "").split("\n")[0], `📅 Pas encore en VF · en VO depuis le ${court(jour(-8))}`.replace(/([^.])$/, "$1."));
+  assert.doesNotMatch(m.description || "", /Dispo depuis/);
+});
+
+// The Weight : en numérique aux États-Unis il y a 2 jours, sources avec sous-titres français mais sans VF.
+test("fiche_vostfr_avec_sa_date", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/vf.json")) return sourcesDe({ tt9007: { vf: false, sources: 55, langue: "vostfr" } })(u);
+    if (/\/movie\/8007\?/.test(u)) return new Response(JSON.stringify({ id: 8007, title: "The Weight", imdb_id: "tt9007", release_date: jour(-36), original_language: "en",
+      release_dates: { results: [{ iso_3166_1: "US", release_dates: [{ type: 3, release_date: jour(-34) + "T00:00:00.000Z" }, { type: 4, release_date: jour(-2) + "T00:00:00.000Z" }] }] } }));
+    return new Response("{}");
+  };
+  const m = (await (await get("/meta/movie/tmdb:8007.json")).json()).meta;
+  assert.equal((m.description || "").split("\n")[0], `📅 Pas encore en VF · en VOSTFR depuis le ${court(jour(-2))}`.replace(/([^.])$/, "$1."));
+});
+
+// Série récente (coréenne, sur Prime Video) dont la saison n'a pas de VF dans les sources : la fiche le dit, avec
+// l'épisode de la semaine ; une série en anglais sur Disney+ (doublée) : seulement l'épisode.
+test("fiche_serie_sans_vf", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const serie = (id, langue, plateforme) => ({ id, name: "Série " + id, original_language: langue, first_air_date: jour(-3), number_of_seasons: 1,
+    external_ids: { imdb_id: "tt" + id }, seasons: [{ season_number: 1, air_date: jour(-3), episode_count: 12 }],
+    last_episode_to_air: { season_number: 1, episode_number: 2, air_date: jour(-1) }, next_episode_to_air: null,
+    "watch/providers": { results: { FR: { flatrate: [{ provider_name: plateforme }] } } } });
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/vf.json")) return sourcesDe({ "series/tt7101:1:1": { vf: false, sources: 6, langue: "vostfr" }, "series/tt7102:1:1": { vf: false, sources: 45, langue: "vostfr" } })(u);
+    if (/\/tv\/7101\?/.test(u)) return new Response(JSON.stringify(serie(7101, "ko", "Amazon Prime Video")));
+    if (/\/tv\/7102\?/.test(u)) return new Response(JSON.stringify(serie(7102, "en", "Disney Plus")));
+    return new Response("{}");
+  };
+  const ligne = async (id) => ((await (await get(`/meta/series/tmdb:${id}.json`)).json()).meta.description || "").split("\n")[0];
+  assert.match(await ligne(7101), /Nouvel épisode sorti .* · pas encore en VF, en VOSTFR/);
+  assert.doesNotMatch(await ligne(7102), /VF/);
 });
 
 // L'Odyssée : en salle en France, sources en VO seulement, sortie numérique annoncée aux États-Unis dans 26 jours : le

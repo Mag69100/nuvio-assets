@@ -35,24 +35,27 @@ async function lireTmdb(env, type, fetchImpl) {
   } catch { return null; }
 }
 
-/** La photo publiée à cette adresse (relais du service, ou l'addon qui la prend), ou null. */
+/**
+ * La photo publiée à cette adresse (relais du service, ou l'addon qui la prend) : { ids, vf, secours }, ou null.
+ * vf : l'avis VF de l'addon (StreamFusion, sinon Torrentio) pour les titres qu'il a examinés, tmdbId → 1 ou 0 ;
+ * secours : le relais a lui-même servi le classement brut (l'addon n'avait pas répondu).
+ */
 async function lireRelais(relais, type, fetchImpl) {
   try {
     const res = await fetchImpl(`${relais}/tendances/${type}.json`, { signal: AbortSignal.timeout(DELAI_MS) });
     if (!res.ok) return null;
     const d = await res.json();
     if (!Array.isArray(d && d.ids)) return null;
-    // Le relais du service a lui-même servi un secours (classement brut) : il le dit.
-    return d.secours ? Object.assign(d.ids.slice(), { secours: true }) : d.ids;
+    return { ids: d.ids, vf: d.vf && typeof d.vf === "object" ? d.vf : {}, secours: !!d.secours };
   } catch { return null; }
 }
 
-/** La photo de l'addon ({ ids, secours: false }), sinon le classement du moment chez TMDB ({ ids, secours: true }), ou null. */
+/** La photo de l'addon ({ ids, vf, secours: false }), sinon le classement du moment chez TMDB ({ ids, secours: true }), ou null. */
 async function lireSource(env, type, fetchImpl) {
-  const ids = await lireRelais(env.ADDON_URL || ADDON_URL, type, fetchImpl);
-  if (ids) return { ids, secours: false };
+  const photo = await lireRelais(env.ADDON_URL || ADDON_URL, type, fetchImpl);
+  if (photo) return { ids: photo.ids, vf: photo.vf, secours: false };
   const tmdb = await lireTmdb(env, type, fetchImpl);
-  return tmdb ? { ids: tmdb, secours: true } : null;
+  return tmdb ? { ids: tmdb, vf: {}, secours: true } : null;
 }
 
 /**
@@ -63,7 +66,7 @@ async function lireSource(env, type, fetchImpl) {
 export function photoDuJour(env, type, fetchImpl = fetch, relais = null) {
   const cle = relais ? type + "@relais" : type, now = Date.now(), hit = memo.get(cle);
   if (hit && now < hit.until) return hit.promesse;
-  const lue = relais ? lireRelais(relais, type, fetchImpl).then((ids) => (ids ? { ids, secours: !!ids.secours } : null)) : lireSource(env, type, fetchImpl);
+  const lue = relais ? lireRelais(relais, type, fetchImpl) : lireSource(env, type, fetchImpl);
   const entry = { promesse: lue, until: prochaineBascule(now) };
   memo.set(cle, entry);
   entry.promesse.then((p) => { if (!p || p.secours) entry.until = Date.now() + GARDE_ECHEC_MS; });
@@ -75,16 +78,18 @@ export const photoTendances = (env, type, fetchImpl = fetch, relais = null) => p
 
 /**
  * { rang : place (1 à 60) du titre sur la photo du jour, ou null ; illisible : pas de photo (relais et addon
- * injoignables) — l'affiche part sans N°, avec le cache court, pour le prendre ensuite }.
+ * injoignables) — l'affiche part sans N°, avec le cache court, pour le prendre ensuite ; vf : l'avis VF de l'addon }.
  */
 export async function lireRang(env, type, tmdbId, fetchImpl = fetch, relais = null) {
   const photo = await photoDuJour(env, type, fetchImpl, relais);
   // Pas de photo, ou un secours servi par le relais (le classement brut, l'addon n'ayant pas répondu à temps) : pas de
   // N°, plutôt qu'un faux gardé toute la journée ; cache court (illisible), pour avoir le bon ensuite.
-  if (!photo || (relais && photo.secours)) return { rang: null, illisible: true };
+  if (!photo || (relais && photo.secours)) return { rang: null, illisible: true, vf: null };
   const ids = photo.ids;
   const i = ids.indexOf(tmdbId);
-  return { rang: i < 0 ? null : i + 1, illisible: false };
+  // vf : l'avis VF de l'addon pour ce titre (true, false), ou null s'il ne l'a pas examiné.
+  const avis = photo.vf ? photo.vf[tmdbId] : undefined;
+  return { rang: i < 0 ? null : i + 1, illisible: false, vf: avis === 1 ? true : avis === 0 ? false : null };
 }
 
 /** Place (1 à 60) du titre sur la photo du jour, ou null (absent, ou photo illisible). */

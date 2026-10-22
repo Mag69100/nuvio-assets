@@ -54,7 +54,7 @@ test("photo_prise_une_fois_par_jour", async () => {
   classement = [3, 2, 1];
   store.clear();   // un autre serveur de Cloudflare, sans cache : il la lit dans la base
   assert.deepEqual(await (await get("/tendances/movie.json")).json(), { ids: [...vides(), 1, 2, 3] });
-  assert.deepEqual(await photoDuJour(env, "movie"), { ids: [...vides(), 1, 2, 3], provisoire: false });
+  assert.deepEqual(await photoDuJour(env, "movie"), { ids: [...vides(), 1, 2, 3], vf: {}, provisoire: false });
   assert.deepEqual(await (await get("/tendances/series.json")).json(), { ids: [...vides(), 3, 2, 1] });   // séries : leur propre photo
   assert.ok(calls.some((u) => u.includes("/trending/tv/day")));
 });
@@ -68,8 +68,8 @@ test("tache_de_4h", async () => {
   await Promise.all(pas);
   assert.equal(jourTendances(quatreHeures), "2026-10-22");
   assert.equal(jourTendances(quatreHeures - 1), "2026-10-21");
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/movie:rangs3")), [...vides(), 1, 2, 3]);
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/series:rangs3")), [...vides(), 1, 2, 3]);
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/movie:rangs4")).ids, [...vides(), 1, 2, 3]);
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/series:rangs4")).ids, [...vides(), 1, 2, 3]);
   assert.ok(!env.LIENS.rows.has("2026-10-01/movie"));
   // Plus tard dans la journée, le classement a bougé : toujours la photo de 4 h.
   classement = [7];
@@ -109,11 +109,11 @@ test("photo_renumerotee_comme_la_rangee", async () => {
     return new Response("{}");
   };
   assert.deepEqual(await (await get("/tendances/movie.json")).json(), { ids: [2, 3, ...vides(18), 1, 4] });
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get(`${jourTendances()}/movie:rangs3`)), [2, 3, ...vides(18), 1, 4]);
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get(`${jourTendances()}/movie:rangs4`)).ids, [2, 3, ...vides(18), 1, 4]);
   // Le classement échoue : le classement brut, provisoire (la route le garde 5 minutes), jamais enregistré.
   env.LIENS.rows.clear();
   const brut = await photoDuJour(env, "movie", Date.now(), async () => { throw new Error("TMDB en panne"); });
-  assert.deepEqual(brut, { ids: [1, 4, 2, 3], provisoire: true });
+  assert.deepEqual(brut, { ids: [1, 4, 2, 3], vf: {}, provisoire: true });
   assert.equal(env.LIENS.rows.size, 0);
 });
 
@@ -175,4 +175,22 @@ test("photo_avec_streamfusion_et_torrentio_en_secours", async () => {
   assert.ok(!ids.slice(0, 20).includes(72));
   assert.equal(appels.length, 3);
   assert.ok(calls.some((u) => u.includes("/vf.json") && u.includes("tt9773") && !u.includes("tt9771")));
+});
+
+// La photo publie l'avis VF des titres examinés (tmdbId → 1 ou 0) : les affiches s'en servent à la place de Torrentio.
+test("photo_publie_l_avis_vf", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const film = (id) => ({ id, imdb_id: `tt96${id}`, original_language: "en",
+    release_dates: { results: [{ iso_3166_1: "US", release_dates: [{ type: 3, release_date: jour(-80) + "T00:00:00.000Z" }, { type: 4, release_date: jour(-20) + "T00:00:00.000Z" }] }] } });
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("/trending/movie/day")) return new Response(JSON.stringify({ results: new URL(u).searchParams.get("page") === "1" ? [61, 62].map((id) => ({ id, release_date: jour(-80), original_language: "en" })) : [] }));
+    if (u.includes("/vf.json")) return new Response(JSON.stringify({ "movie/tt9661": { vf: true, sources: 9 }, "movie/tt9662": { vf: false, sources: 14 } }));
+    const m = /\/movie\/(6\d)\?/.exec(u);
+    if (m) return new Response(JSON.stringify(film(Number(m[1]))));
+    return new Response("{}");
+  };
+  const d = await (await get("/tendances/movie.json")).json();
+  assert.deepEqual(d.vf, { 61: 1, 62: 0 });
+  assert.deepEqual(d.ids.slice(0, 2), [61, 0]);
 });

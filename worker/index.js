@@ -953,10 +953,10 @@ function endpointAsDiscover(def) {
  */
 async function photoTendances(env, kind) {
   try {
-    // ?v=6 : la photo renumérotée, séries en VF comprises (même sans source) ; les précédentes restent sous leurs adresses.
+    // ?v=7 : la photo avec l'avis VF de StreamFusion ; les précédentes restent sous leurs adresses.
     // Gardée par Cloudflare le temps que dit le service (jusqu'au changement ; 5 minutes pour un secours, le classement
     // brut de TMDB quand l'addon n'a pas répondu à temps) : jamais un secours toute la journée.
-    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json?v=6`, { cf: { cacheEverything: true } });
+    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json?v=7`, { cf: { cacheEverything: true } });
     const d = res.ok ? await res.json() : {};
     if (d.secours) return new Map();
     return new Map((Array.isArray(d.ids) ? d.ids : []).map((id, i) => [id, i]));
@@ -1155,7 +1155,7 @@ async function seriesRegardables(env, released, today, max, lire = lireVf) {
     const lu = sources.get(info.imdb);
     return !(lu && lu.vf === false);
   }).slice(0, max);
-  return { picked, infos };
+  return { picked, infos, sources };
 }
 
 /**
@@ -1173,7 +1173,14 @@ async function classerTendances(env, kind, results) {
   const garde = kind === "movie" ? await filmsRegardables(env, released, today, RANGS, lireVfPhoto) : await seriesRegardables(env, released, today, RANGS, lireVfPhoto);
   if ([...garde.infos.values()].some((info) => !info.lu)) throw new Error("fiches TMDB pas toutes lues");
   const ids = garde.picked.map((it) => it.id);
-  return [...ids, ...Array(RANGS - ids.length).fill(0)];
+  // L'avis VF de chaque titre examiné (StreamFusion, sinon Torrentio) : publié avec la photo, les affiches s'en servent
+  // à la place de Torrentio (StreamFusion n'est appelé qu'ici, pas à chaque affiche).
+  const vf = {};
+  for (const [id, info] of garde.infos) {
+    const lu = info && info.imdb ? garde.sources.get(info.imdb) : null;
+    if (lu && typeof lu.vf === "boolean") vf[id] = lu.vf ? 1 : 0;
+  }
+  return { ids: [...ids, ...Array(RANGS - ids.length).fill(0)], vf };
 }
 
 /** Les titres qui portent un N° sur la photo du jour (Map id → place), dans l'ordre. */

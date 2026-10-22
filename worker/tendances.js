@@ -12,8 +12,8 @@
  */
 export const BASCULE_UTC_H = 4;
 const TOP = 60, GARDE_JOURS = 7;
-// Clé de la photo en base : « movie:rangs3 » (renumérotée, séries en VF, même sans source) ; celles d'avant ne sont plus lues.
-const CLE = (kind) => `${kind}:rangs3`;
+// Clé de la photo en base : « movie:rangs4 » ({ ids, vf } : renumérotée, avec l'avis VF) ; celles d'avant ne sont plus lues.
+const CLE = (kind) => `${kind}:rangs4`;
 
 export function secondesAvantBascule(now = Date.now()) {
   const d = new Date(now), b = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), BASCULE_UTC_H);
@@ -42,9 +42,12 @@ const table = (env) => (ready = ready || env.LIENS.prepare(
   "CREATE TABLE IF NOT EXISTS tendances (j TEXT NOT NULL, k TEXT NOT NULL, ids TEXT NOT NULL, PRIMARY KEY (j, k))").run()
   .catch((e) => { ready = null; throw e; }));
 
+/** La photo enregistrée : { ids, vf } (une liste seule : sans avis VF), ou null. */
 async function lueEnBase(env, jour, kind) {
   const r = await env.LIENS.prepare("SELECT ids FROM tendances WHERE j = ? AND k = ?").bind(jour, kind).first();
-  return r ? JSON.parse(r.ids) : null;
+  if (!r) return null;
+  const d = JSON.parse(r.ids);
+  return Array.isArray(d) ? { ids: d, vf: {} } : d;
 }
 
 /** La photo renumérotée : { ids, provisoire } (provisoire : le classement brut, le classement ayant échoué), ou null. */
@@ -52,10 +55,12 @@ async function prendre(env, kind, classer) {
   const titres = await lireTmdb(env, kind);
   if (!titres) return null;
   const ids = titres.map((it) => it.id);
-  const rangs = classer ? await classer(env, kind, titres).catch((e) => { console.warn(`classement des tendances : ${e && e.message}`); return null; }) : null;
-  if (!Array.isArray(rangs)) return { ids, provisoire: true };
+  const classe = classer ? await classer(env, kind, titres).catch((e) => { console.warn(`classement des tendances : ${e && e.message}`); return null; }) : null;
+  // classer rend { ids, vf } (ou les identifiants seuls).
+  const rangs = Array.isArray(classe) ? classe : classe && classe.ids;
+  if (!Array.isArray(rangs)) return { ids, vf: {}, provisoire: true };
   const premiers = new Set(rangs);
-  return { ids: [...rangs, ...ids.filter((id) => !premiers.has(id))], provisoire: false };
+  return { ids: [...rangs, ...ids.filter((id) => !premiers.has(id))], vf: (classe && classe.vf) || {}, provisoire: false };
 }
 
 /**
@@ -68,13 +73,13 @@ export async function photoDuJour(env, kind, now = Date.now(), classer = null) {
   try {
     await table(env);
     const deja = await lueEnBase(env, jour, CLE(kind));
-    if (deja) return { ids: deja, provisoire: false };
+    if (deja) return { ...deja, provisoire: false };
     const photo = await prendre(env, kind, classer);
     if (!photo || photo.provisoire) return photo;
     // Une autre demande a pu la prendre entre-temps : la sienne reste, et c'est elle qu'on rend.
-    await env.LIENS.prepare("INSERT OR IGNORE INTO tendances (j, k, ids) VALUES (?, ?, ?)").bind(jour, CLE(kind), JSON.stringify(photo.ids)).run();
+    await env.LIENS.prepare("INSERT OR IGNORE INTO tendances (j, k, ids) VALUES (?, ?, ?)").bind(jour, CLE(kind), JSON.stringify({ ids: photo.ids, vf: photo.vf })).run();
     await env.LIENS.prepare("DELETE FROM tendances WHERE j < ?").bind(jourTendances(now - GARDE_JOURS * 86400000)).run();
-    return { ids: (await lueEnBase(env, jour, CLE(kind))) || photo.ids, provisoire: false };
+    return { ...((await lueEnBase(env, jour, CLE(kind))) || photo), provisoire: false };
   } catch (e) {
     console.warn(`photo des tendances : ${e && e.message}`);
     return prendre(env, kind, classer);
@@ -87,13 +92,14 @@ export const prendrePhotos = (env, now = Date.now(), classer = null) => Promise.
 /** /tendances/{movie|series}.json : { ids }, gardé par Cloudflare (et ceux qui la lisent) jusqu'au changement. */
 export async function routeTendances(env, kind, headers, classer = null) {
   if (!["movie", "series"].includes(kind)) return new Response(JSON.stringify({ error: "introuvable" }), { status: 404, headers: { ...headers, "Cache-Control": "public, max-age=3600" } });
-  const cle = new Request(`https://tendances.cache/rangs3/${jourTendances()}/${kind}.json`);
+  const cle = new Request(`https://tendances.cache/rangs4/${jourTendances()}/${kind}.json`);
   const rendre = (corps, s = secondesAvantBascule()) => new Response(corps, { headers: { ...headers, "Cache-Control": `public, max-age=${s}` } });
   const hit = await caches.default.match(cle);
   if (hit) return rendre(await hit.text());
   const photo = await photoDuJour(env, kind, Date.now(), classer);
   if (!photo) return new Response(JSON.stringify({ error: "TMDB injoignable" }), { status: 503, headers: { ...headers, "Cache-Control": "no-store" } });
-  const corps = JSON.stringify({ ids: photo.ids });
+  // vf : l'avis VF des titres examinés (tmdbId → 1 ou 0), seulement s'il y en a.
+  const corps = JSON.stringify(photo.vf && Object.keys(photo.vf).length ? { ids: photo.ids, vf: photo.vf } : { ids: photo.ids });
   // Classement brut (le classement a échoué) : 5 minutes, pour reprendre la vraie photo ensuite.
   if (photo.provisoire) return rendre(corps, Math.min(300, secondesAvantBascule()));
   await caches.default.put(cle, new Response(corps, { headers: { "Cache-Control": `public, max-age=${secondesAvantBascule()}` } }));

@@ -310,9 +310,9 @@ test("tendances en panne : null sans erreur", async () => {
   assert.equal(await trendingRank(env, "movie", 1, f), null);
   // Photo illisible : signalée (cache court), à la différence d'un titre absent de la photo.
   resetTendances();
-  assert.deepEqual(await lireRang(env, "movie", 1, f), { rang: null, illisible: true });
+  assert.deepEqual(await lireRang(env, "movie", 1, f), { rang: null, illisible: true, vf: null });
   resetTendances();
-  assert.deepEqual(await lireRang(env, "movie", 9, async () => json({ ids: [7, 8] }), "https://affiches.test"), { rang: null, illisible: false });
+  assert.deepEqual(await lireRang(env, "movie", 9, async () => json({ ids: [7, 8] }), "https://affiches.test"), { rang: null, illisible: false, vf: null });
 });
 
 // Revue : langues d'origine demandées à TMDB seulement quand un réglage s'en sert ; les plateformes, toujours pour
@@ -378,8 +378,17 @@ test("anime_saisons_de_cinemeta", async () => {
 test("tendances : un secours du relais ne donne pas de N°", async () => {
   resetTendances();
   const f = async () => json({ ids: [7, 8, 9], secours: true });
-  assert.deepEqual(await lireRang(env, "movie", 8, f, "https://affiches.test"), { rang: null, illisible: true });
+  assert.deepEqual(await lireRang(env, "movie", 8, f, "https://affiches.test"), { rang: null, illisible: true, vf: null });
   resetTendances();
   const g = async () => json({ ids: [7, 8, 9] });
-  assert.deepEqual(await lireRang(env, "movie", 8, g, "https://affiches.test"), { rang: 2, illisible: false });
+  assert.deepEqual(await lireRang(env, "movie", 8, g, "https://affiches.test"), { rang: 2, illisible: false, vf: null });
+});
+
+// L'avis VF de l'addon (photo du jour : StreamFusion) pour un titre qu'il a examiné : true, false ; sinon null.
+test("tendances : l'avis VF de la photo", async () => {
+  resetTendances();
+  const f = async () => json({ ids: [7, 8, 9], vf: { 7: 1, 8: 0 } });
+  assert.deepEqual(await lireRang(env, "movie", 7, f, "https://affiches.test"), { rang: 1, illisible: false, vf: true });
+  assert.deepEqual(await lireRang(env, "movie", 8, f, "https://affiches.test"), { rang: 2, illisible: false, vf: false });
+  assert.deepEqual(await lireRang(env, "movie", 9, f, "https://affiches.test"), { rang: 3, illisible: false, vf: null });
 });

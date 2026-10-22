@@ -77,6 +77,19 @@ const ATTENTE_ESTIMATIONS_MS = 1500;
 
 const absent = () => new Response(null, { status: 404, headers: { ...CORS, ...ABSENT } });
 const panne = () => new Response(null, { status: 502, headers: { ...CORS, "Cache-Control": "no-store" } });
+/**
+ * La qualité lue chez Torrentio, corrigée par l'avis VF de l'addon quand il a examiné le titre (photo du jour :
+ * StreamFusion, qui lit les sites français, sinon Torrentio) : la VF et la langue suivent cet avis, le reste
+ * (4K, HDR…) reste celui de Torrentio. Sans avis : telle quelle.
+ */
+function avecAvisVf(q, avis) {
+  if (typeof avis !== "boolean") return q;
+  const base = q || { uhd: false, extra: null, fhd: false, hdr10p: false, atmos: false, sources: 0, langue: null };
+  const enVf = base.langue === "vf" || base.langue === "multi";
+  const langue = avis ? (enVf ? base.langue : "vf") : (enVf ? "vo" : base.langue);
+  return { ...base, vf: avis, sources: Math.max(1, base.sources || 0), langue };
+}
+
 /** Pas d'affiche pour l'instant (503, jamais gardée) : l'appli montre celle d'origine. */
 const indisponible = (attente) => new Response(null, { status: 503, headers: { ...CORS, ...attente, "Cache-Control": "no-store" } });
 
@@ -218,14 +231,18 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const sagaVoulue = reglages.infos.saga && type === "movie" && !!facts.collection;
       // Habillage de la saison (réglage Saison) : pendant une fête, les films de la rangée « Spécial … » de l'addon.
       const saisonVoulue = reglages.saison.on && type === "movie" && !!saisonDu(aujourdhui);
-      const [{ note: imdbRating, manque: imdbManque }, { rang: place, illisible: photoIllisible }, { enRetard: qualiteEnRetard, quality }, notes, filmsSaga, rangee] = await Promise.all([
+      // La photo du jour sert aussi sans le réglage Tendance, dès que la VF compte : elle porte l'avis VF de l'addon
+      // (StreamFusion).
+      const [{ note: imdbRating, manque: imdbManque }, photoLue, { enRetard: qualiteEnRetard, quality: qualiteTorrentio }, notes, filmsSaga, rangee] = await Promise.all([
         noteImdb && facts.imdbId ? lireNoteImdb(facts.imdbId, fetchImpl, ATTENTE_NOTES_MS) : { note: undefined, manque: false },
-        tendance ? lireRang(env, type, facts.tmdbId, fetchImpl, relais) : { rang: null, illisible: false },
+        tendance || lireSources ? lireRang(env, type, facts.tmdbId, fetchImpl, relais).catch(() => ({ rang: null, illisible: true, vf: null })) : { rang: null, illisible: false, vf: null },
         lireSources ? qualiteATemps(type, facts, fetchImpl, relais, env.RELAIS_KEY, request.headers.get("X-Apercu") === "1" ? ATTENTE_APERCU_MS : ATTENTE_QUALITE_MS) : { enRetard: false, quality: null },
         notesUtiles && facts.imdbId ? notesPlus(facts.imdbId, fetchImpl, relais, env.RELAIS_KEY) : undefined,
         sagaVoulue ? filmsDeLaSaga(env, facts.collection, fetchImpl) : null,
         saisonVoulue ? lireSaison(env, fetchImpl) : null,
       ]);
+      const place = tendance ? photoLue.rang : null, photoIllisible = tendance && photoLue.illisible;
+      const quality = avecAvisVf(qualiteTorrentio, photoLue.vf);
       const saga = sagaVoulue ? rangSaga(filmsSaga, facts.tmdbId, aujourdhui) : null;
       // Une donnée qui manque pour une panne passagère (fichier IMDb pas lu : note TMDB en attendant ; photo des
       // tendances illisible : pas de N° ; image sans texte pas vérifiée) : cache court, pour l'avoir ensuite.

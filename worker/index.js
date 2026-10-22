@@ -910,8 +910,8 @@ function endpointAsDiscover(def) {
  */
 async function photoTendances(env, kind) {
   try {
-    // ?v=5 : la photo renumérotée, séries en VF comprises ; les précédentes restent sous leurs adresses.
-    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json?v=5`, { cf: { cacheTtl: secondesAvantBascule(), cacheEverything: true } });
+    // ?v=6 : la photo renumérotée, séries en VF comprises (même sans source) ; les précédentes restent sous leurs adresses.
+    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json?v=6`, { cf: { cacheTtl: secondesAvantBascule(), cacheEverything: true } });
     const d = res.ok ? await res.json() : {};
     return new Map((Array.isArray(d.ids) ? d.ids : []).map((id, i) => [id, i]));
   } catch (e) { return new Map(); }

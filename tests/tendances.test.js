@@ -68,8 +68,8 @@ test("tache_de_4h", async () => {
   await Promise.all(pas);
   assert.equal(jourTendances(quatreHeures), "2026-10-22");
   assert.equal(jourTendances(quatreHeures - 1), "2026-10-21");
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/movie:rangs2")), [...vides(), 1, 2, 3]);
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/series:rangs2")), [...vides(), 1, 2, 3]);
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/movie:rangs3")), [...vides(), 1, 2, 3]);
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/series:rangs3")), [...vides(), 1, 2, 3]);
   assert.ok(!env.LIENS.rows.has("2026-10-01/movie"));
   // Plus tard dans la journée, le classement a bougé : toujours la photo de 4 h.
   classement = [7];
@@ -109,7 +109,7 @@ test("photo_renumerotee_comme_la_rangee", async () => {
     return new Response("{}");
   };
   assert.deepEqual(await (await get("/tendances/movie.json")).json(), { ids: [2, 3, ...vides(18), 1, 4] });
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get(`${jourTendances()}/movie:rangs2`)), [2, 3, ...vides(18), 1, 4]);
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get(`${jourTendances()}/movie:rangs3`)), [2, 3, ...vides(18), 1, 4]);
   // Le classement échoue : le classement brut, provisoire (la route le garde 5 minutes), jamais enregistré.
   env.LIENS.rows.clear();
   const brut = await photoDuJour(env, "movie", Date.now(), async () => { throw new Error("TMDB en panne"); });

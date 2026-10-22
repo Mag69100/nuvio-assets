@@ -100,6 +100,10 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
     // d'origine courantes.
     language: "fr-FR", append_to_response: (type === "series" ? "images,external_ids,content_ratings" : "images,external_ids,release_dates") + ",watch/providers" + (options.credits && type !== "series" ? ",credits" : ""),
     include_image_language: options.vo ? LANGUES_IMAGES : "fr,en,null",
+    // Une copie de moins d'une heure : TMDB garde ses réponses dans son CDN, par adresse, et la nôtre (avec la clé du
+    // service) pouvait dater d'avant l'arrivée d'une série sur une plateforme française (Phony sur Disney+ : grise et
+    // « BIENTÔT » deux jours après sa sortie, alors qu'elle était doublée).
+    frais: new Date().toISOString().slice(0, 13),
   }, fetchImpl);
   if (!d) return null;
   const images = d.images || {};

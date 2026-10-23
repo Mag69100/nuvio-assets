@@ -61,11 +61,11 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.10";
+const VERSION = "5.38.11";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
-const CACHE_V = 7;
+const CACHE_V = 8;
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 const OBSCUR_VOTES = 100;           // recherche : en dessous, un titre trouvé mot à mot ne suffit pas, Gemini est consulté
@@ -479,7 +479,7 @@ function episodeNote(ep, today) {
 
 /**
  * La ligne d'une série dans sa fiche : l'épisode de la semaine, et pour une série récente (moins d'un an, comme
- * l'affiche) dont la dernière saison n'a pas de VF dans les sources : « pas encore en VF, en VOSTFR » — sauf sur une
+ * l'affiche) dont la dernière saison n'a pas de VF dans les sources : « pas encore en VF » — sauf sur une
  * plateforme en France qui la double (série en anglais ou en français, Netflix, Disney+ : comme l'affiche).
  */
 async function noteSerie(env, d, imdb, wp, today) {
@@ -489,9 +489,7 @@ async function noteSerie(env, d, imdb, wp, today) {
   const saison = (d.last_episode_to_air && d.last_episode_to_air.season_number) || d.number_of_seasons || 1;
   const lu = await sourcesSerie(env, imdb, saison);
   if (!enVo(lu)) return ep;
-  const premier = ((d.seasons || []).find((s) => s.season_number === saison) || {}).air_date || debut;
-  return ep ? `${ep} · pas encore en VF, ${sansVf(lu.langue)}`
-    : `Pas encore en VF · ${sansVf(lu.langue)}${premier <= today ? ` depuis le ${shortDate(premier)}` : ""}`;
+  return ep ? `${ep} · pas encore en VF` : "Pas encore en VF";
 }
 
 /** Dernier épisode de sa saison (TMDB le marque « finale », sinon son numéro = nombre d'épisodes). */
@@ -786,8 +784,22 @@ async function lireVf(env, cles) {
   } catch { return new Map(); }
 }
 
-/** Ce qu'on peut regarder sans VF : « en VOSTFR » (sous-titres français dans les sources), sinon « en VO ». */
-const sansVf = (langue) => (langue === "vostfr" ? "en VOSTFR" : "en VO");
+/** Où sort la VF de France : France, Belgique, Suisse, Luxembourg. Pas le Canada (la VFQ ne compte pas). */
+const PAYS_VF = ["FR", "BE", "CH", "LU"];
+
+/**
+ * Sorti chez soi sans VF : quand la VF arrivera, d'après les sorties à venir dans PAYS_VF (TMDB), 200 jours au plus :
+ *   « · dispo le 12 déc. »       sortie numérique (VOD, vidéo, télé) annoncée ;
+ *   « · dispo vers le 3 déc. »   sortie en salle annoncée : la VF existe dès ce jour, les sources suivent ;
+ *   rien                         aucune sortie à venir (Buddy) : on ne sait pas quand elle viendra.
+ */
+function vfAVenir(releases, today) {
+  const aVenir = (types) => releaseDates(releases, types, PAYS_VF).find((d) => d > today && d <= addDays(today, 200));
+  const numerique = aVenir([4, 5, 6]);
+  if (numerique) return ` · dispo le ${shortDate(numerique)}`;
+  const salle = aVenir([2, 3]);
+  return salle ? ` · dispo vers le ${shortDate(salle)}` : "";
+}
 
 /**
  * Film récent : première vraie sortie (salle, numérique, télé) il y a moins d'un an. Les sources ne jugent que
@@ -808,7 +820,8 @@ function filmRecent(releases, today) {
  *   « Dispo vers le 3 déc. »      pas de date annoncée : estimation (salle + la fenêtre du distributeur américain,
  *                                 sans le nommer)
  *   « Dispo depuis le 9 oct. »    date passée depuis moins de 60 jours
- *   « Pas encore en VF »          date passée, sources sans VF (The Fix) : on ne sait pas quand elle viendra
+ *   « Pas encore en VF »          date passée, sources sans VF (Buddy) ; « · dispo le 12 déc. » si une sortie francophone
+ *                                 est annoncée (vfAVenir), sinon rien : on ne sait pas quand elle viendra
  *   « Déjà dispo »                en VF avant la date (sources VF, ou plateforme en France quand on n'a pas lu les sources)
  * etat = { vf: sources VF (ou plateforme en France en VF, sources pas lues), vo: sources sans VF, surPlateforme: sur
  * une plateforme en France sans savoir si c'est en VF (sources pas lues) }. vod = estimationDe (voir dispoChezSoi).
@@ -819,9 +832,9 @@ function releaseNote(releases, langue, today, etat = {}, vod = null) {
   // Les dates et les plateformes se trompent (Kraken, norvégien, en VF sur Paramount+) : seules les sources disent
   // « Pas encore en VF », et seulement une fois le fichier sorti.
   if (!connuPasse && etat.vf) return "Déjà dispo";
-  // Le fichier américain est sorti sans VF : ce qu'il y a et depuis quand (The Weight : « Pas encore en VF · en VOSTFR
-  // depuis le 20 oct. »), comme on le dirait à un ami ; la date seulement si elle est connue.
-  if (etat.vo && !etat.vf && !(date > today)) return `Pas encore en VF · ${sansVf(etat.langue)}${date && !vers ? ` depuis le ${shortDate(date)}` : ""}`;
+  // Le fichier américain est sorti sans VF : quand la VF arrivera, si une sortie francophone le dit (vfAVenir) ;
+  // jamais la VO (seule la VF compte).
+  if (etat.vo && !etat.vf && !(date > today)) return "Pas encore en VF" + vfAVenir(releases, today);
   // Sur une plateforme en France, sans savoir si c'est en VF : pas de date qui ne voudrait plus rien dire.
   if (!connuPasse && etat.surPlateforme) return "";
   if (!date) return "";
@@ -893,7 +906,7 @@ async function toMetas(env, ctx, results, kind, opts, today) {
     const note = kind !== "movie" ? episodeNote(infos[i].episode, today)
       : opts.upcoming ? cinemaNote(infos[i].releases, opts.region, date, today)
       : releaseNote(infos[i].releases, it.original_language, today,
-        lu ? { vf: lu.vf, vo: enVo(lu), langue: lu.langue } : { vf: infos[i].plateformeFr, surPlateforme: !!infos[i].plateformeVo }, infos[i].vod);
+        lu ? { vf: lu.vf, vo: enVo(lu) } : { vf: infos[i].plateformeFr, surPlateforme: !!infos[i].plateformeVo }, infos[i].vod);
     // Pas encore regardable : la date affichée par Nuvio (carrousel, « date de sortie
     // complète ») devient la date de dispo plutôt que la sortie en salle.
     const dispo = chezSoi.date;
@@ -1779,7 +1792,7 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
   const recent = movie && imdb && releaseDates(releases, [2, 3, 4, 5, 6]).some((x) => x >= addDays(today, -365) && x <= today);
   const lu = recent ? (await sourcesVf(env, [imdb])).get(imdb) : null;
   // En VO seulement (comme pas sorti : seule la VF compte) : d'après les sources seulement (voir releaseNote).
-  const etat = lu ? { vf: lu.vf, vo: enVo(lu), langue: lu.langue } : { vf: movie && vfSurPlateforme(wp, d.original_language), surPlateforme: plateformeFrance(wp) };
+  const etat = lu ? { vf: lu.vf, vo: enVo(lu) } : { vf: movie && vfSurPlateforme(wp, d.original_language), surPlateforme: plateformeFrance(wp) };
   // Sans date numérique américaine : l'estimation d'après son distributeur (table lue seulement dans ce cas).
   const vod = movie && besoinEstimation(releases) ? estimationDe(await estimationsVod(), imdb) : null;
   const note = movie ? releaseNote(releases, d.original_language, today, etat, vod) : await noteSerie(env, d, imdb, wp, today);

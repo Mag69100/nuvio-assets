@@ -1,6 +1,6 @@
 import { test, beforeEach, mock } from "node:test";
 import assert from "node:assert/strict";
-import worker, { oublierInfos } from "../worker/index.js";
+import worker, { oublierInfos, oublierPauseYoutube } from "../worker/index.js";
 import { resetFails } from "../worker/hote.js";
 
 // Worker appelé comme par Cloudflare, avec un cache en mémoire et TMDB / Gemini simulés.
@@ -1119,4 +1119,31 @@ test("rangee_anime_budget_cinemeta", async () => {
   };
   await get("/catalog/series/accueil-tendances-series.json");
   assert.equal(calls.filter((u) => u.includes("/meta/series/")).length, 3);
+});
+
+// Fiche d'une série : épisodes et recherche de la bande-annonce VF partent juste après la fiche TMDB, sans attendre
+// Cinemeta (avant, chacun attendait le précédent).
+test("fiche_serie_lectures_en_parallele", async () => {
+  oublierPauseYoutube();
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const serie = { id: 7201, name: "Série 7201", original_language: "en", first_air_date: jour(-900), number_of_seasons: 1, status: "Ended",
+    external_ids: { imdb_id: "tt7201" }, seasons: [{ season_number: 1, air_date: jour(-900), episode_count: 2 }],
+    videos: { results: [] }, "watch/providers": { results: {} } };
+  let cinemetaFini = false;
+  const avant = {};
+  globalThis.fetch = async (url) => {
+    const u = decodeURIComponent(String(url));
+    calls.push(u);
+    if (u.includes("cinemeta")) { await new Promise((ok) => setTimeout(ok, 80)); cinemetaFini = true; return new Response("{}", { status: 404 }); }
+    if (/\/tv\/7201\?.*season\/1/.test(u)) {
+      avant.episodes ??= !cinemetaFini;
+      return new Response(JSON.stringify({ "season/1": { episodes: [{ episode_number: 1, name: "Un", air_date: jour(-900) }, { episode_number: 2, name: "Deux", air_date: jour(-893) }] } }));
+    }
+    if (/\/tv\/7201\?/.test(u)) return new Response(JSON.stringify(serie));
+    if (u.includes("query.wikidata.org")) { avant.vf ??= !cinemetaFini; return new Response(JSON.stringify({ results: { bindings: [] } })); }
+    return new Response("{}");
+  };
+  const m = (await (await get("/meta/series/tmdb:7201.json")).json()).meta;
+  assert.deepEqual(m.videos.map((v) => v.title), ["Un", "Deux"]);
+  assert.deepEqual(avant, { episodes: true, vf: true });
 });

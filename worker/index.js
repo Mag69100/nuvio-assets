@@ -61,7 +61,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.14";
+const VERSION = "5.38.15";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -1829,22 +1829,71 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
   if (!brut || !brut.id) return null;
 
   const imdb = (movie ? brut.imdb_id : brut.external_ids && brut.external_ids.imdb_id) || null;
+  // Ce qui ne demande que la fiche TMDB part tout de suite, et chaque partie l'attend là où elle sert. Avant, chacun
+  // attendait le précédent : Cinemeta, la VF des sources, la table des estimations, la saga, les épisodes, et seulement
+  // ensuite la bande-annonce VF (jusqu'à 2 s) et l'IA. Les saisons recomptées (Cinemeta) ne changent ni le titre, ni
+  // les vidéos, ni les mots-clés, ni les classifications : tout ça se lit dans la fiche brute.
   // Série : saisons comptées comme Cinemeta quand TMDB les découpe autrement (anime en une saison), pour les
   // épisodes, leurs identifiants (les sources) et les lignes « Saison… » de la fiche. Voir episodes.js.
-  const cine = !movie && imdb ? await videosCinemeta(imdb) : [];
+  const cineJob = !movie && imdb ? videosCinemeta(imdb) : [];
+  const date = (movie ? brut.release_date : brut.first_air_date) || "";
+  const releases = movie ? (brut.release_dates && brut.release_dates.results) || [] : null;
+  const cert = movie
+    ? ((releases.find((r) => r.iso_3166_1 === cfg.g) || {}).release_dates || []).map((r) => r.certification).find(Boolean)
+    : ((brut.content_ratings && brut.content_ratings.results || []).find((r) => r.iso_3166_1 === cfg.g) || {}).rating;
+  const trailers = trailersOf(brut.videos && brut.videos.results);
+  // Pas de VF sur TMDB : recherche Allociné + YouTube, lancée tout de suite et attendue en fin de fiche.
+  let vfJob = null;
+  if (short === "fr" && imdb && !trailers.some((t) => isVf(t.lang, t.name))) {
+    const job = vfTrailer(kind, imdb, (brut.title || brut.name || "").trim(), date.slice(0, 4)).catch(() => null);
+    ctx.waitUntil(job);
+    vfJob = Promise.race([job, new Promise((res) => setTimeout(() => res("attente"), VF_WAIT_MS))]);
+  }
+  const keywords = ((movie ? brut.keywords && brut.keywords.keywords : brut.keywords && brut.keywords.results) || []).map((k) => k.name);
+  // Lignes écrites par l'IA, lancées dès que possible, pendant que le reste de la fiche se construit :
+  // « pour qui » n'a besoin que de la fiche TMDB ; la saison commandée part dès que les saisons sont recomptées, le
+  // rappel dès que la saga ou les épisodes sont connus. L'attente maximale compte à partir d'ici.
+  // Sans clé Gemini (ou fiche légère), « pour qui » et le rappel sont seulement relus dans le cache.
+  const ai = !!env.GEMINI_API_KEY;
+  const aiWait = new Promise((res) => setTimeout(() => res("attente"), FICHE_AI_WAIT_MS));
+  const ask = (job) => (job ? Promise.race([job, aiWait]) : null);
+  const profileJob = ask(aiProfile(env, ctx, `${movie ? "movie" : "tv"}-${brut.id}`, profilePrompt(brut, movie, keywords, cert)));
+  // Film d'une saga : sa collection TMDB (suite annoncée, rappel du film d'avant), et le temps pour tout voir, dès
+  // qu'elle est lue.
+  const colJob = movie && brut.belongs_to_collection ? tmdb(env, `/collection/${brut.belongs_to_collection.id}`, {}, lang).then(async (col) => {
+    const parts = col.parts || [];
+    const sortis = parts.filter((p) => p.release_date && p.release_date <= today).sort((a, b) => a.release_date.localeCompare(b.release_date));
+    return { parts, sortis, temps: sortis.length >= 2 ? await sagaTime(env, sortis, brut, lang) : "" };
+  }) : null;
+  // Série : les épisodes, ajoutés par lots de 20 saisons à un seul appel TMDB. Saisons de TMDB (pas celles
+  // recomptées) : ce sont elles qu'on lui demande.
+  const numbers = movie ? [] : (brut.seasons || []).map((s) => s.season_number).filter((n) => Number.isInteger(n));
+  const episodesJob = movie ? null : (() => {
+    const batches = [];
+    for (let i = 0; i < numbers.length; i += 20) batches.push(numbers.slice(i, i + 20));
+    const anime = brut.original_language === "ja" && (brut.genres || []).some((g) => g.id === 16) && (brut.number_of_episodes || 0) >= 40;
+    return Promise.all([
+      Promise.all(batches.slice(0, 10).map((b) =>
+        tmdb(env, `/tv/${tmdbId}`, { append_to_response: b.map((n) => `season/${n}`).join(",") }, lang))),
+      anime ? fillerEpisodes(brut).catch(() => null) : null,
+    ]);
+  })();
+
+  const cine = await cineJob;
   const decoupage = cine && decoupageCinemeta(brut.seasons, cine);
   const d = decoupage ? ficheRecomptee(brut, decoupage) : brut;
   const metaId = id.startsWith("tt") ? id : imdb || `tmdb:${tmdbId}`;
-  const date = (movie ? d.release_date : d.first_air_date) || "";
-  const releases = movie ? (d.release_dates && d.release_dates.results) || [] : null;
   const wp = d["watch/providers"] || null;
   // Film récent (sorti il y a moins d'un an) : la VF lue dans les sources, comme les affiches ; sinon les plateformes.
   const recent = movie && imdb && releaseDates(releases, [2, 3, 4, 5, 6]).some((x) => x >= addDays(today, -365) && x <= today);
-  const lu = recent ? (await sourcesVf(env, [imdb])).get(imdb) : null;
+  // Sans date numérique américaine : l'estimation d'après son distributeur (table lue seulement dans ce cas). Lues
+  // ensemble.
+  const [lu, vod] = await Promise.all([
+    recent ? sourcesVf(env, [imdb]).then((m) => m.get(imdb)) : null,
+    movie && besoinEstimation(releases) ? estimationsVod().then((table) => estimationDe(table, imdb)) : null,
+  ]);
   // En VO seulement (comme pas sorti : seule la VF compte) : d'après les sources seulement (voir releaseNote).
   const etat = lu ? { vf: lu.vf, vo: enVo(lu) } : { vf: movie && vfSurPlateforme(wp, d.original_language), surPlateforme: plateformeFrance(wp) };
-  // Sans date numérique américaine : l'estimation d'après son distributeur (table lue seulement dans ce cas).
-  const vod = movie && besoinEstimation(releases) ? estimationDe(await estimationsVod(), imdb) : null;
   const note = movie ? releaseNote(releases, d.original_language, today, etat, vod) : await noteSerie(env, d, imdb, wp, today);
   // La même date que l'affiche et les rangées : la sortie numérique américaine (dispoChezSoi), ou son estimation.
   const dispo = movie ? dispoChezSoi(releases, d.original_language, vod).date : "";
@@ -1857,17 +1906,6 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
   const logo = bestImage(d.images && d.images.logos, short);
   const backdrop = bestImage((d.images && d.images.backdrops || []).filter((b) => !b.iso_639_1), short);
   const runtime = movie ? d.runtime : (d.episode_run_time || [])[0];
-  const cert = movie
-    ? ((releases.find((r) => r.iso_3166_1 === cfg.g) || {}).release_dates || []).map((r) => r.certification).find(Boolean)
-    : ((d.content_ratings && d.content_ratings.results || []).find((r) => r.iso_3166_1 === cfg.g) || {}).rating;
-  const trailers = trailersOf(d.videos && d.videos.results);
-  // Pas de VF sur TMDB : recherche Allociné + YouTube, lancée tout de suite et attendue en fin de fiche.
-  let vfJob = null;
-  if (short === "fr" && imdb && !trailers.some((t) => isVf(t.lang, t.name))) {
-    const job = vfTrailer(kind, imdb, (d.title || d.name || "").trim(), date.slice(0, 4)).catch(() => null);
-    ctx.waitUntil(job);
-    vfJob = Promise.race([job, new Promise((res) => setTimeout(() => res("attente"), VF_WAIT_MS))]);
-  }
   const endYear = !movie && d.status !== "Returning Series" && d.last_air_date ? d.last_air_date.slice(0, 4) : "";
 
   const m = {
@@ -1907,44 +1945,24 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
 
   // Infos en plus, après le résumé : scène après le générique, œuvre adaptée, temps pour tout voir,
   // « pour qui » et « à savoir » (IA), puis le rappel de l'œuvre précédente (IA).
-  const keywords = ((movie ? d.keywords && d.keywords.keywords : d.keywords && d.keywords.results) || []).map((k) => k.name);
   // En premier : y aura-t-il une suite ? (série terminée, saison annoncée, film suivant de la saga)
   const follow = movie ? null : seriesFollow(d, today);
   const extras = [follow ? follow.text : "", movie ? creditsScene(keywords) : "", sourceNote(keywords, crew)];
 
-  // Lignes écrites par l'IA, lancées dès que possible, pendant que le reste de la fiche se construit :
-  // « pour qui » et saison commandée n'ont besoin que de la fiche TMDB ; le rappel part dès que la
-  // saga ou les épisodes sont connus. L'attente maximale compte à partir d'ici.
-  // Sans clé Gemini (ou fiche légère), « pour qui » et le rappel sont seulement relus dans le cache.
-  const ai = !!env.GEMINI_API_KEY;
-  const aiWait = new Promise((res) => setTimeout(() => res("attente"), FICHE_AI_WAIT_MS));
-  const ask = (job) => (job ? Promise.race([job, aiWait]) : null);
-  const profileJob = ask(aiProfile(env, ctx, `${movie ? "movie" : "tv"}-${d.id}`, profilePrompt(d, movie, keywords, cert)));
   // TMDB dit « pas terminée » sans saison annoncée : Wikipédia tranche (renouvelée ou non).
   const renewalJob = ai && follow && follow.unsure ? ask(renewalOf(env, ctx, d, follow.season, today)) : null;
 
   let saga = null;
-  if (movie && d.belongs_to_collection) {
-    const col = await tmdb(env, `/collection/${d.belongs_to_collection.id}`, {}, lang);
-    extras[0] = sagaFollow(col.parts || [], d, today);
-    saga = (col.parts || []).filter((p) => p.release_date && p.release_date <= today)
-      .sort((a, b) => a.release_date.localeCompare(b.release_date));
-    if (saga.length >= 2) extras.push(await sagaTime(env, saga, d, lang));
+  if (colJob) {
+    const col = await colJob;
+    extras[0] = sagaFollow(col.parts, d, today);
+    saga = col.sortis;
+    if (saga.length >= 2) extras.push(col.temps);
   }
 
   if (!movie) {
-    // Épisodes : les saisons sont ajoutées par lots de 20 à un seul appel TMDB.
     const base = imdb || `tmdb:${tmdbId}`;
-    // Saisons de TMDB (pas celles recomptées) : ce sont elles qu'on lui demande.
-    const numbers = (brut.seasons || []).map((s) => s.season_number).filter((n) => Number.isInteger(n));
-    const batches = [];
-    for (let i = 0; i < numbers.length; i += 20) batches.push(numbers.slice(i, i + 20));
-    const anime = d.original_language === "ja" && (d.genres || []).some((g) => g.id === 16) && (d.number_of_episodes || 0) >= 40;
-    const [parts, fillers] = await Promise.all([
-      Promise.all(batches.slice(0, 10).map((b) =>
-        tmdb(env, `/tv/${tmdbId}`, { append_to_response: b.map((n) => `season/${n}`).join(",") }, lang))),
-      anime ? fillerEpisodes(d).catch(() => null) : null,
-    ]);
+    const [parts, fillers] = await episodesJob;
     const videos = [];
     for (const part of parts) {
       for (const n of numbers) {

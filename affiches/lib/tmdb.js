@@ -1,6 +1,6 @@
 /**
  * Ce que TMDB dit d'un titre, pour dessiner son affiche : images (avec et sans texte), logo, genres,
- * année, note TMDB et dernière saison. Nuvio envoie « tt… » ou « tmdb:N » ; un « tt… » passe par /find.
+ * année, note TMDB et dernière saison. Nuvio envoie « tt… » ou « tmdb:N » ; une série « tt… » passe par /find.
  */
 import { videosCinemeta, decoupageCinemeta, faitsRecomptes } from "./episodes.js";
 
@@ -26,6 +26,11 @@ export async function tmdbGet(env, path, params, fetchImpl) {
   return res.json();
 }
 
+function retenir(key, id) {
+  memoFind.set(key, id);
+  while (memoFind.size > MAX_MEMO) memoFind.delete(memoFind.keys().next().value);
+}
+
 /** Identifiant TMDB d'un titre « tt… » (null s'il n'existe pas chez TMDB). */
 export async function tmdbIdDe(env, type, imdbId, fetchImpl = fetch) {
   const key = `${type}:${imdbId}`;
@@ -33,8 +38,7 @@ export async function tmdbIdDe(env, type, imdbId, fetchImpl = fetch) {
   const d = await tmdbGet(env, `/find/${imdbId}`, { external_source: "imdb_id" }, fetchImpl);
   const hit = d && (type === "series" ? d.tv_results : d.movie_results) || [];
   const id = hit.length ? hit[0].id : null;
-  memoFind.set(key, id);
-  while (memoFind.size > MAX_MEMO) memoFind.delete(memoFind.keys().next().value);
+  retenir(key, id);
   return id;
 }
 
@@ -94,9 +98,13 @@ const first = (list, langs) => {
  * réponse de TMDB reste légère.
  */
 export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, options = {}) {
-  const tmdbId = id.startsWith("tmdb:") ? Number(id.slice(5)) : await tmdbIdDe(env, type, id, fetchImpl);
-  if (!tmdbId) return null;
-  const d = await tmdbGet(env, `/${type === "series" ? "tv" : "movie"}/${tmdbId}`, {
+  // Un film « tt… » pas encore vu par l'instance : TMDB lit sa fiche directement par l'identifiant IMDb (pour les
+  // films seulement, pas les séries), sans /find avant : un appel de moins, 110 à 260 ms mesurés le 2026-10-23.
+  const memoCle = `${type}:${id}`;
+  const direct = type !== "series" && id.startsWith("tt") && !memoFind.has(memoCle);
+  const demande = id.startsWith("tmdb:") ? Number(id.slice(5)) : direct ? id : await tmdbIdDe(env, type, id, fetchImpl);
+  if (!demande) return null;
+  const d = await tmdbGet(env, `/${type === "series" ? "tv" : "movie"}/${demande}`, {
     // Films : les dates de sortie détaillées servent au statut (« En salle », « Nouveau »…) et à l'âge conseillé ;
     // séries : les classifications par pays, pour l'âge.
     // Plateformes (watch/providers) : toujours (VF disponible ?, et le logo de plateforme) ; logos dans les langues
@@ -108,7 +116,9 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
     // « BIENTÔT » deux jours après sa sortie, alors qu'elle était doublée).
     frais: new Date().toISOString().slice(0, 13),
   }, fetchImpl);
-  if (!d) return null;
+  const tmdbId = direct ? (d && Number.isInteger(d.id) ? d.id : null) : demande;
+  if (direct) retenir(memoCle, tmdbId);
+  if (!d || !tmdbId) return null;
   const images = d.images || {};
   // Ni logo français ni anglais (« On va s'arrêter là » : seulement en espagnol) : les logos de toutes les langues,
   // pour ne pas laisser l'affiche sans titre (un appel de plus, pour ces titres seulement ; en échec, pas de logo).

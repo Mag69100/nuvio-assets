@@ -33,17 +33,37 @@ const movie = {
 
 beforeEach(() => { resetTmdb(); resetNotes(); resetTendances(); });
 
-test("tt id résolu par /find", async () => {
-  const f = fauxFetch([["/find/tt15239678", json({ movie_results: [{ id: 693134 }], tv_results: [] })], ["/movie/693134", json(movie)]]);
+test("film tt lu directement, sans /find", async () => {
+  const f = fauxFetch([["/movie/tt15239678", json(movie)], ["/movie/693134", json(movie)]]);
   const facts = await titleFacts(env, { type: "movie", id: "tt15239678", imdb: "" }, f);
-  assert.ok(f.calls[0].includes("/find/tt15239678") && f.calls[0].includes("external_source=imdb_id"));
-  const detail = new URL(f.calls[1]);
-  assert.equal(detail.pathname, "/3/movie/693134");
+  assert.equal(f.calls.length, 1);
+  const detail = new URL(f.calls[0]);
+  assert.equal(detail.pathname, "/3/movie/tt15239678");
   assert.equal(detail.searchParams.get("append_to_response"), "images,external_ids,release_dates,watch/providers");
   assert.equal(detail.searchParams.get("include_image_language"), "fr,en,null");
   assert.equal(detail.searchParams.get("language"), "fr-FR");
   assert.equal(facts.tmdbId, 693134);
   assert.equal(facts.imdbId, "tt15239678");
+  // La correspondance est retenue : la fois suivante, la fiche par son identifiant TMDB (même adresse qu'avant).
+  await titleFacts(env, { type: "movie", id: "tt15239678", imdb: "" }, f);
+  assert.equal(new URL(f.calls[1]).pathname, "/3/movie/693134");
+  assert.ok(!f.calls.some((u) => u.includes("/find/")));
+});
+
+test("série tt résolue par /find", async () => {
+  const serie = { ...movie, id: 1396, release_date: undefined, first_air_date: "2008-01-20", external_ids: { imdb_id: "tt0903747" } };
+  const f = fauxFetch([["/find/tt0903747", json({ movie_results: [], tv_results: [{ id: 1396 }] })], ["/tv/1396", json(serie)]]);
+  const facts = await titleFacts(env, { type: "series", id: "tt0903747", imdb: "" }, f);
+  assert.ok(f.calls[0].includes("/find/tt0903747") && f.calls[0].includes("external_source=imdb_id"));
+  assert.equal(new URL(f.calls[1]).pathname, "/3/tv/1396");
+  assert.equal(facts.tmdbId, 1396);
+});
+
+test("film tt inconnu : retenu, plus redemandé", async () => {
+  const f = fauxFetch([]);
+  assert.equal(await titleFacts(env, { type: "movie", id: "tt7", imdb: "" }, f), null);
+  assert.equal(await titleFacts(env, { type: "movie", id: "tt7", imdb: "" }, f), null);
+  assert.equal(f.calls.length, 1);
 });
 
 test("tmdb:N direct", async () => {
@@ -219,7 +239,8 @@ test("mémoire des correspondances plafonnée", async () => {
 
 test("inconnu : 404 → null, 500 → erreur", async () => {
   assert.equal(await titleFacts(env, { type: "movie", id: "tmdb:9", imdb: "" }, fauxFetch([["/movie/9", json({}, 404)]])), null);
-  assert.equal(await titleFacts(env, { type: "movie", id: "tt9", imdb: "" }, fauxFetch([["/find/tt9", json({ movie_results: [], tv_results: [] })]])), null);
+  assert.equal(await titleFacts(env, { type: "series", id: "tt9", imdb: "" }, fauxFetch([["/find/tt9", json({ movie_results: [], tv_results: [] })]])), null);
+  assert.equal(await titleFacts(env, { type: "movie", id: "tt9", imdb: "" }, fauxFetch([["/movie/tt9", json({}, 404)]])), null);
   await assert.rejects(titleFacts(env, { type: "movie", id: "tmdb:8", imdb: "" }, fauxFetch([["/movie/8", json({}, 500)]])));
 });
 

@@ -270,8 +270,8 @@ test("notes et tendances demandées en même temps que TMDB", async () => {
   const f = internet();
   await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678"));
   const ordre = (motif) => f.calls.findIndex((u) => u.includes(motif));
-  assert.ok(ordre("imdb-ratings.bin") < ordre("/movie/693134"), f.calls.join("\n"));
-  assert.ok(ordre("/tendances/") < ordre("/movie/693134"), f.calls.join("\n"));
+  assert.ok(ordre("imdb-ratings.bin") < ordre("/3/movie/"), f.calls.join("\n"));
+  assert.ok(ordre("/tendances/") < ordre("/3/movie/"), f.calls.join("\n"));
 });
 
 test("qualité désactivée : Torrentio jamais appelé", async () => {
@@ -787,4 +787,40 @@ test("reserve_cle_suit_le_code_du_dessin", () => {
   assert.match(cleReserve("abc"), /^[0-9a-f]{40}$/);
   assert.notEqual(cleReserve("abc"), cleReserve("abd"));
   assert.notEqual(cleReserve("abc"), "abc");
+});
+
+test("reserve_rangee_apres_la_reponse", async () => {
+  // Sur Vercel (contexte de requête présent) : l'affiche part sans attendre l'addon, le rangement est confié à waitUntil.
+  const { f, rangees } = avecAddon();
+  let lacher;
+  const retenu = new Promise((ok) => { lacher = ok; });
+  const lent = async (url, opts = {}) => { if (opts.method === "PUT") await retenu; return f(url, opts); };
+  const confies = [], symbole = Symbol.for("@vercel/request-context");
+  globalThis[symbole] = { get: () => ({ waitUntil: (p) => confies.push(p) }) };
+  try {
+    const res = await makeHandler({ fetchImpl: lent, env: envAddon })(req("type=movie&shape=poster&id=tt15239678"));
+    assert.equal(res.status, 200);
+    assert.equal(rangees.length, 0);   // pas encore rangée : la réponse ne l'a pas attendue
+    assert.ok(confies.length >= 1);
+    lacher();
+    await Promise.all(confies);
+    assert.equal(rangees.length, 1);
+  } finally {
+    delete globalThis[symbole];
+  }
+});
+
+test("qualite_lue_pendant_la_verification_des_images", async () => {
+  // La vérification des images sans texte (w342) et la qualité partent ensemble, plus l'une après l'autre.
+  const net = internet();
+  let qualiteVue = false, avantImages = null;
+  const f = async (url, opts) => {
+    const u = String(url);
+    if (u.includes("/qualite/")) qualiteVue = true;
+    if (u.includes("/t/p/w342/")) { await new Promise((ok) => setTimeout(ok, 50)); if (avantImages === null) avantImages = qualiteVue; }
+    return net(url, opts);
+  };
+  const res = await makeHandler({ fetchImpl: f, env })(req("type=movie&shape=poster&id=tt15239678&s=1.T0"));
+  assert.equal(res.status, 200);
+  assert.equal(avantImages, true);
 });

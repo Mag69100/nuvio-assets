@@ -91,6 +91,20 @@ function avecAvisVf(q, avis, qualiteVf = null) {
   return { ...base, vf: avis, sources: Math.max(1, base.sources || 0), langue };
 }
 
+/**
+ * Un travail qui peut finir après la réponse (ranger le dessin dans la réserve, envoyer le compteur de calcul) : confié
+ * à Vercel (waitUntil, le même contexte que lit le paquet @vercel/functions), l'affiche part sans l'attendre (50 à
+ * 150 ms de gagnés, 1,5 s si l'addon traîne). Hors de Vercel (essais en local, tests) : rendu tel quel, on l'attend
+ * comme avant. Pas de paquet : package.json entre dans l'empreinte de la réserve (lib/reserve.js), le changer ferait
+ * tout redessiner.
+ */
+function apresLaReponse(travail) {
+  const contexte = globalThis[Symbol.for("@vercel/request-context")]?.get?.();
+  if (typeof contexte?.waitUntil !== "function") return travail;
+  contexte.waitUntil(travail);
+  return undefined;
+}
+
 /** Pas d'affiche pour l'instant (503, jamais gardée) : l'appli montre celle d'origine. */
 const indisponible = (attente) => new Response(null, { status: 503, headers: { ...CORS, ...attente, "Cache-Control": "no-store" } });
 
@@ -149,10 +163,10 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
   const disjoncteur = disjoncteurDe(env);
   const budget = creerBudget({ env, fetchImpl }), reserve = creerReserve({ env, fetchImpl });
   let dernierAvis = 0, dernierAvisBudget = 0, dessins = 0;
-  // Le CPU de l'instance part chez l'addon (une fois par minute au plus) pendant qu'on répond.
+  // Le CPU de l'instance part chez l'addon (une fois par minute au plus) pendant qu'on répond, et finit après la réponse.
   return async function GET(request) {
     const envoi = budget.noter();
-    try { return await repondre(request); } finally { await envoi; }
+    try { return await repondre(request); } finally { await apresLaReponse(envoi); }
   };
   async function repondre(request) {
     const cpu0 = process.cpuUsage();
@@ -205,6 +219,30 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
         if (Date.now() - dernierAvis > 60000) { dernierAvis = Date.now(); console.warn("disjoncteur : trop de dessins, affiches d'origine pour l'instant"); }
         return indisponible(SURCHARGE);
       }
+      // Le jour à Paris, le même pour tout le calcul (statut, sources utiles).
+      const aujourdhui = jourParis();
+      // Les sources (lues avec la qualité) disent si le titre est en VF : lues aussi sans le badge, pour un titre récent.
+      const lireSources = qualite || langue || (env.QUALITE !== "off" && sourcesUtiles(facts, aujourdhui));
+      // Pas encore sorti avec la note cachée : les autres notes ne seraient pas dessinées non plus.
+      const notesUtiles = autresNotes && !(reglages.sortie.cacherNote && !etatSortie(facts, aujourdhui).sorti);
+      // Rang dans la saga (réglage Saga) : les films de sa collection TMDB, un appel par saga gardé une semaine.
+      const sagaVoulue = reglages.infos.saga && type === "movie" && !!facts.collection;
+      // Habillage de la saison (réglage Saison) : pendant une fête, les films de la rangée « Spécial … » de l'addon.
+      const saisonVoulue = reglages.saison.on && type === "movie" && !!saisonDu(aujourdhui);
+      // Qualité, tendances, notes, saga et saison ne dépendent pas de l'image choisie : lancées tout de suite, elles
+      // tournent pendant la vérification des images sans texte (Torrentio peut prendre jusqu'à 1 s). Une réponse
+      // possible avant de les attendre (affiche absente) : leur échec ne doit pas rester sans suite.
+      // La photo du jour sert aussi sans le réglage Tendance, dès que la VF compte : elle porte l'avis VF de l'addon
+      // (StreamFusion).
+      const lectures = Promise.all([
+        noteImdb && facts.imdbId ? lireNoteImdb(facts.imdbId, fetchImpl, ATTENTE_NOTES_MS) : { note: undefined, manque: false },
+        tendance || lireSources ? lireRang(env, type, facts.tmdbId, fetchImpl, relais).catch(() => ({ rang: null, illisible: true, vf: null, qualite: null })) : { rang: null, illisible: false, vf: null, qualite: null },
+        lireSources ? qualiteATemps(type, facts, fetchImpl, relais, env.RELAIS_KEY, request.headers.get("X-Apercu") === "1" ? ATTENTE_APERCU_MS : ATTENTE_QUALITE_MS) : { enRetard: false, quality: null },
+        notesUtiles && facts.imdbId ? notesPlus(facts.imdbId, fetchImpl, relais, env.RELAIS_KEY) : undefined,
+        sagaVoulue ? filmsDeLaSaga(env, facts.collection, fetchImpl) : null,
+        saisonVoulue ? lireSaison(env, fetchImpl) : null,
+      ]);
+      lectures.catch(() => {});
       // L'image « sans texte » porte notre logo : on vérifie qu'elle n'a vraiment pas de texte (TMDB y range
       // parfois des affiches étrangères). Aucune de propre : l'affiche normale, sans logo ni ligne du bas.
       // L'image du film recadrée (réglage « Image ») vient des fonds, vérifiés de la même façon.
@@ -217,34 +255,15 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
         facts = { ...facts, [cle]: chemin };
         imageIncertaine = incertain;
       }
-      // Le jour à Paris, le même pour tout le calcul (statut, sources utiles).
-      const aujourdhui = jourParis();
       // Les images ne dépendent que du titre : on les demande tout de suite (sauf pour une revérification
       // par ETag, qui finit presque toujours en 304 sans rien dessiner).
       const brouillon = posterContent(facts, {}, shape, reglages, aujourdhui);
-      // Les sources (lues avec la qualité) disent si le titre est en VF : lues aussi sans le badge, pour un titre récent.
-      const lireSources = qualite || langue || (env.QUALITE !== "off" && sourcesUtiles(facts, aujourdhui));
       if (!brouillon) return absent();
       const images = fetchImages(fetchImpl);
       const peutDessiner = brouillon.full || brouillon.statut || brouillon.gris || brouillon.bandeau || brouillon.coin || tendance || qualite || langue
         || reglages.infos.culte || reglages.infos.saga || !!brouillon.styles.retouche || !!brouillon.styles.cadre || (reglages.saison.on && type === "movie");
-      // Pas encore sorti avec la note cachée : les autres notes ne seraient pas dessinées non plus.
-      const notesUtiles = autresNotes && !(reglages.sortie.cacherNote && !etatSortie(facts, aujourdhui).sorti);
       if (peutDessiner && !request.headers.get("If-None-Match")) imageUrls(brouillon).forEach((u) => images(u).catch(() => {}));
-      // Rang dans la saga (réglage Saga) : les films de sa collection TMDB, un appel par saga gardé une semaine.
-      const sagaVoulue = reglages.infos.saga && type === "movie" && !!facts.collection;
-      // Habillage de la saison (réglage Saison) : pendant une fête, les films de la rangée « Spécial … » de l'addon.
-      const saisonVoulue = reglages.saison.on && type === "movie" && !!saisonDu(aujourdhui);
-      // La photo du jour sert aussi sans le réglage Tendance, dès que la VF compte : elle porte l'avis VF de l'addon
-      // (StreamFusion).
-      const [{ note: imdbRating, manque: imdbManque }, photoLue, { enRetard: qualiteEnRetard, quality: qualiteTorrentio }, notes, filmsSaga, rangee] = await Promise.all([
-        noteImdb && facts.imdbId ? lireNoteImdb(facts.imdbId, fetchImpl, ATTENTE_NOTES_MS) : { note: undefined, manque: false },
-        tendance || lireSources ? lireRang(env, type, facts.tmdbId, fetchImpl, relais).catch(() => ({ rang: null, illisible: true, vf: null, qualite: null })) : { rang: null, illisible: false, vf: null, qualite: null },
-        lireSources ? qualiteATemps(type, facts, fetchImpl, relais, env.RELAIS_KEY, request.headers.get("X-Apercu") === "1" ? ATTENTE_APERCU_MS : ATTENTE_QUALITE_MS) : { enRetard: false, quality: null },
-        notesUtiles && facts.imdbId ? notesPlus(facts.imdbId, fetchImpl, relais, env.RELAIS_KEY) : undefined,
-        sagaVoulue ? filmsDeLaSaga(env, facts.collection, fetchImpl) : null,
-        saisonVoulue ? lireSaison(env, fetchImpl) : null,
-      ]);
+      const [{ note: imdbRating, manque: imdbManque }, photoLue, { enRetard: qualiteEnRetard, quality: qualiteTorrentio }, notes, filmsSaga, rangee] = await lectures;
       const place = tendance ? photoLue.rang : null, photoIllisible = tendance && photoLue.illisible;
       const quality = avecAvisVf(qualiteTorrentio, photoLue.vf, photoLue.qualite);
       const saga = sagaVoulue ? rangSaga(filmsSaga, facts.tmdbId, aujourdhui) : null;
@@ -326,7 +345,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       dessins++;
       const ms = (c) => Math.round((c.user + c.system) / 1000);
       const cpu = `requete=${ms(process.cpuUsage(cpu0))} instance=${ms(process.cpuUsage())} dessins=${dessins} depuis=${Math.round(process.uptime())} budget=${budget.minutes}`;
-      await reserve.garder(cle, jpg);
+      await apresLaReponse(reserve.garder(cle, jpg));
       return new Response(jpg, { status: 200, headers: { ...headers, "X-Affiche-Cpu": cpu, "Content-Type": "image/jpeg" } });
     } catch (e) {
       console.error(`affiche ${type}/${shape}/${id} : ${e && e.message}`);

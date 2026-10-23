@@ -105,6 +105,23 @@ function apresLaReponse(travail) {
   return undefined;
 }
 
+/**
+ * Durée de chaque étape d'une affiche, pour l'en-tête Server-Timing (« tmdb;dur=120, qualite;dur=640, …, total;dur=980 ») :
+ * de quoi voir en ligne ce qui fait attendre une affiche hors cache. mesure() rend la même promesse (ou la valeur telle
+ * quelle si ce n'en est pas une) ; une étape qui échoue est mesurée aussi.
+ */
+function chronometre() {
+  const t0 = performance.now(), etapes = [];
+  return {
+    mesure(nom, travail) {
+      if (!travail || typeof travail.then !== "function") return travail;
+      const debut = performance.now();
+      return travail.finally(() => etapes.push(`${nom};dur=${Math.round(performance.now() - debut)}`));
+    },
+    entete: () => [...etapes, `total;dur=${Math.round(performance.now() - t0)}`].join(", "),
+  };
+}
+
 /** Pas d'affiche pour l'instant (503, jamais gardée) : l'appli montre celle d'origine. */
 const indisponible = (attente) => new Response(null, { status: 503, headers: { ...CORS, ...attente, "Cache-Control": "no-store" } });
 
@@ -169,7 +186,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
     try { return await repondre(request); } finally { await apresLaReponse(envoi); }
   };
   async function repondre(request) {
-    const cpu0 = process.cpuUsage();
+    const cpu0 = process.cpuUsage(), chrono = chronometre();
     const q = new URL(request.url).searchParams;
     const type = q.get("type"), shape = q.get("shape"), id = q.get("id") || "";
     const imdb = /^tt\d{1,10}$/.test(q.get("imdb") || "") ? q.get("imdb") : "";
@@ -202,14 +219,14 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       if (type === "movie") lireEstimations(fetchImpl, 0).catch(() => {});
       const relais = new URL(request.url).origin;
       if (tendance) lireRang(env, type, 0, fetchImpl, relais).catch(() => {});
-      let facts = await titleFacts(env, { type, id, imdb }, fetchImpl, { plateforme: reglages.plateforme.on, vo: reglages.titre.on && reglages.titre.langue === "vo", credits: reglages.titre.on && reglages.infos.ligne2 === "realisateur" });
+      let facts = await chrono.mesure("tmdb", titleFacts(env, { type, id, imdb }, fetchImpl, { plateforme: reglages.plateforme.on, vo: reglages.titre.on && reglages.titre.langue === "vo", credits: reglages.titre.on && reglages.infos.ligne2 === "realisateur" }));
       if (!facts) return absent();
       // Film en salle aux États-Unis sans date numérique : son estimation d'après son distributeur américain, la même
       // que celle de l'addon. Table pas lue à temps : la salle + 45 jours, et le cache court pour l'avoir ensuite. Un
       // film en français garde ses propres dates (dispoChezSoi) : la table ne lui sert pas.
       let estimationManque = false;
       if (type === "movie" && facts.originalLanguage !== "fr" && besoinEstimation(facts.releases)) {
-        const { table, manque } = await lireEstimations(fetchImpl, ATTENTE_ESTIMATIONS_MS);
+        const { table, manque } = await chrono.mesure("estimations", lireEstimations(fetchImpl, ATTENTE_ESTIMATIONS_MS));
         facts = { ...facts, vod: estimationDe(table, facts.imdbId) };
         estimationManque = manque;
       }
@@ -235,12 +252,12 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       // La photo du jour sert aussi sans le réglage Tendance, dès que la VF compte : elle porte l'avis VF de l'addon
       // (StreamFusion).
       const lectures = Promise.all([
-        noteImdb && facts.imdbId ? lireNoteImdb(facts.imdbId, fetchImpl, ATTENTE_NOTES_MS) : { note: undefined, manque: false },
-        tendance || lireSources ? lireRang(env, type, facts.tmdbId, fetchImpl, relais).catch(() => ({ rang: null, illisible: true, vf: null, qualite: null })) : { rang: null, illisible: false, vf: null, qualite: null },
-        lireSources ? qualiteATemps(type, facts, fetchImpl, relais, env.RELAIS_KEY, request.headers.get("X-Apercu") === "1" ? ATTENTE_APERCU_MS : ATTENTE_QUALITE_MS) : { enRetard: false, quality: null },
-        notesUtiles && facts.imdbId ? notesPlus(facts.imdbId, fetchImpl, relais, env.RELAIS_KEY) : undefined,
-        sagaVoulue ? filmsDeLaSaga(env, facts.collection, fetchImpl) : null,
-        saisonVoulue ? lireSaison(env, fetchImpl) : null,
+        noteImdb && facts.imdbId ? chrono.mesure("imdb", lireNoteImdb(facts.imdbId, fetchImpl, ATTENTE_NOTES_MS)) : { note: undefined, manque: false },
+        tendance || lireSources ? chrono.mesure("tendances", lireRang(env, type, facts.tmdbId, fetchImpl, relais).catch(() => ({ rang: null, illisible: true, vf: null, qualite: null }))) : { rang: null, illisible: false, vf: null, qualite: null },
+        lireSources ? chrono.mesure("qualite", qualiteATemps(type, facts, fetchImpl, relais, env.RELAIS_KEY, request.headers.get("X-Apercu") === "1" ? ATTENTE_APERCU_MS : ATTENTE_QUALITE_MS)) : { enRetard: false, quality: null },
+        notesUtiles && facts.imdbId ? chrono.mesure("notes", notesPlus(facts.imdbId, fetchImpl, relais, env.RELAIS_KEY)) : undefined,
+        sagaVoulue ? chrono.mesure("saga", filmsDeLaSaga(env, facts.collection, fetchImpl)) : null,
+        saisonVoulue ? chrono.mesure("saison", lireSaison(env, fetchImpl)) : null,
       ]);
       lectures.catch(() => {});
       // L'image « sans texte » porte notre logo : on vérifie qu'elle n'a vraiment pas de texte (TMDB y range
@@ -251,7 +268,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       if (reglages.titre.on) {
         const fond = shape === "landscape" || reglages.image.source === "fond";
         const [cle, liste] = fond ? ["textlessBackdrop", facts.textlessBackdrops] : ["textlessPoster", facts.textlessPosters];
-        const { chemin, incertain } = await choisirSansTexte(liste, fetchImpl);
+        const { chemin, incertain } = await chrono.mesure("sans-texte", choisirSansTexte(liste, fetchImpl));
         facts = { ...facts, [cle]: chemin };
         imageIncertaine = incertain;
       }
@@ -263,7 +280,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const peutDessiner = brouillon.full || brouillon.statut || brouillon.gris || brouillon.bandeau || brouillon.coin || tendance || qualite || langue
         || reglages.infos.culte || reglages.infos.saga || !!brouillon.styles.retouche || !!brouillon.styles.cadre || (reglages.saison.on && type === "movie");
       if (peutDessiner && !request.headers.get("If-None-Match")) imageUrls(brouillon).forEach((u) => images(u).catch(() => {}));
-      const [{ note: imdbRating, manque: imdbManque }, photoLue, { enRetard: qualiteEnRetard, quality: qualiteTorrentio }, notes, filmsSaga, rangee] = await lectures;
+      const [{ note: imdbRating, manque: imdbManque }, photoLue, { enRetard: qualiteEnRetard, quality: qualiteTorrentio }, notes, filmsSaga, rangee] = await chrono.mesure("lectures", lectures);
       const place = tendance ? photoLue.rang : null, photoIllisible = tendance && photoLue.illisible;
       const quality = avecAvisVf(qualiteTorrentio, photoLue.vf, photoLue.qualite);
       const saga = sagaVoulue ? rangSaga(filmsSaga, facts.tmdbId, aujourdhui) : null;
@@ -284,7 +301,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const retouchee = !!(content.styles.retouche || content.styles.cadre);
       if (!content.full && !content.rank && !content.quality && !content.statut && !content.gris && !content.bandeau && !content.coin && !content.culte && !retouchee
         && !content.langue && !content.avance && !content.saga && !content.saison) {
-        return new Response(null, { status: 302, headers: { ...CORS, ...cacheDe({ enRetard, place, jusqua: finSaison }), Location: imageUrls(content)[0] } });
+        return new Response(null, { status: 302, headers: { ...CORS, ...cacheDe({ enRetard, place, jusqua: finSaison }), "Server-Timing": chrono.entete(), Location: imageUrls(content)[0] } });
       }
       const cle = contentKey(content), etag = `"${cle}"`;
       // Classée, presque classée ou avec un statut : jusqu'au changement de photo des tendances (voir cacheDe).
@@ -310,19 +327,19 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const pourquoi = `${sortieVue.sorti ? "sorti" : "pas-sorti"} statut=${sortieVue.statut || "-"} vf=${quality ? quality.vf : "?"} sources=${quality ? quality.sources : "?"}`
         + (chezSoi ? ` dispo=${chezSoi.date ? chezSoi.date + (chezSoi.vers ? "~" : "") : "-"}` : "")
         + ` plateforme-fr=${facts.plateformeFrance ? 1 : 0} tmdb-fr=${facts.plateformesVues || "-"} premiere=${facts.firstAir || facts.releaseDate || "-"} jour=${aujourdhui}`;
-      const headers = { ...CORS, "Access-Control-Expose-Headers": "X-Affiche-Etat, X-Affiche-Sortie", "X-Affiche-Etat": enRetard ? "retard" : "complete",
+      const headers = { ...CORS, "Access-Control-Expose-Headers": "X-Affiche-Etat, X-Affiche-Sortie, Server-Timing", "X-Affiche-Etat": enRetard ? "retard" : "complete",
         "X-Affiche-Sortie": pourquoi, ...cache, ETag: etag };
-      if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });
+      if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers: { ...headers, "Server-Timing": chrono.entete() } });
       // Une ligne par affiche dans les journaux de Vercel : relue ou dessinée, et ce qui fait dessiner (options, durée
       // au CDN, donnée en retard : q qualité, i note IMDb, t tendances, x image sans texte, s saga ou saison, e estimation).
       const retard = [[qualiteEnRetard, "q"], [imdbManque, "i"], [photoIllisible, "t"], [imageIncertaine, "x"],
         [(sagaVoulue && !filmsSaga) || (saisonVoulue && !rangee), "s"], [estimationManque, "e"]].filter(([v]) => v).map(([, c]) => c).join("");
       const ligne = `${type}/${shape}/${id}${normales ? "?" + normales : ""} cdn=${/max-age=(\d+)/.exec(cache["Vercel-CDN-Cache-Control"])[1]}${retard ? " retard=" + retard : ""}`;
       // Déjà dessinée à l'identique (la veille, avant une mise en ligne…) : relue dans la réserve de l'addon.
-      const gardee = await reserve.lire(cle);
+      const gardee = await chrono.mesure("reserve", reserve.lire(cle));
       if (gardee) {
         console.log(`reserve ${ligne}`);
-        return new Response(gardee, { status: 200, headers: { ...headers, "X-Affiche-Reserve": "lue", "Content-Type": "image/jpeg" } });
+        return new Response(gardee, { status: 200, headers: { ...headers, "X-Affiche-Reserve": "lue", "Server-Timing": chrono.entete(), "Content-Type": "image/jpeg" } });
       }
       // Budget du mois dépensé (lib/budget.js) : plus de dessin, seulement la réserve.
       if (budget.epuise()) {
@@ -333,7 +350,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       let jpg;
       disjoncteur.compte();
       try {
-        jpg = await draw(content, images);
+        jpg = await chrono.mesure("dessin", draw(content, images));
       } catch (e) {
         // Dessin impossible (logo introuvable ou illisible, SVG cassé…) : l'appli montre l'affiche d'origine, qui
         // porte le titre.
@@ -346,7 +363,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const ms = (c) => Math.round((c.user + c.system) / 1000);
       const cpu = `requete=${ms(process.cpuUsage(cpu0))} instance=${ms(process.cpuUsage())} dessins=${dessins} depuis=${Math.round(process.uptime())} budget=${budget.minutes}`;
       await apresLaReponse(reserve.garder(cle, jpg));
-      return new Response(jpg, { status: 200, headers: { ...headers, "X-Affiche-Cpu": cpu, "Content-Type": "image/jpeg" } });
+      return new Response(jpg, { status: 200, headers: { ...headers, "X-Affiche-Cpu": cpu, "Server-Timing": chrono.entete(), "Content-Type": "image/jpeg" } });
     } catch (e) {
       console.error(`affiche ${type}/${shape}/${id} : ${e && e.message}`);
       return panne();

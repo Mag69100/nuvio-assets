@@ -824,3 +824,14 @@ test("qualite_lue_pendant_la_verification_des_images", async () => {
   assert.equal(res.status, 200);
   assert.equal(avantImages, true);
 });
+
+test("server_timing_donne_chaque_etape", async () => {
+  // De quoi voir en ligne ce qui fait attendre une affiche hors cache (curl -D -, ou les outils du navigateur).
+  const { f } = avecAddon();
+  const res = await makeHandler({ fetchImpl: f, env: envAddon })(req("type=movie&shape=poster&id=tt15239678"));
+  assert.equal(res.status, 200);
+  const etapes = Object.fromEntries(res.headers.get("Server-Timing").split(", ").map((x) => [x.split(";")[0], Number(x.split("dur=")[1])]));
+  for (const nom of ["tmdb", "sans-texte", "qualite", "lectures", "reserve", "dessin", "total"]) assert.ok(Number.isInteger(etapes[nom]), `${nom} : ${res.headers.get("Server-Timing")}`);
+  assert.ok(etapes.total >= etapes.dessin);
+  assert.match(res.headers.get("Access-Control-Expose-Headers"), /Server-Timing/);
+});

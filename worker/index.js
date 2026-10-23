@@ -61,7 +61,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.13";
+const VERSION = "5.38.14";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -1139,6 +1139,12 @@ async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
   const enTete = [];
   if (page === 1 && classes.length) {
     const vus = new Map(released.map((it) => [it.id, it]));
+    // Classés plus loin que la page 2 (la photo lit 5 pages, voir worker/tendances.js) : les pages 3 à 5 plutôt
+    // qu'une fiche TMDB par titre (jusqu'à 20 appels de plus, sur les 50 permis).
+    if (classes.filter((id) => !vus.has(id)).length > 3) {
+      const suite = await Promise.all([3, 4, 5].map((p) => tmdb(env, def.endpoint, { ...(def.params || {}), page: p }, opts.lang)));
+      suite.flatMap((d) => d.results || []).forEach((it) => { if (!vus.has(it.id)) vus.set(it.id, it); });
+    }
     const lus = await Promise.all(classes.map((id) => vus.get(id) || tmdb(env, `/${kind === "series" ? "tv" : "movie"}/${id}`, {}, opts.lang)
       .then((d) => (d && d.id ? { ...d, genre_ids: (d.genres || []).map((g) => g.id) } : null))));
     enTete.push(...lus.filter(Boolean));
@@ -1219,20 +1225,64 @@ const RANGS = 20;
 async function classerTendances(env, kind, results) {
   const today = parisToday();
   const released = results.filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; });
-  // La VF : StreamFusion s'il est réglé (lireVfPhoto), sinon Torrentio.
-  const garde = kind === "movie" ? await filmsRegardables(env, released, today, RANGS, lireVfPhoto) : await seriesRegardables(env, released, today, RANGS, lireVfPhoto);
-  if ([...garde.infos.values()].some((info) => !info.lu)) throw new Error("fiches TMDB pas toutes lues");
-  const ids = garde.picked.map((it) => it.id);
-  // L'avis VF de chaque titre examiné (StreamFusion, sinon Torrentio) : publié avec la photo, les affiches s'en servent
-  // à la place de Torrentio (StreamFusion n'est appelé qu'ici, pas à chaque affiche).
-  // Et la qualité des sources VF de StreamFusion (4K, DV, HDR…) : les affiches la préfèrent à celle de Torrentio.
+  let ids, vf, q;
+  if (kind === "movie") {
+    // Films : beaucoup sont encore au cinéma ou en VO (9 sur les 30 premiers gardés un jour d'octobre). Examinés par
+    // lots de 20, dans l'ordre, jusqu'à en avoir 20 : chaque lot dans un appel de l'addon à lui-même (son budget de 50).
+    ids = []; vf = {}; q = {};
+    for (let i = 0; i < released.length && ids.length < RANGS; i += TRI_LOT) {
+      const lot = await trierLot(env, released.slice(i, i + TRI_LOT), today);
+      if (!lot.complet) throw new Error("fiches TMDB pas toutes lues");
+      ids.push(...lot.ids); Object.assign(vf, lot.vf); Object.assign(q, lot.q);
+    }
+    ids = ids.slice(0, RANGS);
+  } else {
+    // La VF : StreamFusion s'il est réglé (lireVfPhoto), sinon Torrentio.
+    const garde = await seriesRegardables(env, released, today, RANGS, lireVfPhoto);
+    if ([...garde.infos.values()].some((info) => !info.lu)) throw new Error("fiches TMDB pas toutes lues");
+    ids = garde.picked.map((it) => it.id);
+    ({ vf, q } = avisVf(garde));
+  }
+  return { ids: [...ids, ...Array(RANGS - ids.length).fill(0)], vf, q };
+}
+
+/**
+ * L'avis VF de chaque titre examiné (StreamFusion, sinon Torrentio) : publié avec la photo, les affiches s'en servent
+ * à la place de Torrentio (StreamFusion n'est appelé qu'ici, pas à chaque affiche).
+ * Et la qualité des sources VF de StreamFusion (4K, DV, HDR…) : les affiches la préfèrent à celle de Torrentio.
+ */
+function avisVf(garde) {
   const vf = {}, q = {};
   for (const [id, info] of garde.infos) {
     const lu = info && info.imdb ? garde.sources.get(info.imdb) : null;
     if (lu && typeof lu.vf === "boolean") vf[id] = lu.vf ? 1 : 0;
     if (lu && lu.qualite) q[id] = lu.qualite;
   }
-  return { ids: [...ids, ...Array(RANGS - ids.length).fill(0)], vf, q };
+  return { vf, q };
+}
+
+/**
+ * Un lot de films des tendances (TRI_LOT au plus) : { ids (les regardables en VF, dans l'ordre), complet (toutes les
+ * fiches lues), vf, q }. 20 fiches TMDB, StreamFusion (18 au plus) et Torrentio : une quarantaine d'appels sortants,
+ * d'où un appel de l'addon à lui-même par lot (liaison SELF, /tendances/tri), sinon ici même (Docker, sans limite).
+ */
+const TRI_LOT = 20;
+const triCle = (env) => sha("tri:" + (env.TMDB_API_KEY || ""));
+async function trierLot(env, films, today) {
+  const items = films.slice(0, TRI_LOT).map(({ id, release_date, original_language }) => ({ id, release_date, original_language }));
+  if (env.SELF) {
+    try {
+      const res = await env.SELF.fetch("https://self/tendances/tri", { method: "POST",
+        headers: { "Content-Type": "application/json", "x-tri": await triCle(env) }, body: JSON.stringify({ items }) });
+      if (res.ok) return await res.json();
+    } catch (e) { /* ici même */ }
+  }
+  return trierIci(env, items, today);
+}
+async function trierIci(env, items, today) {
+  // Tout le lot examiné (max = sa taille) : un film gardé ne passe jamais devant un film du lot pas encore lu.
+  const garde = await filmsRegardables(env, items, today, items.length, lireVfPhoto);
+  return { ids: garde.picked.map((it) => it.id), complet: [...garde.infos.values()].every((info) => info.lu), ...avisVf(garde) };
 }
 
 /** Les titres qui portent un N° sur la photo du jour (Map id → place), dans l'ordre. */
@@ -2582,6 +2632,16 @@ const app = {
         "Content-Type": r.headers.get("Content-Type"), "Cache-Control": garde ? `public, max-age=${garde}` : "no-store" } });
       if (garde) ctx.waitUntil(caches.default.put(key, out.clone()));
       return out;
+    }
+    // Un lot de films des tendances à trier pour la photo du jour (appel de l'addon à lui-même, voir trierLot). Clé
+    // tirée de la clé TMDB de l'instance : un appel venu d'ailleurs ne peut pas dépenser StreamFusion.
+    if (path === "/tendances/tri" && request.method === "POST") {
+      if (!same(request.headers.get("x-tri") || "", await triCle(env))) return json({ error: "interdit" }, 0);
+      const body = await request.json().catch(() => ({}));
+      const items = (Array.isArray(body.items) ? body.items : []).slice(0, TRI_LOT)
+        .filter((it) => it && Number.isInteger(it.id) && it.id > 0 && /^\d{4}-\d{2}-\d{2}$/.test(it.release_date || ""))
+        .map((it) => ({ id: it.id, release_date: it.release_date, original_language: /^[a-z]{2,3}$/.test(it.original_language || "") ? it.original_language : "" }));
+      return json(await trierIci(env, items, parisToday()), 0);
     }
     // Préparation des « pour qui » d'une page (appel de l'addon à lui-même, voir prefetchProfiles).
     // La clé Gemini (celle du lien de l'utilisateur) arrive avec l'appel, son empreinte en en-tête :

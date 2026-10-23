@@ -199,3 +199,40 @@ test("photo_publie_l_avis_vf", async () => {
   assert.deepEqual(d.vf, { 61: 1, 62: 0 });
   assert.deepEqual(d.ids.slice(0, 2), [61, 0]);
 });
+
+// Films : beaucoup encore au cinéma (un sur quatre seulement regardable en VF ici). La photo les examine par lots de 20,
+// chaque lot dans un appel de l'addon à lui-même (SELF, son budget de 50 appels), jusqu'à remplir les 20 N° : 4 lots
+// sur les 5 pages de TMDB. Sans la clé de l'instance, /tendances/tri refuse (StreamFusion ne se dépense pas d'ailleurs).
+test("photo_des_films_remplie_par_lots", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const regardable = (id) => id % 4 === 0;
+  const date = (type, d, pays) => ({ iso_3166_1: pays, release_dates: [{ type, release_date: jour(d) + "T00:00:00.000Z" }] });
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/trending/movie/day")) {
+      const p = Number(new URL(u).searchParams.get("page"));
+      return new Response(JSON.stringify({ results: Array.from({ length: 20 }, (_, k) => 1000 + (p - 1) * 20 + k)
+        .map((id) => ({ id, release_date: regardable(id) ? jour(-80) : jour(-5), original_language: "en" })) }));
+    }
+    if (u.includes("/vf.json")) return new Response(JSON.stringify(Object.fromEntries((new URL(u).searchParams.get("v") || "").split(",").map((k) => [k, { vf: true, sources: 5 }]))));
+    const m = /\/movie\/(\d+)\?/.exec(u);
+    if (m) {
+      const id = Number(m[1]);
+      return new Response(JSON.stringify({ id, imdb_id: `tt5${id}`, original_language: "en", release_dates: { results: regardable(id)
+        ? [date(3, -80, "US"), date(4, -20, "US")] : [date(3, -5, "FR")] } }));
+    }
+    return new Response("{}");
+  };
+  const lots = [];
+  const e = { ...env };
+  e.SELF = { fetch: (url, init) => { lots.push(init.headers["x-tri"]); return worker.fetch(new Request(url, init), e, ctx); } };
+  const { ids } = await (await get("/tendances/movie.json", e)).json();
+  const attendus = Array.from({ length: 100 }, (_, k) => 1000 + k).filter(regardable).slice(0, 20);
+  assert.deepEqual(ids.slice(0, 20), attendus);
+  assert.equal(lots.length, 4);
+  assert.ok(lots.every((h) => h && h === lots[0]));
+  const refus = await worker.fetch(new Request("https://x/tendances/tri", { method: "POST", headers: { "x-tri": "faux" },
+    body: JSON.stringify({ items: [{ id: 1000, release_date: jour(-80), original_language: "en" }] }) }), e, ctx);
+  assert.deepEqual(await refus.json(), { error: "interdit" });
+});

@@ -1,5 +1,5 @@
 /**
- * La photo du jour des tendances TMDB : les 60 premiers (identifiants TMDB, dans l'ordre), prise une seule fois par
+ * La photo du jour des tendances TMDB : les 100 premiers (identifiants TMDB, dans l'ordre), prise une seule fois par
  * jour, à 4 h UTC (tâche planifiée de Cloudflare, voir wrangler.toml), et gardée dans la base D1 (LIENS). Le premier
  * enregistrement du jour gagne : tous ceux qui la lisent ont la même, quelle que soit l'heure. Le service d'affiches
  * la publie sur /tendances/{movie|series}.json (N° des affiches) en la lisant ici, et les rangées « Tendances du
@@ -11,7 +11,8 @@
  * Sans base (Docker, ou base pas encore prête) : le classement du moment, gardé par Cloudflare jusqu'au changement.
  */
 export const BASCULE_UTC_H = 4;
-const TOP = 60, GARDE_JOURS = 7;
+// 100 : assez de films pour en trouver 20 déjà en VF chez soi (sur les 30 premiers, 9 seulement un jour d'octobre).
+const TOP = 100, GARDE_JOURS = 7;
 // Clé de la photo en base : « movie:rangs5 » ({ ids, vf, q } : renumérotée, avec l'avis VF et la qualité) ; celles d'avant ne sont plus lues.
 const CLE = (kind) => `${kind}:rangs5`;
 
@@ -22,10 +23,10 @@ export function secondesAvantBascule(now = Date.now()) {
 /** Le jour de la photo en cours (elle change à 4 h UTC). */
 export const jourTendances = (now = Date.now()) => new Date(now - BASCULE_UTC_H * 3600000).toISOString().slice(0, 10);
 
-/** Le classement TMDB du moment (3 pages, sans doublon : les titres, dans l'ordre), lu sans cache ; null si TMDB ne répond pas. */
+/** Le classement TMDB du moment (5 pages, sans doublon : les titres, dans l'ordre), lu sans cache ; null si TMDB ne répond pas. */
 async function lireTmdb(env, kind) {
   try {
-    const pages = await Promise.all([1, 2, 3].map(async (page) => {
+    const pages = await Promise.all([1, 2, 3, 4, 5].map(async (page) => {
       const url = new URL(`https://api.themoviedb.org/3/trending/${kind === "series" ? "tv" : "movie"}/day`);
       url.search = new URLSearchParams({ api_key: env.TMDB_API_KEY, language: "fr-FR", page: String(page) });
       const res = await fetch(url);

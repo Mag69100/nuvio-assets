@@ -41,11 +41,6 @@ database_name = "nuvio-liens"
 binding = "RESERVE"
 database_name = "nuvio-reserve-weur"
 
-# L'ancienne réserve, le temps de la recopier dans la nouvelle (voir worker/reserve.js). À retirer ensuite.
-[[d1_databases]]
-binding = "RESERVE_ANCIENNE"
-database_name = "nuvio-reserve"
-
 # Photo du jour des tendances (worker/tendances.js) : prise à 4 h UTC, la même pour tout le monde.
 [triggers]
 crons = ["0 4 * * *"]

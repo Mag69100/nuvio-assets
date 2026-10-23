@@ -8,31 +8,23 @@
  * Base D1 à part (RESERVE) : une base gratuite tient 500 Mo, et les liens fixes ne doivent jamais manquer de
  * place. Chaque nuit (tâche de 4 h UTC), on oublie les affiches pas lues depuis 8 jours, puis les plus
  * anciennes au-delà de 400 Mo. Sans clé ou sans base (copies, Docker) : 404, le service dessine comme avant.
- * Déménagement (2026-10-23) : la première base (RESERVE_ANCIENNE, « nuvio-reserve ») tournait en Asie-Pacifique, et
- * le service d'affiches dessine à Paris : 190 ms par lecture en moyenne, jusqu'à 415 ms (en-tête Server-Timing). La
- * nouvelle (RESERVE) est en Europe de l'Ouest, remplie depuis un export de l'ancienne (wrangler d1 export, puis les
- * images en morceaux de moins de 100 Ko, recollées par unhex). Tant que l'ancienne est liée, une affiche absente de
- * la nouvelle (rangée après l'export) y est cherchée, et recopiée.
+ * Déménagement (2026-10-23) : la première base (« nuvio-reserve ») tournait en Asie-Pacifique, et le service
+ * d'affiches dessine à Paris : 190 ms par lecture en moyenne, jusqu'à 415 ms (en-tête Server-Timing). La nouvelle
+ * (« nuvio-reserve-weur ») est en Europe de l'Ouest, remplie depuis un export de l'ancienne (wrangler d1 export, puis
+ * les images en morceaux de moins de 100 Ko, recollées par unhex : D1 refuse les instructions plus longues).
  */
 import { memeCle } from "./cpu.js";
 
 const MAX_OCTETS = 400 * 1024, GARDE_JOURS = 8, PLAFOND_OCTETS = 400 * 1024 * 1024;
 
-// Table créée une fois par base et par instance.
-const pretes = new WeakMap();
-const table = (db) => {
-  if (!pretes.has(db)) {
-    pretes.set(db, db.prepare("CREATE TABLE IF NOT EXISTS affiches (k TEXT PRIMARY KEY, img BLOB NOT NULL, n INTEGER NOT NULL, t TEXT NOT NULL)").run()
-      .catch((e) => { pretes.delete(db); throw e; }));
-  }
-  return pretes.get(db);
-};
+let ready = null;
+const table = (db) => (ready = ready || db.prepare(
+  "CREATE TABLE IF NOT EXISTS affiches (k TEXT PRIMARY KEY, img BLOB NOT NULL, n INTEGER NOT NULL, t TEXT NOT NULL)").run()
+  .catch((e) => { ready = null; throw e; }));
 
 const jourUtc = (t) => new Date(t).toISOString().slice(0, 10);
 
 const vide = (status) => new Response(null, { status, headers: { "Cache-Control": "no-store" } });
-
-const INSERER = "INSERT OR REPLACE INTO affiches (k, img, n, t) VALUES (?, ?, ?, ?)";
 
 export async function routeReserve(request, env, cle, now = Date.now(), ctx = null) {
   const db = env.RESERVE;
@@ -44,17 +36,7 @@ export async function routeReserve(request, env, cle, now = Date.now(), ctx = nu
   try {
     await table(db);
     if (request.method === "GET") {
-      let r = await db.prepare("SELECT img, t FROM affiches WHERE k = ?").bind(cle).first();
-      // Pas encore recopiée depuis l'ancienne base : lue là-bas, et recopiée.
-      if (!r && env.RESERVE_ANCIENNE) {
-        await table(env.RESERVE_ANCIENNE);
-        r = await env.RESERVE_ANCIENNE.prepare("SELECT img, t FROM affiches WHERE k = ?").bind(cle).first();
-        if (r) {
-          const img = new Uint8Array(r.img);
-          await ensuite(db.prepare(INSERER).bind(cle, img, img.length, jourUtc(now)).run());
-          return new Response(img, { headers: { "Content-Type": "image/jpeg", "Cache-Control": "no-store" } });
-        }
-      }
+      const r = await db.prepare("SELECT img, t FROM affiches WHERE k = ?").bind(cle).first();
       if (!r) return vide(404);
       // Lue aujourd'hui : gardée 8 jours de plus. Une écriture par affiche et par jour au plus.
       if (r.t < jourUtc(now)) await ensuite(db.prepare("UPDATE affiches SET t = ? WHERE k = ?").bind(jourUtc(now), cle).run());
@@ -64,7 +46,7 @@ export async function routeReserve(request, env, cle, now = Date.now(), ctx = nu
       const img = new Uint8Array(await request.arrayBuffer());
       // Un JPEG (FF D8), de taille raisonnable : rien d'autre ne se range ici.
       if (img.length < 4 || img.length > MAX_OCTETS || img[0] !== 0xff || img[1] !== 0xd8) return vide(400);
-      await db.prepare(INSERER).bind(cle, img, img.length, jourUtc(now)).run();
+      await db.prepare("INSERT OR REPLACE INTO affiches (k, img, n, t) VALUES (?, ?, ?, ?)").bind(cle, img, img.length, jourUtc(now)).run();
       return vide(204);
     }
     return vide(405);

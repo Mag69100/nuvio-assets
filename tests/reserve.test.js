@@ -85,3 +85,26 @@ test("reserve_menage_de_la_nuit", async () => {
   await nettoyerReserve(env);
   assert.deepEqual([...env.RESERVE.rows.keys()].sort(), ["b", "recente"]);
 });
+
+// Déménagement de la réserve (Asie-Pacifique → Europe de l'Ouest) : rien à redessiner.
+test("reserve_lue_dans_l_ancienne_base_et_recopiee", async () => {
+  const env = { RELAIS_KEY: "cle", RESERVE: fakeD1(), RESERVE_ANCIENNE: fakeD1() };
+  env.RESERVE_ANCIENNE.rows.set(CLE, { img: [...JPG], n: JPG.length, t: jour(3) });
+  const res = await appel(env);
+  assert.equal(res.status, 200);
+  assert.deepEqual(new Uint8Array(await res.arrayBuffer()), JPG);
+  assert.deepEqual(env.RESERVE.rows.get(CLE).img, [...JPG]);
+  assert.equal(env.RESERVE.rows.get(CLE).t, jour(0));
+  assert.equal((await appel(env, { cle: "b".repeat(40) })).status, 404);   // absente des deux
+});
+
+test("reserve_date_de_lecture_apres_la_reponse", async () => {
+  const env = { RELAIS_KEY: "cle", RESERVE: fakeD1() };
+  env.RESERVE.rows.set(CLE, { img: [...JPG], n: JPG.length, t: jour(5) });
+  const confies = [];
+  const res = await worker.fetch(new Request(`https://x/reserve/${CLE}`, { headers: { "X-Relais-Cle": "cle" } }), env, { waitUntil: (p) => confies.push(p) });
+  assert.equal(res.status, 200);
+  assert.equal(confies.length, 1);
+  await Promise.all(confies);
+  assert.equal(env.RESERVE.rows.get(CLE).t, jour(0));
+});

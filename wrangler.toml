@@ -35,8 +35,15 @@ database_name = "nuvio-liens"
 
 # Réserve des affiches maison déjà dessinées (voir worker/reserve.js) : une base à part, créée toute seule elle
 # aussi. Une base gratuite tient 500 Mo : les liens fixes ne partagent pas la leur avec des images.
+# En Europe de l'Ouest, près du service d'affiches (Paris) : la première, « nuvio-reserve », s'était créée en
+# Asie-Pacifique (190 ms par lecture). Créée avec `npx wrangler d1 create nuvio-reserve-weur --location=weur`.
 [[d1_databases]]
 binding = "RESERVE"
+database_name = "nuvio-reserve-weur"
+
+# L'ancienne réserve, le temps de la recopier dans la nouvelle (voir worker/reserve.js). À retirer ensuite.
+[[d1_databases]]
+binding = "RESERVE_ANCIENNE"
 database_name = "nuvio-reserve"
 
 # Photo du jour des tendances (worker/tendances.js) : prise à 4 h UTC, la même pour tout le monde.

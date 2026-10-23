@@ -61,7 +61,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.16";
+const VERSION = "5.38.17";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -2498,7 +2498,7 @@ const app = {
     if (path === "/cpu") return routeCpu(request, env, url);
     // Réserve des affiches déjà dessinées, lue par le service d'affiches avant de dessiner (voir reserve.js).
     const rv = /^\/reserve\/([^/]+)$/.exec(path);
-    if (rv) return routeReserve(request, env, rv[1]);
+    if (rv) return routeReserve(request, env, rv[1], Date.now(), ctx);
     const today = parisToday();
     const rows = allRows(today, null);
     // Nuvio « de base » de l'avant / après des aperçus : les rangées de Cinemeta, relayées (voir cinemeta.js).

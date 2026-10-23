@@ -22,7 +22,8 @@
             "sortBy": "popularity.desc",
             "filters": {
               "watchRegion": "FR",
-              "withWatchProviders": "8"
+              "withWatchProviders": "8",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -45,7 +46,8 @@
             "filters": {
               "voteCountGte": 10,
               "watchRegion": "FR",
-              "withWatchProviders": "8"
+              "withWatchProviders": "8",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -69,7 +71,8 @@
             "filters": {
               "voteCountGte": 500,
               "watchRegion": "FR",
-              "withWatchProviders": "8"
+              "withWatchProviders": "8",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -105,7 +108,8 @@
             "sortBy": "popularity.desc",
             "filters": {
               "watchRegion": "FR",
-              "withWatchProviders": "119"
+              "withWatchProviders": "119",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -128,7 +132,8 @@
             "filters": {
               "voteCountGte": 10,
               "watchRegion": "FR",
-              "withWatchProviders": "119"
+              "withWatchProviders": "119",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -152,7 +157,8 @@
             "filters": {
               "voteCountGte": 500,
               "watchRegion": "FR",
-              "withWatchProviders": "119"
+              "withWatchProviders": "119",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -188,7 +194,8 @@
             "sortBy": "popularity.desc",
             "filters": {
               "watchRegion": "FR",
-              "withWatchProviders": "531"
+              "withWatchProviders": "531",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -211,7 +218,8 @@
             "filters": {
               "voteCountGte": 10,
               "watchRegion": "FR",
-              "withWatchProviders": "531"
+              "withWatchProviders": "531",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -235,7 +243,8 @@
             "filters": {
               "voteCountGte": 500,
               "watchRegion": "FR",
-              "withWatchProviders": "531"
+              "withWatchProviders": "531",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -271,7 +280,8 @@
             "sortBy": "popularity.desc",
             "filters": {
               "watchRegion": "FR",
-              "withWatchProviders": "337"
+              "withWatchProviders": "337",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -294,7 +304,8 @@
             "filters": {
               "voteCountGte": 10,
               "watchRegion": "FR",
-              "withWatchProviders": "337"
+              "withWatchProviders": "337",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -318,7 +329,8 @@
             "filters": {
               "voteCountGte": 500,
               "watchRegion": "FR",
-              "withWatchProviders": "337"
+              "withWatchProviders": "337",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -354,7 +366,8 @@
             "sortBy": "popularity.desc",
             "filters": {
               "watchRegion": "FR",
-              "withWatchProviders": "1899"
+              "withWatchProviders": "1899",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -377,7 +390,8 @@
             "filters": {
               "voteCountGte": 10,
               "watchRegion": "FR",
-              "withWatchProviders": "1899"
+              "withWatchProviders": "1899",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -401,7 +415,8 @@
             "filters": {
               "voteCountGte": 500,
               "watchRegion": "FR",
-              "withWatchProviders": "1899"
+              "withWatchProviders": "1899",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -437,7 +452,8 @@
             "sortBy": "popularity.desc",
             "filters": {
               "watchRegion": "FR",
-              "withWatchProviders": "350"
+              "withWatchProviders": "350",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -460,7 +476,8 @@
             "filters": {
               "voteCountGte": 10,
               "watchRegion": "FR",
-              "withWatchProviders": "350"
+              "withWatchProviders": "350",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -484,7 +501,8 @@
             "filters": {
               "voteCountGte": 500,
               "watchRegion": "FR",
-              "withWatchProviders": "350"
+              "withWatchProviders": "350",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -520,7 +538,8 @@
             "sortBy": "popularity.desc",
             "filters": {
               "watchRegion": "FR",
-              "withWatchProviders": "381"
+              "withWatchProviders": "381",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -543,7 +562,8 @@
             "filters": {
               "voteCountGte": 10,
               "watchRegion": "FR",
-              "withWatchProviders": "381"
+              "withWatchProviders": "381",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -567,7 +587,8 @@
             "filters": {
               "voteCountGte": 500,
               "watchRegion": "FR",
-              "withWatchProviders": "381"
+              "withWatchProviders": "381",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -603,7 +624,8 @@
             "sortBy": "popularity.desc",
             "filters": {
               "watchRegion": "FR",
-              "withWatchProviders": "283"
+              "withWatchProviders": "283",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -626,7 +648,8 @@
             "filters": {
               "voteCountGte": 10,
               "watchRegion": "FR",
-              "withWatchProviders": "283"
+              "withWatchProviders": "283",
+              "withoutKeywords": "9716|362573"
             }
           },
           {
@@ -650,7 +673,8 @@
             "filters": {
               "voteCountGte": 500,
               "watchRegion": "FR",
-              "withWatchProviders": "283"
+              "withWatchProviders": "283",
+              "withoutKeywords": "9716|362573"
             }
           },
           {

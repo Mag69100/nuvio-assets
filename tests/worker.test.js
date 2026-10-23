@@ -749,6 +749,36 @@ test("tendances_du_jour_seulement_en_vf", async () => {
   assert.equal(calls.filter((u) => u.includes("/vf.json")).length, 1, "un seul appel pour la page");
 });
 
+// Turning Point (1, documentaire Netflix) : sources toutes en VO (personne ne publie la VF), mais en abonnement sur
+// Netflix en France, qui le double → gardé, et sa fiche dit la date, pas « Aucune date ». Stavros Halkias (2, stand-up
+// sur Netflix) : jamais doublé → retiré. 3 : sur MUBI (souvent en VOSTFR) → les sources décident, retiré.
+test("tendances_en_vf_sur_une_plateforme_qui_double", async () => {
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const sur = (id, nom) => ({ "watch/providers": { results: { FR: { flatrate: [{ provider_id: id, provider_name: nom }] } } } });
+  const fiches = {
+    1: { ...filmVod(1, "en", [["US", 4, jour(-20)]]), ...sur(8, "Netflix") },
+    2: { ...filmVod(2, "en", [["US", 4, jour(-20)]]), ...sur(8, "Netflix"), keywords: { keywords: [{ id: 9716, name: "stand-up comedy" }] } },
+    3: { ...filmVod(3, "en", [["US", 4, jour(-20)]]), ...sur(11, "MUBI") },
+  };
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes("/vf.json")) return sourcesDe({ tt901: { vf: false, sources: 12 }, tt902: { vf: false, sources: 3 }, tt903: { vf: false, sources: 5 } })(u);
+    if (u.includes("/trending/movie/day")) {
+      return new Response(JSON.stringify({ results: u.includes("page=1") ? [1, 2, 3].map((id) => ({ id, title: `Film ${id}`, original_language: "en", release_date: jour(-20) })) : [], page: 1, total_pages: 1 }));
+    }
+    const m = /\/movie\/(\d)\?/.exec(u);
+    if (m) return new Response(JSON.stringify(fiches[m[1]]));
+    return new Response("{}");
+  };
+  const { metas } = await (await get("/catalog/movie/accueil-top10.json")).json();
+  assert.deepEqual(metas.map((m) => m.name), ["Film 1"]);
+  assert.ok(calls.some((u) => /\/movie\/1\?/.test(u) && /append_to_response=[^&]*keywords/.test(decodeURIComponent(u))), "mots-clés pas demandés");
+  const fiche = (await (await get("/meta/movie/tmdb:1.json")).json()).meta;
+  assert.match(fiche.description || "", /Dispo depuis le/);
+  assert.doesNotMatch(fiche.description || "", /Aucune date/);
+});
+
 // Kraken (norvégien) dans une rangée qui ne lit pas les sources : sorti chez soi aux États-Unis, sur Paramount+ en
 // France — et en VF. Sans sources, la fiche ne dit jamais « Pas encore en VF ».
 test("rangee_sans_sources_ne_dit_pas_pas_encore_en_vf", async () => {

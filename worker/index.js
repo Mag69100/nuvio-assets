@@ -61,11 +61,11 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.15";
+const VERSION = "5.38.16";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
-const CACHE_V = 9;
+const CACHE_V = 10;
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 const OBSCUR_VOTES = 100;           // recherche : en dessous, un titre trouvé mot à mot ne suffit pas, Gemini est consulté
@@ -358,7 +358,8 @@ async function lireInfo(env, kind, tmdbId, budget) {
     // Vidéos : la bande-annonce de l'accueil (Nuvio la prend dans la rangée, sans ouvrir la fiche).
     // Plateformes (films) : en France = VF disponible, même avant la sortie numérique américaine (enVfChezSoi).
     // Séries : les plateformes aussi (une nouvelle série sur une plateforme en France qui la double : en VF).
-    append_to_response: movie ? "release_dates,images,videos,watch/providers" : "external_ids,images,videos,watch/providers",
+    // Mots-clés (films) : un spectacle de stand-up n'est jamais doublé (abonnementVf).
+    append_to_response: movie ? "release_dates,images,videos,watch/providers,keywords" : "external_ids,images,videos,watch/providers",
   });
   // Sans réponse (limite d'appels de Cloudflare ou de TMDB…) : le titre s'affiche quand même, sans ces infos, et la
   // page est marquée incomplète (rate). Un titre retiré de TMDB (404) n'y changera rien : pas compté.
@@ -389,8 +390,9 @@ async function lireInfo(env, kind, tmdbId, budget) {
     provisoire,
     imdb: (movie ? j.imdb_id : j.external_ids && j.external_ids.imdb_id) || null,
     releases,
-    plateformeFr: movie && vfSurPlateforme(j["watch/providers"], j.original_language),
+    plateformeFr: movie && vfSurPlateforme(j["watch/providers"], j.original_language, j.keywords),
     plateformeVo: movie && plateformeFrance(j["watch/providers"]),
+    abonnementVf: movie && abonnementVf(j["watch/providers"], j.original_language, j.keywords),
     // Série : de quoi savoir si elle est en VF chez soi (seriesRegardables), comme ses affiches.
     serie: movie ? null : { firstAir: j.first_air_date || "", lastSeason: (j.last_episode_to_air && j.last_episode_to_air.season_number) || 1,
       plateformeFr: vfSurPlateforme(j["watch/providers"], j.original_language) },
@@ -427,7 +429,7 @@ async function dossierSource(env, src, lang, page) {
   const sort = src.sortBy || "popularity.desc";
   const p = { page: String(page), sort_by: tv ? sort.replace("primary_release_date.desc", "first_air_date.desc") : sort.replace("first_air_date.desc", "primary_release_date.desc") };
   const set = (k, v) => { if (v != null && v !== "") p[k] = String(v); };
-  set("with_companies", f.withCompanies); set("vote_count.gte", f.voteCountGte); set("with_genres", f.withGenres); set("without_genres", f.withoutGenres);
+  set("with_companies", f.withCompanies); set("vote_count.gte", f.voteCountGte); set("with_genres", f.withGenres); set("without_genres", f.withoutGenres); set("without_keywords", f.withoutKeywords);
   set("vote_average.gte", f.voteAverageGte); set("with_original_language", f.withOriginalLanguage);
   set(tv ? "first_air_date.gte" : "primary_release_date.gte", f.releaseDateGte); set(tv ? "first_air_date.lte" : "primary_release_date.lte", f.releaseDateLte);
   if (f.withWatchProviders) { set("watch_region", f.watchRegion || "US"); set("with_watch_providers", f.withWatchProviders); set("with_watch_monetization_types", "flatrate|free|ads|rent|buy"); }
@@ -628,11 +630,36 @@ function plateformeFrance(wp) {
  * … et en VF : film en anglais ou en français, ou autre film étranger sur Netflix ou Disney+ en abonnement (ils
  * doublent presque tout). EB (néerlandais) est sur Prime Video en VO seulement. Même règle que les affiches.
  */
-function vfSurPlateforme(wp, originalLanguage) {
-  if (!plateformeFrance(wp)) return false;
+function vfSurPlateforme(wp, originalLanguage, kw) {
+  if (!plateformeFrance(wp) || standUp(kw, originalLanguage)) return false;
   const fr = wp.results.FR;
   return ["en", "fr"].includes(originalLanguage) || (fr.flatrate || []).some((p) => /netflix|disney/i.test(p.provider_name || ""));
 }
+
+// Spectacle de stand-up étranger (mots-clés TMDB « stand-up comedy », « comedy special ») : jamais doublé, même sur
+// Netflix. Un spectacle en français est déjà en VF.
+const STAND_UP = [9716, 362573];
+const standUp = (kw, langue) => langue !== "fr" && ((kw && kw.keywords) || []).some((k) => STAND_UP.includes(k.id));
+// Grandes plateformes d'abonnement qui doublent ce qu'elles diffusent (identifiants TMDB) : Netflix (avec ou sans pub),
+// Prime Video, Disney+, Paramount+, HBO Max, Apple TV+, Canal+. Pas MUBI ni les petites, souvent en VOSTFR.
+const DOUBLEURS = new Set([8, 1796, 119, 337, 531, 1899, 350, 381]);
+const DOUBLENT_TOUT = new Set([8, 1796, 337]);   // Netflix, Disney+ : aussi les films étrangers
+
+/**
+ * Film en abonnement en France sur une plateforme qui le double : en VF même si ses sources n'ont que la VO (les
+ * documentaires Netflix, Turning Point, L'Envers du sport : personne ne publie la VF, Netflix l'a). Film en anglais ou
+ * en français ; un autre film étranger seulement sur Netflix ou Disney+. Jamais un spectacle de stand-up. Même règle
+ * que les affiches (affiches/lib/tmdb.js).
+ */
+function abonnementVf(wp, originalLanguage, kw) {
+  const fr = (wp && wp.results && wp.results.FR) || {};
+  const ids = ["flatrate", "free", "ads"].flatMap((k) => fr[k] || []).map((p) => p.provider_id);
+  if (standUp(kw, originalLanguage)) return false;
+  return ids.some((id) => (["en", "fr"].includes(originalLanguage) ? DOUBLEURS : DOUBLENT_TOUT).has(id));
+}
+
+/** Les sources lues, en VF si le film est en abonnement sur une plateforme qui le double (abonnementVf). */
+const avecAbonnement = (lu, abonnement) => (lu && !lu.vf && abonnement ? { ...lu, vf: true } : lu);
 
 /** Les sources lues sont en VO seulement : des sources, aucune en VF. */
 const enVo = (lu) => !!lu && !lu.vf && lu.sources > 0;
@@ -876,7 +903,7 @@ async function toMetas(env, ctx, results, kind, opts, today) {
   const sources = opts.sources || (opts.lireSources && kind === "movie" ? await sourcesVf(env, ids) : new Map());
   return results.map((it, i) => {
     const recent = kind === "movie" && filmRecent(infos[i].releases, today);
-    const lu = recent ? sources.get(ids[i]) : null;
+    const lu = recent ? avecAbonnement(sources.get(ids[i]), infos[i].abonnementVf) : null;
     // En VF chez soi aujourd'hui : la date américaine passée, ou les sources (voir enVfChezSoi), comme les affiches.
     const chezSoi = kind === "movie" ? dispoChezSoi(infos[i].releases, it.original_language, infos[i].vod) : { date: "", vers: false };
     const vf = kind === "movie" && enVfChezSoi(infos[i].releases, it.original_language, today, lu, infos[i].plateformeFr, infos[i].vod);
@@ -1064,7 +1091,7 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
         // Sans dates (TMDB muet) : gardé. Une ressortie (Les Diables, 1971) aussi : un vieux film a sa VF, mais il
         // revient au cinéma, sa place est ici.
         if (!info.releases || !filmRecent(info.releases, today)) return true;
-        return !enVfChezSoi(info.releases, it.original_language, today, sources.get(info.imdb), info.plateformeFr, info.vod);
+        return !enVfChezSoi(info.releases, it.original_language, today, avecAbonnement(sources.get(info.imdb), info.abonnementVf), info.plateformeFr, info.vod);
       });
     };
     let gardes = await garder(data.results);
@@ -1185,7 +1212,7 @@ async function filmsRegardables(env, released, today, max, lire = lireVf) {
   picked = picked.filter((it) => {
     if (!recent(it)) return true;
     const info = infos.get(it.id);
-    return enVfChezSoi(info.releases, it.original_language, today, sources.get(info.imdb), info.plateformeFr, info.vod);
+    return enVfChezSoi(info.releases, it.original_language, today, avecAbonnement(sources.get(info.imdb), info.abonnementVf), info.plateformeFr, info.vod);
   }).slice(0, max);
   return { picked, infos, sources };
 }
@@ -1889,11 +1916,11 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
   // Sans date numérique américaine : l'estimation d'après son distributeur (table lue seulement dans ce cas). Lues
   // ensemble.
   const [lu, vod] = await Promise.all([
-    recent ? sourcesVf(env, [imdb]).then((m) => m.get(imdb)) : null,
+    recent ? sourcesVf(env, [imdb]).then((m) => avecAbonnement(m.get(imdb), abonnementVf(wp, d.original_language, d.keywords))) : null,
     movie && besoinEstimation(releases) ? estimationsVod().then((table) => estimationDe(table, imdb)) : null,
   ]);
   // En VO seulement (comme pas sorti : seule la VF compte) : d'après les sources seulement (voir releaseNote).
-  const etat = lu ? { vf: lu.vf, vo: enVo(lu) } : { vf: movie && vfSurPlateforme(wp, d.original_language), surPlateforme: plateformeFrance(wp) };
+  const etat = lu ? { vf: lu.vf, vo: enVo(lu) } : { vf: movie && vfSurPlateforme(wp, d.original_language, d.keywords), surPlateforme: plateformeFrance(wp) };
   const note = movie ? releaseNote(releases, d.original_language, today, etat, vod) : await noteSerie(env, d, imdb, wp, today);
   // La même date que l'affiche et les rangées : la sortie numérique américaine (dispoChezSoi), ou son estimation.
   const dispo = movie ? dispoChezSoi(releases, d.original_language, vod).date : "";

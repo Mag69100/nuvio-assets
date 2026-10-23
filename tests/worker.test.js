@@ -820,7 +820,7 @@ test("bientot_dispo_avec_les_films_pas_encore_en_vf", async () => {
   };
   const { metas } = await (await get("/catalog/movie/accueil-vod-bientot.json")).json();
   assert.deepEqual(metas.map((m) => m.name), ["À venir", "The Weight"]);
-  assert.match(metas[1].description || "", /Pas encore en VF/);
+  assert.match(metas[1].description || "", /Aucune date/);
   assert.ok(!metas.some((m) => "_vo" in m));
 });
 
@@ -865,7 +865,7 @@ test("fiche_selon_les_sources", async () => {
   const vf = (await (await get("/meta/movie/tmdb:8001.json")).json()).meta;
   assert.match(vf.description || "", /Déjà dispo/);
   const vo = (await (await get("/meta/movie/tmdb:8002.json")).json()).meta;
-  assert.match(vo.description || "", /Pas encore en VF/);
+  assert.match(vo.description || "", /Aucune date/);
 });
 
 // Les Diables (1971) ressort au cinéma : ses sources ont de la VF (vieux film), mais une ressortie reste dans
@@ -884,8 +884,8 @@ test("prochainement_garde_les_ressorties", async () => {
   assert.deepEqual(metas.map((m) => m.name), ["Les Diables"]);
 });
 
-// Buddy, The Fix : sortis chez soi aux États-Unis (date passée), sources sans VF, aucune sortie francophone :
-// « Pas encore en VF » seul — ni la VO, ni « Dispo depuis le … » (on ne sait pas quand la VF viendra).
+// Buddy, The Fix : sortis chez soi aux États-Unis (date passée), sources sans VF : « Aucune date » — ni la VO, ni
+// « Dispo depuis le … » (on ne sait pas quand la VF viendra).
 test("fiche_vo_avec_date_connue", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   globalThis.fetch = async (url) => {
@@ -897,34 +897,25 @@ test("fiche_vo_avec_date_connue", async () => {
     return new Response("{}");
   };
   const m = (await (await get("/meta/movie/tmdb:8003.json")).json()).meta;
-  assert.equal((m.description || "").split("\n")[0], "📅 Pas encore en VF.");
-  assert.equal(m.releaseInfo, `${jour(-60).slice(0, 4)} · Pas encore en VF`);
+  assert.equal((m.description || "").split("\n")[0], "📅 Aucune date.");
+  assert.equal(m.releaseInfo, `${jour(-60).slice(0, 4)} · Aucune date`);
 });
 
-// The Weight : en numérique aux États-Unis il y a 2 jours, sources sans VF (sous-titres français). Quand la VF
-// arrivera : la sortie numérique annoncée en France (date), sinon la salle en Belgique (estimation) ; jamais le Canada
-// (VFQ), ni une date passée, ni la VOSTFR.
-test("fiche_vo_dit_quand_la_vf_arrive", async () => {
+// The Weight : en numérique aux États-Unis il y a 2 jours, sources sans VF (sous-titres français). Les dates
+// françaises ne comptent pas (seul le calendrier américain) : « Aucune date », sans la VOSTFR.
+test("fiche_vo_sans_date_de_vf", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   const sortie = (pays, type, n) => ({ iso_3166_1: pays, release_dates: [{ type, release_date: jour(n) + "T00:00:00.000Z" }] });
-  const fiches = {
-    8007: [sortie("FR", 4, 40), sortie("BE", 3, 20)],
-    8008: [sortie("BE", 3, 20), sortie("CA", 4, 5)],
-    8009: [sortie("FR", 3, -3), sortie("CA", 3, 10)],
-  };
   globalThis.fetch = async (url) => {
     const u = String(url);
     calls.push(u);
-    if (u.includes("/vf.json")) return sourcesDe(Object.fromEntries(Object.keys(fiches).map((id) => [`tt${id}`, { vf: false, sources: 55, langue: "vostfr" }])))(u);
-    const id = (/\/movie\/(\d+)\?/.exec(u) || [])[1];
-    if (fiches[id]) return new Response(JSON.stringify({ id: Number(id), title: "The Weight", imdb_id: `tt${id}`, release_date: jour(-36), original_language: "en",
-      release_dates: { results: [sortie("US", 4, -2), ...fiches[id]] } }));
+    if (u.includes("/vf.json")) return sourcesDe({ tt9007: { vf: false, sources: 55, langue: "vostfr" } })(u);
+    if (/\/movie\/8007\?/.test(u)) return new Response(JSON.stringify({ id: 8007, title: "The Weight", imdb_id: "tt9007", release_date: jour(-36), original_language: "en",
+      release_dates: { results: [sortie("US", 4, -2), sortie("FR", 4, 40), sortie("BE", 3, 20)] } }));
     return new Response("{}");
   };
-  const ligne = async (id) => ((await (await get(`/meta/movie/tmdb:${id}.json`)).json()).meta.description || "").split("\n")[0];
-  assert.equal(await ligne(8007), `📅 Pas encore en VF · dispo le ${court(jour(40))}`.replace(/([^.])$/, "$1."));
-  assert.equal(await ligne(8008), `📅 Pas encore en VF · dispo vers le ${court(jour(20))}`.replace(/([^.])$/, "$1."));
-  assert.equal(await ligne(8009), "📅 Pas encore en VF.");
+  const m = (await (await get("/meta/movie/tmdb:8007.json")).json()).meta;
+  assert.equal((m.description || "").split("\n")[0], "📅 Aucune date.");
 });
 
 // Série récente (coréenne, sur Prime Video) dont la saison n'a pas de VF dans les sources : la fiche le dit, avec

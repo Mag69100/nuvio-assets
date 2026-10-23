@@ -32,7 +32,7 @@ export const NOUVEAUTES = [
     titre: "Quand le film arrive en VF",
     points: [
       "Les fiches disent quand un film sera dispo chez toi : « Dispo le 17 nov. », ou « Dispo vers le … » quand la date n'est pas annoncée, estimée d'après le délai habituel de son distributeur (Universal sort ses films en numérique 18 jours après la salle, Disney 60…).",
-      "Sans VF, la fiche dit quand elle arrivera, si une sortie en France est annoncée : « Pas encore en VF · dispo le 12 déc. ». Sinon, seulement « Pas encore en VF ».",
+      "Film sorti sans VF : la fiche dit « Aucune date ».",
       "Sur les affiches, des dates qui parlent : « DÈS LE 17 NOV. » quand le film arrive chez toi, « PRÉVU VERS LE 24 NOV. » quand la date est estimée, « PRÉVU LE 4 NOV. » pour une sortie annoncée (au cinéma ou ailleurs). Sous « AU CINÉMA », la date reste « DISPO LE … ».",
       "La recherche comprend deux acteurs ensemble (« pacino de niro ») et un genre avec une époque ou un pays (« horreur années 80 », « comédie française »).",
       "<b>Tes affiches</b> : « Essayer sur un titre » montre tes réglages sur n'importe quel film, série ou animé.",

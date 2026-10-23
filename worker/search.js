@@ -919,6 +919,7 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   // Un titre exact connu, mais moins que la personne : il reste en tête, sa filmographie suit (« hitchcock » : le film
   // Hitchcock, 1 700 votes, puis Psychose, Fenêtre sur cour… d'Alfred Hitchcock, titres phares à 11 000 votes).
   const titres = Math.max(exactVotes, otherVotes);
+  let personId = null;
   if (people && !joint.length) {
     const person = results(people).slice(0, 5).find((p) => knownPerson(p) && personMatch(main, p.name)
       && (titres < Math.max(FAMOUS, 0.1 * renom(p)) || titres < renom(p))
@@ -928,7 +929,7 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
       const films = dedupe(usable(filmography(person, credits, kind))).slice(0, PERSON_MAX);
       const avant = titres < Math.max(FAMOUS, 0.1 * renom(person)) ? []
         : pool.filter((it) => isExact(main, it)).sort((a, b) => fame(b) - fame(a));
-      if (films.length) { head = dedupe([...avant, ...films]); headKind = `${avant.length ? "titre puis " : ""}personne ${person.name}`; }
+      if (films.length) { head = dedupe([...avant, ...films]); headKind = `${avant.length ? "titre puis " : ""}personne ${person.name}`; personId = person.id; }
     }
   }
 
@@ -953,6 +954,7 @@ export async function smartSearch(query, page, search, kind, api, opts = {}) {
   if (opts.stats) {
     opts.stats.strong = new Set(out.filter((it) => head.includes(it) || text.get(it.id) >= GOOD).map((it) => it.id));
     opts.stats.sure = !!headKind || otherKind || out.some((it) => text.get(it.id) >= EXACT && it.vote_count >= FAMOUS);
+    opts.stats.personne = personId;   // la personne mise en tête (runSearch la compare à celle de Wikidata)
     // Aucun titre ne contient les mots tapés (ou des mots qui commencent par eux), seulement des titres approchants
     // (« luffy » → Buffy par la correction d'orthographe, « eren » → Eden, « vegeta » → Vegas) : peut-être un nom
     // que TMDB ne connaît pas, un personnage d'anime. runSearch demande alors aussi à AniList.

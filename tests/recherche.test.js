@@ -416,3 +416,30 @@ test("addon_anime_par_son_nom_japonais_sans_gemini", async () => {
   assert.equal(metas[0] && metas[0].name, "L'Attaque des Titans");
   assert.ok(!urls.some((u) => u.hostname.includes("generativelanguage")));
 });
+
+// « walter white » : ni un titre ni une personne pour TMDB. Wikidata : le personnage de Breaking Bad (identifiant TMDB 1396).
+test("addon_personnage_par_wikidata", async () => {
+  oublierInfos();
+  const store = new Map();
+  globalThis.caches = { default: {
+    match: async (req) => (store.has(req.url) ? new Response(store.get(req.url)) : undefined),
+    put: async (req, res) => { store.set(req.url, await res.text()); },
+  } };
+  const BB = { id: 1396, name: "Breaking Bad", original_name: "Breaking Bad", first_air_date: "2008-01-20", vote_count: 16000, popularity: 300, poster_path: "/bb.jpg", genres: [{ id: 18 }] };
+  globalThis.fetch = async (url) => {
+    const u = new URL(String(url));
+    if (u.hostname === "www.wikidata.org" && u.searchParams.get("action") === "wbsearchentities")
+      return new Response(JSON.stringify({ search: [{ id: "Q23554", label: "Walter White", match: { type: "label", text: "Walter White" } }] }));
+    if (u.hostname === "www.wikidata.org") return new Response(JSON.stringify({ query: { search: [] } }));
+    if (u.hostname === "query.wikidata.org") return new Response(JSON.stringify({ results: { bindings: [
+      { item: { value: "http://www.wikidata.org/entity/Q23554" }, itemLabel: { value: "Walter White" }, isl: { value: "40" },
+        w: { value: "http://www.wikidata.org/entity/Q1079" }, wtv: { value: "1396" }, sl: { value: "120" } }] } }));
+    if (u.pathname === "/3/tv/1396") return new Response(JSON.stringify({ ...BB, external_ids: { imdb_id: "tt0903747" } }));
+    const m = /^\/3\/tv\/(\d+)$/.exec(u.pathname);
+    if (m) return new Response(JSON.stringify({ id: Number(m[1]) }));
+    return new Response(JSON.stringify({ results: [] }));
+  };
+  const res = await worker.fetch(new Request(`https://x/catalog/series/recherche-series/search=${encodeURIComponent("walter white")}.json`), { TMDB_API_KEY: "tmdb" }, { waitUntil: () => {} });
+  const { metas } = await res.json();
+  assert.equal(metas[0] && metas[0].name, "Breaking Bad");
+});

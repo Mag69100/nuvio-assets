@@ -42,11 +42,12 @@ import { nouveautesPage } from "./nouveautes.js";
 import { hallPage } from "./hall.js";
 import { routeCinemeta } from "./cinemeta.js";
 import { animesDe } from "./anilist.js";
+import { wikidataDe } from "./wikidata.js";
 import { videosCinemeta, videosReduites, oublierCinemeta, decoupageCinemeta, ficheRecomptee } from "./episodes.js";
 import { routeJeu } from "./jeu.js";
 import { routeEtat } from "./etat.js";
 import { statique } from "./statique.js";
-import { smartSearch, prepareWords, isExact, norm, capQuery, genreQuery } from "./search.js";
+import { smartSearch, prepareWords, isExact, norm, capQuery, genreQuery, filmography } from "./search.js";
 import { imdbRating } from "./ratings.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
 import { SEANCE_ID, carteSeance, rechercheSeance, routeSeance } from "./seance.js";
@@ -60,7 +61,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.9";
+const VERSION = "5.38.10";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -1413,7 +1414,26 @@ async function runSearch(env, type, query, page, opts, trace) {
   const why = descriptive ? "description" : stats.sure ? null : !strong.size ? "rien de proche" : !connu ? "rien de connu"
     : stats.devine ? "titres approchants" : null;
   if (trace) trace.ai = { descriptive, sure: !!stats.sure, strong: strong.size, why };
-  if (!why) return classic;
+  const court = !descriptive && norm(query).split(" ").length <= 4;
+  if (!why) {
+    // Sûre d'elle sans titre exact connu : une personne trouvée par TMDB (« jon snow » : un acteur ; « belmondo » :
+    // Victor), ou des titres qui contiennent les mots (« jack sparrow » : un téléfilm obscur). Wikidata peut connaître
+    // mieux, le personnage ou la personne la plus connue : ses titres passent devant, sauf s'il désigne la même
+    // personne (« nolan »). Gardé 7 jours, sans quota.
+    const exactConnu = classic.some((it) => isExact(query, it) && (it.vote_count || 0) >= 300);
+    if (court && !exactConnu && (stats.personne || !stats.sure)) {
+      const refs = await wikidataDe(query);
+      if (refs === null) opts.partial = true;
+      const autre = refs && refs.length && !(refs[0].type === "person" && refs[0].id === stats.personne);
+      const wikiFound = autre ? await titresWikidata(refs, type, api) : [];
+      if (trace) trace.ai.wikidata = refs === null ? "pas de réponse" : { refs: (refs || []).map((r) => `${r.type}:${r.id} (${r.nom})`), found: wikiFound.map((it) => it.title || it.name) };
+      if (wikiFound.length) {
+        const seen = new Set();
+        return [...wikiFound, ...classic].filter((it) => !seen.has(it.id) && seen.add(it.id)).slice(0, AI_MAX);
+      }
+    }
+    return classic;
+  }
   // Les titres retrouvés (AniList, Gemini) d'abord, puis seulement les titres de la recherche classique
   // qui ressemblent à la requête (pas « Fils de personne » pour « des personnages bleus »). Un titre
   // obscur qui est exactement la requête (série toute nouvelle, encore peu notée) reste en tête.
@@ -1423,16 +1443,22 @@ async function runSearch(env, type, query, page, opts, trace) {
     return [...exact, ...found, ...classic.filter((it) => strong.has(it.id))]
       .filter((it) => !seen.has(it.id) && seen.add(it.id)).slice(0, AI_MAX);
   };
-  // Quelques mots, pas une description : un anime par son nom japonais ou un personnage (« ichigo »). AniList
-  // d'abord, sans clé et sans quota Gemini (voir anilist.js) ; Gemini seulement s'il ne trouve rien pour ce type.
-  if (!descriptive && norm(query).split(" ").length <= 4) {
-    const animes = await animesDe(query, env);
-    // Pas de réponse (panne, quota) : la page n'est pas gardée, la même recherche refaite lui redemandera.
-    if (animes === null) opts.partial = true;
+  // Quelques mots, pas une description : un anime par son nom japonais ou un personnage (« ichigo » : AniList, voir
+  // anilist.js), sinon un personnage, un sigle ou une personne d'après Wikidata (« walter white », « got »,
+  // « belmondo » : wikidata.js). Les deux en même temps, sans clé et sans quota Gemini ; Gemini seulement s'ils ne
+  // trouvent rien pour ce type.
+  if (court) {
+    const [animes, refs] = await Promise.all([animesDe(query, env), wikidataDe(query)]);
+    // Pas de réponse (panne, quota) : la page n'est pas gardée, la même recherche refaite leur redemandera.
+    if (animes === null || refs === null) opts.partial = true;
     const aniFound = animes && animes.length ? await resolveTitles(animes, type, search, api) : [];
     if (trace) trace.ai.anilist = animes === null ? "pas de réponse" : { picks: animes.map((t) => `${t.title} (${t.year || "?"}, ${t.type})`),
       found: aniFound.map((it) => it.title || it.name) };
     if (aniFound.length) return avecClassique(aniFound);
+    const wikiFound = refs && refs.length ? await titresWikidata(refs, type, api) : [];
+    if (trace) trace.ai.wikidata = refs === null ? "pas de réponse" : { refs: refs.map((r) => `${r.type}:${r.id} (${r.nom})`),
+      found: wikiFound.map((it) => it.title || it.name) };
+    if (wikiFound.length) return avecClassique(wikiFound);
   }
   if (why === "titres approchants") return classic;
   const job = ai || aiTitles(env, opts.ctx, query, aiOpts);
@@ -1459,6 +1485,25 @@ async function runSearch(env, type, query, page, opts, trace) {
   // de chimie » : Breaking Bad dans Séries, pas « La guerre des drogues » dans Films).
   if (!found.length && !descriptive) return classic;
   return avecClassique(found);
+}
+
+/**
+ * Les titres TMDB des références de Wikidata (wikidata.js) pour ce type : les œuvres (fiche TMDB, au format d'un
+ * résultat de recherche), ou la filmographie d'une personne, comme la recherche classique (filmography) — seulement
+ * une personne du cinéma assez connue (pas Harry Truman, en images d'archives, pour « harry »).
+ */
+async function titresWikidata(refs, kind, api) {
+  const media = kind === "series" ? "tv" : "movie";
+  const personne = refs.find((r) => r.type === "person");
+  if (personne) {
+    const [p, credits] = await Promise.all([api(`/person/${personne.id}`), api(`/person/${personne.id}/${media}_credits`)]);
+    if (!p || !["Acting", "Directing", "Writing"].includes(p.known_for_department) || (p.popularity || 0) < 1) return [];
+    return filmography(p, credits || {}, kind).filter((it) => it.poster_path && it.vote_count > 0)
+      .filter((it, i, all) => all.findIndex((x) => x.id === it.id) === i).slice(0, 15);
+  }
+  const fiches = await Promise.all(refs.filter((r) => r.type === media).map((r) => api(`/${media}/${r.id}`)));
+  return fiches.filter((d) => d && d.id && d.poster_path && d.vote_count > 0)
+    .map((d) => ({ ...d, genre_ids: (d.genres || []).map((g) => g.id) }));
 }
 
 /**

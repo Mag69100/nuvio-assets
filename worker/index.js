@@ -61,7 +61,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.12";
+const VERSION = "5.38.13";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -1610,6 +1610,11 @@ function trailersOf(videos) {
 const VF_CACHE_S = 30 * 86400; // VF trouvée : 30 jours (elle ne change presque jamais ; moins de recherches YouTube)
 const VF_MISS_S = 2 * 86400;   // pas de VF : on réessaie dans 2 jours (elle sort souvent peu avant le titre)
 const VF_WAIT_MS = 2000;       // attente maximale à l'ouverture d'une fiche
+// YouTube redirige parfois les adresses de Cloudflare (consentement aux cookies, « pas un robot ») ou refuse (429) :
+// plus de recherche pendant 10 min sur cette instance, au lieu de réessayer à chaque fiche ouverte.
+const YT_PAUSE_MS = 10 * 60e3;
+let ytPauseJusqua = 0;
+export const oublierPauseYoutube = () => { ytPauseJusqua = 0; };
 const BROWSER_HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36",
   "Accept-Language": "fr-FR,fr;q=0.9",
@@ -1654,9 +1659,20 @@ const TRAILER_WORDS = new Set("bande annonce d trailer teaser vf officielle offi
  * Allociné) : le nom doit ouvrir le titre, et une année cohérente y figurer (celle du film à un an près,
  * celle de la première saison d'une série).
  */
-async function youtubeVf(query, name, season, year, series) {
-  const html = await fetch(`https://www.youtube.com/results?hl=fr&gl=FR&search_query=${encodeURIComponent(query)}`, { headers: BROWSER_HEADERS })
-    .then((r) => (r.ok ? r.text() : ""), () => "");
+export async function youtubeVf(query, name, season, year, series) {
+  if (Date.now() < ytPauseJusqua) return undefined;
+  // SOCS=CAI : cookies refusés, sans passer par la page de consentement.
+  const url = `https://www.youtube.com/results?hl=fr&gl=FR&search_query=${encodeURIComponent(query)}`;
+  const res = await fetch(url, { headers: { ...BROWSER_HEADERS, Cookie: "SOCS=CAI" }, redirect: "manual" }).catch(() => null);
+  if (res && ((res.status >= 300 && res.status < 400) || res.status === 429)) {
+    ytPauseJusqua = Date.now() + YT_PAUSE_MS;
+    const loc = res.headers.get("location");
+    let vers = "";
+    try { if (loc) { const u = new URL(loc, url); vers = ` vers ${u.host}${u.pathname}`; } } catch (e) { /* adresse illisible */ }
+    console.log(`youtube ${res.status}${vers} : recherches de VF en pause 10 min`);
+    return undefined;
+  }
+  const html = res && res.ok ? await res.text().catch(() => "") : "";
   if (!html.includes('"videoRenderer"')) return undefined;
   const want = ` ${norm(name)} `;
   const seasonRe = season ? new RegExp(`\\b(saison|season|s) ?0?${season}\\b`) : null;
@@ -1689,6 +1705,8 @@ async function vfTrailer(kind, imdb, name, year) {
   const cacheKey = new Request(`https://cache.local/vf-trailer/v5/${kind}/${imdb}`);
   const hit = await caches.default.match(cacheKey);
   if (hit) return hit.json();
+  // YouTube en pause : ni Wikidata ni Allociné, rien n'est gardé, on réessaiera après la pause.
+  if (Date.now() < ytPauseJusqua) return { key: null };
   const allo = await allocineVf(kind, imdb);
   let found = null, failed = false;
   const search = async (...args) => {

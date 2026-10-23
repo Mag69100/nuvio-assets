@@ -61,7 +61,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.19";
+const VERSION = "5.38.20";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -1010,6 +1010,25 @@ function discoverParams(def, kind, today, opts) {
   return p;
 }
 const maxDate = (a, b) => (!a || b > a ? b : a);
+
+/**
+ * Un titre d'une liste TMDB (Tendances du jour) passe-t-il les filtres généraux (genres masqués, note minimale, année
+ * minimale, mode famille) ? Les mêmes que discoverParams, appliqués à la liste au lieu de la requête : la rangée garde
+ * le classement du jour et ses N°, sans les titres filtrés (un N° filtré laisse un trou). Mode famille d'un film :
+ * sans horreur ni thriller, comme les tuiles (filterSource) : sa classification n'est pas dans la liste.
+ */
+function passeLesFiltres(it, kind, cfg) {
+  const col = kind === "series" ? 2 : 1;
+  const genres = (it.genre_ids || []).map(String);
+  const exclus = new Set();
+  for (const name of cfg.e) { const g = GENRES.find(([n]) => n === name); if (g && g[col]) exclus.add(String(g[col])); }
+  if (cfg.f) (kind === "series" ? ["80", "10768", "9648"] : ["27", "53"]).forEach((g) => exclus.add(g));
+  if (genres.some((g) => exclus.has(g))) return false;
+  if (cfg.f && kind === "series" && !genres.some((g) => ["10751", "10762", "16"].includes(g))) return false;
+  if (cfg.m && !((it.vote_average || 0) >= cfg.m)) return false;
+  if (cfg.a && !((it.release_date || it.first_air_date || "") >= `${cfg.a}-01-01`)) return false;
+  return true;
+}
 const minDate = (a, b) => (!a || b < a ? b : a);
 
 /**
@@ -1065,8 +1084,12 @@ async function fetchPage(env, ctx, def, kind, page, today, opts) {
   }
   if (def.digital) return fetchVfPage(env, ctx, def, kind, page, today, opts);
   if (def.upcoming) return fetchUpcomingPage(env, ctx, kind, page, today, opts);
-  if (def.endpoint && opts.filtered) def = endpointAsDiscover(def);
-  if (def.endpoint && def.endpoint.startsWith("/trending/") && !opts.cfg.u) return fetchReleasedPage(env, ctx, def, kind, page, today, opts);
+  // Filtres généraux : une liste TMDB devient une recherche (discover) qui les applique. Sauf les Tendances (sans les titres
+  // à venir) : elles gardent le classement du jour et ses N°, filtré après coup (fetchReleasedPage). Avant, elles devenaient
+  // « les plus populaires des 120 derniers jours » : sans ordre ni N°, avec des films encore au cinéma (Hope, L'Odyssée).
+  const tendances = def.endpoint && def.endpoint.startsWith("/trending/") && !opts.cfg.u;
+  if (def.endpoint && opts.filtered && !tendances) def = endpointAsDiscover(def);
+  if (tendances) return fetchReleasedPage(env, ctx, def, kind, page, today, opts);
   let data;
   if (def.endpoint) {
     const params = { ...(def.params || {}) };
@@ -1163,7 +1186,8 @@ async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
   // Un titre passé d'une page de TMDB à l'autre entre deux lectures n'est gardé qu'une fois.
   const released = dansLOrdre(lists.flatMap((d) => d.results || []), photo)
     .filter((it, i, all) => all.findIndex((x) => x.id === it.id) === i)
-    .filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; });
+    .filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; })
+    .filter((it) => !opts.filtered || passeLesFiltres(it, kind, opts.cfg));
   // Les titres classés de la photo (N°1 à 20) : tels quels et dans l'ordre, sans refaire le tri (déjà fait à la
   // photo). Refait à une autre heure, il en écartait parfois un (Colony, N°8) : un trou dans les N° de la rangée. Ceux
   // que TMDB ne range plus dans ses deux pages : lus à part. En page 1 seulement ; les pages suivantes ne les reprennent pas.
@@ -1181,7 +1205,7 @@ async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
     }
     const lus = await Promise.all(classes.map((id) => vus.get(id) || tmdb(env, `/${kind === "series" ? "tv" : "movie"}/${id}`, {}, opts.lang)
       .then((d) => (d && d.id ? { ...d, genre_ids: (d.genres || []).map((g) => g.id) } : null))));
-    enTete.push(...lus.filter(Boolean));
+    enTete.push(...lus.filter((it) => it && (!opts.filtered || passeLesFiltres(it, kind, opts.cfg))));
   }
   const reste = classes.length ? [] : released;
   let picked = reste.slice(0, PAGE - enTete.length);

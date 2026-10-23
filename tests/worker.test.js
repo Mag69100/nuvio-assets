@@ -1177,3 +1177,22 @@ test("fiche_serie_lectures_en_parallele", async () => {
   assert.deepEqual(m.videos.map((v) => v.title), ["Un", "Deux"]);
   assert.deepEqual(avant, { episodes: true, vf: true });
 });
+
+// Filtres généraux (ici l'horreur masquée et une année minimale) : la rangée garde le classement du jour et ses N°,
+// moins les titres filtrés (un trou à leur place), au lieu de devenir « les plus populaires des 120 derniers jours ».
+test("tendances_filtrees_gardent_le_classement", async () => {
+  const { AFFICHES_URL } = await import("../worker/reglages.js");
+  const serie = (id, genres, date) => ({ id, name: `Série ${id}`, genre_ids: genres, first_air_date: date, vote_average: 7 });
+  const liste = [serie(1, [18], "2026-02-01"), serie(2, [10765], "2022-03-01"), serie(3, [80], "2026-01-10"), serie(4, [35], "2026-05-05")];
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u === `${AFFICHES_URL}/tendances/series.json?v=8`) return new Response(JSON.stringify({ ids: [4, 2, 3, 1] }));
+    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: u.includes("page=1") ? liste : [], page: 1, total_pages: 1 }));
+    return new Response("{}");
+  };
+  // Crime masqué (la 3), séries d'avant 2025 masquées (la 2) : restent la 4 puis la 1, dans l'ordre de la photo.
+  const { metas } = await (await get(`/${seg({ e: ["Crime"], a: 2025 })}/catalog/series/accueil-tendances-series.json`)).json();
+  assert.deepEqual(metas.map((m) => m.id), ["tmdb:4", "tmdb:1"]);
+  assert.ok(!calls.some((u) => u.includes("/discover/")), "pas de recherche à la place du classement");
+});

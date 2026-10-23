@@ -58,3 +58,18 @@ test("streamfusion_avis_cle_cache_et_plafond", async () => {
   assert.equal((await sf("movie/tt804", "cle-relais", { ...env, RELAIS_KEY: "" })).status, 403);
   assert.deepEqual(await (await sf("movie/tt805", "cle-relais", { ...env, STREAMFUSION_URL: "" })).json(), { plafond: true });
 });
+
+// Filmé dans une salle de cinéma (CAM, TS) : pas une sortie, ni VF ni sources (Tombé du ciel, au cinéma : « FRENCH
+// CAM » seulement). Les vraies sources à côté comptent seules.
+test("streamfusion_sans_les_flux_filmes_en_salle", async () => {
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (!u.startsWith("https://sf.test/c/stream/")) return new Response("{}");
+    return new Response(JSON.stringify({ streams: u.includes("tt811")
+      ? [{ name: "instant / AllDebrid / (1080p)", title: "Tombe.Du.Ciel.2026.1080p.FRENCH.CAM.x264-FS" }, { name: "instant / AllDebrid / (720p)", title: "Tombe.du.Ciel.2026.FRENCH.HDTS" }]
+      : [{ name: "instant / AllDebrid / (1080p)", title: "Film.2026.FRENCH.CAM" }, { name: "instant / AllDebrid / (1080p)", title: "Film.2026.MULTi.VFF.1080p.WEB" }] }));
+  };
+  const e = { ...env, SF_PLAFOND: "10" };
+  assert.deepEqual(await (await sf("movie/tt811", "cle-relais", e)).json(), { vf: false, sources: 0 });
+  assert.deepEqual(await (await sf("movie/tt812", "cle-relais", e)).json(), { vf: true, sources: 1, qualite: { u: 0, x: null, p: 0, f: 1, a: 0 } });
+});

@@ -61,7 +61,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.18";
+const VERSION = "5.38.19";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -727,6 +727,11 @@ function qualiteDesSources(textes) {
   return { u: uhd.length ? 1 : 0, x: uhd.some((t) => SF_DV.test(t)) ? "DV" : uhd.some((t) => SF_HDR.test(t)) ? "HDR" : null,
     p: uhd.some((t) => SF_HDR10P.test(t)) ? 1 : 0, f: textes.some((t) => SF_FHD.test(t)) ? 1 : 0, a: textes.some((t) => SF_ATMOS.test(t)) ? 1 : 0 };
 }
+// Filmé dans une salle de cinéma (CAM, TS, TC) : la même règle que le service d'affiches (affiches/lib/qualite.js).
+// Le mot dans le nom du flux, ou après l'année dans le nom du fichier (le film « Cam » de 2018 reste un vrai flux).
+const SALLE_NOM = /\b(CAM|TeleSync|TeleCine)\b/i;
+const SALLE_FICHIER = /\b(19|20)\d{2}\b.*\b(HD-?CAM|CAM-?RIP|CAM|HD-?TS|TELESYNC|TS|HD-?TC|TELECINE|TC)\b/i;
+const filmeEnSalle = (s) => SALLE_NOM.test(s.name || "") || SALLE_FICHIER.test(`${s.title || ""} ${s.description || ""}`);
 async function lireVfStreamFusion(env, cles) {
   const base = String(env.STREAMFUSION_URL || "").trim().replace(/\/manifest\.json$/, "");
   if (!/^https:\/\//.test(base)) return new Map();
@@ -742,7 +747,9 @@ async function lireVfStreamFusion(env, cles) {
         return [cle, { vf: false, sources: exclus }];
       }
       // Des sources VF (celles qu'on peut lire, en cache chez le débrideur) : leur qualité aussi (« 4K DV » en VF).
-      return [cle, { vf: streams.length > 0, sources: streams.length, ...(streams.length ? { qualite: qualiteDesSources(streams.map(texte)) } : {}) }];
+      // Sans celles filmées dans une salle de cinéma (CAM, TS, TC) : pas une sortie (voir filmeEnSalle).
+      const vraies = streams.filter((s) => !filmeEnSalle(s));
+      return [cle, { vf: vraies.length > 0, sources: vraies.length, ...(vraies.length ? { qualite: qualiteDesSources(vraies.map(texte)) } : {}) }];
     } catch (e) { return null; }
   }));
   return new Map(lus.filter(Boolean));

@@ -35,6 +35,13 @@ const enVf = (t) => VF.test(t) && !(VFQ.test(t) && !VF_FRANCE.test(t));
 // sans VF, des sous-titres français (VOSTFR, SUBFRENCH) ; sinon de la VO seulement.
 const MULTI = /\bMULTI\b|Multi Audio/i;
 const VOSTFR = /\b(VOSTFR|SUBFRENCH)\b/i;
+// Filmé dans une salle de cinéma (CAM, TS, TC) : ce n'est pas une sortie, le film n'est pas dispo pour autant (Tombé du
+// ciel, au cinéma : quatre « FRENCH CAM » chez Torrentio, la fiche disait « Déjà dispo »). Ces flux ne comptent pour
+// rien : ni VF, ni langue, ni qualité. La qualité que Torrentio met dans le nom (« Torrentio CAM », « TeleSync »), ou le
+// mot après l'année dans le nom du fichier (pas avant : le film « Cam » de 2018 en sortie WEB reste un vrai flux).
+const SALLE_NOM = /\b(CAM|TeleSync|TeleCine)\b/i;
+const SALLE_FICHIER = /\b(19|20)\d{2}\b.*\b(HD-?CAM|CAM-?RIP|CAM|HD-?TS|TELESYNC|TS|HD-?TC|TELECINE|TC)\b/i;
+export const filmeEnSalle = (s) => SALLE_NOM.test(s.name || "") || SALLE_FICHIER.test(`${s.title || ""} ${s.description || ""}`);
 
 /** La meilleure langue des flux pour un Français : "multi", "vf", "vostfr", "vo", ou null sans aucun flux. */
 function langueDe(tous) {
@@ -51,7 +58,7 @@ function langueDe(tous) {
  * langue : la meilleure (langueDe), « multi » ou « vf » exactement quand vf est vrai.
  */
 export function parseQuality(streams) {
-  const tous = (streams || []).map((s) => `${s.name || ""} ${s.title || ""}`);
+  const tous = (streams || []).filter((s) => !filmeEnSalle(s)).map((s) => `${s.name || ""} ${s.title || ""}`);
   const uhd = tous.filter((t) => UHD.test(t));
   const extra = uhd.some((t) => DV.test(t)) ? "DV" : uhd.some((t) => HDR.test(t)) ? "HDR" : null;
   return { uhd: uhd.length > 0, extra, fhd: tous.some((t) => FHD.test(t)), hdr10p: uhd.some((t) => HDR10P.test(t)), atmos: tous.some((t) => ATMOS.test(t)),

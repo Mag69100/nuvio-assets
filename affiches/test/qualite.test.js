@@ -21,6 +21,22 @@ test("HDR hors 4K ignoré", () => {
   assert.deepEqual(parseQuality([]), { uhd: false, extra: null, fhd: false, hdr10p: false, atmos: false, vf: false, sources: 0, langue: null });
 });
 
+// Filmé en salle (CAM, TS, TC) : pas une sortie. Tombé du ciel, au cinéma : ses quatre flux « FRENCH CAM » ne font ni
+// VF ni sources (la fiche disait « Déjà dispo »). Le film « Cam » (2018) en sortie WEB reste un vrai flux.
+test("flux filmés en salle ignorés", () => {
+  const vide = { uhd: false, extra: null, fhd: false, hdr10p: false, atmos: false, vf: false, sources: 0, langue: null };
+  assert.deepEqual(parseQuality([
+    { name: "Torrentio\nCAM", title: "Tombe Du Ciel 2026.1080p FRENCH CAM x264-FS mkv\n👤 6 💾 2.88 GB ⚙️ TorrentGalaxy\n🇫🇷" },
+    { name: "Torrentio\nCAM", title: "Tombe du Ciel 2026 FRENCH HDCAM x264-FS mkv" },
+    { name: "Torrentio\nTeleSync", title: "Film 2026 FRENCH 720p" },
+    { name: "Torrentio\n1080p", title: "Film.2026.FRENCH.HDTS.x264" },
+    { name: "Torrentio\n720p", title: "Film.2026.TRUEFRENCH.TC.XviD" },
+  ]), vide);
+  assert.equal(parseQuality([{ name: "Torrentio\n1080p", title: "Cam.2018.MULTi.VFF.1080p.WEB.x264" }]).vf, true);
+  const q = parseQuality([{ name: "Torrentio\nCAM", title: "Film 2026 FRENCH CAM" }, { name: "Torrentio\n1080p", title: "Film.2026.VOSTFR.1080p.WEB" }]);
+  assert.deepEqual([q.vf, q.sources, q.langue], [false, 1, "vostfr"]);
+});
+
 const reponse = (streams) => async () => new Response(JSON.stringify({ streams }));
 
 test("URL film", async () => {

@@ -80,8 +80,30 @@ function plateformeDe(d) {
  */
 function plateformeFrance(d) {
   const fr = ((d["watch/providers"] || {}).results || {}).FR || {};
-  if (!["flatrate", "free", "ads", "rent", "buy"].some((k) => (fr[k] || []).length > 0)) return false;
+  if (standUp(d) || !["flatrate", "free", "ads", "rent", "buy"].some((k) => (fr[k] || []).length > 0)) return false;
   return ["en", "fr"].includes(d.original_language) || (fr.flatrate || []).some((p) => /netflix|disney/i.test(p.provider_name || ""));
+}
+
+// Spectacle de stand-up étranger (mots-clés TMDB « stand-up comedy », « comedy special ») : jamais doublé, même sur
+// Netflix. Un spectacle en français est déjà en VF.
+const STAND_UP = [9716, 362573];
+const standUp = (d) => d.original_language !== "fr" && ((d.keywords && d.keywords.keywords) || []).some((k) => STAND_UP.includes(k.id));
+
+// Grandes plateformes d'abonnement qui doublent ce qu'elles diffusent (identifiants TMDB) : Netflix (avec ou sans pub),
+// Prime Video, Disney+, Paramount+, HBO Max, Apple TV+, Canal+. Pas MUBI ni les petites, souvent en VOSTFR.
+const DOUBLEURS = new Set([8, 1796, 119, 337, 531, 1899, 350, 381]);
+const DOUBLENT_TOUT = new Set([8, 1796, 337]);   // Netflix, Disney+ : aussi les films étrangers
+
+/**
+ * Film en abonnement en France sur une plateforme qui le double : en VF même si ses sources n'ont que la VO (les
+ * documentaires Netflix, Turning Point, L'Envers du sport : personne ne publie la VF, Netflix l'a). Film en anglais ou
+ * en français ; un autre film étranger seulement sur Netflix ou Disney+. Jamais un spectacle de stand-up.
+ */
+function abonnementVf(d) {
+  const fr = ((d["watch/providers"] || {}).results || {}).FR || {};
+  const ids = ["flatrate", "free", "ads"].flatMap((k) => fr[k] || []).map((p) => p.provider_id);
+  if (standUp(d)) return false;
+  return ids.some((id) => (["en", "fr"].includes(d.original_language) ? DOUBLEURS : DOUBLENT_TOUT).has(id));
 }
 
 const first = (list, langs) => {
@@ -109,7 +131,8 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
     // séries : les classifications par pays, pour l'âge.
     // Plateformes (watch/providers) : toujours (VF disponible ?, et le logo de plateforme) ; logos dans les langues
     // d'origine courantes.
-    language: "fr-FR", append_to_response: (type === "series" ? "images,external_ids,content_ratings" : "images,external_ids,release_dates") + ",watch/providers" + (options.credits && type !== "series" ? ",credits" : ""),
+    // Mots-clés (films) : un spectacle de stand-up n'est jamais doublé (abonnementVf).
+    language: "fr-FR", append_to_response: (type === "series" ? "images,external_ids,content_ratings" : "images,external_ids,release_dates,keywords") + ",watch/providers" + (options.credits && type !== "series" ? ",credits" : ""),
     include_image_language: options.vo ? LANGUES_IMAGES : "fr,en,null",
     // Une copie de moins d'une heure : TMDB garde ses réponses dans son CDN, par adresse, et la nôtre (avec la clé du
     // service) pouvait dater d'avant l'arrivée d'une série sur une plateforme française (Phony sur Disney+ : grise et
@@ -175,6 +198,7 @@ export async function titleFacts(env, { type, id, imdb }, fetchImpl = fetch, opt
     collection: type !== "series" && d.belongs_to_collection ? d.belongs_to_collection.id || null : null,
     originalLanguage: d.original_language || "",
     plateformeFrance: plateformeFrance(d),
+    abonnementVf: type !== "series" && abonnementVf(d),
     // Pour le diagnostic (X-Affiche-Sortie) : ce que TMDB dit des plateformes en France, et sa langue d'origine.
     plateformesVues: Object.entries(((d["watch/providers"] || {}).results || {}).FR || {}).filter(([, v]) => Array.isArray(v)).map(([k, v]) => `${k}:${v.length}`).join("+")
       + (d["watch/providers"] ? "" : "(absent)") + `/${d.original_language || "?"}`,

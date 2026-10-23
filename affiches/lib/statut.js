@@ -123,6 +123,9 @@ function sortieFilm(facts, today, sources) {
   const nouveau = (depuis) => (depuis >= ajoute(today, -NOUVEAU_JOURS) ? "nouveau" : null);
   // Des sources VF : disponible, même avant la date (sortie française plus tôt…), depuis la date si elle est passée.
   if (s && s.vf) return { sorti: true, statut: nouveau(arrive ? dispo : today) };
+  // En abonnement sur une plateforme en France qui le double (lib/tmdb.js) : en VF, même si les sources n'ont que la VO
+  // (documentaires Netflix : personne ne publie la VF).
+  if (facts.abonnementVf) return { sorti: true, statut: nouveau(arrive ? dispo : today) };
   // La date passée, le fichier américain est sorti : disponible, sauf si ses sources n'ont pas la VF. Sans sources lues
   // (Torrentio en panne) ou sans aucune source : la date dit vrai.
   if (arrive && !vo) return { sorti: true, statut: nouveau(dispo) };

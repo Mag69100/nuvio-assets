@@ -113,6 +113,15 @@ test("VF : sur une plateforme en France → sorti", () => {
   assert.deepEqual(etatSortie(tard, AUJ), { sorti: true, statut: null });
 });
 
+// Turning Point (documentaire Netflix) : 12 sources, toutes en VO (personne ne publie la VF), mais Netflix le double.
+test("VF : en abonnement sur une plateforme qui double → sorti, même avec des sources en VO", () => {
+  const f = { ...film([pays("US", [4, jours(-48)])], jours(-48)), plateformeFrance: true, abonnementVf: true };
+  assert.deepEqual(etatSortie(f, AUJ, { vf: false, sources: 12 }), { sorti: true, statut: null });
+  assert.deepEqual(etatSortie({ ...f, releases: [pays("US", [4, jours(-3)])] }, AUJ, { vf: false, sources: 3 }), { sorti: true, statut: "nouveau" });
+  // Sans la règle (stand-up, MUBI…) : les sources décident, comme avant.
+  assert.equal(etatSortie({ ...f, abonnementVf: false }, AUJ, { vf: false, sources: 12 }).sorti, false);
+});
+
 test("film : rien de sorti → bientôt", () => {
   assert.equal(statutDe(film(sorties([3, jours(30)]), jours(30)), AUJ), "bientot");
 });

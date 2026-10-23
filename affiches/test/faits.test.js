@@ -39,7 +39,7 @@ test("film tt lu directement, sans /find", async () => {
   assert.equal(f.calls.length, 1);
   const detail = new URL(f.calls[0]);
   assert.equal(detail.pathname, "/3/movie/tt15239678");
-  assert.equal(detail.searchParams.get("append_to_response"), "images,external_ids,release_dates,watch/providers");
+  assert.equal(detail.searchParams.get("append_to_response"), "images,external_ids,release_dates,keywords,watch/providers");
   assert.equal(detail.searchParams.get("include_image_language"), "fr,en,null");
   assert.equal(detail.searchParams.get("language"), "fr-FR");
   assert.equal(facts.tmdbId, 693134);
@@ -106,7 +106,7 @@ test("dates pour le statut", async () => {
   const avecDates = { ...movie, original_language: "en", release_dates: { results: [{ iso_3166_1: "FR", release_dates: [{ type: 3, release_date: "2024-02-28T00:00:00.000Z" }] }] } };
   const f = fauxFetch([["/movie/693134", json(avecDates)]]);
   const facts = await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, f);
-  assert.equal(new URL(f.calls[0]).searchParams.get("append_to_response"), "images,external_ids,release_dates,watch/providers");
+  assert.equal(new URL(f.calls[0]).searchParams.get("append_to_response"), "images,external_ids,release_dates,keywords,watch/providers");
   assert.deepEqual(facts.releases, avecDates.release_dates.results);
   assert.equal(facts.releaseDate, "2024-02-27");
   assert.equal(facts.originalLanguage, "en");
@@ -179,6 +179,30 @@ test("plateforme_en_france", async () => {
   assert.equal((await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, fauxFetch([["/movie/693134", json(movie)]]))).plateformeFrance, false);
 });
 
+// En abonnement sur une grande plateforme qui double (Turning Point, documentaire Netflix) : en VF même si les sources
+// n'ont que la VO. Pas MUBI, pas la location, pas un film étranger sur Prime Video, jamais un stand-up étranger.
+test("abonnement_vf", async () => {
+  const sur = (results, langue = "en", keywords = []) => titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" },
+    fauxFetch([["/movie/693134", json({ ...movie, original_language: langue, keywords: { keywords }, "watch/providers": { results } })]]));
+  const netflix = { FR: { flatrate: [{ provider_id: 8, provider_name: "Netflix" }] } };
+  assert.equal((await sur(netflix)).abonnementVf, true);
+  assert.equal((await sur(netflix, "es")).abonnementVf, true);
+  assert.equal((await sur({ FR: { flatrate: [{ provider_id: 119, provider_name: "Amazon Prime Video" }] } })).abonnementVf, true);
+  assert.equal((await sur({ FR: { flatrate: [{ provider_id: 119, provider_name: "Amazon Prime Video" }] } }, "nl")).abonnementVf, false);
+  assert.equal((await sur({ FR: { flatrate: [{ provider_id: 11, provider_name: "MUBI" }] } })).abonnementVf, false);
+  assert.equal((await sur({ FR: { rent: [{ provider_id: 2, provider_name: "Apple TV Store" }] } })).abonnementVf, false);
+  // Stand-up (Stavros Halkias: Uncle Stav) : ni VF d'abonnement, ni VF de plateforme ; un spectacle français, si.
+  const standUp = [{ id: 9716, name: "stand-up comedy" }, { id: 362573, name: "comedy special" }];
+  const stav = await sur(netflix, "en", standUp);
+  assert.equal(stav.abonnementVf, false);
+  assert.equal(stav.plateformeFrance, false);
+  assert.equal((await sur(netflix, "fr", standUp)).abonnementVf, true);
+  // Mots-clés demandés avec la fiche d'un film (un seul appel).
+  const f = fauxFetch([["/movie/693134", json(movie)]]);
+  await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, f);
+  assert.match(f.calls[0], /append_to_response=[^&]*keywords/);
+});
+
 // Régie v2 : durée, saisons, logo dans chaque langue (français, anglais, langue d'origine), plateforme en France.
 test("faits_v2", async () => {
   const film = { ...movie, runtime: 166, original_language: "ja",
@@ -192,7 +216,7 @@ test("faits_v2", async () => {
   assert.equal(facts.logo, "/fr.svg");
   assert.deepEqual(facts.provider, { name: "Netflix", logo: "/n.jpg" });
   const q = new URL(f.calls[0]).searchParams;
-  assert.equal(q.get("append_to_response"), "images,external_ids,release_dates,watch/providers");
+  assert.equal(q.get("append_to_response"), "images,external_ids,release_dates,keywords,watch/providers");
   assert.equal(q.get("include_image_language"), "fr,en,null,ja,ko,es,it,de,zh,hi,pt,ru,sv,da,no,tr,th,nl,pl");
   const serie = { ...movie, id: 94605, release_date: undefined, first_air_date: "2021-11-06", runtime: undefined, episode_run_time: [42],
     seasons: [{ season_number: 0 }, { season_number: 1 }, { season_number: 2 }, { season_number: 3 }] };
@@ -342,11 +366,11 @@ test("revue_tmdb_selon_les_reglages", async () => {
   const f = fauxFetch([["/movie/693134", json(movie)]]);
   await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, f);
   const q = new URL(f.calls[0]).searchParams;
-  assert.equal(q.get("append_to_response"), "images,external_ids,release_dates,watch/providers");
+  assert.equal(q.get("append_to_response"), "images,external_ids,release_dates,keywords,watch/providers");
   assert.equal(q.get("include_image_language"), "fr,en,null");
   const g = fauxFetch([["/movie/693134", json(movie)]]);
   await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, g, { plateforme: true });
-  assert.equal(new URL(g.calls[0]).searchParams.get("append_to_response"), "images,external_ids,release_dates,watch/providers");
+  assert.equal(new URL(g.calls[0]).searchParams.get("append_to_response"), "images,external_ids,release_dates,keywords,watch/providers");
   assert.equal(new URL(g.calls[0]).searchParams.get("include_image_language"), "fr,en,null");
 });
 

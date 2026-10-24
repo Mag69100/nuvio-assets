@@ -7,7 +7,12 @@ function fakeD1() {
   const budget = new Map();
   const stmt = (sql, args = []) => ({
     bind: (...a) => stmt(sql, a),
-    async run() { if (sql.startsWith("CREATE")) return {}; throw new Error("requête inattendue : " + sql); },
+    async run() {
+      if (sql.startsWith("CREATE")) return {};
+      // Compte par origine (« jour:photo », « jour:affiches », « jour:refus ») : sans plafond.
+      if (sql.startsWith("INSERT INTO sf_budget")) { const [j, n] = args; budget.set(j, (budget.get(j) || 0) + n); return {}; }
+      throw new Error("requête inattendue : " + sql);
+    },
     async first() {
       if (!sql.startsWith("INSERT INTO sf_budget")) throw new Error("requête inattendue : " + sql);
       const [j, n, plafond] = args, avant = budget.get(j);
@@ -72,4 +77,22 @@ test("streamfusion_sans_les_flux_filmes_en_salle", async () => {
   const e = { ...env, SF_PLAFOND: "10" };
   assert.deepEqual(await (await sf("movie/tt811", "cle-relais", e)).json(), { vf: false, sources: 0 });
   assert.deepEqual(await (await sf("movie/tt812", "cle-relais", e)).json(), { vf: true, sources: 1, qualite: { u: 0, x: null, p: 0, f: 1, a: 0 } });
+});
+
+// « Aucun résultat » sans source écartée (film sorti en numérique la veille, pas encore de fichier : 空枪) : pas de VF,
+// compté comme une source en VO, pour que la date ne décide pas seule. Et le compte par origine.
+test("streamfusion_aucun_resultat_veut_dire_sans_vf", async () => {
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (!u.startsWith("https://sf.test/c/stream/")) return new Response("{}");
+    appels.push(u);
+    return new Response(JSON.stringify({ streams: [{ name: "Stream-Fusion", title: "Aucun résultat trouvé" }] }));
+  };
+  const e = { ...env, SF_PLAFOND: "1" };
+  assert.deepEqual(await (await sf("movie/tt821", "cle-relais", e)).json(), { vf: false, sources: 1 });
+  assert.deepEqual(await (await sf("movie/tt822", "cle-relais", e)).json(), { plafond: true });
+  const jour = [...e.LIENS.budget.keys()].find((k) => /^\d{4}-\d{2}-\d{2}$/.test(k));
+  assert.equal(e.LIENS.budget.get(jour), 1);
+  assert.equal(e.LIENS.budget.get(`${jour}:affiches`), 1);
+  assert.equal(e.LIENS.budget.get(`${jour}:refus`), 1);
 });

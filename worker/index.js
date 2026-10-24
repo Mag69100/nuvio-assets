@@ -61,7 +61,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.20";
+const VERSION = "5.38.21";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -743,8 +743,12 @@ async function lireVfStreamFusion(env, cles) {
       const texte = (s) => `${s.name || ""} ${s.title || ""} ${s.description || ""}`;
       const vides = streams.filter((s) => /aucun r[ée]sultat/i.test(texte(s)));
       if (vides.length) {
+        // « Aucun résultat » : StreamFusion a cherché et n'a trouvé aucune source en français. Sans VF, même sans source
+        // écartée (le fichier pas encore sorti, ou pas encore trouvé) : compté comme au moins une source en VO, pour
+        // que la date ne décide pas à sa place. Avant, 空枪 (film chinois sorti en numérique en Chine la veille) était
+        // N°1 des Tendances, « Dispo depuis le 23 oct. » : rien chez StreamFusion, donc la date seule.
         const exclus = Number((/(\d+)\s+exclus/i.exec(texte(vides[0])) || [])[1]) || 0;
-        return [cle, { vf: false, sources: exclus }];
+        return [cle, { vf: false, sources: Math.max(1, exclus) }];
       }
       // Des sources VF (celles qu'on peut lire, en cache chez le débrideur) : leur qualité aussi (« 4K DV » en VF).
       // Sans celles filmées dans une salle de cinéma (CAM, TS, TC) : pas une sortie (voir filmeEnSalle).
@@ -758,11 +762,13 @@ async function lireVfStreamFusion(env, cles) {
 /**
  * Plafond de StreamFusion : 300 demandes par jour au plus (réglable : SF_PLAFOND), photo de 4 h comprise, comptées
  * dans la base D1 (table sf_budget). C'est le compte de la personne : jamais plus, quoi qu'il arrive (au-delà,
- * Torrentio jusqu'au lendemain). reserverStreamFusion(env, n) : true si les n demandes tiennent dans le plafond (et
- * les compte), false sinon. Sans base : pas de StreamFusion.
+ * Torrentio jusqu'au lendemain). reserverStreamFusion(env, n, origine) : true si les n demandes tiennent dans le
+ * plafond (et les compte), false sinon. Sans base : pas de StreamFusion.
+ * Compté aussi par origine, pour savoir où part le plafond (300 dès 9 h 30 le 24 octobre) : lignes « jour:photo »,
+ * « jour:affiches », et « jour:refus » (demandes au-delà du plafond).
  */
 let budgetPret = null;
-async function reserverStreamFusion(env, n = 1) {
+async function reserverStreamFusion(env, n = 1, origine = "affiches") {
   if (!env.LIENS || !env.STREAMFUSION_URL) return false;
   const plafond = Number(env.SF_PLAFOND) > 0 ? Number(env.SF_PLAFOND) : 300;
   try {
@@ -770,7 +776,10 @@ async function reserverStreamFusion(env, n = 1) {
       .catch((e) => { budgetPret = null; throw e; }));
     const r = await env.LIENS.prepare("INSERT INTO sf_budget (j, n) VALUES (?1, ?2) ON CONFLICT(j) DO UPDATE SET n = n + ?2 WHERE n + ?2 <= ?3 RETURNING n")
       .bind(parisToday(), n, plafond).first();
-    return !!r && r.n <= plafond;
+    const ok = !!r && r.n <= plafond;
+    await env.LIENS.prepare("INSERT INTO sf_budget (j, n) VALUES (?1, ?2) ON CONFLICT(j) DO UPDATE SET n = n + ?2")
+      .bind(`${parisToday()}:${ok ? origine : "refus"}`, n).run().catch((e) => console.warn(`compte StreamFusion : ${e && e.message}`));
+    return ok;
   } catch (e) { console.warn(`plafond StreamFusion : ${e && e.message}`); return false; }
 }
 
@@ -799,7 +808,7 @@ async function routeStreamFusion(request, env, cle) {
 /** La VF pour la photo du jour : StreamFusion s'il est réglé (dans le plafond du jour), Torrentio (lireVf) pour ce qu'il n'a pas dit. */
 async function lireVfPhoto(env, cles) {
   const pris = cles.slice(0, SF_MAX);
-  const sf = pris.length && (await reserverStreamFusion(env, pris.length)) ? await lireVfStreamFusion(env, pris) : new Map();
+  const sf = pris.length && (await reserverStreamFusion(env, pris.length, "photo")) ? await lireVfStreamFusion(env, pris) : new Map();
   const reste = cles.filter((c) => !sf.has(c));
   const tr = reste.length ? await lireVf(env, reste) : new Map();
   return new Map([...tr, ...sf]);

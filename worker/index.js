@@ -61,11 +61,11 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.21";
+const VERSION = "5.38.22";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
-const CACHE_V = 10;
+const CACHE_V = 11;
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 const OBSCUR_VOTES = 100;           // recherche : en dessous, un titre trouvé mot à mot ne suffit pas, Gemini est consulté
@@ -1065,10 +1065,11 @@ function endpointAsDiscover(def) {
  */
 async function photoTendances(env, kind) {
   try {
-    // ?v=8 : la photo avec l'avis VF et la qualité de StreamFusion ; les précédentes restent sous leurs adresses.
+    // ?v=8 : la photo avec l'avis VF et la qualité de StreamFusion ; les précédentes restent sous leurs adresses. Films : ?v=9,
+    // la photo reprise le 24 octobre (voir VERSION_PHOTO dans tendances.js).
     // Gardée par Cloudflare le temps que dit le service (jusqu'au changement ; 5 minutes pour un secours, le classement
     // brut de TMDB quand l'addon n'a pas répondu à temps) : jamais un secours toute la journée.
-    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series" : "movie"}.json?v=8`, { cf: { cacheEverything: true } });
+    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series.json?v=8" : "movie.json?v=9"}`, { cf: { cacheEverything: true } });
     const d = res.ok ? await res.json() : {};
     if (d.secours) return new Map();
     return new Map((Array.isArray(d.ids) ? d.ids : []).map((id, i) => [id, i]));

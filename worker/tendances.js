@@ -14,7 +14,10 @@ export const BASCULE_UTC_H = 4;
 // 100 : assez de films pour en trouver 20 déjà en VF chez soi (sur les 30 premiers, 9 seulement un jour d'octobre).
 const TOP = 100, GARDE_JOURS = 7;
 // Clé de la photo en base : « movie:rangs5 » ({ ids, vf, q } : renumérotée, avec l'avis VF et la qualité) ; celles d'avant ne sont plus lues.
-const CLE = (kind) => `${kind}:rangs5`;
+// Films : « rangs6 » depuis le 24 octobre, pour reprendre ce jour-là la photo qui classait des films sans VF (v5.38.21) ;
+// les séries gardent la leur.
+const VERSION_PHOTO = { movie: "rangs6", series: "rangs5" };
+const CLE = (kind) => `${kind}:${VERSION_PHOTO[kind]}`;
 
 export function secondesAvantBascule(now = Date.now()) {
   const d = new Date(now), b = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), BASCULE_UTC_H);
@@ -94,7 +97,7 @@ export const prendrePhotos = (env, now = Date.now(), classer = null) => Promise.
 /** /tendances/{movie|series}.json : { ids }, gardé par Cloudflare (et ceux qui la lisent) jusqu'au changement. */
 export async function routeTendances(env, kind, headers, classer = null) {
   if (!["movie", "series"].includes(kind)) return new Response(JSON.stringify({ error: "introuvable" }), { status: 404, headers: { ...headers, "Cache-Control": "public, max-age=3600" } });
-  const cle = new Request(`https://tendances.cache/rangs5/${jourTendances()}/${kind}.json`);
+  const cle = new Request(`https://tendances.cache/${VERSION_PHOTO[kind]}/${jourTendances()}/${kind}.json`);
   const rendre = (corps, s = secondesAvantBascule()) => new Response(corps, { headers: { ...headers, "Cache-Control": `public, max-age=${s}` } });
   const hit = await caches.default.match(cle);
   if (hit) return rendre(await hit.text());

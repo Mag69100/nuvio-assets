@@ -412,7 +412,7 @@ test("tendances_du_jour_reprennent_les_numeros_de_la_photo", async () => {
   globalThis.fetch = async (url) => {
     const u = String(url);
     calls.push(u);
-    if (u === `${AFFICHES_URL}/tendances/movie.json?v=8`) return new Response(JSON.stringify({ ids: [1, 3, ...Array(18).fill(0), 2] }));
+    if (u === `${AFFICHES_URL}/tendances/movie.json?v=9`) return new Response(JSON.stringify({ ids: [1, 3, ...Array(18).fill(0), 2] }));
     if (u.includes("/trending/movie/day")) {
       return new Response(JSON.stringify({ results: u.includes("page=1") ? [3, 2].map((id) => ({ id, title: `Film ${id}`, original_language: "en", release_date: jour(-60) })) : [], page: 1, total_pages: 1 }));
     }

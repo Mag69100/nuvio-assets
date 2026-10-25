@@ -71,3 +71,16 @@ test("relais_avec_streamfusion", async () => {
   assert.match(panne.headers.get("Cache-Control"), /max-age=3600/);
   assert.match((await lire({ plafond: true })).headers.get("Cache-Control"), /max-age=21600/);
 });
+
+// Sans clé, ou avec STREAMFUSION=off : Torrentio seul, l'addon n'est jamais appelé (chaque appel à /sf y compte une
+// requête, même refusé).
+test("relais_sans_streamfusion_sans_cle", async () => {
+  const appels = [];
+  const fetchImpl = async (u) => { appels.push(String(u)); return new Response(JSON.stringify({ streams: [{ name: "Torrentio 1080p", title: "Film.2026.MULTi.1080p.WEB" }] })); };
+  for (const env of [{ ADDON_URL: "https://addon.test" }, { RELAIS_KEY: "k", STREAMFUSION: "off", ADDON_URL: "https://addon.test" }]) {
+    const r = await makeQualite({ fetchImpl, env })(new Request("https://affiches.test/api/qualite?type=movie&video=tt9&sf=1", { headers: { "X-Relais-Cle": "k" } }));
+    assert.equal(r.status, 200);
+    assert.equal(typeof (await r.json()).vf, "boolean");
+  }
+  assert.ok(!appels.some((u) => u.includes("addon.test")));
+});

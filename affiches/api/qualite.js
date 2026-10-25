@@ -32,7 +32,9 @@ export function makeQualite({ fetchImpl = fetch, env = process.env } = {}) {
       return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" } });
     }
     if (relaisRefuse(request, env)) return refusRelais();
-    const sf = q.get("sf") === "1";
+    // Sans clé (machine GitHub) ou STREAMFUSION=off (le serveur des affiches) : jamais l'addon. Chaque demande à /sf y
+    // compte une requête, même refusée ; les affiches ont déjà l'avis VF de la photo du jour.
+    const sf = q.get("sf") === "1" && !!env.RELAIS_KEY && env.STREAMFUSION !== "off";
     const [torrentio, avis] = await Promise.all([lireTorrentio(`${type}/${video}`, fetchImpl), sf ? avisStreamFusion(env, type, video, fetchImpl) : null]);
     const qualite = avis && !avis.plafond ? avecStreamFusion(torrentio, avis) : torrentio;
     // Torrentio en panne ou qui refuse : { erreur: true } gardé 30 min (le CDN de Vercel ne garde jamais une 503 :

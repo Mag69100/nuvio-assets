@@ -193,7 +193,18 @@ export function creerLienAffiches() {
       for (const v of ["statut", "tendance", "qualite", "titre", "note", "genre", "annee", "fondu"]) r[v].on = false;
       r.sortie.nb = false;
     }),
+    // Statuts complets (nouvel épisode, fin, avance), note colorée, durée, Incontournable et saga, fondu court et flou aux
+    // couleurs de l'affiche ; le paysage a ses propres réglages (MEMOIRES_PAYSAGE).
+    signature: geler(lireReglages(new URLSearchParams({ s: "1.coD1faild1Wc0a10b02do3b13c13e11he1ia3f23h13i13j1" }))),
   });
+  /** Le paysage des styles qui en ont un à part (texte plus grand, sans fondu) ; les autres : comme le portrait. */
+  const MEMOIRES_PAYSAGE = Object.freeze({
+    signature: geler(lireReglages(new URLSearchParams({ s: "1.coD1xqfaild1Wc0a10b02do3b13c13e11ia3f23h13i13j1" }))),
+  });
+  // Les affiches sont servies en fichiers tout faits (Worker « affiches » de Cloudflare), un dossier par style tout prêt :
+  // un réglage perso n'a pas le sien. « nue » non plus : rien à dessiner, c'est Nuvio sans adresse d'affiches.
+  const STATIQUES = "https://affiches.xnzxflix.workers.dev";
+  const DOSSIERS = Object.freeze({ maison: "maison", essentiel: "essentiel", noteSeule: "note", cine: "cine", postersPlus: "postersplus", plateforme: "plateforme", signature: "signature" });
 
   /** Valeur canonique du paramètre s (sans « 1. ») ; "" quand tout est par défaut. */
   function ecrireReglages(r) {
@@ -242,12 +253,22 @@ export function creerLienAffiches() {
   }
 
   /**
-   * Le lien à coller dans Nuvio (Paramètres → Disposition → Custom Poster Source). rp : réglages à part pour le
-   * paysage, écrits dans sp seulement s'ils diffèrent du portrait.
+   * Le dossier du style tout prêt de ces réglages (rp : réglages à part pour le paysage, ou null), ou null : réglage
+   * perso, ou paysage qui ne va pas avec ce style.
+   */
+  function dossierDe(r, rp) {
+    const m = memoireDe(r || DEFAUT_REGLAGES);
+    if (!m || !DOSSIERS[m]) return null;
+    const paysage = MEMOIRES_PAYSAGE[m] || MEMOIRES[m];
+    return !rp || ecrireReglages(rp) === ecrireReglages(paysage) ? DOSSIERS[m] : null;
+  }
+
+  /**
+   * Le lien à coller dans Nuvio (Paramètres → Disposition → Custom Poster Source) : celui du style tout prêt de ces
+   * réglages ; un réglage perso n'est pas servi, son lien donne « maison ».
    */
   function lienAffiches(r, rp) {
-    const s = ecrireReglages(r || DEFAUT_REGLAGES), sp = rp ? ecrireReglages(rp) : s;
-    return "https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?imdb={imdb_id?}" + (s ? "&s=1." + s : "") + (sp !== s ? "&sp=1." + sp : "");
+    return `${STATIQUES}/${dossierDe(r, rp) || "maison"}/{type}/{shape}/{id}.jpg`;
   }
 
   /**
@@ -259,6 +280,10 @@ export function creerLienAffiches() {
     // Copié d'une barre d'adresse ou d'une appli : accolades (voire tout le lien) codées, %7Btype%7D…
     for (let i = 0; i < 2 && /%[0-9a-f]{2}/i.test(t); i++) { try { t = decodeURIComponent(t); } catch (e) { break; } }
     if (!/\/(\{type\}|movie|series)\/(\{shape\}|poster|landscape)\/[^/?]+\.jpg(\?|$)/.test(t)) return null;
+    // Lien d'un style tout prêt (…/signature/{type}/…) : ses réglages.
+    const d = /\/([a-z]+)\/(?:\{type\}|movie|series)\//.exec(t);
+    const m = d && Object.keys(DOSSIERS).find((k) => DOSSIERS[k] === d[1]);
+    if (m) return { r: copie(MEMOIRES[m]), rp: MEMOIRES_PAYSAGE[m] ? copie(MEMOIRES_PAYSAGE[m]) : null };
     const params = new URLSearchParams(t.includes("?") ? t.slice(t.indexOf("?") + 1) : "");
     return { r: lireReglages(params), rp: params.has("sp") ? lireReglagesPaysage(params) : null };
   }
@@ -269,7 +294,7 @@ export function creerLienAffiches() {
     return Object.keys(MEMOIRES).find((nom) => ecrireReglages(MEMOIRES[nom]) === s) || null;
   }
 
-  return { DEFAUT_REGLAGES, TAILLES, MONTEES, RETOUCHES, SATURATIONS, PALETTE, MEMOIRES, ecrireReglages, lireReglages, lireReglagesPaysage, lienAffiches, memoireDe, reglagesDuLien };
+  return { DEFAUT_REGLAGES, TAILLES, MONTEES, RETOUCHES, SATURATIONS, PALETTE, MEMOIRES, MEMOIRES_PAYSAGE, ecrireReglages, lireReglages, lireReglagesPaysage, lienAffiches, dossierDe, memoireDe, reglagesDuLien };
 }
 
-export const { DEFAUT_REGLAGES, TAILLES, MONTEES, RETOUCHES, SATURATIONS, PALETTE, MEMOIRES, ecrireReglages, lireReglages, lireReglagesPaysage, lienAffiches, memoireDe, reglagesDuLien } = creerLienAffiches();
+export const { DEFAUT_REGLAGES, TAILLES, MONTEES, RETOUCHES, SATURATIONS, PALETTE, MEMOIRES, MEMOIRES_PAYSAGE, ecrireReglages, lireReglages, lireReglagesPaysage, lienAffiches, dossierDe, memoireDe, reglagesDuLien } = creerLienAffiches();

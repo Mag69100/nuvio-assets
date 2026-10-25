@@ -1,9 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { DEFAUT_REGLAGES, MEMOIRES, lireReglages, lireReglagesPaysage, ecrireReglages, lienAffiches, memoireDe } from "../worker/lien-affiches.js";
+import { DEFAUT_REGLAGES, MEMOIRES, MEMOIRES_PAYSAGE, lireReglages, lireReglagesPaysage, ecrireReglages, lienAffiches, dossierDe, memoireDe } from "../worker/lien-affiches.js";
 
-const DEFAUT_LIEN = "https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?imdb={imdb_id?}";
+const DEFAUT_LIEN = "https://affiches.xnzxflix.workers.dev/maison/{type}/{shape}/{id}.jpg";
+// L'ancien lien (Vercel, réglages dans s et sp) : encore importable dans la régie.
+const ANCIEN_LIEN = "https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?imdb={imdb_id?}";
 const lire = (q) => lireReglages(new URLSearchParams(q));
 const ecrit = (q) => ecrireReglages(lire(q));
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -125,8 +127,11 @@ test("regie_v2_codes", () => {
 // Paysage à part : un second jeu de réglages dans sp, écrit seulement s'il diffère du portrait.
 test("paysage_a_part", () => {
   assert.equal(lienAffiches(DEFAUT_REGLAGES, DEFAUT_REGLAGES), DEFAUT_LIEN);
-  assert.equal(lienAffiches(DEFAUT_REGLAGES, MEMOIRES.essentiel), DEFAUT_LIEN + "&sp=1.S0T0G0A0");
-  assert.equal(lienAffiches(MEMOIRES.essentiel, MEMOIRES.essentiel), DEFAUT_LIEN + "&s=1.S0T0G0A0");
+  // Un paysage qui ne va pas avec le style : réglage perso.
+  assert.equal(dossierDe(DEFAUT_REGLAGES, MEMOIRES.essentiel), null);
+  assert.equal(dossierDe(MEMOIRES.essentiel, MEMOIRES.essentiel), "essentiel");
+  assert.equal(dossierDe(MEMOIRES.signature, MEMOIRES_PAYSAGE.signature), "signature");
+  assert.equal(dossierDe(MEMOIRES.signature, MEMOIRES.signature), null);
   const p = lireReglagesPaysage(new URLSearchParams("s=1.T0&sp=1.Q0"));
   assert.equal(p.qualite.on, false);
   assert.equal(p.tendance.on, true);
@@ -166,8 +171,13 @@ test("memoires", () => {
   assert.equal(memoireDe(perso), null);
 });
 
+// Un dossier par style tout prêt (fichiers statiques) ; un réglage perso n'est pas servi, son lien donne « maison ».
 test("lien_avec_reglages", () => {
-  assert.equal(lienAffiches(MEMOIRES.essentiel), DEFAUT_LIEN + "&s=1.S0T0G0A0");
+  assert.equal(lienAffiches(MEMOIRES.essentiel), "https://affiches.xnzxflix.workers.dev/essentiel/{type}/{shape}/{id}.jpg");
+  assert.equal(lienAffiches(MEMOIRES.noteSeule), "https://affiches.xnzxflix.workers.dev/note/{type}/{shape}/{id}.jpg");
+  assert.equal(lienAffiches(MEMOIRES.signature, MEMOIRES_PAYSAGE.signature), "https://affiches.xnzxflix.workers.dev/signature/{type}/{shape}/{id}.jpg");
+  assert.equal(lienAffiches(lire("s=1.T0")), DEFAUT_LIEN);
+  assert.equal(lienAffiches(MEMOIRES.nue), DEFAUT_LIEN);
 });
 
 // Vercel ne déploie que affiches/, Docker que worker/ : le module existe en deux copies, toujours identiques.
@@ -239,21 +249,28 @@ test("fondu_precis", () => {
 // Importer un lien d'affiches (collé dans la régie) : on retrouve ses réglages, paysage à part compris.
 test("importer_un_lien", async () => {
   const { reglagesDuLien } = await import("../worker/lien-affiches.js");
-  const r = reglagesDuLien(lienAffiches(MEMOIRES.cine, MEMOIRES.essentiel));
-  assert.equal(ecrireReglages(r.r), ecrireReglages(MEMOIRES.cine));
-  assert.equal(ecrireReglages(r.rp), ecrireReglages(MEMOIRES.essentiel));
-  // Sans réglages à part : rp vide ; lien par défaut : réglages par défaut.
+  // Lien d'un style tout prêt : ses réglages, paysage à part compris.
+  const r = reglagesDuLien(lienAffiches(MEMOIRES.signature, MEMOIRES_PAYSAGE.signature));
+  assert.equal(ecrireReglages(r.r), ecrireReglages(MEMOIRES.signature));
+  assert.equal(ecrireReglages(r.rp), ecrireReglages(MEMOIRES_PAYSAGE.signature));
   assert.equal(reglagesDuLien(lienAffiches(MEMOIRES.cine)).rp, null);
+  assert.equal(ecrireReglages(reglagesDuLien(lienAffiches(MEMOIRES.cine)).r), ecrireReglages(MEMOIRES.cine));
   assert.equal(ecrireReglages(reglagesDuLien(DEFAUT_LIEN).r), "");
+  // Ancien lien (Vercel) : ses réglages, paysage à part compris.
+  const a = reglagesDuLien(ANCIEN_LIEN + "&s=1.T0&sp=1.Q0");
+  assert.equal(ecrireReglages(a.r), "T0");
+  assert.equal(ecrireReglages(a.rp), "Q0");
+  assert.equal(ecrireReglages(reglagesDuLien(ANCIEN_LIEN).r), "");
   // Espaces autour, lien d'une affiche précise, ancien lien (o, r) : acceptés.
-  assert.equal(ecrireReglages(reglagesDuLien("  " + DEFAUT_LIEN + "&s=1.T0  ").r), "T0");
+  assert.equal(ecrireReglages(reglagesDuLien("  " + ANCIEN_LIEN + "&s=1.T0  ").r), "T0");
   assert.equal(ecrireReglages(reglagesDuLien("https://affiches-catalogue-fr.vercel.app/movie/poster/tt1375666.jpg?imdb=tt1375666&s=1.Q0").r), "Q0");
   assert.equal(ecrireReglages(reglagesDuLien("https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?imdb={imdb_id?}&o=tga").r), "T0G0A0");
   // Copié d'une barre d'adresse : accolades codées (%7B…%7D), et même tout le lien codé.
-  const code = DEFAUT_LIEN.replace(/\{/g, "%7B").replace(/\}/g, "%7D") + "&s=1.coD1failWc0a10b02do3b13c13e13f2";
-  assert.equal(ecrireReglages(reglagesDuLien(code).r), ecrireReglages(reglagesDuLien(DEFAUT_LIEN + "&s=1.coD1failWc0a10b02do3b13c13e13f2").r));
+  const code = ANCIEN_LIEN.replace(/\{/g, "%7B").replace(/\}/g, "%7D") + "&s=1.coD1failWc0a10b02do3b13c13e13f2";
+  assert.equal(ecrireReglages(reglagesDuLien(code).r), ecrireReglages(reglagesDuLien(ANCIEN_LIEN + "&s=1.coD1failWc0a10b02do3b13c13e13f2").r));
   assert.notEqual(ecrireReglages(reglagesDuLien(code).r), "");
-  assert.equal(ecrireReglages(reglagesDuLien(encodeURIComponent(DEFAUT_LIEN + "&s=1.T0")).r), "T0");
+  assert.equal(ecrireReglages(reglagesDuLien(encodeURIComponent(ANCIEN_LIEN + "&s=1.T0")).r), "T0");
+  assert.equal(dossierDe(reglagesDuLien(encodeURIComponent(DEFAUT_LIEN.replace("maison", "cine"))).r), "cine");
   assert.equal(reglagesDuLien("%E0%A4%A"), null);
   // Autre chose qu'un lien d'affiches : refusé.
   for (const x of ["", "bonjour", "https://exemple.com/?s=1.T0", "https://posters.example/{type}/{id}?s=1.T0"]) assert.equal(reglagesDuLien(x), null, x);
@@ -267,7 +284,8 @@ test("options_au_choix", () => {
   const x = lire("s=1.3k13j13i13h13g1");
   assert.deepEqual([x.langue.on, x.statut.fin, x.statut.avance, x.infos.saga, x.saison.on], [true, true, true, true, true]);
   assert.equal(ecrireReglages(x), "3g13h13i13j13k1");
-  for (const m of Object.values(MEMOIRES)) assert.ok(!/3[g-k]/.test(ecrireReglages(m)), "aucun style tout prêt ne les allume");
+  // Seul « signature » en allume (fin, avancement, saga : les statuts complets).
+  for (const [nom, m] of Object.entries(MEMOIRES)) if (nom !== "signature") assert.ok(!/3[g-k]/.test(ecrireReglages(m)), nom);
   // Sans statut, ni fin ni avancement ; la langue et la saga sont des badges du haut (style commun, coins).
   assert.equal(ecrit("s=1.S03h13i1"), "S0");
   assert.equal(ecrit("s=1.S0T0Q0Hv3g1"), "S0T0Q0Hv3g1");

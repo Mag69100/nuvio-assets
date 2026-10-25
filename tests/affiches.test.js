@@ -18,8 +18,7 @@ const salle2 = () => {
 
 // Le lien à coller dans Nuvio (Custom Poster Source) : sans réglage, le même pour tout le monde, à l'octet près.
 test("lien_par_defaut_inchange", () => {
-  assert.equal(POSTER_URL, "https://affiches-catalogue-fr.vercel.app/{type}/{shape}/{id}.jpg?imdb={imdb_id?}");
-  assert.equal(POSTER_URL, `${AFFICHES_URL}/{type}/{shape}/{id}.jpg?imdb={imdb_id?}`);
+  assert.equal(POSTER_URL, "https://affiches.xnzxflix.workers.dev/maison/{type}/{shape}/{id}.jpg");
   assert.equal(lienAffiches(DEFAUT_REGLAGES), POSTER_URL);
 });
 
@@ -68,7 +67,9 @@ test("regie_presente", () => {
   for (const id of ["regie", "regie-ouvrir", "regie-grande", "regie-coulisses", "regie-memoires", "regie-onglets", "regie-voies", "regie-copier", "regie-annuler", "regie-fermer", "regie-format"]) {
     assert.match(html, new RegExp(`id="${id}"`), id);
   }
-  for (const m of ["maison", "essentiel", "noteSeule", "cine", "postersPlus", "plateforme", "nue"]) assert.match(html, new RegExp(`data-memoire="${m}"`), m);
+  // « Nue » n'y est plus (rien à servir : c'est Nuvio sans adresse d'affiches) ; « Signature » si.
+  for (const m of ["maison", "essentiel", "noteSeule", "cine", "postersPlus", "plateforme", "signature"]) assert.match(html, new RegExp(`data-memoire="${m}"`), m);
+  assert.doesNotMatch(html, /data-memoire="nue"/);
   assert.match(html, /id="regie-onglets"[^>]*role="tablist"/);
   for (const o of ["haut", "titre", "infos", "image", "couleurs", "paysage"]) assert.match(html, new RegExp(`role="tab"[^>]*data-onglet="${o}"`), o);
   assert.match(html, /id="regie-voies"[^>]*role="tabpanel"/);

@@ -108,8 +108,8 @@ const pageHTML = ({ id, chap, side, title, sub, body, parent }) =>
   <div class="nv-vp"><div class="nv-ct">${body}<i class="nv-ring" aria-hidden="true"></i></div></div>
 </div>`;
 
-// Les affiches maison (dossier affiches/, service sur Vercel) : le lien à coller dans Nuvio, Paramètres →
-// Disposition → Custom Poster Source. Sans réglage, le même pour tout le monde (et le cache est partagé).
+// Le service d'affiches de Vercel (dossier affiches/) : ses relais servent encore à l'addon tant que le serveur des
+// affiches n'est pas là (relaisUrl) ; ses anciennes adresses d'affiches renvoient vers les fichiers statiques.
 export const AFFICHES_URL = "https://affiches-catalogue-fr.vercel.app";
 /**
  * Les relais du service d'affiches (VF des sources, photo des tendances, AniList, aperçus de la régie) : le serveur des
@@ -119,7 +119,10 @@ export const relaisUrl = (env) => env.RELAIS_URL || env.AFFICHES_URL || AFFICHES
 // Version des aperçus d'affiches du site (/affiche/…, gardés un jour par le navigateur) : à changer quand le
 // dessin change, pour qu'aucun aperçu dessiné par l'ancienne version ne ressorte du cache.
 export const APERCU_V = "3";
-export const POSTER_URL = AFFICHES_URL + "/{type}/{shape}/{id}.jpg?imdb={imdb_id?}";
+// Le lien à coller dans Nuvio, Paramètres → Disposition → Custom Poster Source : les affiches maison en fichiers
+// statiques (Worker « affiches » de Cloudflare), style « maison » ; un autre style tout prêt a son propre dossier.
+export const AFFICHES_STATIQUES = "https://affiches.xnzxflix.workers.dev";
+export const POSTER_URL = AFFICHES_STATIQUES + "/maison/{type}/{shape}/{id}.jpg";
 // Les réglages de la régie (salle 2) et leur écriture dans ce lien : worker/lien-affiches.js.
 
 

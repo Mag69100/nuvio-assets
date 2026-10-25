@@ -406,9 +406,9 @@ ${copy ? HOTE_HTML : ""}
       </div>
       <div class="regie-console">
         <div class="regie-memoires" id="regie-memoires" role="group" aria-label="Styles tout prêts">
-          <button type="button" data-memoire="maison" aria-label="Style Maison"><img alt=""><span>Maison</span></button><button type="button" data-memoire="essentiel" aria-label="Style Essentiel"><img alt=""><span>Essentiel</span></button><button type="button" data-memoire="noteSeule" aria-label="Style Note seule"><img alt=""><span>Note seule</span></button><button type="button" data-memoire="cine" aria-label="Style Ciné"><img alt=""><span>Ciné</span></button><button type="button" data-memoire="postersPlus" aria-label="Style Posters+"><img alt=""><span>Posters+</span></button><button type="button" data-memoire="plateforme" aria-label="Style Plateforme"><img alt=""><span>Plateforme</span></button><button type="button" data-memoire="nue" aria-label="Style Nue"><img alt=""><span>Nue</span></button>
+          <button type="button" data-memoire="maison" aria-label="Style Maison"><img alt=""><span>Maison</span></button><button type="button" data-memoire="essentiel" aria-label="Style Essentiel"><img alt=""><span>Essentiel</span></button><button type="button" data-memoire="noteSeule" aria-label="Style Note seule"><img alt=""><span>Note seule</span></button><button type="button" data-memoire="cine" aria-label="Style Ciné"><img alt=""><span>Ciné</span></button><button type="button" data-memoire="postersPlus" aria-label="Style Posters+"><img alt=""><span>Posters+</span></button><button type="button" data-memoire="plateforme" aria-label="Style Plateforme"><img alt=""><span>Plateforme</span></button><button type="button" data-memoire="signature" aria-label="Style Signature"><img alt=""><span>Signature</span></button>
         </div>
-        <p class="regie-perso" id="regie-perso" hidden>Réglages perso : choisis un style pour repartir de lui.</p>
+        <p class="regie-perso" id="regie-perso" hidden>Réglages perso : seuls les styles tout prêts sont servis, ton lien donne le style Maison. Choisis un style pour avoir le sien.</p>
         <p class="regie-cible" id="regie-cible" hidden>Tu règles les images en paysage.</p>
         <div class="regie-onglets" id="regie-onglets" role="tablist" aria-label="Réglages par partie de l'affiche">
           <button type="button" role="tab" id="onglet-haut" data-onglet="haut" aria-selected="true" aria-controls="regie-voies">Haut</button><button type="button" role="tab" id="onglet-titre" data-onglet="titre" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Titre</button><button type="button" role="tab" id="onglet-infos" data-onglet="infos" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Infos</button><button type="button" role="tab" id="onglet-image" data-onglet="image" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Image</button><button type="button" role="tab" id="onglet-couleurs" data-onglet="couleurs" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Couleurs</button><button type="button" role="tab" id="onglet-paysage" data-onglet="paysage" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Paysage</button>
@@ -1418,7 +1418,7 @@ drawPP();
 // du billet. La scène montre de vraies affiches (une grande, six en coulisses), redessinées après chaque rafale.
 // La console : les styles tout prêts en vignettes, puis 6 onglets ; chaque élément est une carte (icône, nom,
 // interrupteur, choix principaux visibles) avec ses réglages fins dans « Plus de réglages » (un seul ouvert).
-const NOMS_MEMOIRES = { maison: "Maison", essentiel: "Essentiel", noteSeule: "Note seule", cine: "Ciné", postersPlus: "Posters+", plateforme: "Plateforme", nue: "Nue" };
+const NOMS_MEMOIRES = { maison: "Maison", essentiel: "Essentiel", noteSeule: "Note seule", cine: "Ciné", postersPlus: "Posters+", plateforme: "Plateforme", signature: "Signature", nue: "Nue" };
 const ONGLETS = {
   haut: ["statut", "tendance", "qualite", "langue", "culte", "saga", "bandeau", "badges"],
   titre: ["titre", "texte", "ligne", "ligne2"],
@@ -1485,9 +1485,11 @@ const cible = () => (regieRP && regieForme === "landscape" ? regieRP : regieR);
 
 function lienAffichesMaj() {
   $("u-affiches").textContent = NV.lienPerso();
-  const m = LA.memoireDe(NV.reglages.affiches);
+  // Les affiches sont servies en fichiers tout faits, un dossier par style tout prêt : un réglage perso n'a pas le sien.
+  const m = LA.memoireDe(NV.reglages.affiches), servi = LA.dossierDe(NV.reglages.affiches, NV.reglages.affichesPaysage);
   $("aff-resume").innerHTML = "";
-  $("aff-resume").append("Style en cours : ", el("b", { text: m ? NOMS_MEMOIRES[m] : "perso" }), NV.reglages.affichesPaysage ? " (paysage à part)." : ".");
+  if (servi) $("aff-resume").append("Style en cours : ", el("b", { text: NOMS_MEMOIRES[m] }), ".");
+  else $("aff-resume").append("Réglages perso : pas servis, ton lien donne le style ", el("b", { text: "Maison" }), ". Choisis un style tout prêt dans la régie.");
   regieQr();
 }
 
@@ -1739,7 +1741,7 @@ function regieDessine(garderCorps) {
   // Les cartes sont reconstruites : le focus revient sur le même bouton (data-cle).
   const actif = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.cle || "" : "";
   document.querySelectorAll("#regie-memoires [data-memoire]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.memoire === m)));
-  $("regie-perso").hidden = !!m;
+  $("regie-perso").hidden = !!LA.dossierDe(regieR, regieRP);
   document.querySelectorAll("#regie-onglets [data-onglet]").forEach((b) => { b.setAttribute("aria-selected", String(b.dataset.onglet === regieOnglet)); b.tabIndex = b.dataset.onglet === regieOnglet ? 0 : -1; });
   $("regie-voies").setAttribute("aria-labelledby", "onglet-" + regieOnglet);
   $("regie-cible").hidden = !(regieRP && regieForme === "landscape");
@@ -2054,8 +2056,9 @@ function importe() {
 $("regie-import-ok").addEventListener("click", importe);
 $("regie-import-lien").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); importe(); } });
 document.querySelectorAll("#regie-memoires [data-memoire]").forEach((b) => b.addEventListener("click", () => {
-  const m = LA.MEMOIRES[b.dataset.memoire];
-  regieChange((r) => { const copie = JSON.parse(JSON.stringify(m)); Object.keys(copie).forEach((k) => { r[k] = copie[k]; }); });
+  const m = LA.MEMOIRES[b.dataset.memoire], mp = LA.MEMOIRES_PAYSAGE[b.dataset.memoire];
+  const copie = (x) => JSON.parse(JSON.stringify(x));
+  regieChange(() => { regieR = copie(m); regieRP = mp ? copie(mp) : null; });
 }));
 // Onglets : clic, flèches gauche/droite d'un onglet à l'autre, Début et Fin pour le premier et le dernier (rôle tablist).
 const ongletsListe = [...document.querySelectorAll("#regie-onglets [data-onglet]")];

@@ -61,11 +61,11 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.24";
+const VERSION = "5.38.25";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
-const CACHE_V = 12;
+const CACHE_V = 13;
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 const OBSCUR_VOTES = 100;           // recherche : en dessous, un titre trouvé mot à mot ne suffit pas, Gemini est consulté
@@ -1073,10 +1073,10 @@ function endpointAsDiscover(def) {
 async function photoTendances(env, kind) {
   try {
     // ?v=8 : la photo avec l'avis VF et la qualité de StreamFusion ; les précédentes restent sous leurs adresses. Films : ?v=9,
-    // la photo reprise le 24 octobre ; ?v=10, celle du 25 (voir VERSION_PHOTO dans tendances.js).
+    // la photo reprise le 24 octobre ; ?v=10, celle du 25. Séries : ?v=9, celle du 25 (voir VERSION_PHOTO dans tendances.js).
     // Gardée par Cloudflare le temps que dit le service (jusqu'au changement ; 5 minutes pour un secours, le classement
     // brut de TMDB quand l'addon n'a pas répondu à temps) : jamais un secours toute la journée.
-    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series.json?v=8" : "movie.json?v=10"}`, { cf: { cacheEverything: true } });
+    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series.json?v=9" : "movie.json?v=10"}`, { cf: { cacheEverything: true } });
     const d = res.ok ? await res.json() : {};
     if (d.secours) return new Map();
     return new Map((Array.isArray(d.ids) ? d.ids : []).map((id, i) => [id, i]));
@@ -1243,6 +1243,13 @@ async function fetchReleasedPage(env, ctx, def, kind, page, today, opts) {
  * sources (un appel pour tous), sinon les dates, comme les affiches (enVfChezSoi) ; un vieux film reste (ses sources
  * ne sont pas lues). 4 de plus examinés pour remplacer les titres en VO seulement.
  */
+/**
+ * Titre récent sans identifiant IMDb, fiche TMDB lue : Torrentio ne trouve rien sans lui, donc aucune VF à voir (Oh! My
+ * Guard, série coréenne, N°10 des Tendances le 25 octobre 2026, diffusée la veille). Pas un titre en français (il a sa
+ * VF), ni un film en abonnement sur une plateforme en France qui le double (abonnementVf, plateformeFr).
+ */
+const sansImdb = (info, it) => !!info && info.lu && !info.imdb && it.original_language !== "fr" && !info.abonnementVf && !info.plateformeFr;
+
 async function filmsRegardables(env, released, today, max, lire = lireVf) {
   const infos = new Map();
   let picked = [];
@@ -1260,6 +1267,7 @@ async function filmsRegardables(env, released, today, max, lire = lireVf) {
   picked = picked.filter((it) => {
     if (!recent(it)) return true;
     const info = infos.get(it.id);
+    if (sansImdb(info, it)) return false;
     return enVfChezSoi(info.releases, it.original_language, today, avecAbonnement(sources.get(info.imdb), info.abonnementVf), info.plateformeFr, info.vod);
   }).slice(0, max);
   return { picked, infos, sources };
@@ -1270,7 +1278,7 @@ async function filmsRegardables(env, released, today, max, lire = lireVf) {
  * Même règle que leurs affiches (affiches/lib/statut.js) : seule une nouvelle série (première diffusion il y a moins
  * d'un an) est jugée, d'après les sources de sa dernière saison ; sans aucune VF (aucune source en VF, ou aucune source
  * du tout : Small Town Remedy, chinoise, diffusée depuis deux jours), elle est écartée, sauf sur une plateforme en
- * France qui la double. Une vieille série reste toujours (sa dernière saison
+ * France qui la double. Sans identifiant IMDb, aussi (sansImdb). Une vieille série reste toujours (sa dernière saison
  * manque souvent de VF, pas la série) ; une série pas lue (fiche, sources) aussi.
  */
 async function seriesRegardables(env, released, today, max, lire = lireVf) {
@@ -1283,6 +1291,7 @@ async function seriesRegardables(env, released, today, max, lire = lireVf) {
   const picked = released.filter((it) => {
     const info = infos.get(it.id);
     if (!nouvelle(it) || !info || !info.serie || info.serie.plateformeFr) return true;
+    if (sansImdb(info, it)) return false;
     const lu = sources.get(info.imdb);
     return !(lu && lu.vf === false);
   }).slice(0, max);

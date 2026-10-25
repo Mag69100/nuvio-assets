@@ -394,7 +394,7 @@ test("tendances_du_jour_dans_l_ordre_de_la_photo", async () => {
     globalThis.fetch = async (url) => {
       const u = String(url);
       calls.push(u);
-      if (u === `${AFFICHES_URL}/tendances/series.json?v=8`) return new Response(JSON.stringify({ ids: [1, 3, 9] }));
+      if (u === `${AFFICHES_URL}/tendances/series.json?v=9`) return new Response(JSON.stringify({ ids: [1, 3, 9] }));
       if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: u.includes("page=1") ? [serie(3), serie(77), serie(1)] : [], page: 1, total_pages: 1 }));
       return new Response("{}");
     };
@@ -1189,7 +1189,7 @@ test("tendances_filtrees_gardent_le_classement", async () => {
   globalThis.fetch = async (url) => {
     const u = String(url);
     calls.push(u);
-    if (u === `${AFFICHES_URL}/tendances/series.json?v=8`) return new Response(JSON.stringify({ ids: [4, 2, 3, 1] }));
+    if (u === `${AFFICHES_URL}/tendances/series.json?v=9`) return new Response(JSON.stringify({ ids: [4, 2, 3, 1] }));
     if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: u.includes("page=1") ? liste : [], page: 1, total_pages: 1 }));
     return new Response("{}");
   };

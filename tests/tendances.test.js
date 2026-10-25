@@ -72,7 +72,7 @@ test("tache_de_4h", async () => {
   assert.equal(jourTendances(quatreHeures), "2026-10-22");
   assert.equal(jourTendances(quatreHeures - 1), "2026-10-21");
   assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/movie:rangs7")).ids, [...vides(), 1, 2, 3]);
-  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/series:rangs5")).ids, [...vides(), 1, 2, 3]);
+  assert.deepEqual(JSON.parse(env.LIENS.rows.get("2026-10-22/series:rangs6")).ids, [...vides(), 1, 2, 3]);
   assert.ok(!env.LIENS.rows.has("2026-10-01/movie"));
   // Plus tard dans la journée, le classement a bougé : toujours la photo de 4 h.
   classement = [7];
@@ -122,15 +122,17 @@ test("photo_renumerotee_comme_la_rangee", async () => {
 
 // Séries : seulement ce qui est en VF chez soi, comme leurs affiches. 1 : nouvelle série japonaise, sources sans VF →
 // écartée ; 2 : nouvelle, mêmes sources, mais sur Netflix en France (qui double) → gardée ; 3 : vieille série, dernière
-// saison sans VF → gardée ; 4 : nouvelle, sources VF → gardée ; 5 : pas encore diffusée → écartée.
+// saison sans VF → gardée ; 4 : nouvelle, sources VF → gardée ; 5 : pas encore diffusée → écartée ; 7 : nouvelle, sans
+// identifiant IMDb (Oh! My Guard, coréenne, N°10 le 25 octobre 2026) : aucune source à lire → écartée ; 8 : pareil, mais en
+// français (elle a sa VF) → gardée.
 test("photo_des_series_seulement_en_vf", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
-  const premiere = { 1: jour(-20), 2: jour(-40), 3: "2009-01-01", 4: jour(-60), 5: jour(15), 6: jour(-2) };
-  const langue = { 1: "ja", 2: "ko", 3: "en", 4: "zh", 5: "en", 6: "zh" };
+  const premiere = { 1: jour(-20), 2: jour(-40), 3: "2009-01-01", 4: jour(-60), 5: jour(15), 6: jour(-2), 7: jour(-1), 8: jour(-5) };
+  const langue = { 1: "ja", 2: "ko", 3: "en", 4: "zh", 5: "en", 6: "zh", 7: "ko", 8: "fr" };
   globalThis.fetch = async (url) => {
     const u = String(url);
     calls.push(u);
-    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: new URL(u).searchParams.get("page") === "1" ? [1, 2, 3, 4, 5, 6].map((id) => ({ id, first_air_date: premiere[id] })) : [] }));
+    if (u.includes("/trending/tv/day")) return new Response(JSON.stringify({ results: new URL(u).searchParams.get("page") === "1" ? [1, 2, 3, 4, 5, 6, 7, 8].map((id) => ({ id, first_air_date: premiere[id], original_language: langue[id] })) : [] }));
     if (u.includes("/vf.json")) {
       const v = (new URL(u).searchParams.get("v") || "").split(",");
       // 6 : nouvelle aussi, aucune source du tout → écartée.
@@ -139,15 +141,15 @@ test("photo_des_series_seulement_en_vf", async () => {
     const m = /\/tv\/(\d)\?/.exec(u);
     if (m) {
       const id = Number(m[1]);
-      return new Response(JSON.stringify({ id, first_air_date: premiere[id], original_language: langue[id], external_ids: { imdb_id: `tt80${id}` },
+      return new Response(JSON.stringify({ id, first_air_date: premiere[id], original_language: langue[id], external_ids: { imdb_id: id >= 7 ? null : `tt80${id}` },
         last_episode_to_air: { season_number: 1, episode_number: 3, air_date: jour(-2) },
         "watch/providers": { results: id === 2 ? { FR: { flatrate: [{ provider_name: "Netflix" }] } } : {} } }));
     }
     return new Response("{}");
   };
   const { ids } = await (await get("/tendances/series.json")).json();
-  assert.deepEqual(ids.slice(0, 3), [2, 3, 4]);
-  assert.ok(![1, 5, 6].some((id) => ids.slice(0, 20).includes(id)));
+  assert.deepEqual(ids.slice(0, 4), [2, 3, 4, 8]);
+  assert.ok(![1, 5, 6, 7].some((id) => ids.slice(0, 20).includes(id)));
 });
 
 // StreamFusion (STREAMFUSION_URL, réglé sans anglais ni VOSTFR) décide de la VF pour la photo : 1 a des sources (VF) ;

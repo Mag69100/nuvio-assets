@@ -60,3 +60,22 @@ test("statique_adresses_refusees", async () => {
   }
   assert.equal(ecrits.length, 0);
 });
+
+// L'ancienne adresse (Vercel, ?s=…) renvoie vers le même style en fichiers statiques, sans lancer de fonction : un
+// style tout prêt vers son dossier, tout le reste (aucun réglage, réglage perso) vers « maison ».
+test("vercel_renvoie_chaque_style_vers_les_fichiers", () => {
+  const v = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8"));
+  assert.ok(!v.rewrites.some((r) => r.destination.startsWith("/api/affiche")), "plus de dessin chez Vercel");
+  const r = v.redirects;
+  for (const nom of Object.keys(STYLES)) {
+    const s = parametresDuStyle(nom).get("s");
+    if (!s) continue;
+    const reg = r.find((x) => x.has && x.has[0].value === s);
+    assert.ok(reg, nom);
+    assert.equal(reg.destination, `https://affiches.xnzxflix.workers.dev/${nom}/:type/:shape/:id.jpg`);
+    assert.equal(reg.permanent, false);
+  }
+  const dernier = r[r.length - 1];
+  assert.ok(!dernier.has);
+  assert.match(dernier.destination, /\/maison\/:type\/:shape\/:id\.jpg$/);
+});

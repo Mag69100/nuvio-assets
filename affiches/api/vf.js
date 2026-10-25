@@ -27,8 +27,11 @@ export function makeVf({ fetchImpl = fetch, env = process.env } = {}) {
       const [type, video] = id.split("/");
       const [imdb, saison] = video.split(":");
       const s = saison ? Number(saison) : null;
-      // L'addon ne demande ici que des titres récents : la VF vient aussi de StreamFusion (sf).
-      const q = await (sansCle ? qualiteConnue(type, imdb, s, fetchImpl, url.origin, true) : qualityOf(type, imdb, s, fetchImpl, url.origin, env.RELAIS_KEY, true)).catch(() => null);
+      // Torrentio seulement, plus StreamFusion : chaque titre récent demandait son avis à l'addon (/sf), une invocation de
+      // plus chez Cloudflare même passé le plafond de 300 par jour (atteint dès le matin). Le 25 octobre 2026, ces appels
+      // faisaient les deux tiers des requêtes de l'addon, au-delà des 100 000 permis par jour. Les 300 vont à la photo des
+      // tendances, dont l'avis VF sert aussi aux affiches.
+      const q = await (sansCle ? qualiteConnue(type, imdb, s, fetchImpl, url.origin) : qualityOf(type, imdb, s, fetchImpl, url.origin, env.RELAIS_KEY)).catch(() => null);
       // langue (« vostfr », « vo »…) : ce qu'on peut regarder sans VF, que la fiche de l'addon dit (« en VOSTFR »).
       return [id, q && typeof q.vf === "boolean" ? { vf: q.vf, sources: q.sources, ...(q.langue ? { langue: q.langue } : {}) } : null];
     }));

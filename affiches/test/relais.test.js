@@ -53,7 +53,7 @@ test("relais_proteges_par_la_cle", async () => {
   const ok = await vf(new Request("https://affiches.test/api/vf?v=movie/tt1", { headers: avecCle }));
   assert.deepEqual(await ok.json(), { "movie/tt1": { vf: true, sources: 3 } });
   // (titres récents : l'addon ne demande qu'eux, la VF vient aussi de StreamFusion, &sf=1)
-  assert.deepEqual(relais.calls, [["https://affiches.test/qualite/movie/tt1.json?v=3&sf=1", avecCle]]);
+  assert.deepEqual(relais.calls, [["https://affiches.test/qualite/movie/tt1.json?v=3", avecCle]]);
 });
 
 // /vf.json sans la clé (copies auto-hébergées) : seulement ce qui est déjà connu, jamais Torrentio. Le relais

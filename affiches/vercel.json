@@ -3,13 +3,21 @@
   "regions": ["cdg1"],
   "buildCommand": "env -u RELAIS_KEY -u MDBLIST_API_KEY -u QUALITE -u RENDUS_MINUTE -u RENDUS_HEURE -u CPU_BUDGET_MIN -u RESERVE npm test",
   "outputDirectory": ".",
+  "redirects": [
+    { "source": "/:type(movie|series)/:shape(poster|landscape)/:id.jpg", "has": [{ "type": "query", "key": "s", "value": "1.S0T0G0A0" }], "destination": "https://affiches.xnzxflix.workers.dev/essentiel/:type/:shape/:id.jpg", "permanent": false },
+    { "source": "/:type(movie|series)/:shape(poster|landscape)/:id.jpg", "has": [{ "type": "query", "key": "s", "value": "1.S0T0Q0egG0A0" }], "destination": "https://affiches.xnzxflix.workers.dev/note/:type/:shape/:id.jpg", "permanent": false },
+    { "source": "/:type(movie|series)/:shape(poster|landscape)/:id.jpg", "has": [{ "type": "query", "key": "s", "value": "1.seebY1wbd1" }], "destination": "https://affiches.xnzxflix.workers.dev/cine/:type/:shape/:id.jpg", "permanent": false },
+    { "source": "/:type(movie|series)/:shape(poster|landscape)/:id.jpg", "has": [{ "type": "query", "key": "s", "value": "1.HvypJ1R1M1corv" }], "destination": "https://affiches.xnzxflix.workers.dev/postersplus/:type/:shape/:id.jpg", "permanent": false },
+    { "source": "/:type(movie|series)/:shape(poster|landscape)/:id.jpg", "has": [{ "type": "query", "key": "s", "value": "1.ebD1P1" }], "destination": "https://affiches.xnzxflix.workers.dev/plateforme/:type/:shape/:id.jpg", "permanent": false },
+    { "source": "/:type(movie|series)/:shape(poster|landscape)/:id.jpg", "has": [{ "type": "query", "key": "s", "value": "1.coD1faild1Wc0a10b02do3b13c13e11he1ia3f23h13i13j1" }], "destination": "https://affiches.xnzxflix.workers.dev/signature/:type/:shape/:id.jpg", "permanent": false },
+    { "source": "/:type(movie|series)/:shape(poster|landscape)/:id.jpg", "destination": "https://affiches.xnzxflix.workers.dev/maison/:type/:shape/:id.jpg", "permanent": false }
+  ],
   "rewrites": [
     { "source": "/qualite/:type/:video.json", "destination": "/api/qualite?type=:type&video=:video" },
     { "source": "/tendances/:type.json", "destination": "/api/tendances?type=:type" },
     { "source": "/notes/:imdb.json", "destination": "/api/notes?imdb=:imdb" },
     { "source": "/vf.json", "destination": "/api/vf" },
-    { "source": "/anilist.json", "destination": "/api/anilist" },
-    { "source": "/:type/:shape/:id.jpg", "destination": "/api/affiche?type=:type&shape=:shape&id=:id" }
+    { "source": "/anilist.json", "destination": "/api/anilist" }
   ],
   "functions": {
     "api/affiche.js": { "includeFiles": "{fonts/**,node_modules/harfbuzzjs/hb.wasm,node_modules/satori/yoga.wasm,lib/dessin.js,lib/habillage.js,lib/polices.js,package.json}" },

@@ -1,0 +1,32 @@
+name: Space Hugging Face
+
+# Publie le dossier space/ sur le Space Hugging Face des affiches (HF_TOKEN : jeton en écriture du compte du Space).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publier:
+    if: github.repository == 'xnzx07/nuvio-assets'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: pip install huggingface_hub==0.26.2
+      - name: Publier
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          SPACE: ZenTwoo/affiches
+        run: |
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          api.create_repo(os.environ["SPACE"], repo_type="space", space_sdk="docker", exist_ok=True)
+          api.upload_folder(folder_path="space", repo_id=os.environ["SPACE"], repo_type="space", delete_patterns=["*"], commit_message="Depuis GitHub")
+          print("publié")
+          PY

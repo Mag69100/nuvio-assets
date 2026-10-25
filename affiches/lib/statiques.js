@@ -1,0 +1,217 @@
+/**
+ * Les affiches en fichiers statiques du Worker « affiches » (Cloudflare) : dessin et publication, partagés par le
+ * serveur des affiches (serveur.js, qui dessine à la demande) et la machine GitHub (scripts/affiches-statiques.mjs, en
+ * secours et chaque nuit). Adresse : /<style>/{type}/{shape}/{id}.jpg (styles : lib/styles.js).
+ * Base nuvio-affiches (D1) : demandes (la file des affiches absentes, remplie par statique/worker.js), fichiers (ce qui
+ * est en ligne : chemin, empreinte, taille), verrou (une publication à la fois), etat (le serveur est-il là ?).
+ * Publication par l'API de Cloudflare (envoi direct des fichiers statiques) : Cloudflare répond les empreintes qu'il n'a
+ * pas, on n'envoie que celles-là, puis on remet le Worker en ligne avec la liste complète.
+ */
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { STYLES, parametresDuStyle } from "./styles.js";
+
+export const ADRESSE = /^\/([a-z]+)\/(movie|series)\/(poster|landscape)\/(tt\d{1,10}|tmdb:\d{1,10})\.jpg$/;
+/** Un chemin d'affiche d'un style connu, ou null. */
+export const cheminValable = (c) => { const m = ADRESSE.exec(c || ""); return m && STYLES[m[1]] ? m : null; };
+// Offre gratuite : 20 000 fichiers par version du Worker (dont _headers). Au-delà, les plus anciens partent ; une
+// affiche retirée et redemandée revient par la file.
+export const FICHIERS_MAX = 19000;
+// Une heure dans Nuvio, puis revérifiée par son ETag (304 si rien n'a changé) : les N° et statuts du jour suivent.
+export const ENTETES = "/*\n  Access-Control-Allow-Origin: *\n  Cache-Control: public, max-age=3600, stale-while-revalidate=86400\n";
+
+// Empreinte d'un fichier statique : 32 caractères hexadécimaux, au choix de l'envoyeur (comme wrangler : contenu en
+// base64 suivi de l'extension).
+export const empreinte = (jpg) => createHash("sha256").update(jpg.toString("base64") + "jpg").digest("hex").slice(0, 32);
+// Valeurs écrites en clair dans les écritures groupées : chemins vérifiés par ADRESSE, empreintes en hexadécimal.
+const texte = (v) => `'${String(v).replace(/'/g, "''")}'`;
+
+/** Le code du Worker, avec la liste des styles. */
+export const codeDuWorker = () => readFileSync(new URL("../statique/worker.js", import.meta.url), "utf8").replace("__STYLES__", JSON.stringify(Object.keys(STYLES)));
+
+/**
+ * L'accès à Cloudflare : { sql, ecrire, preparer, verrouiller, liberer, signaler, serveurRecent, publier }.
+ * jeton : Workers Scripts et D1 en écriture ; compte : CLOUDFLARE_ACCOUNT_ID ; base : l'id de nuvio-affiches.
+ */
+export function creerCloudflare({ jeton, compte, base, worker = "affiches", fetchImpl = fetch }) {
+  const API = `https://api.cloudflare.com/client/v4/accounts/${compte}`;
+  async function cf(chemin, init = {}) {
+    const res = await fetchImpl(API + chemin, { ...init, headers: { Authorization: `Bearer ${jeton}`, ...(init.headers || {}) } });
+    const corps = await res.json().catch(() => ({}));
+    if (!res.ok || corps.success === false) throw new Error(`Cloudflare ${chemin.split("?")[0]} : ${res.status} ${JSON.stringify(corps.errors || corps).slice(0, 300)}`);
+    return corps.result;
+  }
+  async function requete(sql, params) {
+    const r = await cf(`/d1/database/${base}/query`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sql, params }) });
+    return (r && r[0]) || {};
+  }
+  const sql = async (s, params = []) => (await requete(s, params)).results || [];
+  const ecrire = async (s, params = []) => ((await requete(s, params)).meta || {}).changes || 0;
+
+  return {
+    sql, ecrire,
+    async preparer() {
+      await sql("CREATE TABLE IF NOT EXISTS demandes (chemin TEXT PRIMARY KEY, vu TEXT NOT NULL, essais INTEGER NOT NULL DEFAULT 0, apres TEXT)");
+      await sql("CREATE TABLE IF NOT EXISTS fichiers (chemin TEXT PRIMARY KEY, hash TEXT NOT NULL, taille INTEGER NOT NULL, dessine TEXT NOT NULL, cree TEXT NOT NULL)");
+      await sql("CREATE TABLE IF NOT EXISTS verrou (nom TEXT PRIMARY KEY, jusqua TEXT NOT NULL)");
+      await sql("CREATE TABLE IF NOT EXISTS etat (nom TEXT PRIMARY KEY, vu TEXT NOT NULL)");
+    },
+    /** Prend le verrou pour `ms` ; false s'il est déjà pris (une autre publication en cours). */
+    async verrouiller(nom, ms) {
+      const now = new Date().toISOString(), fin = new Date(Date.now() + ms).toISOString();
+      return (await ecrire("INSERT INTO verrou (nom, jusqua) VALUES (?, ?) ON CONFLICT (nom) DO UPDATE SET jusqua = excluded.jusqua WHERE verrou.jusqua < ?", [nom, fin, now])) > 0;
+    },
+    liberer: (nom) => ecrire("UPDATE verrou SET jusqua = ? WHERE nom = ?", [new Date(0).toISOString(), nom]),
+    /** Le serveur des affiches est là (une fois par minute) : la machine GitHub ne dessine pas à sa place. */
+    signaler: (nom) => ecrire("INSERT INTO etat (nom, vu) VALUES (?, ?) ON CONFLICT (nom) DO UPDATE SET vu = excluded.vu", [nom, new Date().toISOString()]),
+    async serveurRecent(ms = 15 * 60000) {
+      const r = await sql("SELECT vu FROM etat WHERE nom = 'serveur'").catch(() => []);
+      return !!r[0] && Date.parse(r[0].vu) > Date.now() - ms;
+    },
+    /**
+     * Remet le Worker en ligne avec `fichiers` ([{ chemin, hash, taille }]) : `nouveaux` (Map empreinte → JPEG) sont
+     * envoyés s'ils manquent chez Cloudflare ; une empreinte demandée mais absente de `nouveaux` est relue en ligne.
+     * liaisons : celles à poser en plus de la base (SERVEUR, RELAIS_KEY), les autres sont gardées telles quelles.
+     */
+    async publier(fichiers, nouveaux, liaisons = []) {
+      const manifest = {};
+      for (const f of fichiers) manifest[f.chemin] = { hash: f.hash, size: f.taille };
+      const session = await cf(`/workers/scripts/${worker}/assets-upload-session`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ manifest }) });
+      let jeton2 = session.jwt;
+      const cheminDe = new Map(fichiers.map((f) => [f.hash, f.chemin]));
+      let sousDomaine = null;
+      for (const lot of session.buckets || []) {
+        const form = new FormData();
+        for (const hash of lot) {
+          let jpg = nouveaux.get(hash);
+          if (!jpg) {
+            sousDomaine = sousDomaine || (await cf("/workers/subdomain")).subdomain;
+            const r = await fetchImpl(`https://${worker}.${sousDomaine}.workers.dev${cheminDe.get(hash)}`);
+            if (!r.ok) throw new Error(`fichier ${cheminDe.get(hash)} introuvable en ligne (${r.status})`);
+            jpg = Buffer.from(await r.arrayBuffer());
+          }
+          form.append(hash, new File([jpg.toString("base64")], hash, { type: "image/jpeg" }));
+        }
+        // Trois essais : Cloudflare refuse parfois un envoi (vu le 2026-10-25, le suivant passe).
+        for (let essai = 1; ; essai++) {
+          const res = await fetchImpl(`${API}/workers/assets/upload?base64=true`, { method: "POST", headers: { Authorization: `Bearer ${jeton2}` }, body: form });
+          const corps = await res.json().catch(() => ({}));
+          if (res.ok && corps.success !== false) { if (corps.result && corps.result.jwt) jeton2 = corps.result.jwt; break; }
+          const erreur = `envoi des fichiers : ${res.status} ${JSON.stringify(corps.errors || corps).slice(0, 300)}`;
+          if (essai === 3) throw new Error(erreur);
+          console.warn(`${erreur}, nouvel essai`);
+          await new Promise((ok) => setTimeout(ok, 3000 * essai));
+        }
+      }
+      const form = new FormData();
+      form.append("metadata", new Blob([JSON.stringify({
+        main_module: "worker.js",
+        compatibility_date: "2026-10-01",
+        bindings: [{ type: "d1", name: "DB", id: base }, ...liaisons],
+        // L'adresse du serveur et la clé restent d'une publication à l'autre (la machine GitHub ne les connaît pas).
+        keep_bindings: ["plain_text", "secret_text"],
+        assets: { jwt: jeton2, config: { not_found_handling: "none", _headers: ENTETES } },
+      })], { type: "application/json" }));
+      form.append("worker.js", new Blob([codeDuWorker()], { type: "application/javascript+module" }), "worker.js");
+      await cf(`/workers/scripts/${worker}`, { method: "PUT", body: form });
+      await cf(`/workers/scripts/${worker}/subdomain`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: true }) });
+      return (session.buckets || []).reduce((n, l) => n + l.length, 0);
+    },
+  };
+}
+
+/**
+ * Dessine une affiche statique avec le service (makeHandler), sur `base` (son adresse, pour ses relais) :
+ * { jpg, retard } ou { statut } (404 : titre inconnu ; autre : à réessayer).
+ */
+export async function dessinerStatique(affiche, base, chemin) {
+  const m = cheminValable(chemin);
+  if (!m) return { statut: 404 };
+  const [, style, type, shape, id] = m;
+  let p = parametresDuStyle(style);
+  // Le service renvoie (308) vers l'adresse canonique de ces réglages : on la suit, deux fois au plus.
+  for (let i = 0; i < 3; i++) {
+    p.set("type", type); p.set("shape", shape); p.set("id", id);
+    const r = await affiche(new Request(`${base}/api/affiche?${p}`));
+    if (r.status === 308) { p = new URLSearchParams((r.headers.get("Location") || "").split("?")[1] || ""); continue; }
+    if (r.status === 200 && (r.headers.get("Content-Type") || "").startsWith("image/")) {
+      return { jpg: Buffer.from(await r.arrayBuffer()), retard: r.headers.get("X-Affiche-Etat") === "retard" };
+    }
+    return { statut: r.status };
+  }
+  return { statut: 508 };
+}
+
+/**
+ * Dessine `liste` ([[chemin, essais]], essais null : déjà en ligne, redessinée pour les statuts du jour) avec
+ * `dessiner(chemin)`, `enMemeTemps` à la fois. parChemin (Map chemin → { chemin, hash, taille, cree }) : ce qui est en
+ * ligne, mis à jour ici (change : true pour ce qui doit partir). { nouveaux (empreinte → JPEG), faits, reessais, bilan }.
+ */
+export async function dessinerTout(liste, dessiner, parChemin, { enMemeTemps = 4, maintenant = new Date().toISOString() } = {}) {
+  const nouveaux = new Map(), faits = [], reessais = [], bilan = { dessinees: 0, inchangees: 0, retard: 0, inconnues: 0, ratees: 0 };
+  let i = 0;
+  async function ouvrier() {
+    while (i < liste.length) {
+      const [chemin, essais] = liste[i++];
+      let r;
+      try { r = await dessiner(chemin); } catch (e) { console.warn(`${chemin} : ${e.message}`); r = { statut: 500 }; }
+      if (r.jpg) {
+        const hash = empreinte(r.jpg), avant = parChemin.get(chemin);
+        if (avant && avant.hash === hash) bilan.inchangees++;
+        else { bilan.dessinees++; nouveaux.set(hash, r.jpg); }
+        parChemin.set(chemin, { chemin, hash, taille: r.jpg.length, cree: avant ? avant.cree : maintenant, change: !avant || avant.hash !== hash || !!(avant && avant.change) });
+        // Torrentio trop lent : publiée sans badge de qualité, et redessinée au prochain passage.
+        if (r.retard) { bilan.retard++; reessais.push([chemin, (essais || 0) + 1, 10]); } else if (essais !== null) faits.push(chemin);
+      } else if (essais !== null) {
+        // Titre inconnu : redemandé dans un jour seulement (Nuvio redemande l'affiche à chaque passage sur la carte).
+        if (r.statut === 404) { bilan.inconnues++; reessais.push([chemin, essais + 1, 24 * 60]); } else { bilan.ratees++; reessais.push([chemin, essais + 1, Math.min(24 * 60, 10 * 2 ** essais)]); }
+      } else bilan.ratees++;
+    }
+  }
+  await Promise.all(Array.from({ length: enMemeTemps }, ouvrier));
+  return { nouveaux, faits, reessais, bilan };
+}
+
+/**
+ * Publie ce qui a changé dans parChemin et met la base à jour (fichiers, file). Sous le verrou « publication » : une
+ * seule à la fois (serveur et machine GitHub). { publie, envoyes, retirees } ; publie false si le verrou était pris.
+ */
+export async function publierEtEnregistrer(cf, parChemin, nouveaux, { faits = [], reessais = [], liaisons = [], maintenant = new Date().toISOString() } = {}) {
+  let tous = [...parChemin.values()].sort((a, b) => (a.cree < b.cree ? 1 : -1));
+  const retirees = tous.slice(FICHIERS_MAX);
+  tous = tous.slice(0, FICHIERS_MAX);
+  const changees = tous.filter((f) => f.change);
+  let envoyes = 0, publie = false;
+  if (changees.length || retirees.length || liaisons.length) {
+    if (!(await cf.verrouiller("publication", 10 * 60000))) return { publie: false, envoyes: 0, retirees: 0 };
+    try {
+      envoyes = await cf.publier(tous, nouveaux, liaisons);
+      publie = true;
+      for (let j = 0; j < changees.length; j += 200) {
+        const lot = changees.slice(j, j + 200).map((f) => `(${texte(f.chemin)}, ${texte(f.hash)}, ${Number(f.taille)}, ${texte(maintenant)}, ${texte(f.cree)})`);
+        await cf.sql(`INSERT INTO fichiers (chemin, hash, taille, dessine, cree) VALUES ${lot.join(", ")} ON CONFLICT (chemin) DO UPDATE SET hash = excluded.hash, taille = excluded.taille, dessine = excluded.dessine`);
+      }
+      for (let j = 0; j < retirees.length; j += 200) await cf.sql(`DELETE FROM fichiers WHERE chemin IN (${retirees.slice(j, j + 200).map((f) => texte(f.chemin)).join(", ")})`);
+      for (const f of changees) f.change = false;
+    } finally {
+      await cf.liberer("publication").catch(() => {});
+    }
+  }
+  // La file, seulement une fois publié : une affiche absente reste demandée tant qu'elle n'est pas en ligne.
+  for (let j = 0; j < faits.length; j += 200) await cf.sql(`DELETE FROM demandes WHERE chemin IN (${faits.slice(j, j + 200).map(texte).join(", ")})`);
+  for (const [chemin, essais, minutes] of reessais) {
+    await cf.sql("UPDATE demandes SET essais = ?, apres = ? WHERE chemin = ?", [essais, new Date(Date.now() + minutes * 60000).toISOString(), chemin]);
+  }
+  return { publie, envoyes, retirees: retirees.length };
+}
+
+/** Ce qui est en ligne (Map chemin → { chemin, hash, taille, cree }) et la file à dessiner maintenant. */
+export async function lireEtat(cf, { tout = false, max = 3000 } = {}) {
+  const maintenant = new Date().toISOString();
+  const file = await cf.sql("SELECT chemin, essais FROM demandes WHERE apres IS NULL OR apres <= ? ORDER BY vu LIMIT ?", [maintenant, max]);
+  const enLigne = await cf.sql("SELECT chemin, hash, taille, cree FROM fichiers");
+  const parChemin = new Map(enLigne.map((f) => [f.chemin, f]));
+  const aFaire = new Map(file.filter((d) => cheminValable(d.chemin)).map((d) => [d.chemin, d.essais]));
+  if (tout) for (const f of enLigne) if (!aFaire.has(f.chemin)) aFaire.set(f.chemin, null);
+  return { parChemin, aFaire, file: file.length, enLigne: enLigne.length };
+}

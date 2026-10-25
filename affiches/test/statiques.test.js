@@ -79,3 +79,63 @@ test("vercel_renvoie_chaque_style_vers_les_fichiers", () => {
   assert.ok(!dernier.has);
   assert.match(dernier.destination, /\/maison\/:type\/:shape\/:id\.jpg$/);
 });
+
+// Serveur des affiches présent : une affiche absente est dessinée par lui et renvoyée aussitôt (pas de file) ; serveur
+// en panne : la file et 503, comme sans serveur.
+test("statique_affiche_absente_dessinee_par_le_serveur", async () => {
+  const w = await worker(), { ecrits, env } = base(), attentes = [];
+  const ctx = { waitUntil: (p) => attentes.push(p) };
+  const avant = globalThis.fetch;
+  const appels = [];
+  try {
+    globalThis.fetch = async (url, init) => {
+      appels.push([String(url), new Headers(init.headers).get("X-Relais-Cle")]);
+      return new Response(new Uint8Array([255, 216, 255]), { headers: { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=600" } });
+    };
+    const e = { ...env, SERVEUR: "https://serveur.test", RELAIS_KEY: "k" };
+    const r = await w.fetch(new Request("https://a.test/signature/movie/poster/tmdb%3A550.jpg"), e, ctx);
+    assert.equal(r.status, 200);
+    assert.equal(r.headers.get("Content-Type"), "image/jpeg");
+    assert.deepEqual(appels, [["https://serveur.test/statique/signature/movie/poster/tmdb:550.jpg", "k"]]);
+    await Promise.all(attentes);
+    assert.equal(ecrits.length, 0);
+    globalThis.fetch = async () => { throw new Error("injoignable"); };
+    assert.equal((await w.fetch(new Request("https://a.test/maison/movie/poster/tt1.jpg"), e, ctx)).status, 503);
+    await Promise.all(attentes);
+    assert.equal(ecrits.length, 1);
+  } finally {
+    globalThis.fetch = avant;
+  }
+});
+
+test("serveur_exige_la_cle_pour_les_affiches_statiques", async () => {
+  const { creerServeur } = await import("../serveur.js");
+  const s = creerServeur({ env: { RELAIS_KEY: "k", TMDB_API_KEY: "x", PORT: "8799" }, fetchImpl: async () => new Response("{}", { status: 404 }) });
+  const req = (url, cle) => ({ url, headers: cle ? { "x-relais-cle": cle } : {} });
+  assert.equal((await s.route(req("/statique/signature/movie/poster/tt1.jpg"))).status, 403);
+  assert.equal((await s.route(req("/statique/signature/movie/poster/tt1.jpg", "mauvaise"))).status, 403);
+  // Bonne clé, titre inconnu de TMDB : 404 (pas d'affiche à garder).
+  assert.equal((await s.route(req("/statique/signature/movie/poster/tt1.jpg", "k"))).status, 404);
+  assert.equal((await s.route(req("/inconnu"))).status, 404);
+  const etat = await (await s.route(req("/etat"))).json();
+  assert.equal(etat.enAttente, 0);
+});
+
+// Publication sous verrou : verrou pris ailleurs → rien ; sinon tout ce qui est en ligne part, la file est vidée de ce
+// qui est publié.
+test("publication_sous_verrou", async () => {
+  const { publierEtEnregistrer } = await import("../lib/statiques.js");
+  const journal = [];
+  const cf = (libre) => ({
+    verrouiller: async () => libre, liberer: async () => journal.push("libéré"),
+    publier: async (fichiers) => { journal.push(`publié ${fichiers.length}`); return 1; },
+    sql: async (s) => { journal.push(s.split(" ").slice(0, 2).join(" ")); return []; },
+  });
+  const parChemin = () => new Map([["/maison/movie/poster/tt1.jpg", { chemin: "/maison/movie/poster/tt1.jpg", hash: "a".repeat(32), taille: 3, cree: "2026-10-25", change: true }],
+    ["/maison/movie/poster/tt2.jpg", { chemin: "/maison/movie/poster/tt2.jpg", hash: "b".repeat(32), taille: 3, cree: "2026-10-24" }]]);
+  assert.deepEqual(await publierEtEnregistrer(cf(false), parChemin(), new Map(), { faits: ["/maison/movie/poster/tt1.jpg"] }), { publie: false, envoyes: 0, retirees: 0 });
+  assert.deepEqual(journal, []);
+  const p = await publierEtEnregistrer(cf(true), parChemin(), new Map(), { faits: ["/maison/movie/poster/tt1.jpg"] });
+  assert.equal(p.publie, true);
+  assert.deepEqual(journal, ["publié 2", "INSERT INTO", "libéré", "DELETE FROM"]);
+});

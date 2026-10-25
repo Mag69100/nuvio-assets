@@ -1,0 +1,74 @@
+name: Affiches statiques
+
+# Les affiches maison dessinées ici et servies en fichiers statiques par Cloudflare (scripts/affiches-statiques.mjs) :
+# toutes les 10 minutes, celles que Nuvio a demandées et qui manquent (la file) ; chaque nuit après la photo des
+# tendances (4 h UTC, prise par l'addon), toutes, pour les N° et statuts du jour. 4 h 17 : les tâches planifiées pile
+# à l'heure partent en retard chez GitHub.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "file (les demandées) ou tout"
+        default: file
+
+permissions:
+  contents: read
+
+# Un passage à la fois : deux publications en même temps se remplaceraient.
+concurrency:
+  group: affiches-statiques
+  cancel-in-progress: false
+
+env:
+  CLOUDFLARE_ACCOUNT_ID: 1d2569d3fe4c915bab43a6ec1bda89da
+  D1_AFFICHES: 48910808-85ba-4ca9-9a3a-76bdecb3475b
+  AFFICHES_WORKER: affiches
+
+jobs:
+  affiches:
+    if: github.repository == 'xnzx07/nuvio-assets'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then m="${{ inputs.mode }}";
+          elif [ "${{ github.event.schedule }}" = "17 4 * * *" ]; then m=tout; else m=file; fi
+          echo "mode=$m" >> "$GITHUB_OUTPUT"
+      # File vide : rien à installer ni à dessiner (la plupart des passages de 10 minutes).
+      - name: File d'attente
+        id: file
+        if: steps.mode.outputs.mode == 'file'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          n=$(curl -sf -X POST "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$D1_AFFICHES/query" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" \
+            -d "{\"sql\":\"SELECT COUNT(*) AS n FROM demandes WHERE apres IS NULL OR apres <= '$(date -u +%Y-%m-%dT%H:%M:%S.000Z)'\"}" \
+            | jq -r '.result[0].results[0].n // 1') || n=1
+          echo "$n affiches dans la file"
+          echo "n=$n" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.mode.outputs.mode == 'tout' || steps.file.outputs.n != '0'
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.mode.outputs.mode == 'tout' || steps.file.outputs.n != '0'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: affiches/package-lock.json
+      - run: npm ci
+        if: steps.mode.outputs.mode == 'tout' || steps.file.outputs.n != '0'
+        working-directory: affiches
+      - run: node scripts/affiches-statiques.mjs ${{ steps.mode.outputs.mode }}
+        if: steps.mode.outputs.mode == 'tout' || steps.file.outputs.n != '0'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          RELAIS_KEY: ${{ secrets.RELAIS_KEY }}
+          MDBLIST_API_KEY: ${{ secrets.MDBLIST_API_KEY }}

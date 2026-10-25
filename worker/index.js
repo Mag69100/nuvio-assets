@@ -34,7 +34,7 @@ import {
 } from "./config.js";
 import { configurePage } from "./page.js";
 import { guidePage, NUVIO_TV_APK } from "./guide.js";
-import { AFFICHES_URL, APERCU_V } from "./reglages.js";
+import { AFFICHES_URL, APERCU_V, relaisUrl } from "./reglages.js";
 import { lireReglages, ecrireReglages } from "./lien-affiches.js";
 import { lienPage } from "./lien.js";
 import { copiePage } from "./copie.js";
@@ -61,7 +61,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.25";
+const VERSION = "5.38.26";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -823,7 +823,7 @@ async function lireVfPhoto(env, cles) {
 
 async function lireVf(env, cles) {
   try {
-    const url = `${env.AFFICHES_URL || AFFICHES_URL}/vf.json?v=${cles.join(",")}`;
+    const url = `${relaisUrl(env)}/vf.json?v=${cles.join(",")}`;
     // RELAIS_KEY (secret facultatif, la même valeur que la variable du service d'affiches) : sans elle, le service
     // ne lit pour nous une liste pas encore dans son cache que s'il n'a pas de clé lui-même (affiches/lib/relais.js).
     const res = await fetch(url, { signal: AbortSignal.timeout(4000), cf: { cacheTtl: 3600, cacheEverything: true },
@@ -1076,7 +1076,7 @@ async function photoTendances(env, kind) {
     // la photo reprise le 24 octobre ; ?v=10, celle du 25. Séries : ?v=9, celle du 25 (voir VERSION_PHOTO dans tendances.js).
     // Gardée par Cloudflare le temps que dit le service (jusqu'au changement ; 5 minutes pour un secours, le classement
     // brut de TMDB quand l'addon n'a pas répondu à temps) : jamais un secours toute la journée.
-    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series.json?v=9" : "movie.json?v=10"}`, { cf: { cacheEverything: true } });
+    const res = await fetch(`${relaisUrl(env)}/tendances/${kind === "series" ? "series.json?v=9" : "movie.json?v=10"}`, { cf: { cacheEverything: true } });
     const d = res.ok ? await res.json() : {};
     if (d.secours) return new Map();
     return new Map((Array.isArray(d.ids) ? d.ids : []).map((id, i) => [id, i]));
@@ -2715,7 +2715,7 @@ const app = {
       if (/^tt\d{1,10}$/.test(imdb)) q.set("imdb", imdb);
       if (s) q.set("s", "1." + s);
       // AFFICHES_URL de l'environnement : un service d'affiches lancé à côté, pour essayer en local.
-      const src = `${env.AFFICHES_URL || AFFICHES_URL}/${af[1]}/${af[2]}/${id}.jpg${q.size ? "?" + q : ""}`;
+      const src = `${relaisUrl(env)}/${af[1]}/${af[2]}/${id}.jpg${q.size ? "?" + q : ""}`;
       const key = new Request(`https://cache.local/affiche-v${APERCU_V}/${af[1]}/${af[2]}/${id}?${q}&t=${jourTendances()}`);
       const hitA = await caches.default.match(key);
       if (hitA) return hitA;

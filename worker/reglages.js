@@ -111,6 +111,11 @@ const pageHTML = ({ id, chap, side, title, sub, body, parent }) =>
 // Les affiches maison (dossier affiches/, service sur Vercel) : le lien à coller dans Nuvio, Paramètres →
 // Disposition → Custom Poster Source. Sans réglage, le même pour tout le monde (et le cache est partagé).
 export const AFFICHES_URL = "https://affiches-catalogue-fr.vercel.app";
+/**
+ * Les relais du service d'affiches (VF des sources, photo des tendances, AniList, aperçus de la régie) : le serveur des
+ * affiches (secret RELAIS_URL, son adresse https) quand il est là, sinon le service de Vercel.
+ */
+export const relaisUrl = (env) => env.RELAIS_URL || env.AFFICHES_URL || AFFICHES_URL;
 // Version des aperçus d'affiches du site (/affiche/…, gardés un jour par le navigateur) : à changer quand le
 // dessin change, pour qu'aucun aperçu dessiné par l'ancienne version ne ressorte du cache.
 export const APERCU_V = "3";

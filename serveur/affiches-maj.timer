@@ -1,0 +1,10 @@
+[Unit]
+Description=Mise à jour du serveur des affiches, toutes les 15 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

@@ -11,7 +11,7 @@
  * Les titres trouvés sont rendus comme ceux de Gemini (resolveTitles, ai.js) : { title, title_fr, title_en, year, type }.
  */
 import { norm } from "./search.js";
-import { AFFICHES_URL } from "./reglages.js";
+import { relaisUrl } from "./reglages.js";
 
 const WAIT_MS = 2500;
 const POP_MIN = 15000;     // membres AniList qui suivent l'anime : en dessous, trop obscur pour passer devant
@@ -90,7 +90,7 @@ export async function animesDe(query, env = {}) {
   if (Date.now() < pauseJusqua) return null;
   let data;
   try {
-    const r = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/anilist.json?q=${encodeURIComponent(q)}`, {
+    const r = await fetch(`${relaisUrl(env)}/anilist.json?q=${encodeURIComponent(q)}`, {
       headers: env.RELAIS_KEY ? { "X-Relais-Cle": env.RELAIS_KEY } : {}, signal: AbortSignal.timeout(WAIT_MS),
     });
     const d = r.ok ? await r.json() : { erreur: r.status };

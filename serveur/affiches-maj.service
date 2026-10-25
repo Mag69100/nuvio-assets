@@ -1,0 +1,6 @@
+[Unit]
+Description=Mise à jour du serveur des affiches depuis GitHub
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/affiches-mettre-a-jour

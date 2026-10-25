@@ -1,0 +1,21 @@
+[Unit]
+Description=Serveur des affiches (affiches/serveur.js)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=affiches
+WorkingDirectory=/opt/affiches/depot/affiches
+EnvironmentFile=/etc/affiches.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node serveur.js
+Restart=always
+RestartSec=5
+# Le service ne lit que son code et n'écrit nulle part.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

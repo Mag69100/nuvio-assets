@@ -135,7 +135,7 @@ test("page_incomplete_gardee_peu_de_temps", async () => {
   const page = (path) => get(path).then(async (r) => ({ cc: r.headers.get("Cache-Control"), n: (await r.json()).metas.length }));
   // 1 fiche refusée sur 20 : page normale.
   refuse.add(100);
-  assert.deepEqual(await page("/catalog/series/accueil-series-a-devorer.json"), { cc: "public, max-age=900, stale-while-revalidate=900", n: 20 });
+  assert.deepEqual(await page("/catalog/series/accueil-series-a-devorer.json"), { cc: "public, max-age=3600, stale-while-revalidate=3600", n: 20 });
   assert.match([...gardes.values()][0], /max-age=10800$/);
   // 5 sur 20 : page incomplète, 5 min dans le cache Cloudflare, 1 min dans Nuvio, même relue depuis le cache.
   gardes.clear();

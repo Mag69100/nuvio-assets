@@ -61,7 +61,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.22";
+const VERSION = "5.38.23";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -80,11 +80,14 @@ const LOGO_V = 2;
 const NOISE_TV = ["10763", "10764", "10766", "10767"]; // actualité, téléréalité, soap, talk-show
 
 const CACHE_CATALOG_S = 3 * 3600;  // une page de catalogue reste 3 h dans le cache Cloudflare
-const CACHE_CLIENT_S = 300;        // et 5 min seulement dans le cache de Nuvio (manifest, liens fixes)
-// Rangées d'un lien habituel : 15 min dans Nuvio (qui les relit à chaque expiration). Leur adresse change avec les
+const CACHE_CLIENT_S = 300;        // et 5 min seulement dans le cache de Nuvio (manifest, collections)
+// Rangées d'un lien habituel : 1 h dans Nuvio (qui les relit à chaque expiration). Leur adresse change avec les
 // réglages, rien à attendre pour voir un changement. Celles d'un lien fixe gardent leur adresse quand les réglages
-// changent : 5 min, pour que « Actualiser les addons » montre vite les nouvelles rangées.
-const CACHE_CLIENT_LONG_S = 900;
+// changent : 30 min, le temps que le nouveau contenu d'une rangée se voie après « Actualiser les addons » (une rangée
+// ajoutée a une nouvelle adresse : tout de suite). À 5 et 15 min, Nuvio redemandait sans cesse les mêmes rangées :
+// 74 000 appels le 24 octobre 2026, pour 100 000 permis par jour par l'offre gratuite de Cloudflare.
+const CACHE_CLIENT_LONG_S = 3600;
+const CACHE_CLIENT_FIXE_S = 1800;
 const CACHE_CLIENT_SEARCH_S = 60;   // une recherche : 1 min dans Nuvio (lettres tapées puis effacées), voir la route des rangées
 const CACHE_DEGRADE_S = 300;       // page incomplète (fiches refusées par TMDB) : 5 min seulement
 const CACHE_IMDB_S = 30 * 86400;    // correspondance TMDB → IMDb : 30 jours
@@ -2815,7 +2818,7 @@ const app = {
     const cacheKey = new Request(`https://cache.local/${extra.search ? `s${VERSION}` : `c${CACHE_V}`}/${today}${path}?k=${await sha(contentKey(cfg))}${aiTag}&t=${jourTendances()}`);
     const hit = await caches.default.match(cacheKey);
     const clientCc = extra.search ? `public, max-age=${CACHE_CLIENT_SEARCH_S}`
-      : fixedId ? `public, max-age=${CACHE_CLIENT_S}` : `public, max-age=${CACHE_CLIENT_LONG_S}, stale-while-revalidate=${CACHE_CLIENT_LONG_S}`;
+      : fixedId ? `public, max-age=${CACHE_CLIENT_FIXE_S}` : `public, max-age=${CACHE_CLIENT_LONG_S}, stale-while-revalidate=${CACHE_CLIENT_LONG_S}`;
     // Page gardée incomplète (X-Partiel) : Nuvio ne la garde qu'une minute.
     if (hit) {
       const partiel = hit.headers.get("X-Partiel") ? { "X-Partiel": "1" } : {};
@@ -2828,7 +2831,7 @@ const app = {
     } catch (e) {
       return json({ metas: [], error: String(e) }, 60);
     }
-    // Copie gardée côté Cloudflare quelques heures ; Nuvio, lui, ne garde la réponse que 5 ou 15 minutes
+    // Copie gardée côté Cloudflare quelques heures ; Nuvio, lui, ne garde la réponse que 30 minutes ou 1 heure
     // (son cache disque respecte max-age, voir CACHE_CLIENT_LONG_S), pour voir vite les changements.
     // Page incomplète (TMDB a refusé des fiches) : gardée 5 minutes, pas 3 heures, pour vite retrouver la page entière.
     if (metas.length && !metas.partial) {

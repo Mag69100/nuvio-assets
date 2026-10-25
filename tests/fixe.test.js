@@ -78,13 +78,13 @@ test("lien_fixe_reglages_par_defaut", async () => {
   assert.equal(page.headers.get("Cache-Control"), "no-store");
 });
 
-// Les rangées d'un lien fixe gardent leur adresse quand ses réglages changent : 5 min dans Nuvio seulement
-// (« Actualiser les addons » doit suivre vite) ; celles d'un lien habituel, 15 min.
+// Les rangées d'un lien fixe gardent leur adresse quand ses réglages changent : 30 min dans Nuvio seulement
+// (« Actualiser les addons » doit suivre) ; celles d'un lien habituel, 1 h.
 test("lien_fixe_rangees_gardees_peu_de_temps_par_nuvio", async () => {
   const { id } = await (await post("/lien-fixe", { c: "" })).json();
-  assert.equal((await at(`/${id}/catalog/movie/accueil-top10.json`)).headers.get("Cache-Control"), "public, max-age=300");
-  assert.equal((await at(`/catalog/movie/accueil-top10.json`)).headers.get("Cache-Control"), "public, max-age=900, stale-while-revalidate=900");
-  assert.equal((await at(`/${seg({ n: "X" })}/catalog/movie/accueil-top10.json`)).headers.get("Cache-Control"), "public, max-age=900, stale-while-revalidate=900");
+  assert.equal((await at(`/${id}/catalog/movie/accueil-top10.json`)).headers.get("Cache-Control"), "public, max-age=1800");
+  assert.equal((await at(`/catalog/movie/accueil-top10.json`)).headers.get("Cache-Control"), "public, max-age=3600, stale-while-revalidate=3600");
+  assert.equal((await at(`/${seg({ n: "X" })}/catalog/movie/accueil-top10.json`)).headers.get("Cache-Control"), "public, max-age=3600, stale-while-revalidate=3600");
 });
 
 test("lien_fixe_inconnu", async () => {

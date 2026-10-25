@@ -15,8 +15,8 @@ export const BASCULE_UTC_H = 4;
 const TOP = 100, GARDE_JOURS = 7;
 // Clé de la photo en base : « movie:rangs5 » ({ ids, vf, q } : renumérotée, avec l'avis VF et la qualité) ; celles d'avant ne sont plus lues.
 // Films : « rangs6 » depuis le 24 octobre, pour reprendre ce jour-là la photo qui classait des films sans VF (v5.38.21) ;
-// les séries gardent la leur.
-const VERSION_PHOTO = { movie: "rangs6", series: "rangs5" };
+// « rangs7 » depuis le 25 octobre : celle de ce jour-là classait 空枪 N°4 (aucune source, v5.38.24). Les séries gardent la leur.
+const VERSION_PHOTO = { movie: "rangs7", series: "rangs5" };
 const CLE = (kind) => `${kind}:${VERSION_PHOTO[kind]}`;
 
 export function secondesAvantBascule(now = Date.now()) {

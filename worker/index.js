@@ -61,11 +61,11 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.23";
+const VERSION = "5.38.24";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
-const CACHE_V = 11;
+const CACHE_V = 12;
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 const OBSCUR_VOTES = 100;           // recherche : en dessous, un titre trouvé mot à mot ne suffit pas, Gemini est consulté
@@ -493,7 +493,7 @@ async function noteSerie(env, d, imdb, wp, today) {
   if (!debut || debut > today || debut < addDays(today, -365) || vfSurPlateforme(wp, d.original_language)) return ep;
   const saison = (d.last_episode_to_air && d.last_episode_to_air.season_number) || d.number_of_seasons || 1;
   const lu = await sourcesSerie(env, imdb, saison);
-  if (!enVo(lu)) return ep;
+  if (!sansVf(lu)) return ep;
   return ep ? `${ep} · pas encore en VF` : "Pas encore en VF";
 }
 
@@ -664,20 +664,24 @@ function abonnementVf(wp, originalLanguage, kw) {
 /** Les sources lues, en VF si le film est en abonnement sur une plateforme qui le double (abonnementVf). */
 const avecAbonnement = (lu, abonnement) => (lu && !lu.vf && abonnement ? { ...lu, vf: true } : lu);
 
-/** Les sources lues sont en VO seulement : des sources, aucune en VF. */
-const enVo = (lu) => !!lu && !lu.vf && lu.sources > 0;
+/**
+ * Les sources lues n'ont pas la VF : des sources en VO seulement, ou aucune source (rien de publié, pas de VF non
+ * plus : 空枪, N°4 des Tendances le 25 octobre 2026, « Dispo depuis le 23 oct. » sans une seule source).
+ */
+const sansVf = (lu) => !!lu && !lu.vf;
 
 /**
  * Regardable chez soi en VF aujourd'hui (la règle des affiches, affiches/lib/statut.js) : des sources VF (même avant la
- * date), sinon la date de dispoChezSoi passée — le fichier américain est sorti —, sauf si ses sources n'ont pas la VF ;
- * sans sources lues (vieux film, service muet) ou sans aucune source, la date dit vrai. Sources pas lues : une
- * plateforme en France (en VF, vfSurPlateforme) suffit, même avant la date.
+ * date), sinon la date de dispoChezSoi passée — le fichier américain est sorti —, sauf si ses sources n'ont pas la VF
+ * ou s'il n'en a aucune (rien de publié : pas de VF non plus) ; sans sources lues (vieux film, service muet), la date
+ * dit vrai. Sources pas lues : une plateforme en France (en VF, vfSurPlateforme) suffit, même avant la date.
  * lu = { vf, sources } des sources (ou rien), plateformeFr = vfSurPlateforme, vod = estimationDe (voir dispoChezSoi).
  */
 function enVfChezSoi(releases, langue, today, lu, plateformeFr = false, vod = null) {
   if (lu && lu.vf) return true;
   const { date } = dispoChezSoi(releases, langue, vod);
-  if (date && date <= today) return !enVo(lu);
+  // Sources lues sans VF : en VO, ou aucune (空枪, N°4 des Tendances le 25 octobre 2026, « Dispo depuis le 23 oct. »).
+  if (date && date <= today) return !lu;
   return !lu && !!plateformeFr;
 }
 
@@ -927,14 +931,14 @@ async function toMetas(env, ctx, results, kind, opts, today) {
     const chezSoi = kind === "movie" ? dispoChezSoi(infos[i].releases, it.original_language, infos[i].vod) : { date: "", vers: false };
     const vf = kind === "movie" && enVfChezSoi(infos[i].releases, it.original_language, today, lu, infos[i].plateformeFr, infos[i].vod);
     // « Pas encore en VF » : le fichier est sorti (date passée), ses sources n'ont pas la VF. Avant la date, la date.
-    const vo = enVo(lu) && !(chezSoi.date > today);
+    const vo = sansVf(lu) && !(chezSoi.date > today);
     const date = it.release_date || it.first_air_date || "";
     // Films : quand ils deviennent regardables (« Les plus attendus » : quand ils sortent au cinéma) ;
     // séries : l'épisode de la semaine.
     const note = kind !== "movie" ? episodeNote(infos[i].episode, today)
       : opts.upcoming ? cinemaNote(infos[i].releases, opts.region, date, today)
       : releaseNote(infos[i].releases, it.original_language, today,
-        lu ? { vf: lu.vf, vo: enVo(lu) } : { vf: infos[i].plateformeFr, surPlateforme: !!infos[i].plateformeVo }, infos[i].vod);
+        lu ? { vf: lu.vf, vo: sansVf(lu) } : { vf: infos[i].plateformeFr, surPlateforme: !!infos[i].plateformeVo }, infos[i].vod);
     // Pas encore regardable : la date affichée par Nuvio (carrousel, « date de sortie
     // complète ») devient la date de dispo plutôt que la sortie en salle.
     const dispo = chezSoi.date;
@@ -1069,10 +1073,10 @@ function endpointAsDiscover(def) {
 async function photoTendances(env, kind) {
   try {
     // ?v=8 : la photo avec l'avis VF et la qualité de StreamFusion ; les précédentes restent sous leurs adresses. Films : ?v=9,
-    // la photo reprise le 24 octobre (voir VERSION_PHOTO dans tendances.js).
+    // la photo reprise le 24 octobre ; ?v=10, celle du 25 (voir VERSION_PHOTO dans tendances.js).
     // Gardée par Cloudflare le temps que dit le service (jusqu'au changement ; 5 minutes pour un secours, le classement
     // brut de TMDB quand l'addon n'a pas répondu à temps) : jamais un secours toute la journée.
-    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series.json?v=8" : "movie.json?v=9"}`, { cf: { cacheEverything: true } });
+    const res = await fetch(`${env.AFFICHES_URL || AFFICHES_URL}/tendances/${kind === "series" ? "series.json?v=8" : "movie.json?v=10"}`, { cf: { cacheEverything: true } });
     const d = res.ok ? await res.json() : {};
     if (d.secours) return new Map();
     return new Map((Array.isArray(d.ids) ? d.ids : []).map((id, i) => [id, i]));
@@ -1964,7 +1968,7 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
     movie && besoinEstimation(releases) ? estimationsVod().then((table) => estimationDe(table, imdb)) : null,
   ]);
   // En VO seulement (comme pas sorti : seule la VF compte) : d'après les sources seulement (voir releaseNote).
-  const etat = lu ? { vf: lu.vf, vo: enVo(lu) } : { vf: movie && vfSurPlateforme(wp, d.original_language, d.keywords), surPlateforme: plateformeFrance(wp) };
+  const etat = lu ? { vf: lu.vf, vo: sansVf(lu) } : { vf: movie && vfSurPlateforme(wp, d.original_language, d.keywords), surPlateforme: plateformeFrance(wp) };
   const note = movie ? releaseNote(releases, d.original_language, today, etat, vod) : await noteSerie(env, d, imdb, wp, today);
   // La même date que l'affiche et les rangées : la sortie numérique américaine (dispoChezSoi), ou son estimation.
   const dispo = movie ? dispoChezSoi(releases, d.original_language, vod).date : "";

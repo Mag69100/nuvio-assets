@@ -55,12 +55,12 @@ test("sources en VO avant la date américaine → la date", () => {
 });
 
 // The Fix : sorti en numérique aux États-Unis, sources sans VF → pas sorti, « Bientôt » sans date. Avec des sources
-// VF : sorti. Sans aucune source, ou sans sources lues : la date dit vrai.
+// VF : sorti. Sans aucune source (rien de publié, donc pas de VF) : pas sorti non plus. Sans sources lues : la date dit vrai.
 test("sources après la date américaine → elles décident", () => {
   const fix = film([pays("US", [3, jours(-60)], [4, jours(-10)])]);
   assert.deepEqual(etatSortie(fix, AUJ, { vf: false, sources: 25 }), { sorti: false, statut: "bientot" });
   assert.deepEqual(etatSortie(fix, AUJ, { vf: true, sources: 25 }), { sorti: true, statut: "nouveau" });
-  assert.deepEqual(etatSortie(fix, AUJ, { vf: false, sources: 0 }), { sorti: true, statut: "nouveau" });
+  assert.deepEqual(etatSortie(fix, AUJ, { vf: false, sources: 0 }), { sorti: false, statut: "bientot" });
   assert.deepEqual(etatSortie(fix, AUJ, null), { sorti: true, statut: "nouveau" });
   // Des sources VF avant la date américaine (sortie française plus tôt) : sorti aussi.
   assert.deepEqual(etatSortie(film([pays("FR", [4, jours(-3)]), pays("US", [4, jours(20)])]), AUJ, { vf: true, sources: 4 }), { sorti: true, statut: "nouveau" });
@@ -254,8 +254,8 @@ test("sources : la VF trouvée décide pour un film récent", () => {
   // Sorti en VO seulement, pas au cinéma en France : pas sorti (seule la VF compte), « Bientôt » sans date.
   const vo = film([pays("US", [3, jours(-60)], [4, jours(-20)]), pays("CA", [3, jours(-59)])]);
   assert.deepEqual(etatSortie(vo, AUJ, { vf: false, sources: 30 }), { sorti: false, statut: "bientot" });
-  // Aucune source du tout : rien ne contredit la date américaine passée, dispo.
-  assert.deepEqual(etatSortie(vo, AUJ, { vf: false, sources: 0 }), { sorti: true, statut: "nouveau" });
+  // Aucune source du tout (空枪, sorti en numérique l'avant-veille) : pas de VF non plus, pas sorti.
+  assert.deepEqual(etatSortie(vo, AUJ, { vf: false, sources: 0 }), { sorti: false, statut: "bientot" });
   // Sources inconnues (Torrentio en panne, ancienne réponse) : les dates.
   assert.deepEqual(etatSortie(vo, AUJ, null), etatSortie(vo, AUJ));
   assert.deepEqual(etatSortie(vo, AUJ, { vf: null, sources: null }), etatSortie(vo, AUJ));

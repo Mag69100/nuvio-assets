@@ -9,7 +9,8 @@
  *   habituelle du distributeur américain, facts.vod, voir lib/estimations.js) ;
  * - à partir de ce jour, les sources lues chez Torrentio (avec la qualité, ce qu'on obtient en faisant « Lire »)
  *   disent si le fichier a la VF : sans VF, pas sorti (seule la VF compte), « Bientôt » sans date (on ne sait pas
- *   quand elle viendra) ; avec la VF, sans sources lues ou sans aucune source : sorti, la date dit vrai.
+ *   quand elle viendra), de même sans aucune source (rien de publié, donc pas de VF) ; avec la VF ou sans sources
+ *   lues (Torrentio muet) : sorti, la date dit vrai.
  * Pas sorti : noir et blanc et note cachée sur l'affiche (réglage « Pas sorti »). Des sources VF suffisent, même avant
  * la date (sortie française plus tôt, film français) ; sans sources lues, une plateforme en France aussi
  * (facts.plateformeFrance, en VF d'après lib/tmdb.js).
@@ -118,8 +119,9 @@ function sortieFilm(facts, today, sources) {
   const s = lues(sources);
   const { date: dispo, vers } = dispoChezSoi(facts.releases, facts.originalLanguage, facts.vod);
   const arrive = !!dispo && dispo <= today;
-  // Des sources, aucune en VF : le fichier est là, pas la VF.
-  const vo = !!s && !s.vf && s.sources > 0;
+  // Sources lues, aucune en VF : en VO seulement, ou rien de publié du tout (空枪, film chinois sorti en numérique
+  // l'avant-veille, sans aucune source : il passait « dispo » d'après sa date). Pas la VF dans les deux cas.
+  const sansVf = !!s && !s.vf;
   const nouveau = (depuis) => (depuis >= ajoute(today, -NOUVEAU_JOURS) ? "nouveau" : null);
   // Des sources VF : disponible, même avant la date (sortie française plus tôt…), depuis la date si elle est passée.
   if (s && s.vf) return { sorti: true, statut: nouveau(arrive ? dispo : today) };
@@ -127,8 +129,8 @@ function sortieFilm(facts, today, sources) {
   // (documentaires Netflix : personne ne publie la VF).
   if (facts.abonnementVf) return { sorti: true, statut: nouveau(arrive ? dispo : today) };
   // La date passée, le fichier américain est sorti : disponible, sauf si ses sources n'ont pas la VF. Sans sources lues
-  // (Torrentio en panne) ou sans aucune source : la date dit vrai.
-  if (arrive && !vo) return { sorti: true, statut: nouveau(dispo) };
+  // (Torrentio en panne) : la date dit vrai.
+  if (arrive && !sansVf) return { sorti: true, statut: nouveau(dispo) };
   // Sur une plateforme en France (en VF), sources pas lues : disponible aujourd'hui, même avant la date américaine.
   if (!s && facts.plateformeFrance) return { sorti: true, statut: nouveau(today) };
   // Pas encore chez soi en VF : « En salle » s'il est au cinéma en France, sinon « Bientôt », avec la date à venir la

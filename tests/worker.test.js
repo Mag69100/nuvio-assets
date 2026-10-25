@@ -412,7 +412,7 @@ test("tendances_du_jour_reprennent_les_numeros_de_la_photo", async () => {
   globalThis.fetch = async (url) => {
     const u = String(url);
     calls.push(u);
-    if (u === `${AFFICHES_URL}/tendances/movie.json?v=9`) return new Response(JSON.stringify({ ids: [1, 3, ...Array(18).fill(0), 2] }));
+    if (u === `${AFFICHES_URL}/tendances/movie.json?v=10`) return new Response(JSON.stringify({ ids: [1, 3, ...Array(18).fill(0), 2] }));
     if (u.includes("/trending/movie/day")) {
       return new Response(JSON.stringify({ results: u.includes("page=1") ? [3, 2].map((id) => ({ id, title: `Film ${id}`, original_language: "en", release_date: jour(-60) })) : [], page: 1, total_pages: 1 }));
     }
@@ -722,7 +722,8 @@ const filmVod = (n, langue, dates, fr) => ({ id: n, imdb_id: "tt" + (900 + n), o
 // chez soi aux États-Unis, sources sans VF → retiré ; 2 : sources VF → gardé ; 3 : pas de sources lues, sorti en
 // numérique aux États-Unis → gardé (la date dit vrai) ; 4 : pas de sources lues, jamais sorti aux États-Unis, au cinéma
 // en France il y a 100 jours (+ 45) → gardé ; 5 : vieux film → gardé (ses sources ne sont pas lues, comme sur les
-// affiches) ; 6 : au cinéma aux États-Unis depuis 20 jours, pas encore chez soi → retiré.
+// affiches) ; 6 : au cinéma aux États-Unis depuis 20 jours, pas encore chez soi → retiré ; 7 : sorti en numérique
+// l'avant-veille, aucune source du tout (空枪, N°4 le 25 octobre 2026) → retiré, comme sans VF.
 test("tendances_du_jour_seulement_en_vf", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   const fiches = {
@@ -732,13 +733,14 @@ test("tendances_du_jour_seulement_en_vf", async () => {
     4: filmVod(4, "en", [["FR", 3, jour(-100)]]),
     5: filmVod(5, "en", [["US", 3, "2001-05-01"]]),
     6: filmVod(6, "en", [["US", 3, jour(-20)], ["FR", 3, jour(-60)]]),
+    7: filmVod(7, "en", [["US", 4, jour(-2)]]),
   };
   globalThis.fetch = async (url) => {
     const u = String(url);
     calls.push(u);
-    if (u.includes("/vf.json")) return sourcesDe({ tt901: { vf: false, sources: 47 }, tt902: { vf: true, sources: 12 } })(u);
+    if (u.includes("/vf.json")) return sourcesDe({ tt901: { vf: false, sources: 47 }, tt902: { vf: true, sources: 12 }, tt907: { vf: false, sources: 0 } })(u);
     if (u.includes("/trending/movie/day")) {
-      return new Response(JSON.stringify({ results: u.includes("page=1") ? [1, 2, 3, 4, 5, 6].map((id) => ({ id, title: `Film ${id}`, original_language: "en", release_date: jour(-35) })) : [], page: 1, total_pages: 1 }));
+      return new Response(JSON.stringify({ results: u.includes("page=1") ? [1, 2, 3, 4, 5, 6, 7].map((id) => ({ id, title: `Film ${id}`, original_language: "en", release_date: jour(-35) })) : [], page: 1, total_pages: 1 }));
     }
     const m = /\/movie\/(\d)\?/.exec(u);
     if (m) return new Response(JSON.stringify(fiches[m[1]]));
@@ -1008,7 +1010,7 @@ test("fiche_selon_le_calendrier_americain", async () => {
     8103: ["ko", [["KR", 3, -30], ["KR", 4, 12], ["FR", 3, 30]]],
     // Sorti en numérique aux États-Unis il y a 5 jours, sources VF : disponible.
     8104: ["en", [["FR", 3, -40], ["US", 4, -5]]],
-    // Sorti en numérique aux États-Unis il y a 5 jours, aucune source : la date dit vrai.
+    // Sorti en numérique aux États-Unis il y a 5 jours, aucune source (rien de publié, pas de VF) : comme sans VF.
     8105: ["en", [["US", 4, -5]]],
     // Au cinéma aux États-Unis il y a 60 jours, sans date numérique (estimation passée), sources pas lues : regardable,
     // comme l'affiche (en couleur) ; la fiche n'invente pas de date.
@@ -1032,7 +1034,7 @@ test("fiche_selon_le_calendrier_americain", async () => {
   assert.equal(await note(8102), point(`📅 Dispo le ${court(jour(10))}`));
   assert.equal(await note(8103), point(`📅 Dispo le ${court(jour(12))}`));
   assert.equal(await note(8104), point(`📅 Dispo depuis le ${court(jour(-5))}`));
-  assert.equal(await note(8105), point(`📅 Dispo depuis le ${court(jour(-5))}`));
+  assert.equal(await note(8105), point("📅 Aucune date"));
   assert.doesNotMatch(await note(8106), /Dispo|Pas encore/);
 });
 

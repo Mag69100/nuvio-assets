@@ -62,5 +62,8 @@ test("page_compte_nuvio_script_valide", () => {
   // La session reste dans le navigateur : aucun appel vers ce site avec les jetons, seulement vers Nuvio.
   assert.ok(html.includes("https://api.nuvio.tv/.well-known/nuvio"));
   assert.ok(html.includes("https://nuvio.tv/link"));
+  // Lien d'addon repris de la salle 2 (dernière programmation), jamais sans la clé Gemini gardée.
+  assert.ok(html.includes('lu("derniere-programmation")'));
+  assert.ok(html.includes('lu("cle-gemini")'));
   assert.match(html, /<meta name="robots" content="noindex">/);
 });

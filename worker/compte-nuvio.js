@@ -12,6 +12,7 @@
  */
 import { feuilles, scripts } from "./statique.js";
 import { creerLienAffiches } from "./lien-affiches.js";
+import { DERNIERE } from "./page.js";
 
 export const NUVIO_DECOUVERTE = "https://api.nuvio.tv/.well-known/nuvio";
 export const NUVIO_LIEN = "https://nuvio.tv/link";   // page où l'on approuve un appareil (DEVICE_LOGIN_WEB_BASE_URL)
@@ -105,7 +106,7 @@ a, button { touch-action: manipulation; }
   <section class="bloc" id="b-lien">
     <label for="lien">Ton lien d'addon</label>
     <input id="lien" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="${origin}/…/manifest.json">
-    <p class="aide">Celui de ton billet : l'addon et les collections suivront ses réglages (pays, genres, tuiles).</p>
+    <p class="aide">Celui de ton billet, repris de ta dernière programmation en salle 2 sur cet appareil : l'addon et les collections suivront ses réglages (pays, genres, tuiles). Vide ? Copie-le depuis ton billet.</p>
     <label for="affiches">Ton lien d'affiches</label>
     <input id="affiches" type="url" inputmode="url" autocomplete="off" spellcheck="false">
     <p class="aide">Celui de ton billet, avec les réglages de la régie de ce navigateur.</p>
@@ -147,12 +148,23 @@ ${scripts("outils.js")}
   const avecAffiches = ${avecAffiches.toString()};
   const LA = (${creerLienAffiches})();
 
-  // Les liens : dans l'ancre (#lien=…&affiches=…), sinon les derniers utilisés ici ; les affiches, à défaut, avec
-  // les réglages de la régie de ce navigateur (affiches-v2, comme lienPerso dans nuvio.js).
+  // Les liens : dans l'ancre (#lien=…&affiches=…), sinon ce que la salle 2 a gardé sur cet appareil, sinon les
+  // derniers utilisés ici.
   const p = new URLSearchParams(location.hash.slice(1));
-  $("lien").value = p.get("lien") || memo.lien || "";
-  const regie = (k) => { try { const s = localStorage.getItem(k); return s === null ? null : LA.lireReglages(new URLSearchParams(s ? "s=1." + s : "")); } catch (e) { return null; } };
-  $("affiches").value = p.get("affiches") || memo.affiches || LA.lienAffiches(regie("affiches-v2") || LA.lireReglages(new URLSearchParams("")), regie("affiches-v2-paysage"));
+  const lu = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  // La dernière programmation de la salle 2 (${DERNIERE} : /<réglages>/configure). Un lien fixe tel quel ; des
+  // réglages dans l'adresse seulement sans clé Gemini gardée : elle n'est pas dans ce chemin, l'addon installé
+  // perdrait la recherche par IA.
+  const salle2 = () => {
+    const m = /^[/]([^/]+)[/]configure$/.exec(lu(${JSON.stringify(DERNIERE)}) || "");
+    if (!m || (!/^f[0-9A-Za-z]{16}$/.test(m[1]) && lu("cle-gemini"))) return "";
+    return location.origin + "/" + m[1] + "/manifest.json";
+  };
+  $("lien").value = p.get("lien") || salle2() || memo.lien || "";
+  // Les affiches : les réglages de la régie de ce navigateur (affiches-v2, comme lienPerso dans nuvio.js).
+  const regie = (k) => { const s = lu(k); return s === null ? null : LA.lireReglages(new URLSearchParams(s ? "s=1." + s : "")); };
+  $("affiches").value = p.get("affiches") || (lu("affiches-v2") !== null || !memo.affiches
+    ? LA.lienAffiches(regie("affiches-v2") || LA.lireReglages(new URLSearchParams("")), regie("affiches-v2-paysage")) : memo.affiches);
   const baseDu = (lien) => {
     const u = new URL(lien.trim());
     if (u.origin !== location.origin) throw new Error("ce n'est pas un lien d'addon de ce site.");

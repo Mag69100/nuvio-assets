@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import vm from "node:vm";
 import { fusionCollections, fusionAddons, avecAffiches, compteNuvioPage } from "../worker/compte-nuvio.js";
 
 test("fusion_garde_les_collections_perso", () => {
@@ -75,4 +76,20 @@ test("bouton_tout_envoyer_billet_et_guide", async () => {
   assert.match(SALLE2_JS, /"[/]compte-nuvio#" \+ new URLSearchParams\(\{ lien: \$\("u-manifest"\)/);
   assert.match(GUIDE_JS, /"[/]compte-nuvio#" \+ new URLSearchParams\(\{ lien: \$id\("u-cat"\)/);
   assert.match(guidePage({ origin: O }), /data-compte-nuvio/);
+});
+
+test("page_compte_nuvio_remplit_les_liens", () => {
+  // Le script tourne comme dans le navigateur. L'outil de Cloudflare ajoute des appels à __name dans les fonctions
+  // recopiées telles quelles (fusionAddons…) : on en met un en tête du script ; sans « var __name », il plantait
+  // et aucun lien n'était rempli.
+  const html = compteNuvioPage({ origin: O });
+  const js = /<script>([\s\S]*?)<\/script>/.exec(html)[1].replace("(() => {", "(() => { __name(() => {}, \"essai\");");
+  const els = {};
+  const el = (id) => els[id] || (els[id] = { id, value: "", hidden: false, textContent: "", className: "", checked: true, dataset: {}, addEventListener() {}, append() {} });
+  const lien = O + "/fAbcdefghijklmnop/manifest.json", affiches = "https://affiches.exemple/maison/{type}/{shape}/{id}.jpg";
+  vm.runInNewContext(js, { document: { getElementById: el, createElement: () => el(String(Math.random())) },
+    location: { hash: "#" + new URLSearchParams({ lien, affiches }), origin: O }, localStorage: { getItem: () => null, setItem() {} },
+    URLSearchParams, URL, fetch: () => Promise.reject(new Error("hors ligne")), setTimeout, clearTimeout, crypto: globalThis.crypto });
+  assert.equal(els.lien.value, lien);
+  assert.equal(els.affiches.value, affiches);
 });

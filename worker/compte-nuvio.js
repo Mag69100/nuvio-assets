@@ -136,6 +136,8 @@ a, button { touch-action: manipulation; }
 </main>
 ${scripts("outils.js")}
 <script>
+// __name : voir NUVIO_JS (nuvio.js), le code d'une fonction recopiée telle quelle peut l'appeler.
+var __name = function (f) { return f; };
 (() => {
   const $ = (id) => document.getElementById(id);
   const etat = (t, err) => { $("etat").textContent = t; $("etat").className = "etat" + (err ? " erreur" : ""); };

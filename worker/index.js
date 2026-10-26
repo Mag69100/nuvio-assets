@@ -37,6 +37,7 @@ import { guidePage, NUVIO_TV_APK } from "./guide.js";
 import { AFFICHES_STATIQUES, APERCU_V, relaisUrl } from "./reglages.js";
 import { lireReglages, ecrireReglages, dossierDe, MEMOIRES, MEMOIRES_PAYSAGE } from "./lien-affiches.js";
 import { lienPage } from "./lien.js";
+import { compteNuvioPage } from "./compte-nuvio.js";
 import { copiePage } from "./copie.js";
 import { nouveautesPage } from "./nouveautes.js";
 import { hallPage } from "./hall.js";
@@ -61,7 +62,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.33";
+const VERSION = "5.38.34";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -2473,7 +2474,7 @@ function json(data, maxAge) {
   });
 }
 
-const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie", "lien-fixe", "tendances", "sf", "saison.json", "seance", "diagnostic", "nouveautes", "cpu", "reserve"]);
+const RESERVED = new Set(["manifest.json", "catalog", "configure", "collections.json", "guide", "tv", "trailer", "lien", "meta", "logo.png", "debug", "affiche", "prefetch", "dossier", "hote", "statique", "copie", "lien-fixe", "tendances", "sf", "saison.json", "seance", "diagnostic", "nouveautes", "cpu", "reserve", "compte-nuvio"]);
 
 async function loadCollections() {
   const res = await fetch(`${ASSETS}/collections/collections.json`, { cf: { cacheTtl: 600, cacheEverything: true } });
@@ -2678,6 +2679,7 @@ const app = {
     if (path === "") return html(hallPage({ origin: url.origin, season: decorSaison(url, today), copy: isCopy(url) }));   // le hall : choisir sa salle
     if (path === "/guide") return html(guidePage({ origin: url.origin, season: decorSaison(url, today) }));
     if (path === "/lien") return html(lienPage({ origin: url.origin }));   // ouvert par les QR codes du guide
+    if (path === "/compte-nuvio") return html(compteNuvioPage({ origin: url.origin }));   // collections envoyées au compte Nuvio (essai)
     if (path === "/copie") return html(copiePage({ origin: url.origin }));   // « Monte ta propre salle » : héberger sa copie
     if (path === "/nouveautes") return html(nouveautesPage({ origin: url.origin, version: VERSION }));   // ce qui a changé, pour qui n'a pas Discord
     if (path === "/tv") return Response.redirect(NUVIO_TV_APK, 302);   // adresse courte pour Downloader : télécharge l'APK

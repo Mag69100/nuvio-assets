@@ -311,3 +311,14 @@ test("options_au_choix", () => {
   assert.equal(ecrit("s=1.S0T0Q0L0Zr"), "S0T0Q0L0");
   assert.equal(ecrit("s=1.T0Q0L0Zr3i1"), "T0Q0L0Zr3i1");
 });
+
+// Les deux réglages de notes ajoutés : écrits seulement allumés, et seulement avec la note.
+test("codes_mal_et_moyenne", () => {
+  const r = lire("s=1.R13l13m1");
+  assert.equal(r.note.mal, true);
+  assert.equal(r.note.moyenne, true);
+  assert.equal(ecrireReglages(r), "R13l13m1");
+  assert.equal(ecrireReglages(DEFAUT_REGLAGES), "");
+  r.note.on = false;
+  assert.equal(ecrireReglages(r), "N0");
+});

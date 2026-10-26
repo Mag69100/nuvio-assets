@@ -63,7 +63,8 @@ const svg = (taille, viewBox, d, fill) => ({
 const ETOILE = "M12 2l2.9 6.9 7.1.6-5.4 4.7 1.6 7-6.2-3.8-6.2 3.8 1.6-7L2 9.5l7.1-.6z";
 const FLECHE = "M7 17L17 7M9 7h8v8";
 const SANS_OMBRE = "0 0 0 transparent";
-const BADGES_NOTE = { imdb: { fond: OR, nom: "IMDb" }, tmdb: { fond: "#01b4e4", nom: "TMDB" } };
+const BADGES_NOTE = { imdb: { fond: OR, nom: "IMDb" }, tmdb: { fond: "#01b4e4", nom: "TMDB" }, moy: { fond: "#e8e8e8", nom: "MOY." },
+  rt: { fond: "#fa320a", nom: "RT", clair: true }, mc: { fond: "#66cc33", nom: "MC" }, lb: { fond: "#40bcf4", nom: "LB" }, mal: { fond: "#2e51a2", nom: "MAL", clair: true } };
 const fleche = (t, couleur) => ({
   type: "svg",
   props: { width: t * 0.9, height: t * 0.9, viewBox: "0 0 24 24", style: { marginRight: t * 0.3 },
@@ -80,12 +81,19 @@ function hauteurLigne(content, m) {
 
 // ---------- Notes ----------
 
-/** Pastille de marque d'une autre note : Rotten Tomatoes (tomate rouge), Metacritic (carré à la couleur du score), Letterboxd (trois points). */
+/**
+ * Pastille de marque d'une autre note : Rotten Tomatoes (tomate rouge), Metacritic (carré à la couleur du score),
+ * Letterboxd (trois points), MyAnimeList (« MAL » sur son bleu).
+ */
 function sigle(s, n, t) {
   const c = t * 0.82;
   if (s === "lb") {
     const point = (x, couleur) => ({ type: "circle", props: { cx: x, cy: 6, r: 5, fill: couleur } });
     return { type: "svg", props: { width: c * 1.6, height: c * 0.62, viewBox: "0 0 32 12", children: [point(6, "#ff8000"), point(16, "#00e054"), point(26, "#40bcf4")] } };
+  }
+  if (s === "mal") {
+    return h("div", { display: "flex", alignItems: "center", justifyContent: "center", width: c * 1.75, height: c, borderRadius: c * 0.18,
+      background: "#2e51a2", color: "#fff", fontSize: c * 0.48, fontWeight: 800, textShadow: SANS_OMBRE }, "MAL");
   }
   const fond = s === "rt" ? "#fa320a" : n >= 6.1 ? "#66cc33" : n >= 4 ? "#ffcc33" : "#ff0000";
   return h("div", { display: "flex", alignItems: "center", justifyContent: "center", width: c * 1.35, height: c, borderRadius: s === "rt" ? c : c * 0.18,
@@ -99,8 +107,8 @@ function blocNotes(content, t, accent) {
   const halo = (c) => (st.couleurNote === "halo" && c ? { textShadow: `0 0 ${t * 0.45}px ${c}` } : {});
   if (l.note && st.note === "badge") {
     // Façon Posters+ : la source en petit et la note, sur une pastille à ses couleurs.
-    const b = BADGES_NOTE[l.source === "tmdb" ? "tmdb" : "imdb"];
-    morceaux.push(h("div", { display: "flex", alignItems: "center", background: b.fond, color: ENCRE, borderRadius: t * 0.18, padding: `${t * 0.04}px ${t * 0.25}px`, fontWeight: 800, textShadow: SANS_OMBRE }, [
+    const b = BADGES_NOTE[l.source] || BADGES_NOTE.imdb;
+    morceaux.push(h("div", { display: "flex", alignItems: "center", background: b.fond, color: b.clair ? "#fff" : ENCRE, borderRadius: t * 0.18, padding: `${t * 0.04}px ${t * 0.25}px`, fontWeight: 800, textShadow: SANS_OMBRE }, [
       h("span", { fontSize: t * 0.6, marginRight: t * 0.22 }, b.nom), h("span", {}, l.note)]));
   } else if (l.note) {
     morceaux.push(h("div", { display: "flex", alignItems: "center", ...(couleur ? { color: couleur } : {}), ...halo(couleur) }, st.note === "etoile"
@@ -128,7 +136,7 @@ function largeurLigne(l, st, police) {
   const parts = [l.genre, l.note || (l.notes && l.notes.length), l.annee, l.duree].filter(Boolean).length;
   let em = mots(l.genre) + mots(l.annee) + mots(l.duree) + Math.max(0, parts - 1) * (0.7 + c);
   if (l.note) em += mots(l.note) + (st.note === "badge" ? 4 * c * 0.6 + 0.75 : st.note === "etoile" ? 1.05 : 0);
-  for (const x of l.notes || []) em += 1.35 + 0.22 + mots(x.v) + 0.45;
+  for (const x of l.notes || []) em += (x.s === "mal" ? 1.75 : 1.35) + 0.22 + mots(x.v) + 0.45;
   if (l.age) em += 0.4 + (String(l.age).length + 1) * c * 0.72 + 0.55;
   if (l.plateforme) em += 1.55;
   return em;

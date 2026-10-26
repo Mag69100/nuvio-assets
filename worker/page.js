@@ -1615,15 +1615,21 @@ function carteDe(v) {
       principal: () => [choix("Montrer", [["aucune", "Rien"], ["realisateur", "Réalisateur"], ["accroche", "Accroche"], ["studio", "Studio"]], r.infos.ligne2, (x) => regle((r) => { r.infos.ligne2 = x; }))] },
     note: { nom: "Notes", ...onOff("note"),
       principal: () => {
-        const autres = ["rt", "mc", "lb"].filter((k) => r.note[k]).length;
+        const SITES = ["rt", "mc", "lb", "mal"], autres = SITES.filter((k) => r.note[k]).length;
+        // Séparées : deux autres notes au plus (la ligne déborderait) ; en moyenne, toutes.
         const sites = el("div", { class: "choix" }, el("span", { text: "Autres" }), el("div", { class: "puces" },
-          ...[["rt", "Rotten T."], ["mc", "Metacritic"], ["lb", "Letterboxd"]].map(([k, nom]) => el("button", { type: "button", text: nom, "data-cle": cleDe("autres:" + k), "aria-pressed": String(r.note[k]),
-            onclick: () => { if (r.note[k] || autres < 2) regle((r) => { r.note[k] = !r.note[k]; }); } }))));
-        return [choix("Principale", [["imdb", "IMDb"], ["tmdb", "TMDB"]], r.note.source, (x) => regle((r) => { r.note.source = x; })), sites];
+          ...[["rt", "Rotten T."], ["mc", "Metacritic"], ["lb", "Letterboxd"], ["mal", "MyAnimeList"]].map(([k, nom]) => el("button", { type: "button", text: nom, "data-cle": cleDe("autres:" + k), "aria-pressed": String(r.note[k]),
+            onclick: () => { if (r.note[k] || autres < 2 || r.note.moyenne) regle((r) => { r.note[k] = !r.note[k]; }); } }))));
+        return [choix("Principale", [["imdb", "IMDb"], ["tmdb", "TMDB"]], r.note.source, (x) => regle((r) => { r.note.source = x; })), sites,
+          choix("Montrer", [["non", "Chaque note"], ["oui", "La moyenne"]], r.note.moyenne ? "oui" : "non", (x) => regle((r) => {
+            r.note.moyenne = x === "oui";
+            // Retour aux notes séparées : les deux premières seulement.
+            if (!r.note.moyenne) SITES.filter((k) => r.note[k]).slice(2).forEach((k) => { r.note[k] = false; });
+          }))];
       },
       plus: () => [choix("Style", [["etoile", "★ 8,4"], ["nu", "8,4"], ["grand", "Grand"], ["badge", "Badge"]], r.note.style, (x) => regle((r) => { r.note.style = x; })),
         choix("Couleur", [["non", "Non"], ["oui", "Selon la note"], ["halo", "+ halo"]], r.note.couleur, (x) => regle((r) => { r.note.couleur = x; })),
-        aide("Deux autres notes au plus, à côté de la principale.")] },
+        aide("Deux autres notes au plus, à côté de la principale ; en moyenne, autant que tu veux. MyAnimeList : sur les animés seulement.")] },
     genre: { nom: "Genre", ...onOff("genre"),
       principal: () => [choix("Forme", [["court", "Court (SF)"], ["complet", "Complet"]], r.genre.forme, (x) => regle((r) => { r.genre.forme = x; }))] },
     annee: { nom: "Année", ...onOff("annee") },

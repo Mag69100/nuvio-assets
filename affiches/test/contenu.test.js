@@ -466,3 +466,20 @@ test("serie_fin_et_avancement", () => {
   const prochaine = contenu({ ...serie, nextEpisode: "2026-11-02", nextSeason: 3, nextEpisodeNumber: 1 }, plein, "poster", reglages("3h1"));
   assert.deepEqual([prochaine.statut, prochaine.gris], ["SAISON 3 BIENTÔT", false]);
 });
+
+// MyAnimeList (animés) à côté des autres ; la moyenne : une seule note, celles qu'on a ramenées sur 10.
+test("notes_mal_et_moyenne", () => {
+  const notes = { rt: 94, mc: 81, lb: 4.1, mal: 8.62 };
+  const mal = posterContent(v2, { ...plein, notes }, "poster", reglages("3l1"), AUJ);
+  assert.deepEqual(mal.line.notes, [{ s: "mal", v: "8,62", n: 8.6 }]);
+  // IMDb 8,4, RT 9,4, MC 8,1, LB 8,2, MAL 8,6 : 8,54 → 8,5.
+  const moy = posterContent(v2, { ...plein, notes }, "poster", reglages("R1M1b13l13m1"), AUJ);
+  assert.equal(moy.line.note, "8,5");
+  assert.equal(moy.line.notes, undefined);
+  // En badge : « MOY. » ; en grand chiffre aussi ; une note manquante ne compte pas.
+  assert.equal(posterContent(v2, { ...plein, notes }, "poster", reglages("eb3l13m1"), AUJ).line.source, "moy");
+  assert.equal(posterContent(v2, { ...plein, notes }, "poster", reglages("eg3l13m1"), AUJ).line.note, "8,5");
+  assert.equal(posterContent(v2, { ...plein, notes: { mal: null } }, "poster", reglages("3l13m1"), AUJ).line.note, "8,4");
+  // Sans moyenne, en grand chiffre : la principale seule, comme avant.
+  assert.equal(posterContent(v2, { ...plein, notes }, "poster", reglages("egR1"), AUJ).line.notes, undefined);
+});

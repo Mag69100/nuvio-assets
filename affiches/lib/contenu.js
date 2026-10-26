@@ -79,7 +79,9 @@ const AUTRES_NOTES = {
   rt: (v) => ({ v: `${Math.round(v)} %`, n: Math.round(v) / 10 }),
   mc: (v) => ({ v: String(Math.round(v)), n: Math.round(v) / 10 }),
   lb: (v) => ({ v: virgule(v.toFixed(1)), n: Math.round(v * 20) / 10 }),
+  mal: (v) => ({ v: virgule(v.toFixed(2)), n: Math.round(v * 10) / 10 }),
 };
+const SITES = ["rt", "mc", "lb", "mal"];
 
 /** « 2 h 46 », « 45 min » (film) ; « 3 saisons », « 1 saison » (série) ; null si inconnu. */
 function dureeDe(facts) {
@@ -152,8 +154,19 @@ export function posterContent(facts, { imdbRating, rank, quality, notes, saga, s
     // La source n'est écrite que pour le badge (« IMDb 8,4 ») : les autres affiches gardent leur ETag.
     if (n && r.note.style === "badge") line.source = n.source;
     if (n && r.note.couleur !== "non") line.noteN = Number(n.valeur.replace(",", "."));
-    const autres = notesVisibles && notes && r.note.style !== "grand" ? ["rt", "mc", "lb"].filter((k) => r.note[k] && notes[k]).map((k) => ({ s: k, ...AUTRES_NOTES[k](notes[k]) })) : [];
-    if (autres.length) line.notes = autres;
+    const autres = notesVisibles && notes && (r.note.style !== "grand" || r.note.moyenne) ? SITES.filter((k) => r.note[k] && notes[k]).map((k) => ({ s: k, ...AUTRES_NOTES[k](notes[k]) })) : [];
+    // Moyenne : une seule note, celle de toutes les notes choisies qu'on a (ramenées sur 10) ; une seule : elle-même.
+    const valeurs = [...(n ? [Number(n.valeur.replace(",", "."))] : []), ...autres.map((x) => x.n)];
+    if (r.note.moyenne && valeurs.length >= 2) {
+      const m = Math.round((valeurs.reduce((a, b) => a + b, 0) / valeurs.length) * 10) / 10;
+      line.note = virgule(m.toFixed(1));
+      if (r.note.style === "badge") line.source = "moy";
+      if (r.note.couleur !== "non") line.noteN = m;
+    } else if (r.note.moyenne && !n && autres.length === 1) {
+      line.note = autres[0].v;
+      if (r.note.style === "badge") line.source = autres[0].s;
+      if (r.note.couleur !== "non") line.noteN = autres[0].n;
+    } else if (autres.length && r.note.style !== "grand") line.notes = autres;
     if (r.annee.on && facts.year) line.annee = facts.year;
     const duree = r.duree.on ? dureeDe(facts) : null;
     if (duree) line.duree = duree;

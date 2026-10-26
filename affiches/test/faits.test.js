@@ -444,3 +444,18 @@ test("tendances : la qualité VF de la photo", async () => {
   const f = async () => json({ ids: [7], vf: { 7: 1 }, q: { 7: { u: 1, x: "DV", p: 0, f: 1, a: 1 } } });
   assert.deepEqual((await lireRang(env, "movie", 7, f, "https://affiches.test")).qualite, { uhd: true, extra: "DV", hdr10p: false, fhd: true, atmos: true });
 });
+
+// Toy Story 4 : TMDB a un logo français du Canada (« Histoire de jouets 4 ») et un de France (« Toy Story 4 ») : celui de
+// France ; un logo français d'un autre pays seulement, jamais (l'anglais à sa place).
+test("logo_francais_de_france", async () => {
+  const logos = [{ iso_639_1: "en", iso_3166_1: "US", file_path: "/en.png" }, { iso_639_1: "fr", iso_3166_1: "CA", file_path: "/ca.png" }, { iso_639_1: "fr", iso_3166_1: "FR", file_path: "/fr.png" }];
+  const f = fauxFetch([["/movie/693134", json({ ...movie, images: { ...movie.images, logos } })]]);
+  const facts = await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, f);
+  assert.equal(facts.logo, "/fr.png");
+  assert.equal(facts.logos.fr, "/fr.png");
+  resetTmdb();
+  const g = fauxFetch([["/movie/693134", json({ ...movie, images: { ...movie.images, logos: logos.slice(0, 2) } })]]);
+  const seulCanada = await titleFacts(env, { type: "movie", id: "tmdb:693134", imdb: "" }, g);
+  assert.equal(seulCanada.logo, "/en.png");
+  assert.equal(seulCanada.logos.fr, null);
+});

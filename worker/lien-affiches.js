@@ -22,7 +22,7 @@ export function creerLienAffiches() {
     haut: { inverse: false, style: "auto", forme: "arrondi", opacite: "l", couleur: "blanc", fond: "", coinStatut: "auto", coinQualite: "auto" },
     bandeau: { on: false, porte: "statut", coin: "d" },
     titre: { on: true, taille: 1, place: "auto", langue: "fr", monte: 0, large: 1, effet: "aucun" },
-    note: { on: true, source: "imdb", style: "etoile", rt: false, mc: false, lb: false, couleur: "non" },
+    note: { on: true, source: "imdb", style: "etoile", rt: false, mc: false, lb: false, mal: false, moyenne: false, couleur: "non" },
     genre: { on: true, forme: "court" },
     annee: { on: true },
     duree: { on: false },
@@ -168,6 +168,9 @@ export function creerLienAffiches() {
     ["3i", "statut", "avance", { 1: true }, (r) => r.statut.on],
     ["3j", "infos", "saga", { 1: true }],
     ["3k", "saison", "on", { 1: true }],
+    // La note MyAnimeList (animés), et une seule note : la moyenne de celles choisies.
+    ["3l", "note", "mal", { 1: true }, noteOn],
+    ["3m", "note", "moyenne", { 1: true }, noteOn],
   ];
 
   /** Les styles tout prêts de la régie (« mémoires »). */

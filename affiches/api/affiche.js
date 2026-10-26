@@ -18,6 +18,7 @@ import { etatSortie, sourcesUtiles, dispoChezSoi, estimationDe, besoinEstimation
 import { lireEstimations } from "../lib/estimations.js";
 import { lireReglages, lireReglagesPaysage, ecrireReglages } from "../lib/lien-affiches.js";
 import { notesPlus } from "../lib/notes-plus.js";
+import { noteMal } from "../lib/mal.js";
 import { filmsDeLaSaga, rangSaga } from "../lib/saga.js";
 import { lireSaison, habillageDe, saisonDu, secondesAvantChangementSaison } from "../lib/saison.js";
 import { draw, imageUrls } from "../lib/dessin.js";
@@ -210,8 +211,11 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
     const langue = reglages.langue.on && env.QUALITE !== "off";
     // Note IMDb : pour la note affichée, ou pour le badge « Incontournable ».
     const noteImdb = (reglages.titre.on && reglages.note.on && reglages.note.source !== "tmdb") || reglages.infos.culte;
-    // Les autres notes ne sont demandées que si elles seront dessinées (pas avec la note en grand chiffre).
-    const autresNotes = reglages.titre.on && reglages.note.on && reglages.note.style !== "grand" && (reglages.note.rt || reglages.note.mc || reglages.note.lb);
+    // Les autres notes ne sont demandées que si elles serviront : dessinées (pas avec la note en grand chiffre), ou dans
+    // la moyenne.
+    const notesServent = reglages.titre.on && reglages.note.on && (reglages.note.style !== "grand" || reglages.note.moyenne);
+    const autresNotes = notesServent && (reglages.note.rt || reglages.note.mc || reglages.note.lb);
+    const malVoulue = notesServent && reglages.note.mal;
     try {
       // Notes IMDb et tendances ne dépendent pas du titre : sur une instance qui démarre, on les charge
       // pendant que TMDB répond (elles sont ensuite gardées en mémoire).
@@ -241,7 +245,8 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       // Les sources (lues avec la qualité) disent si le titre est en VF : lues aussi sans le badge, pour un titre récent.
       const lireSources = qualite || langue || (env.QUALITE !== "off" && sourcesUtiles(facts, aujourdhui));
       // Pas encore sorti avec la note cachée : les autres notes ne seraient pas dessinées non plus.
-      const notesUtiles = autresNotes && !(reglages.sortie.cacherNote && !etatSortie(facts, aujourdhui).sorti);
+      const notesCachees = reglages.sortie.cacherNote && !etatSortie(facts, aujourdhui).sorti;
+      const notesUtiles = autresNotes && !notesCachees;
       // Rang dans la saga (réglage Saga) : les films de sa collection TMDB, un appel par saga gardé une semaine.
       const sagaVoulue = reglages.infos.saga && type === "movie" && !!facts.collection;
       // Habillage de la saison (réglage Saison) : pendant une fête, les films de la rangée « Spécial … » de l'addon.
@@ -258,6 +263,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
         notesUtiles && facts.imdbId ? chrono.mesure("notes", notesPlus(facts.imdbId, fetchImpl, relais, env.RELAIS_KEY)) : undefined,
         sagaVoulue ? chrono.mesure("saga", filmsDeLaSaga(env, facts.collection, fetchImpl)) : null,
         saisonVoulue ? chrono.mesure("saison", lireSaison(env, fetchImpl)) : null,
+        malVoulue && !notesCachees ? chrono.mesure("mal", noteMal(env, type, facts.tmdbId, fetchImpl)) : null,
       ]);
       lectures.catch(() => {});
       // L'image « sans texte » porte notre logo : on vérifie qu'elle n'a vraiment pas de texte (TMDB y range
@@ -280,7 +286,8 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const peutDessiner = brouillon.full || brouillon.statut || brouillon.gris || brouillon.bandeau || brouillon.coin || tendance || qualite || langue
         || reglages.infos.culte || reglages.infos.saga || !!brouillon.styles.retouche || !!brouillon.styles.cadre || (reglages.saison.on && type === "movie");
       if (peutDessiner && !request.headers.get("If-None-Match")) imageUrls(brouillon).forEach((u) => images(u).catch(() => {}));
-      const [{ note: imdbRating, manque: imdbManque }, photoLue, { enRetard: qualiteEnRetard, quality: qualiteTorrentio }, notes, filmsSaga, rangee] = await chrono.mesure("lectures", lectures);
+      const [{ note: imdbRating, manque: imdbManque }, photoLue, { enRetard: qualiteEnRetard, quality: qualiteTorrentio }, notesLues, filmsSaga, rangee, mal] = await chrono.mesure("lectures", lectures);
+      const notes = mal ? { ...(notesLues || {}), mal } : notesLues;
       const place = tendance ? photoLue.rang : null, photoIllisible = tendance && photoLue.illisible;
       const quality = avecAvisVf(qualiteTorrentio, photoLue.vf, photoLue.qualite);
       const saga = sagaVoulue ? rangSaga(filmsSaga, facts.tmdbId, aujourdhui) : null;

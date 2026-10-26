@@ -106,9 +106,12 @@ function abonnementVf(d) {
   return ids.some((id) => (["en", "fr"].includes(d.original_language) ? DOUBLEURS : DOUBLENT_TOUT).has(id));
 }
 
+// En français, l'image de France (iso_3166_1 « FR »), sinon une sans pays : jamais celle du Canada (Toy Story 4 y
+// devient « Histoire de jouets 4 ») ni d'un autre pays ; il reste alors l'anglais ou la langue d'origine.
 const first = (list, langs) => {
   for (const lang of langs) {
-    const it = (list || []).find((x) => x.iso_639_1 === lang);
+    const dans = (list || []).filter((x) => x.iso_639_1 === lang);
+    const it = lang === "fr" ? dans.find((x) => x.iso_3166_1 === "FR") || dans.find((x) => !x.iso_3166_1) : dans[0];
     if (it) return it.file_path;
   }
   return null;

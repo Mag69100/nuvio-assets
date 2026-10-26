@@ -481,17 +481,25 @@ test("affiche_relaie_le_service_maison", async () => {
 });
 
 // Le dossier du style : en portrait d'après ses réglages, en paysage d'après ceux de son paysage (Signature a le sien) ;
-// s invalide : « maison ». L'identifiant tmdb:… est codé comme les fichiers statiques l'attendent.
+// s invalide : « maison ». Sans tt…, l'identifiant tmdb:… est codé comme les fichiers statiques l'attendent ; pas encore
+// dessinée : 404 jamais gardée.
 test("affiche_options_nettoyees", async () => {
   const { AFFICHES_STATIQUES } = await import("../worker/reglages.js");
   const { MEMOIRES, MEMOIRES_PAYSAGE, ecrireReglages } = await import("../worker/lien-affiches.js");
   globalThis.fetch = async (url) => { calls.push(String(url)); return new Response(new Uint8Array([0xff]), { headers: { "Content-Type": "image/jpeg" } }); };
   await get(`/affiche/series/landscape/tmdb:94605?imdb=tt11126994&s=1.${ecrireReglages(MEMOIRES_PAYSAGE.signature)}`);
-  assert.equal(calls[0], `${AFFICHES_STATIQUES}/signature/series/landscape/tmdb%3A94605.jpg`);
+  // Le tt… donné par la régie d'abord (les fichiers sont rangés sous l'identifiant de Nuvio).
+  assert.equal(calls[0], `${AFFICHES_STATIQUES}/signature/series/landscape/tt11126994.jpg`);
   await get(`/affiche/movie/poster/tt2?s=1.${ecrireReglages(MEMOIRES.cine)}`);
   assert.equal(calls[1], `${AFFICHES_STATIQUES}/cine/movie/poster/tt2.jpg`);
   await get("/affiche/movie/poster/tt1?s=n'importe");
   assert.equal(calls[2], `${AFFICHES_STATIQUES}/maison/movie/poster/tt1.jpg`);
+  calls.length = 0;
+  globalThis.fetch = async (url) => { calls.push(String(url)); return new Response(null, { status: 503 }); };
+  const absente = await get("/affiche/series/poster/tmdb:94605?imdb=tt11126994");
+  assert.equal(absente.status, 404);
+  assert.equal(absente.headers.get("Cache-Control"), "no-store");
+  assert.deepEqual(calls, [`${AFFICHES_STATIQUES}/maison/series/poster/tt11126994.jpg`, `${AFFICHES_STATIQUES}/maison/series/poster/tmdb%3A94605.jpg`]);
 });
 
 test("affiche_service_en_panne", async () => {

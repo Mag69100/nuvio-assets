@@ -61,7 +61,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.28";
+const VERSION = "5.38.29";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -2727,15 +2727,22 @@ const app = {
       if (/^tt\d{1,10}$/.test(imdb)) q.set("imdb", imdb);
       if (s) q.set("s", "1." + s);
       const serveur = env.RELAIS_URL || env.AFFICHES_URL;
-      const src = serveur ? `${serveur}/${af[1]}/${af[2]}/${id}.jpg${q.size ? "?" + q : ""}`
-        : `${AFFICHES_STATIQUES}/${dossierApercu(af[2], s)}/${af[1]}/${af[2]}/${encodeURIComponent(id)}.jpg`;
+      // Fichiers statiques : rangés sous l'identifiant que Nuvio donne (tt… pour la plupart des titres), la régie en
+      // demande souvent un tmdb:… avec son tt… à côté ; les deux sont essayés, le tt… d'abord.
+      const sources = serveur ? [`${serveur}/${af[1]}/${af[2]}/${id}.jpg${q.size ? "?" + q : ""}`]
+        : [...new Set([q.get("imdb"), id].filter(Boolean))].map((x) => `${AFFICHES_STATIQUES}/${dossierApercu(af[2], s)}/${af[1]}/${af[2]}/${encodeURIComponent(x)}.jpg`);
       const key = new Request(`https://cache.local/affiche-v${APERCU_V}/${af[1]}/${af[2]}/${id}?${q}&t=${jourTendances()}`);
       const hitA = await caches.default.match(key);
       if (hitA) return hitA;
       // X-Apercu : le service attend la qualité plus longtemps (une affiche de régie sans son badge 4K faisait croire
       // que cocher une case en retirait une autre).
-      const r = await fetch(src, { headers: { "X-Apercu": "1" } }).catch(() => null);
-      if (!r || !r.ok || !/^image\//.test(r.headers.get("Content-Type") || "")) return new Response(null, { status: 404, headers: { ...HEADERS, "Cache-Control": "public, max-age=3600" } });
+      let r = null;
+      for (const src of sources) {
+        r = await fetch(src, { headers: { "X-Apercu": "1" } }).catch(() => null);
+        if (r && r.ok) break;
+      }
+      // Pas encore dessinée en fichier statique (elle l'est au prochain passage) : pas gardée, la régie la redemandera.
+      if (!r || !r.ok || !/^image\//.test(r.headers.get("Content-Type") || "")) return new Response(null, { status: 404, headers: { ...HEADERS, "Cache-Control": serveur ? "public, max-age=3600" : "no-store" } });
       // Gardée aussi longtemps que le service le demande, un jour au plus : une affiche partie sans son badge
       // (qualité en retard) n'est gardée qu'une heure, puis redemandée.
       const cc = r.headers.get("Cache-Control") || "", ma = /max-age=(\d+)/.exec(cc);

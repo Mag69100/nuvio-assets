@@ -1,17 +1,45 @@
 /**
- * Page « Connecter Nuvio » (servie sur /compte-nuvio), à l'essai : les collections arrivent dans Nuvio sans rien
- * coller. La page se connecte au compte Nuvio de la personne comme une TV (code à approuver sur nuvio.tv/link),
- * puis écrit les collections de son lien dans ce compte ; Nuvio les reprend tout seul (synchronisation du compte).
+ * Page « Connecter Nuvio » (servie sur /compte-nuvio), à l'essai : l'addon, les collections et le lien des affiches
+ * arrivent dans Nuvio sans rien coller. La page se connecte au compte Nuvio de la personne comme une TV (code à
+ * approuver sur nuvio.tv/link), puis écrit dans ce compte ; Nuvio les reprend tout seul (synchronisation du compte).
  * Tout se passe dans le navigateur : la session Nuvio n'est jamais envoyée à ce site, ni gardée dans sa base.
  * Le serveur de Nuvio publie son adresse et sa clé publique (/.well-known/nuvio) et accepte les appels des pages
- * web (CORS ouvert). Fonctions appelées, celles de l'appli NuvioTV (AuthManager, CollectionSyncService) :
- * start_device_login_session, poll_tv_login_session, tv-logins-exchange, sync_pull_profiles, sync_pull_collections,
- * sync_push_collections. Porte non officielle : une mise à jour de Nuvio peut la changer, l'import du JSON reste.
+ * web (CORS ouvert). Fonctions appelées, celles de l'appli NuvioTV (AuthManager, CollectionSyncService,
+ * AddonSyncService, ProfileSettingsSyncService) : start_device_login_session, poll_tv_login_session,
+ * tv-logins-exchange, sync_pull_profiles, sync_pull/push_collections, table addons et sync_push_addons,
+ * sync_pull/push_profile_settings_blob. Porte non officielle : une mise à jour de Nuvio peut la changer, les liens
+ * à coller restent.
  */
 import { feuilles, scripts } from "./statique.js";
+import { creerLienAffiches } from "./lien-affiches.js";
 
 export const NUVIO_DECOUVERTE = "https://api.nuvio.tv/.well-known/nuvio";
 export const NUVIO_LIEN = "https://nuvio.tv/link";   // page où l'on approuve un appareil (DEVICE_LOGIN_WEB_BASE_URL)
+
+/**
+ * Les addons du compte, avec le nôtre : Nuvio remplace toute sa liste par celle du compte. Le premier addon de ce
+ * site (même origine) prend le lien donné, à sa place ; les autres copies du nôtre sont retirées ; sans lui, il passe
+ * en tête. Les addons de la personne restent, dans leur ordre (sort_order renuméroté).
+ */
+export function fusionAddons(distants, lien, origine) {
+  const deCeSite = (u) => { try { return new URL(u).origin === origine; } catch (e) { return false; } };
+  const tries = (Array.isArray(distants) ? distants : []).filter((a) => a && a.url).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  const i = tries.findIndex((a) => deCeSite(a.url));
+  const liste = tries.filter((a, j) => j === i || !deCeSite(a.url)).map((a) => (deCeSite(a.url) ? { ...a, url: lien, enabled: true } : a));
+  if (i < 0) liste.unshift({ url: lien, enabled: true });
+  return liste.map((a, n) => ({ url: a.url, sort_order: n, enabled: a.enabled !== false, ...(a.name ? { name: a.name } : {}) }));
+}
+
+/**
+ * Les réglages TV du compte, avec le lien des affiches (Paramètres → Disposition → Custom Poster Source). Nuvio
+ * efface chaque rubrique reçue avant de l'appliquer : on renvoie donc tous les réglages lus, ce seul changé. Sans
+ * réglages TV dans le compte (la TV ne les a jamais envoyés), null : en écrire de nouveaux effacerait les siens.
+ */
+export function avecAffiches(reglages, lien) {
+  if (!reglages || typeof reglages.features !== "object" || !reglages.features) return null;
+  const disposition = { ...(reglages.features.layout_settings || {}), custom_poster_url_pattern: { type: "string", value: lien } };
+  return { ...reglages, features: { ...reglages.features, layout_settings: disposition } };
+}
 
 /**
  * Les collections du compte, avec les nôtres à la place des anciennes : Nuvio remplace toute sa liste par celle du
@@ -61,16 +89,26 @@ button:disabled { opacity: .5; cursor: default; }
 .erreur { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; border: 1.5px solid #e5413a; background: #3b1216; color: #ffe1d8; font-weight: 600; text-align: left; box-shadow: 0 0 0 3px rgba(229,65,58,.15); }
 .erreur::before { content: "!"; flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: #e5413a; color: #fff; font: 800 .85rem/1 "Figtree", system-ui, sans-serif; }
 a, button { touch-action: manipulation; }
+.coche { display: flex; gap: 10px; align-items: flex-start; font-weight: 600; cursor: pointer; }
+.coche input { width: auto; margin-top: 4px; accent-color: var(--bulb); }
+.coche span { display: grid; }
+.coche small { font-weight: 400; color: var(--dim); }
+#bilan { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
+#bilan:empty { display: none; }
+#bilan .ko { color: #ffb4a8; }
 </style>
 </head>
 <body>
 <main>
   <div class="ticket"><small>À l'essai</small><h1>Connecter Nuvio</h1></div>
-  <p class="aide">Tes collections arrivent dans Nuvio toutes seules, sur tous tes appareils connectés au même compte Nuvio : plus rien à coller. Ton compte Nuvio reste dans ce navigateur, ce site ne le voit jamais.</p>
+  <p class="aide">L'addon, les collections et tes affiches arrivent dans Nuvio tout seuls, sur tes appareils connectés au même compte Nuvio : plus rien à coller. Ton compte Nuvio reste dans ce navigateur, ce site ne le voit jamais.</p>
   <section class="bloc" id="b-lien">
     <label for="lien">Ton lien d'addon</label>
     <input id="lien" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="${origin}/…/manifest.json">
-    <p class="aide">Celui de ton billet : les collections suivront ses réglages (pays, genres, tuiles).</p>
+    <p class="aide">Celui de ton billet : l'addon et les collections suivront ses réglages (pays, genres, tuiles).</p>
+    <label for="affiches">Ton lien d'affiches</label>
+    <input id="affiches" type="url" inputmode="url" autocomplete="off" spellcheck="false">
+    <p class="aide">Celui de ton billet, avec les réglages de la régie de ce navigateur.</p>
   </section>
   <section class="bloc" id="b-connexion">
     <button type="button" class="principal" id="connecter">Connecter mon compte Nuvio</button>
@@ -85,11 +123,14 @@ a, button { touch-action: manipulation; }
   <section class="bloc" id="b-compte" hidden>
     <label for="profil">Profil Nuvio</label>
     <select id="profil"></select>
-    <button type="button" class="principal" id="envoyer">Envoyer mes collections</button>
-    <p class="aide">Les collections que tu as faites toi-même dans Nuvio restent. Les nôtres sont remplacées par celles de ton lien.</p>
+    <label class="coche"><input type="checkbox" id="e-addon" checked><span>L'addon<small>Tes autres addons restent ; le nôtre prend ton lien.</small></span></label>
+    <label class="coche"><input type="checkbox" id="e-coll" checked><span>Les collections<small>Celles que tu as faites toi-même restent ; les nôtres sont remplacées.</small></span></label>
+    <label class="coche"><input type="checkbox" id="e-aff" checked><span>Les affiches, sur la TV<small>Custom Poster Source. Sur téléphone et PC, colle encore le lien à la main.</small></span></label>
+    <button type="button" class="principal" id="envoyer">Envoyer dans Nuvio</button>
     <button type="button" id="deconnecter">Déconnecter Nuvio</button>
   </section>
   <p class="etat" id="etat" role="status"></p>
+  <ul id="bilan" aria-live="polite"></ul>
   <p class="aide"><a href="${origin}/guide">Retour au guide</a></p>
 </main>
 ${scripts("outils.js")}
@@ -102,14 +143,20 @@ ${scripts("outils.js")}
   const garder = (o) => { try { localStorage.setItem(CLE, JSON.stringify(o)); } catch (e) {} };
   let memo = lire(), serveur = null, attente = null;
   const fusion = ${fusionCollections.toString()};
+  const fusionAddons = ${fusionAddons.toString()};
+  const avecAffiches = ${avecAffiches.toString()};
+  const LA = (${creerLienAffiches})();
 
-  // Le lien d'addon : dans l'ancre (#lien=…), sinon le dernier utilisé ici.
+  // Les liens : dans l'ancre (#lien=…&affiches=…), sinon les derniers utilisés ici ; les affiches, à défaut, avec
+  // les réglages de la régie de ce navigateur (affiches-v2, comme lienPerso dans nuvio.js).
   const p = new URLSearchParams(location.hash.slice(1));
   $("lien").value = p.get("lien") || memo.lien || "";
-  const collectionsDu = (lien) => {
+  const regie = (k) => { try { const s = localStorage.getItem(k); return s === null ? null : LA.lireReglages(new URLSearchParams(s ? "s=1." + s : "")); } catch (e) { return null; } };
+  $("affiches").value = p.get("affiches") || memo.affiches || LA.lienAffiches(regie("affiches-v2") || LA.lireReglages(new URLSearchParams("")), regie("affiches-v2-paysage"));
+  const baseDu = (lien) => {
     const u = new URL(lien.trim());
-    if (u.origin !== location.origin) throw new Error("Ce n'est pas un lien de ce site.");
-    return u.origin + u.pathname.replace(/[/](manifest[.]json|configure)?$/, "") + "/collections.json";
+    if (u.origin !== location.origin) throw new Error("ce n'est pas un lien d'addon de ce site.");
+    return u.origin + u.pathname.replace(/[/](manifest[.]json|configure)?$/, "");
   };
 
   // Le serveur de Nuvio, tel qu'il se décrit lui-même (adresse et clé publique).
@@ -119,35 +166,39 @@ ${scripts("outils.js")}
     if (!d.backend_url || !d.publishable_key) throw new Error("Nuvio ne répond pas comme prévu.");
     return (serveur = { url: d.backend_url.replace(/[/]$/, ""), cle: d.publishable_key });
   };
+  // corps undefined : une lecture (GET), pour les tables (addons).
   const appel = async (chemin, corps, jeton) => {
     const s = await decouvrir();
     const h = { apikey: s.cle, "Content-Type": "application/json", Accept: "application/json" };
     if (jeton) h.Authorization = "Bearer " + jeton;
-    const r = await fetch(s.url + chemin, { method: "POST", headers: h, body: JSON.stringify(corps || {}) });
+    const r = await fetch(s.url + chemin, corps === undefined ? { headers: h } : { method: "POST", headers: h, body: JSON.stringify(corps) });
     const t = await r.text();
     let d = null; try { d = t ? JSON.parse(t) : null; } catch (e) {}
     if (!r.ok) { const err = new Error((d && (d.message || d.error_description || d.error)) || ("Nuvio a répondu " + r.status)); err.status = r.status; throw err; }
     return d;
   };
   // Appel avec la session ; jeton expiré : on le renouvelle une fois (refresh_token), comme l'appli.
-  const appelCompte = async (rpc, corps) => {
-    try { return await appel("/rest/v1/rpc/" + rpc, corps, memo.acces); }
+  const appelCompte = async (chemin, corps) => {
+    try { return await appel(chemin, corps, memo.acces); }
     catch (e) {
       if (e.status !== 401 || !memo.renouv) throw e;
       const t = await appel("/auth/v1/token?grant_type=refresh_token", { refresh_token: memo.renouv });
       memo.acces = t.access_token; memo.renouv = t.refresh_token || memo.renouv; garder(memo);
-      return appel("/rest/v1/rpc/" + rpc, corps, memo.acces);
+      return appel(chemin, corps, memo.acces);
     }
   };
+  const rpc = (nom, corps) => appelCompte("/rest/v1/rpc/" + nom, corps || {});
   const hasard = () => { const a = new Uint8Array(24); crypto.getRandomValues(a); return Array.from(a, (x) => x.toString(16).padStart(2, "0")).join(""); };
 
   const montrer = (quoi) => { $("b-connexion").hidden = quoi !== "connexion"; $("b-code").hidden = quoi !== "code"; $("b-compte").hidden = quoi !== "compte"; };
   const profils = async () => {
-    const liste = await appelCompte("sync_pull_profiles").catch(() => null);
+    const liste = await rpc("sync_pull_profiles").catch(() => null);
     const sel = $("profil"); sel.textContent = "";
     const rangs = Array.isArray(liste) && liste.length ? liste : [{ profile_index: 1, name: "Profil principal" }];
     for (const pr of rangs.sort((a, b) => a.profile_index - b.profile_index)) {
       const o = document.createElement("option"); o.value = pr.profile_index; o.textContent = pr.name || ("Profil " + pr.profile_index);
+      // Un profil qui prend les addons du profil principal : ses addons sont rangés sous le profil 1 (AddonSyncService).
+      o.dataset.addons = pr.profile_index !== 1 && pr.uses_primary_addons ? "1" : String(pr.profile_index);
       if (String(pr.profile_index) === String(memo.profil || 1)) o.selected = true;
       sel.append(o);
     }
@@ -185,28 +236,65 @@ ${scripts("outils.js")}
   });
   $("annuler").addEventListener("click", () => { clearTimeout(attente); montrer("connexion"); etat(""); });
 
+  const lireJson = (u) => fetch(u).then((r) => r.ok ? r.json() : r.json().then((d) => { throw new Error((d && d.error) || ("réponse " + r.status)); }, () => { throw new Error("réponse " + r.status); }));
+  const bilan = (texte, ok) => { const li = document.createElement("li"); li.textContent = texte; if (!ok) li.className = "ko"; $("bilan").append(li); };
+
+  // Chaque partie à son tour : une qui échoue n'empêche pas les autres.
+  const envoiAddon = async (base, profil) => {
+    const lien = base + "/manifest.json";
+    await lireJson(lien);   // le lien répond (pas de lien cassé installé dans Nuvio)
+    const avant = await appelCompte("/rest/v1/addons?select=url,name,enabled,sort_order&profile_id=eq." + profil + "&order=sort_order.asc");
+    const liste = fusionAddons(avant, lien, location.origin);
+    await rpc("sync_push_addons", { p_addons: liste, p_profile_id: profil, p_origin_client_id: memo.client });
+    return "L'addon ✓ (" + (liste.length - 1 ? "avec tes " + (liste.length - 1) + " autres addons" : "seul") + ")";
+  };
+  const envoiCollections = async (base, profil) => {
+    const [nos, toutes] = await Promise.all([base + "/collections.json", location.origin + "/collections.json"].map(lireJson));
+    if (!Array.isArray(nos) || !nos.length) throw new Error("ton lien ne donne aucune collection.");
+    const distant = await rpc("sync_pull_collections", { p_profile_id: profil });
+    const avant = (Array.isArray(distant) && distant[0] && distant[0].collections_json) || [];
+    const liste = fusion(avant, nos, (Array.isArray(toutes) ? toutes : []).map((c) => c.id));
+    await rpc("sync_push_collections", { p_profile_id: profil, p_collections_json: liste, p_origin_client_id: memo.client });
+    const perso = liste.length - nos.length;
+    return "Les collections ✓ (" + nos.length + (perso ? ", et tes " + perso + " à toi gardées" : "") + ")";
+  };
+  const envoiAffiches = async (lien, profil) => {
+    // Un modèle que Nuvio remplit ({id}…), pas l'adresse d'une seule affiche.
+    if (!/[{]id[}]/.test(lien) || !LA.reglagesDuLien(lien)) throw new Error("ce n'est pas un lien d'affiches (celui de ton billet, avec {type}/{shape}/{id}).");
+    const distant = await rpc("sync_pull_profile_settings_blob", { p_profile_id: profil, p_platform: "tv" });
+    const reglages = avecAffiches(Array.isArray(distant) && distant[0] && distant[0].settings_json, lien);
+    if (!reglages) throw new Error("ta TV n'a pas encore envoyé ses réglages au compte : ouvre Nuvio sur la TV connectée à ce compte, puis réessaie (ou colle le lien à la main).");
+    await rpc("sync_push_profile_settings_blob", { p_profile_id: profil, p_settings_json: reglages, p_platform: "tv", p_origin_client_id: memo.client });
+    return "Les affiches sur la TV ✓";
+  };
+
   $("envoyer").addEventListener("click", async () => {
-    const b = $("envoyer"); b.disabled = true; etat("Envoi…");
-    try {
-      const adresse = collectionsDu($("lien").value);
-      memo.lien = $("lien").value.trim(); memo.profil = +$("profil").value; garder(memo);
-      const [nos, toutes] = await Promise.all([adresse, location.origin + "/collections.json"].map((u) =>
-        fetch(u).then((r) => r.ok ? r.json() : r.json().then((d) => { throw new Error((d && d.error) || ("réponse " + r.status)); }, () => { throw new Error("réponse " + r.status); }))));
-      if (!Array.isArray(nos) || !nos.length) throw new Error("ton lien ne donne aucune collection.");
-      const distant = await appelCompte("sync_pull_collections", { p_profile_id: memo.profil });
-      const avant = (Array.isArray(distant) && distant[0] && distant[0].collections_json) || [];
-      const liste = fusion(avant, nos, (Array.isArray(toutes) ? toutes : []).map((c) => c.id));
-      if (!memo.client) { memo.client = "site-" + hasard(); garder(memo); }
-      await appelCompte("sync_push_collections", { p_profile_id: memo.profil, p_collections_json: liste, p_origin_client_id: memo.client });
-      const perso = liste.length - nos.length;
-      etat("Envoyé ✓ " + nos.length + " collection(s)" + (perso ? ", et tes " + perso + " à toi gardées" : "") + ". Nuvio les affiche à sa prochaine ouverture.");
-    } catch (e) { etat("Envoi impossible : " + e.message, true); }
+    const b = $("envoyer"); b.disabled = true; etat("Envoi…"); $("bilan").textContent = "";
+    let base = "";
+    try { base = baseDu($("lien").value); } catch (e) { etat("Envoi impossible : " + e.message, true); b.disabled = false; return; }
+    const opt = $("profil").selectedOptions[0];
+    memo.lien = $("lien").value.trim(); memo.affiches = $("affiches").value.trim(); memo.profil = +$("profil").value;
+    if (!memo.client) memo.client = "site-" + hasard();
+    garder(memo);
+    const parties = [
+      ["e-addon", "L'addon", () => envoiAddon(base, +((opt && opt.dataset.addons) || memo.profil))],
+      ["e-coll", "Les collections", () => envoiCollections(base, memo.profil)],
+      ["e-aff", "Les affiches", () => envoiAffiches(memo.affiches, memo.profil)],
+    ];
+    let rates = 0, faits = 0;
+    for (const [id, nom, f] of parties) {
+      if (!$(id).checked) continue;
+      try { bilan(await f(), true); faits++; } catch (e) { bilan(nom + " : " + e.message, false); rates++; }
+    }
+    if (!faits && !rates) etat("Coche au moins une case.", true);
+    else if (rates) etat(faits ? "Envoyé en partie : voir ci-dessous." : "Envoi impossible : voir ci-dessous.", true);
+    else etat("Envoyé ✓ Nuvio le reprend tout seul (au pire, à sa prochaine ouverture).");
     b.disabled = false;
   });
 
   $("deconnecter").addEventListener("click", async () => {
     if (memo.acces) await appel("/auth/v1/logout", {}, memo.acces).catch(() => {});
-    memo = { lien: memo.lien }; garder(memo); montrer("connexion"); etat("Nuvio déconnecté de ce navigateur.");
+    memo = { lien: memo.lien, affiches: memo.affiches }; garder(memo); montrer("connexion"); etat("Nuvio déconnecté de ce navigateur.");
   });
 
   if (memo.renouv) connecte().catch(() => { montrer("connexion"); });

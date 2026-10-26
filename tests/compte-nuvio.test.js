@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fusionCollections, compteNuvioPage } from "../worker/compte-nuvio.js";
+import { fusionCollections, fusionAddons, avecAffiches, compteNuvioPage } from "../worker/compte-nuvio.js";
 
 test("fusion_garde_les_collections_perso", () => {
   // Nuvio remplace toute sa liste par celle du compte : celles de la personne restent, les nôtres sont remplacées.
@@ -14,6 +14,44 @@ test("fusion_garde_les_collections_perso", () => {
 test("fusion_compte_vide", () => {
   assert.deepEqual(fusionCollections(null, [{ id: "x" }], ["x"]), [{ id: "x" }]);
   assert.deepEqual(fusionCollections([], [{ id: "x" }], []), [{ id: "x" }]);
+});
+
+const O = "https://exemple.workers.dev";
+
+test("fusion_addons_remplace_le_notre_a_sa_place", () => {
+  // Nuvio remplace toute sa liste : les addons de la personne restent dans leur ordre, le nôtre prend le nouveau lien.
+  const distants = [
+    { url: "https://torrentio.strem.fun/manifest.json", sort_order: 1, enabled: true },
+    { url: O + "/ancien/manifest.json", sort_order: 0, enabled: false, name: "Catalogue FR" },
+    { url: "https://opensubtitles-v3.strem.io/manifest.json", sort_order: 2, enabled: false },
+    { url: O + "/doublon/manifest.json", sort_order: 3, enabled: true },
+  ];
+  assert.deepEqual(fusionAddons(distants, O + "/fNouveau/manifest.json", O), [
+    { url: O + "/fNouveau/manifest.json", sort_order: 0, enabled: true, name: "Catalogue FR" },
+    { url: "https://torrentio.strem.fun/manifest.json", sort_order: 1, enabled: true },
+    { url: "https://opensubtitles-v3.strem.io/manifest.json", sort_order: 2, enabled: false },
+  ]);
+});
+
+test("fusion_addons_sans_le_notre_en_tete", () => {
+  assert.deepEqual(fusionAddons([{ url: "https://torrentio.strem.fun/manifest.json", sort_order: 0, enabled: true }], O + "/manifest.json", O),
+    [{ url: O + "/manifest.json", sort_order: 0, enabled: true }, { url: "https://torrentio.strem.fun/manifest.json", sort_order: 1, enabled: true }]);
+  assert.deepEqual(fusionAddons(null, O + "/manifest.json", O), [{ url: O + "/manifest.json", sort_order: 0, enabled: true }]);
+});
+
+test("affiches_dans_les_reglages_tv", () => {
+  const lien = "https://affiches.exemple/maison/{type}/{shape}/{id}.jpg";
+  const avant = { version: 1, features: { theme_settings: { t: { type: "string", value: "x" } },
+    layout_settings: { poster_shape: { type: "string", value: "l" }, custom_poster_url_pattern: { type: "string", value: "ancien" } } } };
+  const apres = avecAffiches(avant, lien);
+  // Tout le reste est renvoyé tel quel : Nuvio efface chaque rubrique reçue avant de l'appliquer.
+  assert.deepEqual(apres.features.theme_settings, avant.features.theme_settings);
+  assert.deepEqual(apres.features.layout_settings.poster_shape, { type: "string", value: "l" });
+  assert.deepEqual(apres.features.layout_settings.custom_poster_url_pattern, { type: "string", value: lien });
+  assert.equal(avant.features.layout_settings.custom_poster_url_pattern.value, "ancien");   // pas modifié en place
+  // Pas de réglages TV dans le compte : rien (en créer effacerait ceux de la TV).
+  assert.equal(avecAffiches(null, lien), null);
+  assert.equal(avecAffiches({}, lien), null);
 });
 
 test("page_compte_nuvio_script_valide", () => {

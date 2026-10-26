@@ -1,0 +1,118 @@
+name: Tuiles vivantes (plateformes, genres, envies : chaque semaine)
+
+# Les tuiles des plateformes, des genres et des envies montrent les titres du moment : refaites chaque lundi et rangées sur la branche
+# « tuiles-vivantes », réécrite en entier à chaque fois (un seul commit, poussé en force). Rien ne s'accumule
+# dans l'historique de main, et les forks ne synchronisent pas cette branche.
+on:
+  schedule:
+    - cron: "0 5 * * 1"   # le lundi vers 7 h (heure de Paris en été)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: plateformes
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # Pas sur les forks : ils lisent les images de ce dépôt.
+    if: github.repository == 'xnzx07/nuvio-assets'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120   # 31 tuiles, chacune avec son animation et sa vidéo de fond
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      # Version fixe : une autre version de Pillow change les octets de toutes les images.
+      - run: pip install pillow==13.0.0
+      # ffmpeg (vidéos de fond) : présent sur les machines GitHub, installé sinon.
+      - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+      - name: Installer gifski
+        run: |
+          curl -sSfL -o gifski.tar.xz https://github.com/ImageOptim/gifski/releases/download/1.34.0/gifski-1.34.0.tar.xz
+          echo "b9b6591aa163123d737353d9c8581efdf3234d28eeaa45329b31da905cd5a996  gifski.tar.xz" | sha256sum -c -
+          tar -xJf gifski.tar.xz -C "$RUNNER_TEMP" linux/gifski
+          chmod +x "$RUNNER_TEMP/linux/gifski"
+          echo "GIFSKI=$RUNNER_TEMP/linux/gifski" >> "$GITHUB_ENV"
+          rm gifski.tar.xz
+      # Images de la semaine d'avant : une plateforme en panne garde les siennes.
+      - name: Reprendre les tuiles en ligne
+        run: |
+          mkdir -p "$RUNNER_TEMP/tuiles"
+          # Branche absente (toute première fois) : code 2. Toute autre erreur arrête tout : sinon une panne
+          # passagère ferait croire qu'il n'y a pas d'images d'avant.
+          set +e
+          git ls-remote --exit-code --heads origin tuiles-vivantes > /dev/null
+          found=$?
+          set -e
+          if [ "$found" = 0 ]; then
+            git fetch --depth 1 origin tuiles-vivantes
+            git archive FETCH_HEAD | tar -x -C "$RUNNER_TEMP/tuiles"
+          elif [ "$found" != 2 ]; then
+            exit "$found"
+          fi
+      - name: Dessiner les tuiles
+        id: dessin
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          set +e
+          python scripts/make_platform_tiles.py "$RUNNER_TEMP/tuiles"
+          code=$?
+          set -e
+          # 3 = une tuile gardée de la semaine d'avant ; 2 = une tuile nouvelle n'a pas pu être faite (grise) :
+          # on publie le reste quand même, puis l'échec est signalé. 1 (clé refusée) : rien n'est publié.
+          [ "$code" = 0 ] || [ "$code" = 2 ] || [ "$code" = 3 ] || exit "$code"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+      - name: Publier sur la branche tuiles-vivantes
+        working-directory: ${{ runner.temp }}/tuiles
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git init -q -b tuiles-vivantes
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A .
+          git commit -q -m "Tuiles vivantes du $(date -u +%Y-%m-%d)"
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" tuiles-vivantes
+      - name: Une tuile nouvelle est grise
+        if: steps.dessin.outputs.code == '2'
+        run: |
+          echo "::error::Une tuile sans images d'avant n'a pas pu être faite (voir « pas d'images pour » dans le journal)."
+          exit 1
+      # Une plateforme gardée de la semaine d'avant (code 3) : signalé, sinon elle pourrait rester vieille sans que
+      # personne le voie (fournisseur TMDB changé, plus assez d'affiches…).
+      - name: Signaler une plateforme gardée
+        if: steps.dessin.outputs.code == '3'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITRE: "Tuiles vivantes : images de la semaine d'avant gardées"
+          LIEN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          echo "::warning::Au moins une tuile garde ses images de la semaine d'avant : $LIEN"
+          num=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json number,title \
+                  --jq '.[] | select(.title == env.TITRE) | .number' | head -n 1)
+          if [ -n "$num" ]; then
+            gh issue comment "$num" --repo "$GITHUB_REPOSITORY" --body "Encore cette semaine : $LIEN"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITRE" --body "Voir le journal (lignes « gardées ») : $LIEN"
+          fi
+      - name: Signaler l'échec
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITRE: "Échec de « ${{ github.workflow }} »"
+          LIEN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Une seule issue ouverte par workflow : les échecs suivants s'y ajoutent en commentaire.
+          num=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json number,title \
+                  --jq '.[] | select(.title == env.TITRE) | .number' | head -n 1)
+          if [ -n "$num" ]; then
+            gh issue comment "$num" --repo "$GITHUB_REPOSITORY" --body "Nouvel échec : $LIEN"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITRE" --body "Le workflow a échoué : $LIEN"
+          fi

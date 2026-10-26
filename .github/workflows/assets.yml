@@ -5,7 +5,10 @@ on:
     branches: [main]
     paths:
       - "scripts/make_assets.py"
+      - "scripts/tuiles.py"
       - "assets.json"
+      - "data/sagas.json"
+      - "data/studios.json"
       - "fonts/**"
       - ".github/workflows/assets.yml"
   workflow_dispatch:
@@ -23,7 +26,7 @@ jobs:
     # Pas sur les forks : ils lisent les images de ce dépôt, et un commit de leur part bloquerait « Sync fork ».
     if: github.repository == 'xnzx07/nuvio-assets'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90   # sagas et studios : animations et vidéos de fond en 1080p
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -31,12 +34,23 @@ jobs:
           python-version: "3.12"
       # Version fixe : une autre version de Pillow change les octets de toutes les images, réécrites à chaque fois.
       - run: pip install pillow==13.0.0
+      # gifski (animations des sagas) : archive officielle, empreinte vérifiée.
+      - name: Installer gifski
+        run: |
+          curl -sSfL -o gifski.tar.xz https://github.com/ImageOptim/gifski/releases/download/1.34.0/gifski-1.34.0.tar.xz
+          echo "b9b6591aa163123d737353d9c8581efdf3234d28eeaa45329b31da905cd5a996  gifski.tar.xz" | sha256sum -c -
+          tar -xJf gifski.tar.xz -C "$RUNNER_TEMP" linux/gifski
+          chmod +x "$RUNNER_TEMP/linux/gifski"
+          echo "GIFSKI=$RUNNER_TEMP/linux/gifski" >> "$GITHUB_ENV"
+          rm gifski.tar.xz
+      # ffmpeg (vidéos de fond des sagas) : présent sur les machines GitHub, installé sinon.
+      - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
       - run: python scripts/make_assets.py
       - name: Enregistrer les images
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add genres seasons moods gifs logos titles
+          git add -A genres seasons moods sagas studios gifs logos titles
           git diff --cached --quiet || git commit -m "Met à jour les images des collections"
           # Un autre workflow a pu pousser entre-temps : trois essais.
           for essai in 1 2 3; do

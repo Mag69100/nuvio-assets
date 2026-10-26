@@ -2,8 +2,15 @@
 
 - genres/<slug>.jpg et seasons/<slug>.jpg : cartes 1280x720 (image + dégradé + titre)
 - gifs/<groupe>/<slug>.gif : animations jouées au survol (480x270)
-    * genres, saisons, sagas : un reflet lumineux traverse la carte
+    * genres, saisons : un reflet lumineux traverse la carte
     * plateformes, studios : vraies intros des marques, faites par scripts/make_intros.py
+- sagas/<slug>.jpg et gifs/sagas/<slug>.gif : les 8 thèmes de data/sagas.json (éventail d'affiches,
+  défilé), dessinés par scripts/tuiles.py ; GIF encodé par gifski (GIFSKI=chemin, sinon dans le PATH),
+  7 Mo au plus. titles/sagas/<slug>.png : nom du thème pour l'écran ouvert.
+  sagas/<slug>-fond.jpg et .mp4 : fond (mur incliné des affiches des films du thème) et sa vidéo de 8 s
+  (ffmpeg : FFMPEG=chemin, sinon dans le PATH), jouée une fois par Nuvio TV.
+- studios/<slug>.jpg, .gif, -fond.jpg, -fond.mp4 : les studios de data/studios.json (logo sur la couleur du
+  studio, ses 3 films les plus vus en éventail, arrivée ; fond : mur incliné de ses films).
 
 Usage : python scripts/make_assets.py [dossier_images_locales]
 Sans argument, les images sont téléchargées depuis TMDB.
@@ -24,9 +31,14 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 ROOT = Path(__file__).resolve().parent.parent
 FONT = ROOT / "fonts" / "BebasNeue-Regular.ttf"
 ASSETS = json.loads((ROOT / "assets.json").read_text(encoding="utf-8"))
+# Données des sagas et des studios (build_sagas.py, build_studios.py) : absentes, rien à dessiner (ce module est
+# aussi importé chaque nuit par update_addon.py, qui n'en a pas besoin).
+_data = lambda name: json.loads(p.read_text(encoding="utf-8")) if (p := ROOT / "data" / name).exists() else []
+SAGAS, STUDIOS = _data("sagas.json"), _data("studios.json")
 LOCAL: Path | None = None   # dossier d'images locales (tests), défini dans main()
 
 CARD = (1280, 720)
+HERO = (1920, 1080)  # fonds des sagas (heroBackdropUrl, heroVideoUrl)
 GIF = (480, 270)
 FRAMES = 36          # ~2,9 s par boucle
 FRAME_MS = 80
@@ -206,9 +218,11 @@ def main() -> None:
     for group in ("platforms", "studios"):
         for slug, _label, path in ASSETS[group]:
             hero_logo(slug, path, ROOT / "logos" / f"{slug}.png")
-    for group in ("genres", "seasons", "moods", "sagas"):
+    for group in ("genres", "seasons", "moods"):
         for slug, label, _path in ASSETS[group]:
             hero_title(label, ROOT / "titles" / group / f"{slug}.png")
+    for theme in SAGAS:
+        hero_title(theme["title"], ROOT / "titles" / "sagas" / f"{theme['slug']}.png")
     print("ok logos et titres")
     for group in ("genres", "seasons", "moods"):
         (ROOT / group).mkdir(exist_ok=True)
@@ -217,9 +231,38 @@ def main() -> None:
                 ROOT / group / f"{slug}.jpg", quality=88, optimize=True, progressive=True)
             sheen(titled(cover(fetch(path), *GIF), label), ROOT / "gifs" / group / f"{slug}.gif")
             print("ok", group, slug)
-    for slug, _label, path in ASSETS["sagas"]:
-        sheen(cover(fetch(path), *GIF), ROOT / "gifs" / "sagas" / f"{slug}.gif")
-        print("ok sagas", slug)
+    import tuiles   # ici : tuiles importe ce module
+    tuiles.ma.LOCAL = LOCAL
+    (ROOT / "sagas").mkdir(exist_ok=True)
+    for theme in SAGAS:
+        tuiles.saga_card(theme).save(ROOT / "sagas" / f"{theme['slug']}.jpg", quality=90, optimize=True, progressive=True)
+        n, size, steps = tuiles.saga_gif(theme, ROOT / "gifs" / "sagas" / f"{theme['slug']}.gif")
+        wall = tuiles.theme_wall_posters(theme)
+        still = tuiles.hero_still(wall, (0, 0, 0), HERO)
+        mp4 = ROOT / "sagas" / f"{theme['slug']}-fond.mp4"
+        # Fond inchangé : la vidéo non plus (une autre version de ffmpeg réécrirait 20 Mo de vidéos pour rien).
+        fond = ROOT / "sagas" / f"{theme['slug']}-fond.jpg"
+        if tuiles.save_if_changed(still, fond, quality=88, optimize=True, progressive=True) or not mp4.exists():
+            tuiles.encode_mp4(tuiles.hero_frames(wall, (0, 0, 0), HERO), HERO, mp4)
+        print(f"ok sagas {theme['slug']} : {size[0]}x{size[1]}, {steps} sagas, {n / 1e6:.1f} Mo ; fond {mp4.stat().st_size / 1e6:.1f} Mo")
+        tuiles.clear_caches()   # les affiches d'un thème ne servent plus : mémoire rendue
+    (ROOT / "studios").mkdir(exist_ok=True)
+    for studio in STUDIOS:
+        slug, (dark, brand) = studio["slug"], ASSETS["studio_tiles"][studio["slug"]]
+        dark, brand = tuple(dark), tuple(brand)
+        logo = Image.open(ROOT / "logos" / f"{slug}.png").convert("RGBA")   # déjà lisible sur fond sombre
+        tiles = studio["posters"][:3]
+        tuiles.save_if_changed(tuiles.platform_card(logo, dark, brand, tiles), ROOT / "studios" / f"{slug}.jpg",
+                               quality=90, optimize=True, progressive=True)
+        tuiles.fit_gif([(size, None) for size in tuiles.GIF_SIZES],
+                       lambda size, _: tuiles.platform_frames(logo, dark, brand, tiles, size), ROOT / "studios" / f"{slug}.gif")
+        mp4 = ROOT / "studios" / f"{slug}-fond.mp4"
+        fond = tuiles.hero_still(studio["posters"], dark, HERO)
+        if tuiles.save_if_changed(fond, ROOT / "studios" / f"{slug}-fond.jpg", quality=88, optimize=True, progressive=True) \
+                or not mp4.exists():
+            tuiles.encode_mp4(tuiles.hero_frames(studio["posters"], dark, HERO), HERO, mp4)
+        print(f"ok studios {slug} : {len(studio['posters'])} affiches")
+        tuiles.clear_caches()
 
 
 if __name__ == "__main__":

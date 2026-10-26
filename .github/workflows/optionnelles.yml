@@ -1,0 +1,141 @@
+name: Tuiles des collections facultatives
+
+# Les tuiles des collections facultatives (data/optionnelles.json) sont fixes : refaites seulement quand leur
+# contenu change, ou à la main. Rangées sur la branche « tuiles-optionnelles », réécrite en entier (un seul commit,
+# poussé en force) : rien dans l'historique de main, rien dans les forks. ~90 tuiles : 6 tâches en parallèle, puis
+# une tâche qui assemble et publie. « leger » : secours si GitHub ralentit ces adresses (mêmes adresses, plus légers).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "data/optionnelles.json"
+      - "scripts/make_optional_tiles.py"
+      - "scripts/tuiles.py"
+  workflow_dispatch:
+    inputs:
+      leger:
+        description: "Version légère (animation 480x270, fond fixe sans vidéo)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: optionnelles
+  cancel-in-progress: false
+
+jobs:
+  dessin:
+    # Pas sur les forks : ils lisent les images de ce dépôt.
+    if: github.repository == 'xnzx07/nuvio-assets'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false   # une partie en échec n'arrête pas les autres : on publie ce qui est fait
+      matrix:
+        part: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      # Version fixe : une autre version de Pillow change les octets de toutes les images.
+      - run: pip install pillow==13.0.0
+      - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+      - name: Installer gifski
+        run: |
+          curl -sSfL -o gifski.tar.xz https://github.com/ImageOptim/gifski/releases/download/1.34.0/gifski-1.34.0.tar.xz
+          echo "b9b6591aa163123d737353d9c8581efdf3234d28eeaa45329b31da905cd5a996  gifski.tar.xz" | sha256sum -c -
+          tar -xJf gifski.tar.xz -C "$RUNNER_TEMP" linux/gifski
+          chmod +x "$RUNNER_TEMP/linux/gifski"
+          echo "GIFSKI=$RUNNER_TEMP/linux/gifski" >> "$GITHUB_ENV"
+          rm gifski.tar.xz
+      # Images d'avant : une tuile qui ne peut pas être faite les reprend. Branche absente (toute première fois) :
+      # code 2 ; toute autre erreur arrête tout.
+      - name: Reprendre les tuiles en ligne
+        run: |
+          mkdir -p "$RUNNER_TEMP/avant"
+          set +e
+          git ls-remote --exit-code --heads origin tuiles-optionnelles > /dev/null
+          found=$?
+          set -e
+          if [ "$found" = 0 ]; then
+            git fetch --depth 1 origin tuiles-optionnelles
+            git archive FETCH_HEAD | tar -x -C "$RUNNER_TEMP/avant"
+          elif [ "$found" != 2 ]; then
+            exit "$found"
+          fi
+      - name: Dessiner la partie ${{ matrix.part }}
+        id: dessin
+        env:   # affiches fixes (data/optionnelles.json) : pas besoin de la clé TMDB ici
+          LEGER: ${{ inputs.leger && '--leger' || '' }}
+        run: |
+          set +e
+          python scripts/make_optional_tiles.py "$RUNNER_TEMP/partie" --part ${{ matrix.part }}/6 --avant "$RUNNER_TEMP/avant" $LEGER
+          code=$?
+          set -e
+          # 3 = une tuile reprise d'avant ; 2 = une tuile nouvelle n'a pas pu être faite (grise) : le reste est
+          # publié quand même, puis l'échec est signalé.
+          [ "$code" = 0 ] || [ "$code" = 2 ] || [ "$code" = 3 ] || exit "$code"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          [ "$code" != 3 ] || echo "::warning::Partie ${{ matrix.part }} : au moins une tuile reprise de la fois d'avant."
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: partie-${{ matrix.part }}
+          path: ${{ runner.temp }}/partie
+          retention-days: 1
+      - name: Une tuile nouvelle est grise
+        if: steps.dessin.outputs.code == '2'
+        run: |
+          echo "::error::Partie ${{ matrix.part }} : une tuile sans images d'avant n'a pas pu être faite."
+          exit 1
+
+  publier:
+    needs: dessin
+    # Même si une partie a signalé une tuile grise : on publie les autres (mais seulement si les 6 parties sont là).
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: partie-*
+          path: ${{ runner.temp }}/parties
+      - name: Publier sur la branche tuiles-optionnelles
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Une partie manquante (tâche plantée) : publier effacerait ses tuiles de la branche. On s'arrête.
+          n=$(ls -d "$RUNNER_TEMP"/parties/partie-* 2>/dev/null | wc -l)
+          [ "$n" = 6 ] || { echo "::error::$n parties sur 6 : rien n'est publié."; exit 1; }
+          mkdir -p "$RUNNER_TEMP/tuiles"
+          for d in "$RUNNER_TEMP"/parties/partie-*; do cp -r "$d"/. "$RUNNER_TEMP/tuiles/"; done
+          cd "$RUNNER_TEMP/tuiles"
+          git init -q -b tuiles-optionnelles
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A .
+          git commit -q -m "Tuiles des collections facultatives du $(date -u +%Y-%m-%d)"
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" tuiles-optionnelles
+
+  signaler:
+    needs: [dessin, publier]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Signaler l'échec
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITRE: "Échec de « ${{ github.workflow }} »"
+          LIEN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Une seule issue ouverte par workflow : les échecs suivants s'y ajoutent en commentaire.
+          num=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json number,title \
+                  --jq '.[] | select(.title == env.TITRE) | .number' | head -n 1)
+          if [ -n "$num" ]; then
+            gh issue comment "$num" --repo "$GITHUB_REPOSITORY" --body "Nouvel échec : $LIEN"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITRE" --body "Le workflow a échoué : $LIEN"
+          fi

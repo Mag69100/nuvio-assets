@@ -103,128 +103,6 @@
    "/90sDsHugeRU5dtTG3zEVIOXXl4L.jpg"
   ]
  ],
- "sagas": [
-  [
-   "saga-1241",
-   "Harry Potter",
-   "/xrOzCeeftRL2L4j7dFFTHYXUSQW.jpg"
-  ],
-  [
-   "saga-10",
-   "Star Wars",
-   "/itH1Wlzwf6yTNa7fVkYMVUwXlhR.jpg"
-  ],
-  [
-   "saga-119",
-   "Le Seigneur des anneaux",
-   "/1EmWSiZ38Z3UWeVNeDyriXhYvUE.jpg"
-  ],
-  [
-   "saga-121938",
-   "Le Hobbit",
-   "/abMnXtltJ1o7JHoMxMY026G0Aaa.jpg"
-  ],
-  [
-   "saga-86311",
-   "Avengers",
-   "/6Ho6Qg9DpSaOLr3OLgaHUYtlA6j.jpg"
-  ],
-  [
-   "saga-748",
-   "X-Men",
-   "/fHJv0TvTXOYx3Ndlrb9wvHCOTKZ.jpg"
-  ],
-  [
-   "saga-263",
-   "The Dark Knight",
-   "/l4ngTsBv2SEKwWRLyoVVdA6TUkx.jpg"
-  ],
-  [
-   "saga-9485",
-   "Fast & Furious",
-   "/abproxa0V1h7BZ2tcZpACkGc8LG.jpg"
-  ],
-  [
-   "saga-87359",
-   "Mission : Impossible",
-   "/j6Y1qjfoJcJ0S3ah9kifbI2bzq0.jpg"
-  ],
-  [
-   "saga-404609",
-   "John Wick",
-   "/3pn3z2ymVPomQPATBbjdMxICPfR.jpg"
-  ],
-  [
-   "saga-645",
-   "James Bond 007",
-   "/hhkQyyBfThplbHvc4PSrcgdViPI.jpg"
-  ],
-  [
-   "saga-295",
-   "Pirates des Caraïbes",
-   "/nHlpRHNLecVZ30GaaNHtBiz3TSr.jpg"
-  ],
-  [
-   "saga-328",
-   "Jurassic Park",
-   "/oWvK8xtf6a7hutdrGCyAbEx8jIk.jpg"
-  ],
-  [
-   "saga-84",
-   "Indiana Jones",
-   "/yJZCQBRMyuPT4J3NSDlZikxBjEA.jpg"
-  ],
-  [
-   "saga-264",
-   "Retour vers le futur",
-   "/48T2EQe93dguK2pPCMELoP9upVP.jpg"
-  ],
-  [
-   "saga-2344",
-   "Matrix",
-   "/fj37PDPrFHRopa72KyhkYggzMgv.jpg"
-  ],
-  [
-   "saga-131635",
-   "Hunger Games",
-   "/vLxlGijhwlM0R1LFfAT6jC1rKDt.jpg"
-  ],
-  [
-   "saga-8650",
-   "Transformers",
-   "/v3ppmiMhozPIejkg99B5WPetSj.jpg"
-  ],
-  [
-   "saga-1709",
-   "La Planète des singes",
-   "/63q3Igwdbdxj4AvBgakAEH6iURV.jpg"
-  ],
-  [
-   "saga-2980",
-   "S.O.S. Fantômes",
-   "/tV6ESBQp9bzUZU3swuYYsA94SCR.jpg"
-  ],
-  [
-   "saga-313086",
-   "Conjuring",
-   "/jr5Ks5ZgKYf0JncBWj7ZVY3xJ4U.jpg"
-  ],
-  [
-   "saga-10194",
-   "Toy Story",
-   "/evFUMr5F8Qq1nHUSYnhsHyIWoCp.jpg"
-  ],
-  [
-   "saga-2150",
-   "Shrek",
-   "/9TVbQKKXZ3lKcanUh5TESnlVszT.jpg"
-  ],
-  [
-   "saga-86066",
-   "Moi, moche et méchant",
-   "/eVdlgg69kmnDmnZP2hyAKE6GuJH.jpg"
-  ]
- ],
  "platforms": [
   [
    "netflix",
@@ -380,5 +258,273 @@
    "De l'adrénaline",
    "/AaV1YIdWKnjAIAOe8UUKBFm327v.jpg"
   ]
- ]
+ ],
+ "platform_tiles": [
+  [
+   "netflix",
+   "8",
+   [
+    20,
+    0,
+    0
+   ],
+   [
+    229,
+    9,
+    20
+   ],
+   "213"
+  ],
+  [
+   "prime-video",
+   "119",
+   [
+    10,
+    22,
+    34
+   ],
+   [
+    0,
+    120,
+    190
+   ],
+   "1024"
+  ],
+  [
+   "paramount-plus",
+   "531",
+   [
+    0,
+    10,
+    40
+   ],
+   [
+    0,
+    100,
+    255
+   ],
+   "4330"
+  ],
+  [
+   "disney-plus",
+   "337",
+   [
+    4,
+    10,
+    50
+   ],
+   [
+    18,
+    90,
+    200
+   ],
+   "2739"
+  ],
+  [
+   "hbo-max",
+   "1899",
+   [
+    12,
+    4,
+    40
+   ],
+   [
+    110,
+    40,
+    220
+   ],
+   "49|3186"
+  ],
+  [
+   "apple-tv-plus",
+   "350",
+   [
+    8,
+    8,
+    8
+   ],
+   [
+    70,
+    70,
+    75
+   ],
+   "2552"
+  ],
+  [
+   "canal-plus",
+   "381",
+   [
+    8,
+    8,
+    8
+   ],
+   [
+    60,
+    60,
+    60
+   ],
+   "285"
+  ],
+  [
+   "crunchyroll",
+   "283",
+   [
+    30,
+    10,
+    0
+   ],
+   [
+    244,
+    117,
+    33
+   ],
+   ""
+  ]
+ ],
+ "studio_tiles": {
+  "studio-33": [
+   [
+    5,
+    10,
+    25
+   ],
+   [
+    40,
+    80,
+    160
+   ]
+  ],
+  "studio-1": [
+   [
+    10,
+    10,
+    10
+   ],
+   [
+    90,
+    90,
+    90
+   ]
+  ],
+  "studio-41077": [
+   [
+    10,
+    10,
+    10
+   ],
+   [
+    80,
+    80,
+    80
+   ]
+  ],
+  "studio-3172": [
+   [
+    10,
+    0,
+    0
+   ],
+   [
+    120,
+    10,
+    10
+   ]
+  ],
+  "studio-3": [
+   [
+    0,
+    10,
+    30
+   ],
+   [
+    20,
+    110,
+    200
+   ]
+  ],
+  "studio-6125": [
+   [
+    5,
+    10,
+    40
+   ],
+   [
+    30,
+    80,
+    190
+   ]
+  ],
+  "studio-521": [
+   [
+    0,
+    10,
+    30
+   ],
+   [
+    40,
+    120,
+    200
+   ]
+  ],
+  "studio-6704": [
+   [
+    25,
+    18,
+    0
+   ],
+   [
+    230,
+    170,
+    0
+   ]
+  ],
+  "studio-10342": [
+   [
+    0,
+    15,
+    30
+   ],
+   [
+    60,
+    140,
+    200
+   ]
+  ],
+  "marvel-studios": [
+   [
+    25,
+    0,
+    0
+   ],
+   [
+    200,
+    20,
+    30
+   ]
+  ],
+  "warner-bros": [
+   [
+    5,
+    10,
+    30
+   ],
+   [
+    30,
+    80,
+    170
+   ]
+  ],
+  "dc-comics": [
+   [
+    0,
+    10,
+    35
+   ],
+   [
+    20,
+    90,
+    210
+   ]
+  ]
+ }
 }

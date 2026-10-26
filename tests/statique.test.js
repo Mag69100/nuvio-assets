@@ -100,6 +100,6 @@ test("fichiers_du_site_en_fichiers_statiques", async () => {
   assert.ok(noms.some((n) => n.startsWith("polices/") && n.endsWith(".woff2")));
   for (const n of noms) assert.ok(contenuStatique(n) !== undefined, n);
   const toml = (await import("node:fs")).readFileSync(new URL("../wrangler.toml", import.meta.url), "utf8");
-  assert.match(toml, /\[build\]\ncommand = "node worker\/construire\/statiques\.mjs"/);
-  assert.match(toml, /\[assets\]\ndirectory = "\.statique-site"/);
+  assert.match(toml, /\[build\]\r?\ncommand = "node worker\/construire\/statiques\.mjs"/);
+  assert.match(toml, /\[assets\]\r?\ndirectory = "\.statique-site"/);
 });

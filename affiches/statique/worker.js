@@ -14,7 +14,8 @@ const STYLES = new Set(__STYLES__);
 const DEJA_EN_FILE = new Map(), OUBLI_MS = 10 * 60000;
 // Le serveur dessine une affiche en moins d'une seconde ; Torrentio peut le faire attendre un peu plus.
 const ATTENTE_MS = 8000;
-const ADRESSE = /^\/([a-z]+)\/(movie|series)\/(poster|landscape)\/(tt\d{1,10}|tmdb:\d{1,10})\.jpg$/;
+// Un style tout prêt, ou des réglages perso (/perso/<code>[-<code du paysage>]/, vérifiés par le serveur).
+const ADRESSE = /^\/(?:([a-z]+)|perso\/([0-9A-Za-z]{1,600})(?:-([0-9A-Za-z]{1,600}))?)\/(movie|series)\/(poster|landscape)\/(tt\d{1,10}|tmdb:\d{1,10})\.jpg$/;
 const CORS = { "Access-Control-Allow-Origin": "*" };
 
 const absente = () => new Response(null, { status: 503, headers: { ...CORS, "Retry-After": "600", "Cache-Control": "no-store" } });
@@ -37,7 +38,7 @@ export default {
     let chemin = url.pathname;
     try { chemin = decodeURIComponent(chemin); } catch { return new Response("introuvable", { status: 404 }); }
     const m = ADRESSE.exec(chemin);
-    if (!m || !STYLES.has(m[1])) return new Response("introuvable", { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
+    if (!m || (m[1] ? !STYLES.has(m[1]) : !m[2])) return new Response("introuvable", { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
     const dessinee = await duServeur(env, chemin);
     if (dessinee) return dessinee;
     const now = Date.now();

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { STYLES, parametresDuStyle } from "../lib/styles.js";
 import { lireReglages, lireReglagesPaysage, ecrireReglages } from "../lib/lien-affiches.js";
+import { cheminValable } from "../lib/statiques.js";
 
 test("styles_le_style_signature_est_garde_tel_quel", () => {
   assert.equal(STYLES.signature.s, "coD1faild1Wc0a10b02do3b13c13e11he1ia3f23h13i13j1");
@@ -53,16 +54,35 @@ test("statique_affiche_absente_mise_en_file", async () => {
   assert.equal(ecrits[1].v[0], "/maison/series/landscape/tt0903747.jpg");
 });
 
+// Réglages perso : /perso/<code>[-<code du paysage>]/, codes canoniques seulement (un même dessin, une seule adresse).
+test("statique_adresses_perso", () => {
+  assert.deepEqual(cheminValable("/perso/T0/movie/poster/tt1.jpg"), { s: "T0", sp: null, type: "movie", shape: "poster", id: "tt1" });
+  assert.deepEqual(cheminValable("/perso/T0-S0T0G0A0/series/landscape/tmdb:2.jpg"), { s: "T0", sp: "S0T0G0A0", type: "series", shape: "landscape", id: "tmdb:2" });
+  assert.deepEqual(cheminValable("/perso/0-T0/movie/landscape/tt1.jpg"), { s: "", sp: "T0", type: "movie", shape: "landscape", id: "tt1" });
+  assert.equal(cheminValable("/maison/movie/poster/tt1.jpg").style, "maison");
+  for (const c of ["/perso/Q0T0/movie/poster/tt1.jpg", "/perso/T0x/movie/poster/tt1.jpg", "/perso/T0-T0/movie/poster/tt1.jpg", "/perso//movie/poster/tt1.jpg", "/perso/T0-/movie/poster/tt1.jpg", "/perso/T0-S0-T0/movie/poster/tt1.jpg"]) {
+    assert.equal(cheminValable(c), null, c);
+  }
+});
+
+test("statique_affiche_perso_absente_mise_en_file", async () => {
+  const w = await worker(), { ecrits, env } = base(), attentes = [];
+  const ctx = { waitUntil: (p) => attentes.push(p) };
+  assert.equal((await w.fetch(new Request("https://a.test/perso/T0-S0T0G0A0/movie/poster/tt1.jpg"), env, ctx)).status, 503);
+  await Promise.all(attentes);
+  assert.equal(ecrits[0].v[0], "/perso/T0-S0T0G0A0/movie/poster/tt1.jpg");
+});
+
 test("statique_adresses_refusees", async () => {
   const w = await worker(), { ecrits, env } = base(), ctx = { waitUntil: () => {} };
-  for (const p of ["/inconnu/movie/poster/tt1.jpg", "/maison/movie/poster/kitsu:1.jpg", "/maison/film/poster/tt1.jpg", "/maison/movie/poster/tt1.png", "/", "/maison/movie/poster/%E0%A4%A.jpg"]) {
+  for (const p of ["/inconnu/movie/poster/tt1.jpg", "/maison/movie/poster/kitsu:1.jpg", "/maison/film/poster/tt1.jpg", "/maison/movie/poster/tt1.png", "/", "/maison/movie/poster/%E0%A4%A.jpg", "/perso//movie/poster/tt1.jpg", "/perso/T0_/movie/poster/tt1.jpg"]) {
     assert.equal((await w.fetch(new Request("https://a.test" + p), env, ctx)).status, 404, p);
   }
   assert.equal(ecrits.length, 0);
 });
 
 // L'ancienne adresse (Vercel, ?s=…) renvoie vers le même style en fichiers statiques, sans lancer de fonction : un
-// style tout prêt vers son dossier, tout le reste (aucun réglage, réglage perso) vers « maison ».
+// style tout prêt vers son dossier, un réglage perso vers /perso/<code>[-<code du paysage>]/, rien vers « maison ».
 test("vercel_renvoie_chaque_style_vers_les_fichiers", () => {
   const v = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8"));
   assert.ok(!v.rewrites.some((r) => r.destination.startsWith("/api/affiche")), "plus de dessin chez Vercel");
@@ -75,6 +95,8 @@ test("vercel_renvoie_chaque_style_vers_les_fichiers", () => {
     assert.equal(reg.destination, `https://affiches.xnzxflix.workers.dev/${nom}/:type/:shape/:id.jpg`);
     assert.equal(reg.permanent, false);
   }
+  const perso = r.filter((x) => x.destination.includes("/perso/")).map((x) => x.destination.replace("https://affiches.xnzxflix.workers.dev", ""));
+  assert.deepEqual(perso, ["/perso/:s-:sp/:type/:shape/:id.jpg", "/perso/0-:sp/:type/:shape/:id.jpg", "/perso/:s/:type/:shape/:id.jpg"]);
   const dernier = r[r.length - 1];
   assert.ok(!dernier.has);
   assert.match(dernier.destination, /\/maison\/:type\/:shape\/:id\.jpg$/);

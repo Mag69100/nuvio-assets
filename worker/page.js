@@ -408,7 +408,7 @@ ${copy ? HOTE_HTML : ""}
         <div class="regie-memoires" id="regie-memoires" role="group" aria-label="Styles tout prêts">
           <button type="button" data-memoire="maison" aria-label="Style Maison"><img alt=""><span>Maison</span></button><button type="button" data-memoire="essentiel" aria-label="Style Essentiel"><img alt=""><span>Essentiel</span></button><button type="button" data-memoire="noteSeule" aria-label="Style Note seule"><img alt=""><span>Note seule</span></button><button type="button" data-memoire="cine" aria-label="Style Ciné"><img alt=""><span>Ciné</span></button><button type="button" data-memoire="postersPlus" aria-label="Style Posters+"><img alt=""><span>Posters+</span></button><button type="button" data-memoire="plateforme" aria-label="Style Plateforme"><img alt=""><span>Plateforme</span></button><button type="button" data-memoire="signature" aria-label="Style Signature"><img alt=""><span>Signature</span></button>
         </div>
-        <p class="regie-perso" id="regie-perso" hidden>Réglages perso : seuls les styles tout prêts sont servis, ton lien donne le style Maison. Choisis un style pour avoir le sien.</p>
+        <p class="regie-perso" id="regie-perso" hidden>Réglages perso : ton lien est à toi (il est long, copie-le avec le bouton ou le QR code). La première affiche de chaque titre met une à deux secondes, ensuite elle est instantanée.</p>
         <p class="regie-cible" id="regie-cible" hidden>Tu règles les images en paysage.</p>
         <div class="regie-onglets" id="regie-onglets" role="tablist" aria-label="Réglages par partie de l'affiche">
           <button type="button" role="tab" id="onglet-haut" data-onglet="haut" aria-selected="true" aria-controls="regie-voies">Haut</button><button type="button" role="tab" id="onglet-titre" data-onglet="titre" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Titre</button><button type="button" role="tab" id="onglet-infos" data-onglet="infos" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Infos</button><button type="button" role="tab" id="onglet-image" data-onglet="image" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Image</button><button type="button" role="tab" id="onglet-couleurs" data-onglet="couleurs" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Couleurs</button><button type="button" role="tab" id="onglet-paysage" data-onglet="paysage" aria-selected="false" aria-controls="regie-voies" tabindex="-1">Paysage</button>
@@ -1489,7 +1489,7 @@ function lienAffichesMaj() {
   const m = LA.memoireDe(NV.reglages.affiches), servi = LA.dossierDe(NV.reglages.affiches, NV.reglages.affichesPaysage);
   $("aff-resume").innerHTML = "";
   if (servi) $("aff-resume").append("Style en cours : ", el("b", { text: NOMS_MEMOIRES[m] }), ".");
-  else $("aff-resume").append("Réglages perso : pas servis, ton lien donne le style ", el("b", { text: "Maison" }), ". Choisis un style tout prêt dans la régie.");
+  else $("aff-resume").append("Style en cours : ", el("b", { text: "perso" }), NV.reglages.affichesPaysage ? " (paysage à part)." : ".");
   regieQr();
 }
 

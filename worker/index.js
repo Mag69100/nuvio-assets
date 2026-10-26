@@ -61,7 +61,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.32";
+const VERSION = "5.38.33";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -1118,9 +1118,11 @@ async function photoTendances(env, kind) {
  * donnent, en portrait ou en paysage (Signature a le sien), sinon « maison ».
  */
 function dossierApercu(forme, s) {
-  if (forme !== "landscape") return dossierDe(lireReglages(new URLSearchParams(s ? { s: "1." + s } : {})), null) || "maison";
+  // Réglages perso : leur dossier (le paysage s'y dessine avec ces réglages-là, comme un portrait sans paysage à part).
+  const perso = s ? `perso/${s}` : "maison";
+  if (forme !== "landscape") return dossierDe(lireReglages(new URLSearchParams(s ? { s: "1." + s } : {})), null) || perso;
   const m = Object.keys(MEMOIRES).find((k) => ecrireReglages(MEMOIRES_PAYSAGE[k] || MEMOIRES[k]) === s && dossierDe(MEMOIRES[k], MEMOIRES_PAYSAGE[k] || null));
-  return m ? dossierDe(MEMOIRES[m], MEMOIRES_PAYSAGE[m] || null) : "maison";
+  return m ? dossierDe(MEMOIRES[m], MEMOIRES_PAYSAGE[m] || null) : perso;
 }
 
 /** Titres rangés dans l'ordre de la photo ; ceux qu'elle n'a pas, à la suite, dans leur ordre. */

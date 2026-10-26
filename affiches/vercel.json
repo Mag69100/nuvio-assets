@@ -10,6 +10,9 @@
     { "source": "/:type(movie|series)/:shape(poster|landscape)/:id.jpg", "has": [{ "type": "query", "key": "s", "value": "1.HvypJ1R1M1corv" }], "destination": "https://affiches.xnzxflix.workers.dev/postersplus/:type/:shape/:id.jpg", "permanent": false },
     { "source": "/:type(movie|series)/:shape(poster|landscape)/:id.jpg", "has": [{ "type": "query", "key": "s", "value": "1.ebD1P1" }], "destination": "https://affiches.xnzxflix.workers.dev/plateforme/:type/:shape/:id.jpg", "permanent": false },
     { "source": "/:type(movie|series)/:shape(poster|landscape)/:id.jpg", "has": [{ "type": "query", "key": "s", "value": "1.coD1faild1Wc0a10b02do3b13c13e11he1ia3f23h13i13j1" }], "destination": "https://affiches.xnzxflix.workers.dev/signature/:type/:shape/:id.jpg", "permanent": false },
+    { "source": "/:type(movie|series)/:shape(poster|landscape)/:id.jpg", "has": [{ "type": "query", "key": "s", "value": "1\\.(?<s>[0-9A-Za-z]{2,600})" }, { "type": "query", "key": "sp", "value": "1\\.(?<sp>[0-9A-Za-z]{2,600})" }], "destination": "https://affiches.xnzxflix.workers.dev/perso/:s-:sp/:type/:shape/:id.jpg", "permanent": false },
+    { "source": "/:type(movie|series)/:shape(poster|landscape)/:id.jpg", "has": [{ "type": "query", "key": "sp", "value": "1\\.(?<sp>[0-9A-Za-z]{2,600})" }], "destination": "https://affiches.xnzxflix.workers.dev/perso/0-:sp/:type/:shape/:id.jpg", "permanent": false },
+    { "source": "/:type(movie|series)/:shape(poster|landscape)/:id.jpg", "has": [{ "type": "query", "key": "s", "value": "1\\.(?<s>[0-9A-Za-z]{2,600})" }], "destination": "https://affiches.xnzxflix.workers.dev/perso/:s/:type/:shape/:id.jpg", "permanent": false },
     { "source": "/:type(movie|series)/:shape(poster|landscape)/:id.jpg", "destination": "https://affiches.xnzxflix.workers.dev/maison/:type/:shape/:id.jpg", "permanent": false }
   ],
   "rewrites": [

@@ -57,7 +57,7 @@ export function creerServeur({ env = process.env, fetchImpl = fetch, horloge = D
   async function route(req) {
     const url = new URL(req.url, BASE);
     const p = url.pathname;
-    const st = /^\/statique(\/[a-z]+\/(?:movie|series)\/(?:poster|landscape)\/[^/]+\.jpg)$/.exec(p);
+    const st = /^\/statique(\/(?:[a-z]+|perso\/[0-9A-Za-z-]{1,1300})\/(?:movie|series)\/(?:poster|landscape)\/[^/]+\.jpg)$/.exec(p);
     if (st) {
       if (!cleOk(req)) return new Response(null, { status: 403 });
       let chemin;

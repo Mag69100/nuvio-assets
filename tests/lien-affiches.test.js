@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { DEFAUT_REGLAGES, MEMOIRES, MEMOIRES_PAYSAGE, lireReglages, lireReglagesPaysage, ecrireReglages, lienAffiches, dossierDe, memoireDe } from "../worker/lien-affiches.js";
+import { DEFAUT_REGLAGES, MEMOIRES, MEMOIRES_PAYSAGE, lireReglages, lireReglagesPaysage, ecrireReglages, lienAffiches, dossierDe, memoireDe, reglagesDuLien } from "../worker/lien-affiches.js";
 
 const DEFAUT_LIEN = "https://affiches.xnzxflix.workers.dev/maison/{type}/{shape}/{id}.jpg";
 // L'ancien lien (Vercel, réglages dans s et sp) : encore importable dans la régie.
@@ -171,13 +171,28 @@ test("memoires", () => {
   assert.equal(memoireDe(perso), null);
 });
 
-// Un dossier par style tout prêt (fichiers statiques) ; un réglage perso n'est pas servi, son lien donne « maison ».
+// Un dossier par style tout prêt (fichiers statiques) ; un réglage perso a le sien, /perso/<code>[-<code du paysage>]/.
 test("lien_avec_reglages", () => {
   assert.equal(lienAffiches(MEMOIRES.essentiel), "https://affiches.xnzxflix.workers.dev/essentiel/{type}/{shape}/{id}.jpg");
   assert.equal(lienAffiches(MEMOIRES.noteSeule), "https://affiches.xnzxflix.workers.dev/note/{type}/{shape}/{id}.jpg");
   assert.equal(lienAffiches(MEMOIRES.signature, MEMOIRES_PAYSAGE.signature), "https://affiches.xnzxflix.workers.dev/signature/{type}/{shape}/{id}.jpg");
-  assert.equal(lienAffiches(lire("s=1.T0")), DEFAUT_LIEN);
-  assert.equal(lienAffiches(MEMOIRES.nue), DEFAUT_LIEN);
+  assert.equal(lienAffiches(lire("s=1.T0")), "https://affiches.xnzxflix.workers.dev/perso/T0/{type}/{shape}/{id}.jpg");
+  // Paysage à part : son code après un tiret ; portrait par défaut : « 0 ».
+  assert.equal(lienAffiches(lire("s=1.T0"), lire("s=1.S0T0G0A0")), "https://affiches.xnzxflix.workers.dev/perso/T0-S0T0G0A0/{type}/{shape}/{id}.jpg");
+  assert.equal(lienAffiches(DEFAUT_REGLAGES, lire("s=1.T0")), "https://affiches.xnzxflix.workers.dev/perso/0-T0/{type}/{shape}/{id}.jpg");
+  // Paysage identique au portrait : pas de tiret.
+  assert.equal(lienAffiches(lire("s=1.T0"), lire("s=1.T0")), "https://affiches.xnzxflix.workers.dev/perso/T0/{type}/{shape}/{id}.jpg");
+  // Tout éteint (l'ancien style « Nue », plus dans la régie) : un réglage perso comme un autre.
+  assert.equal(lienAffiches(MEMOIRES.nue), "https://affiches.xnzxflix.workers.dev/perso/S0T0Q0L0B0/{type}/{shape}/{id}.jpg");
+});
+
+// Un lien perso collé dans la régie redonne ses réglages.
+test("lien_perso_relu", () => {
+  for (const [r, rp] of [[lire("s=1.T0"), null], [lire("s=1.T0"), lire("s=1.S0T0G0A0")], [DEFAUT_REGLAGES, lire("s=1.T0")]]) {
+    const lu = reglagesDuLien(lienAffiches(r, rp));
+    assert.equal(ecrireReglages(lu.r), ecrireReglages(r));
+    assert.equal(lu.rp && ecrireReglages(lu.rp), rp && ecrireReglages(rp));
+  }
 });
 
 // Vercel ne déploie que affiches/, Docker que worker/ : le module existe en deux copies, toujours identiques.

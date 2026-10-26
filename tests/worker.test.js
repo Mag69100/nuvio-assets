@@ -466,7 +466,7 @@ test("tendances_du_jour_dans_l_ordre_tmdb_meme_avec_les_films_a_venir", async ()
 
 // /affiche (aperçus du site, Plan B Stremio) : relaie l'affiche maison de Vercel, options comprises,
 // sans jamais envoyer la clé TMDB du worker.
-// Sans le serveur des affiches : l'affiche toute faite du style des réglages ; un réglage perso (T0Q0) donne « maison ».
+// Sans le serveur des affiches : l'affiche toute faite du style des réglages ; un réglage perso (T0Q0), son dossier perso.
 test("affiche_relaie_le_service_maison", async () => {
   const { AFFICHES_STATIQUES } = await import("../worker/reglages.js");
   globalThis.fetch = async (url) => {
@@ -476,7 +476,7 @@ test("affiche_relaie_le_service_maison", async () => {
   const res = await get("/affiche/movie/poster/tt15239678?s=1.Q0T0");
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("Content-Type"), "image/jpeg");
-  assert.equal(calls[0], `${AFFICHES_STATIQUES}/maison/movie/poster/tt15239678.jpg`);
+  assert.equal(calls[0], `${AFFICHES_STATIQUES}/perso/T0Q0/movie/poster/tt15239678.jpg`);
   assert.ok(!calls[0].includes("api_key") && !calls[0].includes("tmdb_key"));
 });
 

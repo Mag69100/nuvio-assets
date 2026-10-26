@@ -201,8 +201,8 @@ export function creerLienAffiches() {
   const MEMOIRES_PAYSAGE = Object.freeze({
     signature: geler(lireReglages(new URLSearchParams({ s: "1.coD1xqfaild1Wc0a10b02do3b13c13e11ia3f23h13i13j1" }))),
   });
-  // Les affiches sont servies en fichiers tout faits (Worker « affiches » de Cloudflare), un dossier par style tout prêt :
-  // un réglage perso n'a pas le sien. « nue » non plus : rien à dessiner, c'est Nuvio sans adresse d'affiches.
+  // Les affiches sont servies en fichiers tout faits (Worker « affiches » de Cloudflare), un dossier par style tout prêt ;
+  // un réglage perso a le sien, /perso/<code>/ (dessiné à la demande par le serveur des affiches).
   const STATIQUES = "https://affiches.xnzxflix.workers.dev";
   const DOSSIERS = Object.freeze({ maison: "maison", essentiel: "essentiel", noteSeule: "note", cine: "cine", postersPlus: "postersplus", plateforme: "plateforme", signature: "signature" });
 
@@ -265,10 +265,15 @@ export function creerLienAffiches() {
 
   /**
    * Le lien à coller dans Nuvio (Paramètres → Disposition → Custom Poster Source) : celui du style tout prêt de ces
-   * réglages ; un réglage perso n'est pas servi, son lien donne « maison ».
+   * réglages, sinon /perso/<code>/ : les codes du portrait et, s'il a ses propres réglages, du paysage après un tiret
+   * (« 0 » : le portrait par défaut ; un code n'a jamais un seul caractère). Les fichiers statiques ignorent « ?… ».
    */
   function lienAffiches(r, rp) {
-    return `${STATIQUES}/${dossierDe(r, rp) || "maison"}/{type}/{shape}/{id}.jpg`;
+    const d = dossierDe(r, rp);
+    if (d) return `${STATIQUES}/${d}/{type}/{shape}/{id}.jpg`;
+    const s = ecrireReglages(r || DEFAUT_REGLAGES), sp = rp ? ecrireReglages(rp) : s;
+    if (!s && sp === s) return `${STATIQUES}/maison/{type}/{shape}/{id}.jpg`;
+    return `${STATIQUES}/perso/${s || "0"}${sp !== s ? "-" + (sp || "0") : ""}/{type}/{shape}/{id}.jpg`;
   }
 
   /**
@@ -284,6 +289,10 @@ export function creerLienAffiches() {
     const d = /\/([a-z]+)\/(?:\{type\}|movie|series)\//.exec(t);
     const m = d && Object.keys(DOSSIERS).find((k) => DOSSIERS[k] === d[1]);
     if (m) return { r: copie(MEMOIRES[m]), rp: MEMOIRES_PAYSAGE[m] ? copie(MEMOIRES_PAYSAGE[m]) : null };
+    // Lien perso (…/perso/<code>[-<code du paysage>]/…) : ses réglages.
+    const p = /\/perso\/([0-9A-Za-z]+)(?:-([0-9A-Za-z]+))?\//.exec(t);
+    const code = (x) => lireReglages(new URLSearchParams(x && x !== "0" ? { s: "1." + x } : {}));
+    if (p) return { r: code(p[1]), rp: p[2] ? code(p[2]) : null };
     const params = new URLSearchParams(t.includes("?") ? t.slice(t.indexOf("?") + 1) : "");
     return { r: lireReglages(params), rp: params.has("sp") ? lireReglagesPaysage(params) : null };
   }

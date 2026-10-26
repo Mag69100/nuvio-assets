@@ -10,10 +10,24 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { STYLES, parametresDuStyle } from "./styles.js";
+import { lireReglages, ecrireReglages } from "./lien-affiches.js";
 
-export const ADRESSE = /^\/([a-z]+)\/(movie|series)\/(poster|landscape)\/(tt\d{1,10}|tmdb:\d{1,10})\.jpg$/;
-/** Un chemin d'affiche d'un style connu, ou null. */
-export const cheminValable = (c) => { const m = ADRESSE.exec(c || ""); return m && STYLES[m[1]] ? m : null; };
+// Un style tout prêt (/maison/…), ou des réglages perso (/perso/<code>[-<code du paysage>]/…, les codes du lien de la
+// régie ; « 0 » : le portrait par défaut).
+export const ADRESSE = /^\/(?:([a-z]+)|perso\/([0-9A-Za-z]{1,600})(?:-([0-9A-Za-z]{1,600}))?)\/(movie|series)\/(poster|landscape)\/(tt\d{1,10}|tmdb:\d{1,10})\.jpg$/;
+const canonique = (x) => x === "0" || ecrireReglages(lireReglages(new URLSearchParams({ s: "1." + x }))) === x;
+/**
+ * Une adresse d'affiche valable : { style, type, shape, id } (style tout prêt) ou { s, sp, type, shape, id } (codes
+ * perso, seulement sous leur forme canonique : sinon deux adresses pour un même dessin), ou null.
+ */
+export function cheminValable(c) {
+  const m = ADRESSE.exec(c || "");
+  if (!m) return null;
+  const [, style, s, sp, type, shape, id] = m;
+  if (style) return STYLES[style] ? { style, type, shape, id } : null;
+  if (!canonique(s) || (sp !== undefined && (!canonique(sp) || sp === s))) return null;
+  return { s: s === "0" ? "" : s, sp: sp === undefined ? null : sp === "0" ? "" : sp, type, shape, id };
+}
 // Offre gratuite : 20 000 fichiers par version du Worker (dont _headers). Au-delà, les plus anciens partent ; une
 // affiche retirée et redemandée revient par la file.
 export const FICHIERS_MAX = 19000;
@@ -141,10 +155,11 @@ export function creerCloudflare({ jeton, compte, base, worker = "affiches", fetc
  * { jpg, retard } ou { statut } (404 : titre inconnu ; autre : à réessayer).
  */
 export async function dessinerStatique(affiche, base, chemin) {
-  const m = cheminValable(chemin);
-  if (!m) return { statut: 404 };
-  const [, style, type, shape, id] = m;
-  let p = parametresDuStyle(style);
+  const a = cheminValable(chemin);
+  if (!a) return { statut: 404 };
+  const { type, shape, id } = a;
+  let p = a.style ? parametresDuStyle(a.style) : new URLSearchParams();
+  if (!a.style) { if (a.s) p.set("s", "1." + a.s); if (a.sp !== null) p.set("sp", "1." + a.sp); }
   // Le service renvoie (308) vers l'adresse canonique de ces réglages : on la suit, deux fois au plus.
   for (let i = 0; i < 3; i++) {
     p.set("type", type); p.set("shape", shape); p.set("id", id);

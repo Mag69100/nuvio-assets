@@ -98,11 +98,14 @@ export function creerServeur({ env = process.env, fetchImpl = fetch, horloge = D
   });
 
   /** Publie ce qui attend, et prend la file (tout : redessine aussi tout ce qui est en ligne). */
-  let occupe = false, connu = null;
+  let occupe = false, connu = null, prete = false;
+  // Tables et index : au démarrage, et redemandés au passage suivant tant que la base les refuse (bloquée pour la journée).
+  const preparer = () => (prete ? Promise.resolve() : cf.preparer().then(() => { prete = true; }));
   async function passage({ tout = false } = {}) {
     if (!cf || occupe) return;
     occupe = true;
     try {
+      await preparer();
       // La liste des fichiers en ligne : lue une fois, puis tenue à jour ici (relue chaque nuit, avec tout).
       const { parChemin, aFaire } = await lireEtat(cf, { tout, connu: tout ? null : connu });
       connu = parChemin;
@@ -148,7 +151,7 @@ export function creerServeur({ env = process.env, fetchImpl = fetch, horloge = D
           .then(() => { etat.liaisonsPosees = true; console.log(`Worker relié : ${env.SERVEUR_URL}`); })
           .catch((e) => console.error(`liaison du Worker : ${e.message}`));
       }
-      cf.preparer().then(() => cf.signaler("serveur")).catch((e) => console.error(`base : ${e.message}`));
+      preparer().then(() => cf.signaler("serveur")).catch((e) => console.error(`base : ${e.message}`));
       minuteries.push(setInterval(() => cf.signaler("serveur").catch(() => {}), 60000));
       // Toutes les 3 minutes ce qui attend, et la file un tour sur cinq. Une fois par jour après 4 h 17 UTC (la photo des
       // tendances est prise à 4 h) : tout, pour les N° et statuts du jour ; retenté au tour suivant si occupé.

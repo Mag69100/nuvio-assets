@@ -31,6 +31,8 @@ export function cheminValable(c) {
 // Offre gratuite : 20 000 fichiers par version du Worker (dont _headers). Au-delà, les plus anciens partent ; une
 // affiche retirée et redemandée revient par la file.
 export const FICHIERS_MAX = 19000;
+// Un titre inconnu de TMDB est essayé trois jours de suite, puis sort de la file.
+const INCONNUE_ESSAIS = 3;
 // Une heure dans Nuvio, puis revérifiée par son ETag (304 si rien n'a changé) : les N° et statuts du jour suivent.
 export const ENTETES = "/*\n  Access-Control-Allow-Origin: *\n  Cache-Control: public, max-age=3600, stale-while-revalidate=86400\n";
 
@@ -66,6 +68,8 @@ export function creerCloudflare({ jeton, compte, base, worker = "affiches", fetc
     sql, ecrire,
     async preparer() {
       await sql("CREATE TABLE IF NOT EXISTS demandes (chemin TEXT PRIMARY KEY, vu TEXT NOT NULL, essais INTEGER NOT NULL DEFAULT 0, apres TEXT)");
+      // La file se lit par apres (lireEtat) : sans index, chaque passage relisait toute la table (26 octobre 2026).
+      await sql("CREATE INDEX IF NOT EXISTS demandes_apres ON demandes (apres)");
       await sql("CREATE TABLE IF NOT EXISTS fichiers (chemin TEXT PRIMARY KEY, hash TEXT NOT NULL, taille INTEGER NOT NULL, dessine TEXT NOT NULL, cree TEXT NOT NULL)");
       await sql("CREATE TABLE IF NOT EXISTS verrou (nom TEXT PRIMARY KEY, jusqua TEXT NOT NULL)");
       await sql("CREATE TABLE IF NOT EXISTS etat (nom TEXT PRIMARY KEY, vu TEXT NOT NULL)");
@@ -194,8 +198,9 @@ export async function dessinerTout(liste, dessiner, parChemin, { enMemeTemps = 4
         // Torrentio trop lent : publiée sans badge de qualité, et redessinée au prochain passage.
         if (r.retard) { bilan.retard++; reessais.push([chemin, (essais || 0) + 1, 10]); } else if (essais !== null) faits.push(chemin);
       } else if (essais !== null) {
-        // Titre inconnu : redemandé dans un jour seulement (Nuvio redemande l'affiche à chaque passage sur la carte).
-        if (r.statut === 404) { bilan.inconnues++; reessais.push([chemin, essais + 1, 24 * 60]); } else { bilan.ratees++; reessais.push([chemin, essais + 1, Math.min(24 * 60, 10 * 2 ** essais)]); }
+        // Titre inconnu : redemandé dans un jour seulement (Nuvio redemande l'affiche à chaque passage sur la carte) ;
+        // au troisième jour, il sort de la file (il y reviendra si Nuvio le redemande).
+        if (r.statut === 404) { bilan.inconnues++; if (essais + 1 >= INCONNUE_ESSAIS) faits.push(chemin); else reessais.push([chemin, essais + 1, 24 * 60]); } else { bilan.ratees++; reessais.push([chemin, essais + 1, Math.min(24 * 60, 10 * 2 ** essais)]); }
       } else bilan.ratees++;
     }
   }
@@ -244,9 +249,16 @@ export async function publierEtEnregistrer(cf, parChemin, nouveaux, { faits = []
  */
 export async function lireEtat(cf, { tout = false, max = 3000, connu = null } = {}) {
   const maintenant = new Date().toISOString();
-  const file = await cf.sql("SELECT chemin, essais FROM demandes WHERE apres IS NULL OR apres <= ? ORDER BY vu LIMIT ?", [maintenant, max]);
+  // Deux lectures par l'index sur apres (un OR le contournerait) : seules les lignes à prendre sont lues, pas celles
+  // remises à plus tard (titres inconnus, redemandés dans un jour).
+  const nouvelles = await cf.sql("SELECT chemin, essais FROM demandes WHERE apres IS NULL ORDER BY vu LIMIT ?", [max]);
+  const file = nouvelles.length >= max ? nouvelles
+    : [...nouvelles, ...await cf.sql("SELECT chemin, essais FROM demandes WHERE apres <= ? ORDER BY apres LIMIT ?", [maintenant, max - nouvelles.length])];
   // File pleine : des adresses au hasard (robot), pas des cartes de Nuvio ; on ne garde que les plus récentes.
   if (file.length >= max) await cf.sql("DELETE FROM demandes WHERE chemin NOT IN (SELECT chemin FROM demandes ORDER BY vu DESC LIMIT ?)", [max]);
+  // Une adresse qui ne se dessinera jamais (réglages perso pas sous leur forme canonique) sort de la file tout de suite.
+  const invalides = file.filter((d) => !cheminValable(d.chemin)).map((d) => d.chemin);
+  for (let j = 0; j < invalides.length; j += 200) await cf.sql(`DELETE FROM demandes WHERE chemin IN (${invalides.slice(j, j + 200).map(texte).join(", ")})`);
   const enLigne = connu ? [...connu.values()] : await cf.sql("SELECT chemin, hash, taille, cree FROM fichiers");
   const parChemin = connu || new Map(enLigne.map((f) => [f.chemin, f]));
   const aFaire = new Map(file.filter((d) => cheminValable(d.chemin)).map((d) => [d.chemin, d.essais]));

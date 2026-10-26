@@ -186,3 +186,28 @@ test("serveur_lit_la_qualite_chez_le_relais_americain", async () => {
   assert.deepEqual(await r.json(), { "movie/tt7777777": { vf: true, sources: 3, langue: "multi" } });
   assert.deepEqual(appels, [["https://relais.test/qualite/movie/tt7777777.json?v=3", "k"]]);
 });
+
+// La file se lit par l'index sur apres, sans OR (qui relisait toute la table à chaque passage, 26 octobre 2026) ; une
+// adresse qui ne se dessinera jamais en sort aussitôt.
+test("file_lue_par_index", async () => {
+  const { lireEtat } = await import("../lib/statiques.js");
+  const lus = [];
+  const cf = { sql: async (s) => {
+    lus.push(s);
+    if (/apres IS NULL/.test(s)) return [{ chemin: "/maison/movie/poster/tt1.jpg", essais: 0 }, { chemin: "/perso/zz/movie/poster/tt2.jpg", essais: 0 }];
+    if (/apres <= \?/.test(s)) return [{ chemin: "/note/series/poster/tt3.jpg", essais: 2 }];
+    return [];
+  } };
+  const { aFaire } = await lireEtat(cf, { connu: new Map() });
+  assert.deepEqual([...aFaire], [["/maison/movie/poster/tt1.jpg", 0], ["/note/series/poster/tt3.jpg", 2]]);
+  assert.ok(lus.every((s) => !/ OR /.test(s)));
+  assert.ok(lus.some((s) => s.startsWith("DELETE FROM demandes WHERE chemin IN ('/perso/zz/movie/poster/tt2.jpg')")));
+});
+
+// Titre inconnu : redemandé le lendemain, et au troisième essai il sort de la file.
+test("inconnue_sort_de_la_file", async () => {
+  const { dessinerTout } = await import("../lib/statiques.js");
+  const r = await dessinerTout([["/maison/movie/poster/tt1.jpg", 0], ["/maison/movie/poster/tt2.jpg", 2]], async () => ({ statut: 404 }), new Map());
+  assert.deepEqual(r.reessais, [["/maison/movie/poster/tt1.jpg", 1, 24 * 60]]);
+  assert.deepEqual(r.faits, ["/maison/movie/poster/tt2.jpg"]);
+});

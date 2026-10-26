@@ -938,7 +938,7 @@ test("fiche_vo_avec_date_connue", async () => {
   };
   const m = (await (await get("/meta/movie/tmdb:8003.json")).json()).meta;
   assert.equal((m.description || "").split("\n")[0], "📅 Aucune date.");
-  assert.equal(m.releaseInfo, `${jour(-60).slice(0, 4)} · Aucune date`);
+  assert.equal(m.releaseInfo, jour(-60).slice(0, 4));   // la dispo dans le résumé seulement
 });
 
 // The Weight : en numérique aux États-Unis il y a 2 jours, sources sans VF (sous-titres français). Les dates

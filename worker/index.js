@@ -61,11 +61,11 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.30";
+const VERSION = "5.38.31";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
-const CACHE_V = 13;
+const CACHE_V = 14;
 const PAGE = 20;                    // taille d'une page TMDB = taille d'une page de l'addon
 const AI_MAX = 20;                  // 1re page d'une recherche par IA (sagas entières comprises)
 const OBSCUR_VOTES = 100;           // recherche : en dessous, un titre trouvé mot à mot ne suffit pas, Gemini est consulté
@@ -988,8 +988,9 @@ async function toMetas(env, ctx, results, kind, opts, today) {
       logo: infos[i].logo,
       description: [note ? `${kind === "movie" ? "📅" : "📺"} ${note}${note.endsWith(".") ? "" : "."}` : "", it.overview || ""].filter(Boolean).join("\n") || undefined,
       // Séries : l'épisode de la semaine seulement dans le résumé (le hero affiche aussi cette ligne :
-      // il apparaissait deux fois, et coupé ici).
-      releaseInfo: [date.slice(0, 4), kind === "movie" ? note : ""].filter(Boolean).join(" · ") || undefined,
+      // il apparaissait deux fois, et coupé ici). Films : l'année seule aussi (« 2003 · Déjà dispo » sous les cartes,
+      // coupé) ; la dispo reste dans le résumé.
+      releaseInfo: date.slice(0, 4) || undefined,
       released: shownDate ? `${shownDate}T00:00:00.000Z` : undefined,
       genres: (it.genre_ids || []).map((g) => GENRE_NAMES[g]).filter(Boolean).slice(0, 3),
       imdbRating: imdbRating(ids[i]),   // vraie note IMDb (rien si IMDb n'en a pas assez)
@@ -2041,7 +2042,8 @@ async function meta(env, kind, id, cfg, today, ctx, opts = {}) {
     background: backdrop ? `${IMG}w1920${backdrop.file_path}` : d.backdrop_path ? `${IMG}w1920${d.backdrop_path}` : undefined,
     logo: logo ? `${IMG}w500${logo.file_path.replace(/\.svg$/, ".png")}` : undefined,
     description: [note ? `${movie ? "📅" : "📺"} ${dot(note)}` : "", d.overview || ""].filter(Boolean).join("\n") || undefined,
-    releaseInfo: movie ? [date.slice(0, 4), note].filter(Boolean).join(" · ") || undefined
+    // Films : l'année seule, comme les cartes (la dispo est dans le résumé).
+    releaseInfo: movie ? date.slice(0, 4) || undefined
       : date ? `${date.slice(0, 4)}-${endYear}` : undefined,
     released: shownDate ? `${shownDate}T00:00:00.000Z` : undefined,
     // « En cours » entre deux saisons trompait (Crystal Lake, saison 1 finie) : « Entre deux saisons ».

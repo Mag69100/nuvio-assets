@@ -26,22 +26,31 @@ export function parseMdblist(d) {
   return out;
 }
 
-/** Les notes lues chez MDBList pour un « tt… », ou null (pas de clé, quota, panne). */
-export async function lireMdblist(env, imdb, fetchImpl = fetch) {
+/**
+ * Les notes lues chez MDBList pour un « tt… », ou null (pas de clé, quota, panne). L'API (api.mdblist.com ; l'ancienne
+ * adresse mdblist.com/api/ répond 503 depuis octobre 2026) veut le genre : un film (movie) ou une série (show), essayé
+ * d'abord d'après type (« series » : une série), puis l'autre si MDBList ne le trouve pas.
+ */
+export async function lireMdblist(env, imdb, fetchImpl = fetch, type = "movie") {
   if (!env.MDBLIST_API_KEY) return null;
   try {
-    const url = new URL("https://mdblist.com/api/");
-    url.searchParams.set("apikey", env.MDBLIST_API_KEY);
-    url.searchParams.set("i", imdb);
-    const res = await fetchImpl(url.toString(), { signal: AbortSignal.timeout(DELAI_MS) });
-    if (!res.ok) { console.warn(`MDBList ${res.status} pour ${imdb}`); return null; }
-    return parseMdblist(await res.json());
+    for (const genre of type === "series" ? ["show", "movie"] : ["movie", "show"]) {
+      const url = new URL(`https://api.mdblist.com/imdb/${genre}/${imdb}`);
+      url.searchParams.set("apikey", env.MDBLIST_API_KEY);
+      const res = await fetchImpl(url.toString(), { signal: AbortSignal.timeout(DELAI_MS) });
+      if (res.status === 404) continue;
+      if (!res.ok) { console.warn(`MDBList ${res.status} pour ${imdb}`); return null; }
+      const d = await res.json();
+      if (d && /not found/i.test(d.error || "")) continue;
+      return parseMdblist(d);
+    }
+    return { rt: null, mc: null, lb: null };
   } catch (e) { console.warn(`MDBList injoignable pour ${imdb} : ${e && e.message}`); return null; }
 }
 
-async function lireRelais(relais, imdb, fetchImpl, cle) {
+async function lireRelais(relais, imdb, fetchImpl, cle, type) {
   try {
-    const res = await fetchImpl(`${relais}/notes/${imdb}.json`, { headers: enteteRelais(cle), signal: AbortSignal.timeout(DELAI_MS + 500) });
+    const res = await fetchImpl(`${relais}/notes/${imdb}.json${type === "series" ? "?type=series" : ""}`, { headers: enteteRelais(cle), signal: AbortSignal.timeout(DELAI_MS + 500) });
     if (!res.ok) return null;
     const d = await res.json();
     const nombre = (v) => (typeof v === "number" && v > 0 ? v : null);
@@ -54,11 +63,11 @@ async function lireRelais(relais, imdb, fetchImpl, cle) {
  * Les notes d'un titre par le relais du service, gardées un jour en mémoire de l'instance (un échec : une heure).
  * cle : RELAIS_KEY, envoyée au relais (lib/relais.js).
  */
-export function notesPlus(imdb, fetchImpl = fetch, relais, cle = null) {
+export function notesPlus(imdb, fetchImpl = fetch, relais, cle = null, type = "movie") {
   if (!/^tt\d{1,10}$/.test(imdb || "")) return Promise.resolve(null);
   const now = Date.now(), hit = memo.get(imdb);
   if (hit && now < hit.until) return hit.promesse;
-  const entry = { promesse: lireRelais(relais, imdb, fetchImpl, cle), until: now + GARDE_MS };
+  const entry = { promesse: lireRelais(relais, imdb, fetchImpl, cle, type), until: now + GARDE_MS };
   memo.delete(imdb);
   memo.set(imdb, entry);
   while (memo.size > MAX_MEMO) memo.delete(memo.keys().next().value);

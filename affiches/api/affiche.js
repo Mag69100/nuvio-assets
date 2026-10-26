@@ -260,7 +260,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
         noteImdb && facts.imdbId ? chrono.mesure("imdb", lireNoteImdb(facts.imdbId, fetchImpl, ATTENTE_NOTES_MS)) : { note: undefined, manque: false },
         tendance || lireSources ? chrono.mesure("tendances", lireRang(env, type, facts.tmdbId, fetchImpl, relais).catch(() => ({ rang: null, illisible: true, vf: null, qualite: null }))) : { rang: null, illisible: false, vf: null, qualite: null },
         lireSources ? chrono.mesure("qualite", qualiteATemps(type, facts, fetchImpl, env.QUALITE_RELAIS || relais, env.RELAIS_KEY, request.headers.get("X-Apercu") === "1" ? ATTENTE_APERCU_MS : ATTENTE_QUALITE_MS, env.STREAMFUSION !== "off")) : { enRetard: false, quality: null },
-        notesUtiles && facts.imdbId ? chrono.mesure("notes", notesPlus(facts.imdbId, fetchImpl, relais, env.RELAIS_KEY)) : undefined,
+        notesUtiles && facts.imdbId ? chrono.mesure("notes", notesPlus(facts.imdbId, fetchImpl, relais, env.RELAIS_KEY, type)) : undefined,
         sagaVoulue ? chrono.mesure("saga", filmsDeLaSaga(env, facts.collection, fetchImpl)) : null,
         saisonVoulue ? chrono.mesure("saison", lireSaison(env, fetchImpl)) : null,
         malVoulue && !notesCachees ? chrono.mesure("mal", noteMal(env, type, facts.tmdbId, fetchImpl)) : null,

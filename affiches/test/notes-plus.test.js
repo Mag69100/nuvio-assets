@@ -23,8 +23,13 @@ test("lire_mdblist", async () => {
   const f = async (u) => { calls.push(String(u)); return json(MDB); };
   assert.deepEqual(await lireMdblist({ MDBLIST_API_KEY: "cle" }, "tt15239678", f), { rt: 94, mc: 81, lb: 4.1 });
   const u = new URL(calls[0]);
-  assert.equal(u.origin + u.pathname, "https://mdblist.com/api/");
-  assert.equal(u.searchParams.get("i"), "tt15239678");
+  assert.equal(u.origin + u.pathname, "https://api.mdblist.com/imdb/movie/tt15239678");
+  assert.equal(u.searchParams.get("apikey"), "cle");
+  // Une série : d'abord « show » ; pas trouvée dans ce genre, l'autre.
+  const g = [];
+  const h = async (x) => { g.push(new URL(String(x)).pathname); return g.length === 1 ? json({ error: "Item not found" }, 404) : json(MDB); };
+  assert.deepEqual(await lireMdblist({ MDBLIST_API_KEY: "cle" }, "tt12343534", h, "series"), { rt: 94, mc: 81, lb: 4.1 });
+  assert.deepEqual(g, ["/imdb/show/tt12343534", "/imdb/movie/tt12343534"]);
   // Sans clé : rien demandé ; quota épuisé ou panne : null.
   assert.equal(await lireMdblist({}, "tt15239678", f), null);
   assert.equal(calls.length, 1);

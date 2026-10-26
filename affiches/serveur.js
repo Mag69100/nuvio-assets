@@ -82,7 +82,7 @@ export function creerServeur({ env = process.env, fetchImpl = fetch, horloge = D
     if (t) return relais.tendances(new Request(`${BASE}/api/tendances?type=${t[1]}`, { headers: enTetes }));
     const qa = /^\/qualite\/(movie|series)\/([^/]+)\.json$/.exec(p);
     if (qa) return relais.qualite(new Request(`${BASE}/api/qualite?type=${qa[1]}&video=${encodeURIComponent(decodeURIComponent(qa[2]))}${url.search ? "&" + url.search.slice(1) : ""}`, { headers: enTetes }));
-    if (/^\/notes\/tt\d{1,10}\.json$/.test(p)) return relais.notes(new Request(`${BASE}/api/notes?imdb=${p.slice(7, -5)}`, { headers: enTetes }));
+    if (/^\/notes\/tt\d{1,10}\.json$/.test(p)) return relais.notes(new Request(`${BASE}/api/notes?imdb=${p.slice(7, -5)}${url.searchParams.get("type") === "series" ? "&type=series" : ""}`, { headers: enTetes }));
     if (p === "/vf.json") return relais.vf(new Request(`${BASE}/api/vf${url.search}`, { headers: enTetes }));
     if (p === "/anilist.json") return relais.anilist(new Request(`${BASE}/api/anilist${url.search}`, { headers: enTetes }));
     if (p === "/etat") return Response.json({ ...etat, enAttente: enAttente.size, memoire: Math.round(process.memoryUsage().rss / 1e6) }, { headers: { "Cache-Control": "no-store" } });

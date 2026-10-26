@@ -8,7 +8,7 @@ import { relaisRefuse, refusRelais } from "../lib/relais.js";
 
 export function makeNotes({ fetchImpl = fetch, env = process.env } = {}) {
   return async function GET(request) {
-    const imdb = new URL(request.url).searchParams.get("imdb") || "";
+    const q = new URL(request.url).searchParams, imdb = q.get("imdb") || "";
     if (!/^tt\d{1,10}$/.test(imdb)) {
       return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" } });
     }
@@ -17,7 +17,7 @@ export function makeNotes({ fetchImpl = fetch, env = process.env } = {}) {
       return new Response(JSON.stringify({ rt: null, mc: null, lb: null }), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=3600", "Vercel-CDN-Cache-Control": "max-age=3600" } });
     }
     if (relaisRefuse(request, env)) return refusRelais();
-    const notes = await lireMdblist(env, imdb, fetchImpl);
+    const notes = await lireMdblist(env, imdb, fetchImpl, q.get("type") === "series" ? "series" : "movie");
     // Panne ou quota : { erreur: true } gardé une heure, pour qu'une rafale de demandes ne vide pas le quota (le CDN
     // de Vercel ne garde jamais une 503, même avec Vercel-CDN-Cache-Control).
     if (!notes) {

@@ -284,10 +284,11 @@ ${copy ? "" : `        <p class="sub">Le lien partagé sature ? <a href="${origi
 ${copy ? HOTE_HTML : ""}
       <section class="act" id="s-mode">
         <header><span>Mode d'emploi</span><h2>Installer sur ta TV sans rien taper</h2></header>
+        <p class="sub"><b>Le plus simple, avec un compte Nuvio</b> : « Tout envoyer dans Nuvio » sur ton billet. L'addon, les collections et les affiches arrivent sur la TV, rien à coller. Sans compte Nuvio :</p>
         <ol class="steps-howto">
           <li><span><b>Sur la TV</b>, dans Nuvio : Addons → <b>Gérer depuis le téléphone</b>. Un QR code s'affiche.</span></li>
           <li><span><b>Scanne-le avec ton téléphone</b>, connecté au même Wi-Fi que la TV.</span></li>
-          <li><span><b>Colle les liens de ton billet</b> : l'addon dans l'onglet Addons, les collections avec « Copier le contenu (PC/TEL) », puis le bouton presse-papiers en haut à droite de l'onglet Collections, et les affiches dans Paramètres → Disposition → Custom Poster Source.</span></li>
+          <li><span><b>Colle les liens de ton billet</b> (« Installer à la main ») : l'addon dans l'onglet Addons, les collections avec « Copier le contenu (PC/TEL) », puis le bouton presse-papiers en haut à droite de l'onglet Collections, et les affiches dans Paramètres → Disposition → Custom Poster Source.</span></li>
           <li><span><b>Mets Nuvio en français</b> : langue de l'appli et langue TMDB (Paramètres → Intégrations → TMDB).</span></li>
         </ol>
         <p class="sub">Nuvio est sur ton téléphone, ta tablette ou ton ordinateur ? Pas besoin de QR code : colle directement le lien d'addon de ton billet dans l'onglet Addons. Pour les collections, « Copier le contenu (PC/TEL) » copie tout le contenu de leur lien : dans Nuvio, onglet Collections, appuie sur le bouton presse-papiers en haut à droite, sur téléphone comme sur ordinateur.</p>
@@ -325,8 +326,11 @@ ${copy ? HOTE_HTML : ""}
           <div class="t-meta"><span><b id="t-rows"></b> rangées</span><span><b id="t-prov"></b> plateformes</span><span><b id="t-coll"></b> collections</span><span id="t-extra"></span></div>
           <div class="compte-nuvio">
             <a class="btn solid full" id="compte-nuvio" href="/compte-nuvio" target="_blank" rel="noopener">Tout envoyer dans Nuvio</a>
-            <p>Avec un compte Nuvio : l'addon, les collections et les affiches (TV) arrivent tout seuls. Sinon, colle les liens ci-dessous.</p>
+            <p>Avec un compte Nuvio : l'addon, les collections et les affiches (TV) arrivent tout seuls, rien à coller.</p>
           </div>
+          <details class="a-la-main" id="a-la-main">
+          <summary>Installer à la main, sans compte Nuvio</summary>
+          <div class="a-la-main-corps">
           <div class="t-label">Addon · Addons → Ajouter un addon</div>
           <div class="t-url" id="u-manifest"></div>
           <div class="t-btns">
@@ -347,6 +351,8 @@ ${copy ? HOTE_HTML : ""}
           <div class="t-label">Affiches · Paramètres → Disposition → Custom Poster Source</div>
           <div class="t-url" id="u-affiches">${POSTER_URL.replace(/&/g, "&amp;")}</div>
           <div class="t-btns"><button type="button" class="btn solid full" id="copy-affiches">Copier</button></div>
+          </div>
+          </details>
           <div class="t-btns">
             <button type="button" class="btn line" id="qr-btn" aria-expanded="false" aria-controls="qr">Continuer sur le téléphone</button>
             <button type="button" class="btn line" id="share-btn">Offrir ce billet</button>
@@ -584,6 +590,9 @@ aside.long .stage:not(.big) { position: sticky; top: var(--stage-top, 18px); }
 /* Lien fixe : un encart pointillé dans le billet, sous le lien de l'addon. */
 .compte-nuvio { display: grid; gap: 6px; }
 .compte-nuvio p { margin: 0; font: 600 .78rem/1.45 var(--body); color: #7a5a4c; }
+/* Les liens à coller, repliés : « Tout envoyer dans Nuvio » les remplace pour qui a un compte Nuvio. */
+.a-la-main summary { cursor: pointer; font: 800 .82rem var(--body); color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.a-la-main-corps { display: grid; gap: 10px; margin-top: 12px; }
 .fixe { display: grid; gap: 8px; padding: 10px 12px; border: 2px dashed rgba(42,26,20,.3); border-radius: 10px; }
 .fixe p { margin: 0; font: 600 .82rem/1.45 var(--body); color: #4a2e24; }
 .fixe p b { color: var(--ink); }
@@ -2396,7 +2405,8 @@ $("reset").addEventListener("click", () => {
 function fixesLus() { try { return JSON.parse(localStorage.getItem("liens-fixes") || "{}") || {}; } catch (e) { return {}; } }
 function fixeGarde(id, modif) { try { const f = fixesLus(); f[id] = modif; localStorage.setItem("liens-fixes", JSON.stringify(f)); } catch (e) {} }
 function lienModif() { return D.origin + "/" + fixe.id + "/configure#modif=" + fixe.modif; }
-function fixeErreur(msg) { $("fixe-err").textContent = msg || ""; }
+// Une erreur du lien fixe ne reste pas cachée dans les liens repliés.
+function fixeErreur(msg) { $("fixe-err").textContent = msg || ""; if (msg) $("a-la-main").open = true; }
 let saveT = 0, envoi = Promise.resolve(), etatFixe = "", envoiN = 0, partiN = 0, directN = 0;
 // Réglage pas encore confirmé par le serveur, gardé dans l'onglet : rafraîchie juste après un changement,
 // la page est redemandée avant que l'envoi (pagehide) n'arrive, et montrerait l'ancien réglage.

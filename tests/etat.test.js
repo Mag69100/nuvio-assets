@@ -21,6 +21,7 @@ beforeEach(() => {
     const u = String(url);
     calls.push((init.method || "GET") + " " + u);
     if (u.includes("/3/configuration")) return panne.tmdb ? new Response("non", { status: 503 }) : new Response(JSON.stringify({ images: {} }));
+    if (u === "https://serveur.test/etat") return panne.serveur ? new Response("non", { status: 502 }) : new Response(JSON.stringify({ dessinees: 3, enAttente: 0, dernierePublication: new Date().toISOString(), erreur: null }));
     if (u.endsWith("/movie/poster/tt0111161.jpg")) return panne.affiches ? new Response("non", { status: 502 }) : new Response(new Uint8Array([1]), { headers: { "Content-Type": "image/jpeg" } });
     if (u.endsWith("/collections/collections.json")) return new Response(JSON.stringify([{ folders: [{ coverImageUrl: "https://raw.githubusercontent.com/a/b/tuile.png" }] }]));
     if (u.endsWith("/tuile.png")) return new Response(null, { status: panne.tuiles ? 404 : 200 });
@@ -37,13 +38,15 @@ const SELF = { fetch: async (req) => {
   return new Response(JSON.stringify({ metas: [{ id: "tt1" }, { id: "tt2" }] }));
 } };
 const ctx = { waitUntil: () => {} };
-const etat = async (env = { TMDB_API_KEY: "k", SELF, LIENS: { prepare: () => ({ first: async () => ({ 1: 1 }) }) } }) => (await worker.fetch(new Request("https://x.exemple/etat.json"), env, ctx)).json();
+const etat = async (env = { TMDB_API_KEY: "k", RELAIS_URL: "https://serveur.test", SELF, LIENS: { prepare: () => ({ first: async () => ({ 1: 1 }) }) } }) => (await worker.fetch(new Request("https://x.exemple/etat.json"), env, ctx)).json();
 
 test("etat_tout_vert", async () => {
   const b = await etat();
   assert.equal(b.global, "vert");
   assert.match(b.version, /^\d+\.\d+\.\d+$/);
-  assert.deepEqual(b.controles.map((c) => c.id), ["tmdb", "manifest", "rangee", "recherche", "affiches", "tuiles", "base"]);
+  assert.deepEqual(b.controles.map((c) => c.id), ["tmdb", "manifest", "rangee", "recherche", "affiches", "serveur", "tuiles", "base"]);
+  // L'adresse du serveur (un secret) n'apparaît jamais dans le bilan.
+  assert.doesNotMatch(JSON.stringify(b), /serveur\.test/);
   assert.ok(b.controles.every((c) => c.etat === "vert"), JSON.stringify(b.controles));
   assert.equal(b.nuit.etat, "vert");
   assert.equal(b.nuit.saison, "Spécial Halloween");
@@ -104,6 +107,17 @@ test("etat_page_et_liens", () => {
   assert.match(guidePage({ origin: "https://x.exemple", season: null }), /<details data-moment="accueil fiche recherche" id="panne-chez-qui">[^]*?href="\/etat"/);
 });
 
+// Serveur des affiches en panne : orange pour l'addon (pas essentiel), mais le canari le signale.
+test("etat_serveur_des_affiches", async () => {
+  panne.serveur = true;
+  const b = await etat();
+  assert.equal(b.global, "orange");
+  assert.equal(b.controles.find((c) => c.id === "serveur").etat, "rouge");
+  const [, , test] = CONTROLES.find(([nom]) => nom === "salle des machines");
+  const reponse = new Response(JSON.stringify(b));
+  await assert.rejects(() => test(reponse), /serveur des affiches/);
+});
+
 // ---------- Le canari ----------
 const site = (pannes = {}) => {
   const vus = [];
@@ -131,6 +145,15 @@ test("canari_pannes_reessayees", async () => {
   assert.deepEqual(p.map((x) => x.nom), ["recherche", "affiche", "salle des machines"]);
   assert.match(p[2].erreur, /TMDB/);
   assert.equal(vus.filter((u) => u.includes("recherche-films")).length, 2, "un second essai avant de crier à la panne");
+});
+
+// Les requêtes du jour : la somme de tous les Workers du compte ; une réponse refusée (jeton sans l'autorisation) lève.
+test("canari_requetes_du_jour", async () => {
+  const { requetesDuJour } = await import("../scripts/canari.mjs");
+  const ok = async () => new Response(JSON.stringify({ data: { viewer: { accounts: [{ workersInvocationsAdaptive: [{ sum: { requests: 70000 } }, { sum: { requests: 12000 } }] }] } } }));
+  assert.equal(await requetesDuJour("j", ok, "2026-10-26"), 82000);
+  const refus = async () => new Response(JSON.stringify({ errors: [{ message: "not authorized" }] }));
+  await assert.rejects(() => requetesDuJour("j", refus), /not authorized/);
 });
 
 test("canari_workflow", () => {

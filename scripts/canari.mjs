@@ -24,8 +24,22 @@ export const CONTROLES = [
   ["salle des machines", "/etat.json", async (r) => {
     const d = await json(r);
     if (d.global === "rouge") throw new Error("bilan rouge : " + (d.controles || []).filter((c) => c.etat === "rouge").map((c) => c.nom).join(", "));
+    // Le serveur des affiches : pas essentiel pour l'addon (bilan orange), mais une panne à signaler.
+    if ((d.controles || []).some((c) => c.id === "serveur" && c.etat === "rouge")) throw new Error("serveur des affiches injoignable");
   }],
 ];
+
+// Les requêtes du jour chez Cloudflare (tous les Workers du compte : l'addon et les affiches), pour l'offre gratuite
+// (100 000 par jour, au-delà tout tombe en erreur jusqu'à minuit UTC). Alerte bien avant : SEUIL.
+export const COMPTE = "1d2569d3fe4c915bab43a6ec1bda89da", SEUIL = 80000;
+export async function requetesDuJour(jeton, f = fetch, jour = new Date().toISOString().slice(0, 10)) {
+  const query = `query($a:String!,$j:Date!){viewer{accounts(filter:{accountTag:$a}){workersInvocationsAdaptive(limit:100,filter:{date:$j}){sum{requests}}}}}`;
+  const r = await f("https://api.cloudflare.com/client/v4/graphql", { method: "POST", headers: { Authorization: `Bearer ${jeton}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables: { a: COMPTE, j: jour } }) });
+  const d = await r.json();
+  if (d.errors && d.errors.length) throw new Error(d.errors[0].message || "réponse refusée");
+  return d.data.viewer.accounts[0].workersInvocationsAdaptive.reduce((n, x) => n + x.sum.requests, 0);
+}
 
 const essai = async (base, chemin, test, f) => {
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), DELAI_MS);
@@ -48,6 +62,14 @@ export async function verifier(base = SITE, f = fetch, attente = 10000) {
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const base = (process.argv[2] || SITE).replace(/\/+$/, "");
   const pannes = await verifier(base);
+  // Jeton sans « Account Analytics : Read » ou API muette : pas une panne, seulement signalé.
+  if (process.env.CLOUDFLARE_API_TOKEN) {
+    try {
+      const n = await requetesDuJour(process.env.CLOUDFLARE_API_TOKEN);
+      console.log(`Requêtes Cloudflare aujourd'hui : ${n}`);
+      if (n >= SEUIL) pannes.push({ nom: "quota Cloudflare", erreur: `${n} requêtes aujourd'hui (100 000 permis)` });
+    } catch (e) { console.log(`::notice::requêtes du jour illisibles : ${e.message}`); }
+  }
   for (const p of pannes) console.log(`::warning::${p.nom} : ${p.erreur}`);
   console.log(pannes.length ? `En panne : ${pannes.map((p) => p.nom).join(", ")}` : "Tout répond.");
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `pannes=${pannes.map((p) => p.nom).join(", ")}\n`);

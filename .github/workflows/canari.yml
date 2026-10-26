@@ -34,6 +34,9 @@ jobs:
       - name: Appeler le site
         id: verif
         run: node scripts/canari.mjs
+        env:
+          # Lire les requêtes du jour (autorisation « Account Analytics : Read ») : sans elle, rien n'est signalé.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       - name: Ouvrir ou fermer l'issue de panne
         env:
           GH_TOKEN: ${{ github.token }}

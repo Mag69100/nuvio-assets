@@ -1,6 +1,7 @@
 /**
  * La salle des machines (/etat) : ce qui tourne et ce qui coince, en clair. Le worker teste lui-même, au plus une fois
- * toutes les 5 minutes (le bilan est gardé), TMDB, le manifest, une rangée, la recherche, le service des affiches,
+ * toutes les 5 minutes (le bilan est gardé), TMDB, le manifest, une rangée, la recherche, le service des affiches, le
+ * serveur des affiches (RELAIS_URL : son adresse reste un secret, jamais dans le bilan),
  * l'hébergement des tuiles des collections (raw.githubusercontent.com) et la base D1 s'il en a une ; il lit la date de
  * la mise à jour de la nuit (addon/state.json du dépôt). /etat.json : le même bilan, pour le canari
  * (.github/workflows/canari.yml) et pour qui veut le lire.
@@ -70,6 +71,15 @@ export async function bilan(env, outils) {
       if (!/^image\//.test(r.headers.get("Content-Type") || "")) throw new Error("pas une image");
       await r.arrayBuffer();
       return {};
+    }),
+    controle("serveur", "Serveur des affiches", async () => {
+      if (!env.RELAIS_URL) return { etat: "eteint", detail: "pas de serveur sur ce site" };
+      const d = await lireJson(await fetch(`${env.RELAIS_URL}/etat`));
+      if (d.erreur) return { etat: "orange", detail: String(d.erreur).replace(/https?:\/\/\S+/g, "").slice(0, 120) };
+      // Des affiches dessinées qui attendent depuis plus d'une heure : la mise en fichiers ne passe plus.
+      const enRetard = !d.dernierePublication || Date.now() - Date.parse(d.dernierePublication) > 3600000;
+      if (d.enAttente > 100 && enRetard) return { etat: "orange", detail: `${d.enAttente} affiches pas encore en fichiers` };
+      return { detail: `${d.dessinees} dessinées, ${d.enAttente} en attente` };
     }),
     controle("tuiles", "Tuiles des collections", async () => {
       const liste = await lireJson(await fetch(`${assets}/collections/collections.json`, { cf: { cacheTtl: 600, cacheEverything: true } }));
@@ -141,6 +151,7 @@ export const TEXTES = {
   rangee: { vert: "La rangée « Tendances du jour » se remplit.", orange: "La rangée « Tendances du jour » est lente ou vide pour le moment.", rouge: "Les rangées ne se remplissent pas : l'accueil reste vide." },
   recherche: { vert: "La recherche trouve les films.", orange: "La recherche est lente ou ne trouve rien pour le moment.", rouge: "La recherche ne répond pas : chercher un titre dans Nuvio ne donne rien." },
   affiches: { vert: "Le service des affiches maison répond.", orange: "Les affiches maison arrivent lentement.", rouge: "Les affiches maison ne s'affichent pas : Nuvio montre les affiches d'origine en attendant." },
+  serveur: { vert: "Le serveur des affiches dessine les affiches nouvelles et les aperçus de la régie.", orange: "Le serveur des affiches répond, mais les affiches nouvelles mettent du temps à passer en fichiers.", rouge: "Le serveur des affiches ne répond pas : les affiches déjà faites s'affichent, les nouvelles montrent l'affiche d'origine.", eteint: "Pas de serveur des affiches sur ce site." },
   tuiles: { vert: "Les images des collections (plateformes, genres, sagas) sont en ligne.", orange: "Les images des collections sont lentes à venir.", rouge: "GitHub ne sert plus les images des collections : les tuiles restent grises." },
   base: { vert: "La base des liens fixes répond : ils gardent tes réglages.", orange: "La base des liens fixes est lente.", rouge: "La base des liens fixes ne répond pas : les liens fixes peuvent échouer, les liens habituels marchent toujours.", eteint: "Pas de base sur ce site : les liens fixes n'y sont pas proposés, c'est normal." },
 };
@@ -183,6 +194,7 @@ ${stageTop({ here: "etat", origin })}
       ${voyant("rangee", "Une rangée de l'accueil")}
       ${voyant("recherche", "La recherche")}
       ${voyant("affiches", "Les affiches maison")}
+      ${voyant("serveur", "Le serveur des affiches")}
       ${voyant("tuiles", "Les tuiles des collections")}
       ${voyant("base", "La base des liens fixes")}
     </ul>

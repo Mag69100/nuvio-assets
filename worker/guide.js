@@ -515,6 +515,7 @@ ${secretsHTML("guide")}
   <section class="act" id="collections">
     <header><span class="num">07</span><span class="label">Grand écran</span><h2>Importer les collections</h2></header>
     <p class="lead">Les grandes tuiles en haut de l'accueil : Plateformes, Genres, J'ai envie de…, Sagas et Studios.</p>
+    <p class="note"><b>Tu as un compte Nuvio ?</b> <a href="${esc(origin)}/compte-nuvio" data-compte-nuvio target="_blank" rel="noopener">Tout envoyer dans Nuvio</a> : l'addon, ces collections et les affiches de la TV (étape 8) arrivent tout seuls, sans rien coller. Sinon, suis les étapes ci-dessous.</p>
     <ol>
       <li>Appuie sur « Copier le contenu (PC/TEL) » sous le lien : il copie tout le contenu du lien.</li>
       <li>Dans Nuvio, sur le téléphone (étape 4) comme sur PC, ouvre l'onglet <b>Collections</b> et appuie sur le <b>bouton presse-papiers</b>, en haut à droite : Nuvio importe ce que tu viens de copier.</li>
@@ -1278,6 +1279,10 @@ document.querySelectorAll("[data-copy]").forEach((btn) => btn.addEventListener("
   const done = (t) => { btn.textContent = t; setTimeout(() => { btn.textContent = "Copier"; }, 1500); if (t !== "Sélectionné") popcorn(btn); };
   const fallback = () => { const r = document.createRange(); r.selectNodeContents(node); const s = getSelection(); s.removeAllRanges(); s.addRange(r); done("Sélectionné"); };
   try { navigator.clipboard.writeText(node.textContent).then(() => done("Copié ✓"), fallback); } catch (e) { fallback(); }
+}));
+// « Tout envoyer dans Nuvio » (compte-nuvio.js) : les liens du guide dans l'ancre, jamais envoyée au serveur.
+document.querySelectorAll("[data-compte-nuvio]").forEach((a) => a.addEventListener("click", () => {
+  a.href = ORIG + "/compte-nuvio#" + new URLSearchParams({ lien: $id("u-cat").textContent.trim(), affiches: $id("u-poster").textContent.trim() });
 }));
 // Nuvio importe aussi les collections en collant leur contenu (le JSON) : sur PC, c'est la seule façon.
 document.querySelectorAll("[data-copy-contenu]").forEach((btn) => btn.addEventListener("click", () => {

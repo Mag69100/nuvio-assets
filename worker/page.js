@@ -323,6 +323,10 @@ ${copy ? HOTE_HTML : ""}
           <div class="t-head"><b id="t-name"></b><span id="t-serial"></span></div>
           <div class="t-seance" id="t-seance"></div>
           <div class="t-meta"><span><b id="t-rows"></b> rangées</span><span><b id="t-prov"></b> plateformes</span><span><b id="t-coll"></b> collections</span><span id="t-extra"></span></div>
+          <div class="compte-nuvio">
+            <a class="btn solid full" id="compte-nuvio" href="/compte-nuvio" target="_blank" rel="noopener">Tout envoyer dans Nuvio</a>
+            <p>Avec un compte Nuvio : l'addon, les collections et les affiches (TV) arrivent tout seuls. Sinon, colle les liens ci-dessous.</p>
+          </div>
           <div class="t-label">Addon · Addons → Ajouter un addon</div>
           <div class="t-url" id="u-manifest"></div>
           <div class="t-btns">
@@ -578,6 +582,8 @@ aside.long .stage:not(.big) { position: sticky; top: var(--stage-top, 18px); }
 .btn.full { grid-column: 1 / -1; }
 .btn:disabled { opacity: .6; cursor: wait; }
 /* Lien fixe : un encart pointillé dans le billet, sous le lien de l'addon. */
+.compte-nuvio { display: grid; gap: 6px; }
+.compte-nuvio p { margin: 0; font: 600 .78rem/1.45 var(--body); color: #7a5a4c; }
 .fixe { display: grid; gap: 8px; padding: 10px 12px; border: 2px dashed rgba(42,26,20,.3); border-radius: 10px; }
 .fixe p { margin: 0; font: 600 .82rem/1.45 var(--body); color: #4a2e24; }
 .fixe p b { color: var(--ink); }
@@ -2074,6 +2080,11 @@ ongletsListe.forEach((b, i) => {
   });
 });
 $("copy-affiches").addEventListener("click", (e) => copy(e.currentTarget, $("u-affiches"), "Copier"));
+// « Tout envoyer dans Nuvio » (compte-nuvio.js) : les deux liens du billet dans l'ancre, jamais envoyée au serveur
+// (la clé Gemini peut être dans le lien d'addon).
+$("compte-nuvio").addEventListener("click", (e) => {
+  e.currentTarget.href = D.origin + "/compte-nuvio#" + new URLSearchParams({ lien: $("u-manifest").textContent.trim(), affiches: NV.lienPerso() });
+});
 lienAffichesMaj();
 // Ouverte directement depuis le guide (étape 8) : /configure#regie.
 if (hashDepart === "#regie") addEventListener("load", () => regieOuvre($("regie-ouvrir")));

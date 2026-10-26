@@ -67,3 +67,12 @@ test("page_compte_nuvio_script_valide", () => {
   assert.ok(html.includes('lu("cle-gemini")'));
   assert.match(html, /<meta name="robots" content="noindex">/);
 });
+
+test("bouton_tout_envoyer_billet_et_guide", async () => {
+  // Le billet et l'étape 7 ouvrent la page avec leurs liens dans l'ancre (jamais envoyée au serveur).
+  const { SALLE2_JS } = await import("../worker/page.js");
+  const { GUIDE_JS, guidePage } = await import("../worker/guide.js");
+  assert.match(SALLE2_JS, /"[/]compte-nuvio#" \+ new URLSearchParams\(\{ lien: \$\("u-manifest"\)/);
+  assert.match(GUIDE_JS, /"[/]compte-nuvio#" \+ new URLSearchParams\(\{ lien: \$id\("u-cat"\)/);
+  assert.match(guidePage({ origin: O }), /data-compte-nuvio/);
+});

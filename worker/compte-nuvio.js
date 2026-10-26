@@ -101,7 +101,7 @@ a, button { touch-action: manipulation; }
 </head>
 <body>
 <main>
-  <div class="ticket"><small>À l'essai</small><h1>Connecter Nuvio</h1></div>
+  <div class="ticket"><small>Sans rien coller</small><h1>Connecter Nuvio</h1></div>
   <p class="aide">L'addon, les collections et tes affiches arrivent dans Nuvio tout seuls, sur tes appareils connectés au même compte Nuvio : plus rien à coller. Ton compte Nuvio reste dans ce navigateur, ce site ne le voit jamais.</p>
   <section class="bloc" id="b-lien">
     <label for="lien">Ton lien d'addon</label>

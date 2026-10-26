@@ -10,6 +10,15 @@ import { feuilles } from "./statique.js";
 export const NOUVEAUTES = [
   {
     date: "2026-10-26",
+    titre: "Tout envoyer dans Nuvio, sans rien coller",
+    points: [
+      "Tu as un compte Nuvio ? Sur ton billet (salle 2) ou à l'étape 7 du guide, « Tout envoyer dans Nuvio » : tu approuves avec un code dans Nuvio, et l'addon, les collections et les affiches de ta TV arrivent tout seuls, sur tous tes appareils connectés à ce compte.",
+      "Tes autres addons et les collections que tu as faites toi-même restent. Ton compte Nuvio reste dans ton navigateur : le site ne le voit jamais.",
+      "Sans compte Nuvio, rien ne change : les liens à coller sont toujours sur le billet.",
+    ],
+  },
+  {
+    date: "2026-10-26",
     titre: "Tes propres affiches, et la date du cinéma",
     points: [
       "<b>Tes affiches</b> : tes réglages perso ont maintenant leur propre lien. Règle tout comme tu veux dans la salle 2, puis « Copier mon lien d'affiches » (ou le QR code pour ta TV). La première affiche de chaque titre met une à deux secondes, ensuite elle est instantanée.",

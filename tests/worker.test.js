@@ -1049,6 +1049,28 @@ test("fiche_selon_le_calendrier_americain", async () => {
 // « Bientôt dispo » suit la même date : un film en numérique au Royaume-Uni dans 3 jours mais aux États-Unis dans
 // 60 jours (hors de la fenêtre de 45 jours) n'y est pas ; un film en numérique aux États-Unis dans 10 jours, si.
 // « Dispo depuis peu » : la sortie américaine d'il y a 5 jours, pas celle d'Allemagne d'il y a 30 jours.
+// L'avis VF de la photo du jour (StreamFusion, qui écarte la VFQ) prime sur Torrentio seul (même drapeau 🇫🇷 pour la VFQ
+// et la VFF) : Hope, en VFQ seulement, n'est plus « Dispo depuis peu » ; sans avis de la photo, Torrentio décide.
+test("dispo_depuis_peu_suit_l_avis_de_la_photo", async () => {
+  const { AFFICHES_URL } = await import("../worker/reglages.js");
+  const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const lancer = async (vfi) => {
+    oublierInfos(); store.clear();
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      calls.push(u);
+      if (u.startsWith(`${AFFICHES_URL}/tendances/movie.json`)) return new Response(JSON.stringify({ ids: [], ...(vfi ? { vfi } : {}) }));
+      if (u.includes("/vf.json")) return sourcesDe({ tt903: { vf: true, sources: 30 } })(u);
+      if (u.includes("/discover/movie")) return new Response(JSON.stringify({ results: [{ id: 3, title: "Hope", original_language: "ko", release_date: jour(-40), popularity: 7 }], page: 1, total_pages: 1 }));
+      if (/\/movie\/3\?/.test(u)) return new Response(JSON.stringify(filmVod(3, "ko", [["US", 4, jour(-5)]])));
+      return new Response(JSON.stringify({ results: [] }));
+    };
+    return (await (await get("/catalog/movie/accueil-vod-semaine.json")).json()).metas.map((m) => m.name);
+  };
+  assert.deepEqual(await lancer({ tt903: 0 }), []);
+  assert.deepEqual(await lancer(null), ["Hope"]);
+});
+
 test("rangees_selon_le_calendrier_americain", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   globalThis.fetch = async (url) => {

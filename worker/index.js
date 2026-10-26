@@ -61,7 +61,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.29";
+const VERSION = "5.38.30";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -323,7 +323,7 @@ async function tmdb(env, path, params = {}, lang = "fr-FR") {
 const INFOS = new Map();
 const INFOS_MAX = 3000, INFOS_MS = 3 * 3600e3;
 /** Pour les tests : oublie les résumés gardés en mémoire, et la table des estimations. */
-export const oublierInfos = () => { INFOS.clear(); oublierEstimations(); oublierCinemeta(); };
+export const oublierInfos = () => { INFOS.clear(); avisLu.clear(); oublierEstimations(); oublierCinemeta(); };
 
 async function extraInfo(env, kind, tmdbId, budget) {
   const k = `${kind}:${tmdbId}`, memo = INFOS.get(k);
@@ -690,11 +690,40 @@ function enVfChezSoi(releases, langue, today, lu, plateformeFr = false, vod = nu
  * Map tt… → { vf, sources }. Un seul appel pour toute une page (50 appels sortants au plus par requête). Les
  * titres pas lus, ou le service muet : absents de la Map, et les dates décident (enVfChezSoi).
  */
+/**
+ * L'avis VF de la photo du jour (vfi : tt… → 1 ou 0), StreamFusion qui lit les sites français et écarte la VFQ, sinon
+ * Torrentio : il prime sur Torrentio seul, qui met le même drapeau 🇫🇷 sur la VFQ et la VFF (Hope et By Any Means, en VFQ
+ * seulement, étaient « Dispo depuis le 13 oct. » sur la fiche et BIENTÔT sur l'affiche, qui suit déjà cet avis).
+ * Aucune demande de plus à StreamFusion : l'avis est pris une fois, à 4 h. Photo illisible : rien.
+ */
+// L'avis lu avec la photo (photoTendances) : pas relu dans la même requête (50 appels sortants au plus par requête).
+const avisLu = new Map(), AVIS_MS = 10 * 60000;
+async function avisPhoto(env, kind) {
+  const deja = avisLu.get(kind);
+  if (deja && Date.now() - deja.t < AVIS_MS) return deja.vfi;
+  try {
+    const res = await fetch(`${relaisUrl(env)}/tendances/${kind === "series" ? "series.json?v=9" : "movie.json?v=10"}`, { cf: { cacheEverything: true } });
+    const d = res.ok ? await res.json() : {};
+    const vfi = d && d.vfi && !d.secours ? d.vfi : {};
+    avisLu.set(kind, { vfi, t: Date.now() });
+    return vfi;
+  } catch (e) { return {}; }
+}
+/** Les sources lues, corrigées par l'avis de la photo (pas pendant la photo elle-même : lireVfPhoto). */
+async function avecAvisPhoto(env, kind, lus, lire) {
+  if (lire !== lireVf || !lus.size) return lus;
+  const avis = await avisPhoto(env, kind);
+  for (const [imdb, lu] of lus) {
+    if (avis[imdb] === 0 || avis[imdb] === 1) lus.set(imdb, { ...lu, vf: avis[imdb] === 1, sources: Math.max(1, lu.sources || 0) });
+  }
+  return lus;
+}
+
 async function sourcesVf(env, imdbs, lire = lireVf) {
   const ids = [...new Set((imdbs || []).filter((x) => /^tt\d{1,10}$/.test(x || "")))].slice(0, 40);
   if (!ids.length) return new Map();
   const lus = await lire(env, ids.map((i) => "movie/" + i));
-  return new Map(ids.map((i) => [i, lus.get("movie/" + i)]).filter(([, x]) => x));
+  return avecAvisPhoto(env, "movie", new Map(ids.map((i) => [i, lus.get("movie/" + i)]).filter(([, x]) => x)), lire);
 }
 
 /** La VF des sources pour des séries ([{ imdb, saison }], 1er épisode de la saison) : Map tt… → { vf, sources }. */
@@ -703,7 +732,7 @@ async function sourcesVfSeries(env, series, lire = lireVf) {
   if (!liste.length) return new Map();
   const cle = (x) => `series/${x.imdb}:${x.saison}:1`;
   const lus = await lire(env, liste.map(cle));
-  return new Map(liste.map((x) => [x.imdb, lus.get(cle(x))]).filter(([, x]) => x));
+  return avecAvisPhoto(env, "series", new Map(liste.map((x) => [x.imdb, lus.get(cle(x))]).filter(([, x]) => x)), lire);
 }
 
 /**
@@ -1079,6 +1108,7 @@ async function photoTendances(env, kind) {
     const res = await fetch(`${relaisUrl(env)}/tendances/${kind === "series" ? "series.json?v=9" : "movie.json?v=10"}`, { cf: { cacheEverything: true } });
     const d = res.ok ? await res.json() : {};
     if (d.secours) return new Map();
+    avisLu.set(kind, { vfi: d.vfi || {}, t: Date.now() });
     return new Map((Array.isArray(d.ids) ? d.ids : []).map((id, i) => [id, i]));
   } catch (e) { return new Map(); }
 }
@@ -1319,15 +1349,15 @@ const RANGS = 20;
 async function classerTendances(env, kind, results) {
   const today = parisToday();
   const released = results.filter((it) => { const date = it.release_date || it.first_air_date; return date && date <= today; });
-  let ids, vf, q;
+  let ids, vf, q, vfi;
   if (kind === "movie") {
     // Films : beaucoup sont encore au cinéma ou en VO (9 sur les 30 premiers gardés un jour d'octobre). Examinés par
     // lots de 20, dans l'ordre, jusqu'à en avoir 20 : chaque lot dans un appel de l'addon à lui-même (son budget de 50).
-    ids = []; vf = {}; q = {};
+    ids = []; vf = {}; q = {}; vfi = {};
     for (let i = 0; i < released.length && ids.length < RANGS; i += TRI_LOT) {
       const lot = await trierLot(env, released.slice(i, i + TRI_LOT), today);
       if (!lot.complet) throw new Error("fiches TMDB pas toutes lues");
-      ids.push(...lot.ids); Object.assign(vf, lot.vf); Object.assign(q, lot.q);
+      ids.push(...lot.ids); Object.assign(vf, lot.vf); Object.assign(q, lot.q); Object.assign(vfi, lot.vfi || {});
     }
     ids = ids.slice(0, RANGS);
   } else {
@@ -1335,9 +1365,9 @@ async function classerTendances(env, kind, results) {
     const garde = await seriesRegardables(env, released, today, RANGS, lireVfPhoto);
     if ([...garde.infos.values()].some((info) => !info.lu)) throw new Error("fiches TMDB pas toutes lues");
     ids = garde.picked.map((it) => it.id);
-    ({ vf, q } = avisVf(garde));
+    ({ vf, q, vfi } = avisVf(garde));
   }
-  return { ids: [...ids, ...Array(RANGS - ids.length).fill(0)], vf, q };
+  return { ids: [...ids, ...Array(RANGS - ids.length).fill(0)], vf, q, vfi };
 }
 
 /**
@@ -1346,13 +1376,13 @@ async function classerTendances(env, kind, results) {
  * Et la qualité des sources VF de StreamFusion (4K, DV, HDR…) : les affiches la préfèrent à celle de Torrentio.
  */
 function avisVf(garde) {
-  const vf = {}, q = {};
+  const vf = {}, q = {}, vfi = {};
   for (const [id, info] of garde.infos) {
     const lu = info && info.imdb ? garde.sources.get(info.imdb) : null;
-    if (lu && typeof lu.vf === "boolean") vf[id] = lu.vf ? 1 : 0;
+    if (lu && typeof lu.vf === "boolean") { vf[id] = lu.vf ? 1 : 0; vfi[info.imdb] = lu.vf ? 1 : 0; }
     if (lu && lu.qualite) q[id] = lu.qualite;
   }
-  return { vf, q };
+  return { vf, q, vfi };
 }
 
 /**

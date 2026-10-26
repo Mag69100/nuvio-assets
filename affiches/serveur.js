@@ -92,12 +92,14 @@ export function creerServeur({ env = process.env, fetchImpl = fetch, horloge = D
   });
 
   /** Publie ce qui attend, et prend la file (tout : redessine aussi tout ce qui est en ligne). */
-  let occupe = false;
+  let occupe = false, connu = null;
   async function passage({ tout = false } = {}) {
     if (!cf || occupe) return;
     occupe = true;
     try {
-      const { parChemin, aFaire } = await lireEtat(cf, { tout });
+      // La liste des fichiers en ligne : lue une fois, puis tenue à jour ici (relue chaque nuit, avec tout).
+      const { parChemin, aFaire } = await lireEtat(cf, { tout, connu: tout ? null : connu });
+      connu = parChemin;
       for (const c of enAttente.keys()) aFaire.delete(c);
       const fait = await dessinerTout([...aFaire], (c) => dessinerStatique(affiche, BASE, c), parChemin, { enMemeTemps: Number(env.EN_MEME_TEMPS) || 4 });
       const pris = [...enAttente];
@@ -136,7 +138,7 @@ export function creerServeur({ env = process.env, fetchImpl = fetch, horloge = D
       if (!cf) { console.warn("pas de publication : CLOUDFLARE_API_TOKEN ou D1_AFFICHES manquant"); return; }
       cf.preparer().then(() => cf.signaler("serveur")).catch((e) => console.error(`base : ${e.message}`));
       minuteries.push(setInterval(() => cf.signaler("serveur").catch(() => {}), 60000));
-      // Toutes les 3 minutes ce qui attend, et la file un tour sur deux. Une fois par jour après 4 h 17 UTC (la photo des
+      // Toutes les 3 minutes ce qui attend, et la file un tour sur cinq. Une fois par jour après 4 h 17 UTC (la photo des
       // tendances est prise à 4 h) : tout, pour les N° et statuts du jour ; retenté au tour suivant si occupé.
       // Démarré dans la journée (mise à jour, redémarrage) : la nuit est déjà faite (par lui, ou par la machine GitHub).
       const d0 = new Date(horloge());
@@ -146,7 +148,8 @@ export function creerServeur({ env = process.env, fetchImpl = fetch, horloge = D
         const d = new Date(horloge()), jour = d.toISOString().slice(0, 10);
         const nuit = derniereNuit !== jour && (d.getUTCHours() > 4 || (d.getUTCHours() === 4 && d.getUTCMinutes() >= 17));
         if (nuit && !occupe) { derniereNuit = jour; await passage({ tout: true }); }
-        else if (enAttente.size || tour % 2 === 0) await passage();
+        // La file ne se remplit que si le serveur n'a pas répondu au Worker : un tour sur cinq suffit (15 minutes).
+        else if (enAttente.size || tour % 5 === 0) await passage();
       }, 3 * 60000));
     },
     arreter() { for (const m of minuteries) clearInterval(m); serveur.close(); },

@@ -139,3 +139,13 @@ test("publication_sous_verrou", async () => {
   assert.equal(p.publie, true);
   assert.deepEqual(journal, ["publié 2", "INSERT INTO", "libéré", "DELETE FROM"]);
 });
+
+// Redemandée à chaque passage sur la carte : une seule écriture par instance en 10 minutes, et jamais de lecture de
+// toute la file (5 millions de lignes lues par jour pour tout le compte, dépassées le 26 octobre 2026).
+test("statique_meme_affiche_absente_une_seule_ecriture", async () => {
+  const w = await worker(), { ecrits, env } = base(), attentes = [], ctx = { waitUntil: (p) => attentes.push(p) };
+  for (let i = 0; i < 3; i++) assert.equal((await w.fetch(new Request("https://a.test/note/series/poster/tt7654321.jpg"), env, ctx)).status, 503);
+  await Promise.all(attentes);
+  assert.equal(ecrits.filter((e) => e.v[0] === "/note/series/poster/tt7654321.jpg").length, 1);
+  assert.ok(ecrits.every((e) => !/COUNT/i.test(e.sql)));
+});

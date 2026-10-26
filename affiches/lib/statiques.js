@@ -73,6 +73,20 @@ export function creerCloudflare({ jeton, compte, base, worker = "affiches", fetc
      * envoyés s'ils manquent chez Cloudflare ; une empreinte demandée mais absente de `nouveaux` est relue en ligne.
      * liaisons : celles à poser en plus de la base (SERVEUR, RELAIS_KEY), les autres sont gardées telles quelles.
      */
+    /**
+     * Remet en ligne le seul code du Worker, ses fichiers et ses liaisons gardés tels quels (keep_assets) : sans lire la
+     * base (bloquée quand le compte dépasse les lignes lues du jour).
+     */
+    async mettreAJourCode() {
+      const form = new FormData();
+      form.append("metadata", new Blob([JSON.stringify({
+        main_module: "worker.js", compatibility_date: "2026-10-01",
+        bindings: [{ type: "d1", name: "DB", id: base }], keep_bindings: ["plain_text", "secret_text"],
+        keep_assets: true, assets: { config: { not_found_handling: "none", _headers: ENTETES } },
+      })], { type: "application/json" }));
+      form.append("worker.js", new Blob([codeDuWorker()], { type: "application/javascript+module" }), "worker.js");
+      await cf(`/workers/scripts/${worker}`, { method: "PUT", body: form });
+    },
     async publier(fichiers, nouveaux, liaisons = []) {
       const manifest = {};
       for (const f of fichiers) manifest[f.chemin] = { hash: f.hash, size: f.taille };
@@ -205,12 +219,19 @@ export async function publierEtEnregistrer(cf, parChemin, nouveaux, { faits = []
   return { publie, envoyes, retirees: retirees.length };
 }
 
-/** Ce qui est en ligne (Map chemin → { chemin, hash, taille, cree }) et la file à dessiner maintenant. */
-export async function lireEtat(cf, { tout = false, max = 3000 } = {}) {
+/**
+ * Ce qui est en ligne (Map chemin → { chemin, hash, taille, cree }) et la file à dessiner maintenant. connu : ce qui est
+ * en ligne, déjà lu (le serveur le garde en mémoire) : la liste des fichiers n'est pas relue. D1 gratuit, c'est
+ * 5 millions de lignes lues par jour pour tout le compte (l'addon compris) : relire 19 000 fichiers toutes les
+ * 3 minutes les dépasserait à lui seul.
+ */
+export async function lireEtat(cf, { tout = false, max = 3000, connu = null } = {}) {
   const maintenant = new Date().toISOString();
   const file = await cf.sql("SELECT chemin, essais FROM demandes WHERE apres IS NULL OR apres <= ? ORDER BY vu LIMIT ?", [maintenant, max]);
-  const enLigne = await cf.sql("SELECT chemin, hash, taille, cree FROM fichiers");
-  const parChemin = new Map(enLigne.map((f) => [f.chemin, f]));
+  // File pleine : des adresses au hasard (robot), pas des cartes de Nuvio ; on ne garde que les plus récentes.
+  if (file.length >= max) await cf.sql("DELETE FROM demandes WHERE chemin NOT IN (SELECT chemin FROM demandes ORDER BY vu DESC LIMIT ?)", [max]);
+  const enLigne = connu ? [...connu.values()] : await cf.sql("SELECT chemin, hash, taille, cree FROM fichiers");
+  const parChemin = connu || new Map(enLigne.map((f) => [f.chemin, f]));
   const aFaire = new Map(file.filter((d) => cheminValable(d.chemin)).map((d) => [d.chemin, d.essais]));
   if (tout) for (const f of enLigne) if (!aFaire.has(f.chemin)) aFaire.set(f.chemin, null);
   return { parChemin, aFaire, file: file.length, enLigne: enLigne.length };

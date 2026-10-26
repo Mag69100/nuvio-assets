@@ -4,6 +4,7 @@
  * moins de 15 minutes, rien à faire ici (sauf --force). Dessin et publication : affiches/lib/statiques.js.
  *   node scripts/affiches-statiques.mjs file   les affiches demandées et absentes (table demandes)
  *   node scripts/affiches-statiques.mjs tout   en plus, toutes celles déjà publiées (statuts du jour), chaque nuit
+ *   node scripts/affiches-statiques.mjs code   seulement le code du Worker (sans lire la base)
  *   … --essai                                    dessine sans rien publier ni écrire (20 affiches au plus)
  * Environnement : CLOUDFLARE_API_TOKEN (Workers Scripts et D1 en écriture), CLOUDFLARE_ACCOUNT_ID, D1_AFFICHES (id
  * de la base), TMDB_API_KEY ; MDBLIST_API_KEY facultatif ; AFFICHES_WORKER (nom du Worker, « affiches » par défaut).
@@ -24,6 +25,9 @@ for (const v of ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "D1_AFFICHES",
 const PORT = 8791, BASE = `http://127.0.0.1:${PORT}`;
 const cf = creerCloudflare({ jeton: E.CLOUDFLARE_API_TOKEN, compte: E.CLOUDFLARE_ACCOUNT_ID, base: E.D1_AFFICHES, worker: E.AFFICHES_WORKER || "affiches" });
 
+// code : seulement le code du Worker, ses fichiers gardés, sans lire la base (bloquée quand le compte a dépassé ses
+// lignes lues du jour).
+if (mode === "code") { await cf.mettreAJourCode(); console.log("code du Worker remis en ligne"); process.exit(0); }
 if (!essai) await cf.preparer();
 if (!force && !essai && await cf.serveurRecent()) { console.log("le serveur des affiches est là : rien à faire ici"); process.exit(0); }
 const { parChemin, aFaire, file, enLigne } = await lireEtat(cf, { tout: mode === "tout" });

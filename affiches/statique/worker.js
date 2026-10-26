@@ -8,8 +8,10 @@
  * Mis en ligne par affiches/lib/statiques.js (API de Cloudflare), pas par wrangler : la liste des styles est recopiée ici.
  */
 const STYLES = new Set(__STYLES__);
-// Une file plus longue que ça : des adresses au hasard (robot), pas des cartes de Nuvio.
-const FILE_MAX = 5000;
+// Déjà mises en file par cette instance (chemin → heure) : redemandées à chaque passage sur la carte, elles ne
+// retournent pas à la base avant 10 minutes. La file elle-même est bornée par celui qui la vide (lib/statiques.js) :
+// la compter ici, à chaque affiche absente, a dépassé les 5 millions de lignes lues par jour de D1 (26 octobre 2026).
+const DEJA_EN_FILE = new Map(), OUBLI_MS = 10 * 60000;
 // Le serveur dessine une affiche en moins d'une seconde ; Torrentio peut le faire attendre un peu plus.
 const ATTENTE_MS = 8000;
 const ADRESSE = /^\/([a-z]+)\/(movie|series)\/(poster|landscape)\/(tt\d{1,10}|tmdb:\d{1,10})\.jpg$/;
@@ -38,10 +40,14 @@ export default {
     if (!m || !STYLES.has(m[1])) return new Response("introuvable", { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
     const dessinee = await duServeur(env, chemin);
     if (dessinee) return dessinee;
-    ctx.waitUntil(env.DB.prepare(
-      "INSERT OR IGNORE INTO demandes (chemin, vu) SELECT ?, ? WHERE (SELECT COUNT(*) FROM demandes) < ?")
-      .bind(chemin, new Date().toISOString(), FILE_MAX).run()
-      .catch((e) => console.warn(`file : ${e && e.message}`)));
+    const now = Date.now();
+    if (!(DEJA_EN_FILE.get(chemin) > now - OUBLI_MS)) {
+      if (DEJA_EN_FILE.size > 5000) DEJA_EN_FILE.clear();
+      DEJA_EN_FILE.set(chemin, now);
+      ctx.waitUntil(env.DB.prepare("INSERT OR IGNORE INTO demandes (chemin, vu) VALUES (?, ?)")
+        .bind(chemin, new Date(now).toISOString()).run()
+        .catch((e) => console.warn(`file : ${e && e.message}`)));
+    }
     return absente();
   },
 };

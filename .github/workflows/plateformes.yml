@@ -1,4 +1,4 @@
-name: Tuiles vivantes (plateformes, genres, envies : chaque semaine)
+name: "Tuiles vivantes (plateformes, genres, envies : chaque semaine)"
 
 # Les tuiles des plateformes, des genres et des envies montrent les titres du moment : refaites chaque lundi et rangées sur la branche
 # « tuiles-vivantes », réécrite en entier à chaque fois (un seul commit, poussé en force). Rien ne s'accumule

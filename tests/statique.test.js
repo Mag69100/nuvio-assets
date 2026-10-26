@@ -90,3 +90,16 @@ test("affiches_du_mur_comme_l_ecran_nuvio", () => {
   stockage["apercu-pp-v2"] = "0";
   assert.equal(NVA.ppSrc({ id: "tt0133093", type: "movie" }, "poster"), "");
 });
+
+// Les fichiers du site en fichiers statiques (worker/construire/statiques.mjs, [assets] de wrangler.toml) : servis par
+// Cloudflare sans lancer le Worker, hors des 100 000 requêtes par jour. Tous les noms ont un contenu.
+test("fichiers_du_site_en_fichiers_statiques", async () => {
+  const { nomsStatiques, contenuStatique } = await import("../worker/statique.js");
+  const noms = nomsStatiques();
+  for (const n of ["scene.css", "nuvio.js", "polices.css", "qrcode.js"]) assert.ok(noms.includes(n), n);
+  assert.ok(noms.some((n) => n.startsWith("polices/") && n.endsWith(".woff2")));
+  for (const n of noms) assert.ok(contenuStatique(n) !== undefined, n);
+  const toml = (await import("node:fs")).readFileSync(new URL("../wrangler.toml", import.meta.url), "utf8");
+  assert.match(toml, /\[build\]\ncommand = "node worker\/construire\/statiques\.mjs"/);
+  assert.match(toml, /\[assets\]\ndirectory = "\.statique-site"/);
+});

@@ -72,6 +72,8 @@ export const scripts = (...noms) => noms.map((n) => `<script src="${adresse(n)}"
 /** L'adresse versionnée d'un fichier, pour un script qui le charge plus tard (hall : l'aperçu au premier clic). */
 export const adresseStatique = adresse;
 
+/** Les noms de tous les fichiers (« scene.css », « polices/… ») : écrits en fichiers statiques par construire/statiques.mjs. */
+export const nomsStatiques = () => Object.keys(FICHIERS());
 /** Le contenu d'un fichier (texte, ou ArrayBuffer d'une police) ; undefined s'il n'existe pas. Pour les tests. */
 export const contenuStatique = (nom) => (Object.hasOwn(FICHIERS(), nom) ? contenu(nom) : undefined);
 

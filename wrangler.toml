@@ -14,6 +14,16 @@ compatibility_date = "2026-10-01"
 # qu'un Worker en appelle un autre du même compte par son adresse workers.dev (les affiches statiques, « affiches »).
 compatibility_flags = ["global_fetch_strictly_public"]
 workers_dev = true
+
+# Les fichiers du site (/statique/…, /logo.png) en fichiers statiques : Cloudflare les sert sans lancer le Worker, hors
+# des 100 000 requêtes par jour du compte (gratuit). Écrits avant chaque déploiement et chaque wrangler dev par
+# worker/construire/statiques.mjs ; un fichier absent passe par le Worker, comme avant.
+[build]
+command = "node worker/construire/statiques.mjs"
+watch_dir = "worker"
+
+[assets]
+directory = ".statique-site"
 # Garde les variables ajoutées dans le tableau de bord (copies : DEPOT, GEMINI_PUBLIC) à chaque déploiement.
 keep_vars = true
 

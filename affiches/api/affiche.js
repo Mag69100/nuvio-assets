@@ -145,12 +145,12 @@ function fetchImages(fetchImpl) {
  * relais le garde 30 min) : cache normal sans badge, sinon chaque affiche serait redessinée toutes les 10 minutes
  * pendant toute la panne.
  */
-function qualiteATemps(type, facts, fetchImpl, relais, cle, attente = ATTENTE_QUALITE_MS) {
+function qualiteATemps(type, facts, fetchImpl, relais, cle, attente = ATTENTE_QUALITE_MS, avecStreamFusion = true) {
   let timer;
   const delai = new Promise((ok) => { timer = setTimeout(() => ok({ enRetard: true, quality: null }), attente); });
   // Titre récent (film de moins d'un an déjà sorti, nouvelle série) : la VF vient aussi de StreamFusion.
   const jour = jourParis(), ilYaUnAn = new Date(Date.parse(jour) - 365 * 86400000).toISOString().slice(0, 10);
-  const sf = type === "series" ? !!facts.firstAir && facts.firstAir <= jour && facts.firstAir >= ilYaUnAn : sourcesUtiles(facts, jour);
+  const sf = avecStreamFusion && (type === "series" ? !!facts.firstAir && facts.firstAir <= jour && facts.firstAir >= ilYaUnAn : sourcesUtiles(facts, jour));
   const lue = qualityOf(type, facts.imdbId, facts.lastSeason, fetchImpl, relais, cle, sf).then((quality) => ({ enRetard: false, quality }));
   return Promise.race([lue, delai])
     .finally(() => clearTimeout(timer));
@@ -254,7 +254,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
       const lectures = Promise.all([
         noteImdb && facts.imdbId ? chrono.mesure("imdb", lireNoteImdb(facts.imdbId, fetchImpl, ATTENTE_NOTES_MS)) : { note: undefined, manque: false },
         tendance || lireSources ? chrono.mesure("tendances", lireRang(env, type, facts.tmdbId, fetchImpl, relais).catch(() => ({ rang: null, illisible: true, vf: null, qualite: null }))) : { rang: null, illisible: false, vf: null, qualite: null },
-        lireSources ? chrono.mesure("qualite", qualiteATemps(type, facts, fetchImpl, relais, env.RELAIS_KEY, request.headers.get("X-Apercu") === "1" ? ATTENTE_APERCU_MS : ATTENTE_QUALITE_MS)) : { enRetard: false, quality: null },
+        lireSources ? chrono.mesure("qualite", qualiteATemps(type, facts, fetchImpl, env.QUALITE_RELAIS || relais, env.RELAIS_KEY, request.headers.get("X-Apercu") === "1" ? ATTENTE_APERCU_MS : ATTENTE_QUALITE_MS, env.STREAMFUSION !== "off")) : { enRetard: false, quality: null },
         notesUtiles && facts.imdbId ? chrono.mesure("notes", notesPlus(facts.imdbId, fetchImpl, relais, env.RELAIS_KEY)) : undefined,
         sagaVoulue ? chrono.mesure("saga", filmsDeLaSaga(env, facts.collection, fetchImpl)) : null,
         saisonVoulue ? chrono.mesure("saison", lireSaison(env, fetchImpl)) : null,

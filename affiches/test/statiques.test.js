@@ -149,3 +149,18 @@ test("statique_meme_affiche_absente_une_seule_ecriture", async () => {
   assert.equal(ecrits.filter((e) => e.v[0] === "/note/series/poster/tt7654321.jpg").length, 1);
   assert.ok(ecrits.every((e) => !/COUNT/i.test(e.sql)));
 });
+
+// Le serveur des affiches (Oracle, Paris) : Torrentio le refuse, la VF et la qualité passent par le relais /qualite de
+// Vercel aux États-Unis (QUALITE_RELAIS), avec la clé, et jamais avec StreamFusion (pas de &sf=1).
+test("serveur_lit_la_qualite_chez_le_relais_americain", async () => {
+  const { creerServeur } = await import("../serveur.js");
+  const appels = [];
+  const fetchImpl = async (url, init) => {
+    appels.push([String(url), new Headers((init && init.headers) || {}).get("X-Relais-Cle")]);
+    return Response.json({ uhd: false, extra: null, vf: true, sources: 3, langue: "multi" });
+  };
+  const s = creerServeur({ env: { RELAIS_KEY: "k", TMDB_API_KEY: "x", PORT: "8798", QUALITE_RELAIS: "https://relais.test" }, fetchImpl });
+  const r = await s.route({ url: "/vf.json?v=movie/tt7777777", headers: { "x-relais-cle": "k" } });
+  assert.deepEqual(await r.json(), { "movie/tt7777777": { vf: true, sources: 3, langue: "multi" } });
+  assert.deepEqual(appels, [["https://relais.test/qualite/movie/tt7777777.json?v=3", "k"]]);
+});

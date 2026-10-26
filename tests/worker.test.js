@@ -466,8 +466,9 @@ test("tendances_du_jour_dans_l_ordre_tmdb_meme_avec_les_films_a_venir", async ()
 
 // /affiche (aperçus du site, Plan B Stremio) : relaie l'affiche maison de Vercel, options comprises,
 // sans jamais envoyer la clé TMDB du worker.
+// Sans le serveur des affiches : l'affiche toute faite du style des réglages ; un réglage perso (T0Q0) donne « maison ».
 test("affiche_relaie_le_service_maison", async () => {
-  const { AFFICHES_URL } = await import("../worker/reglages.js");
+  const { AFFICHES_STATIQUES } = await import("../worker/reglages.js");
   globalThis.fetch = async (url) => {
     calls.push(String(url));
     return new Response(new Uint8Array([0xff, 0xd8, 0xff]), { headers: { "Content-Type": "image/jpeg" } });
@@ -475,23 +476,22 @@ test("affiche_relaie_le_service_maison", async () => {
   const res = await get("/affiche/movie/poster/tt15239678?s=1.Q0T0");
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("Content-Type"), "image/jpeg");
-  const u = new URL(calls[0]);
-  assert.equal(u.origin + u.pathname, `${AFFICHES_URL}/movie/poster/tt15239678.jpg`);
-  assert.equal(u.searchParams.get("s"), "1.T0Q0");   // remis dans l'ordre canonique
+  assert.equal(calls[0], `${AFFICHES_STATIQUES}/maison/movie/poster/tt15239678.jpg`);
   assert.ok(!calls[0].includes("api_key") && !calls[0].includes("tmdb_key"));
 });
 
+// Le dossier du style : en portrait d'après ses réglages, en paysage d'après ceux de son paysage (Signature a le sien) ;
+// s invalide : « maison ». L'identifiant tmdb:… est codé comme les fichiers statiques l'attendent.
 test("affiche_options_nettoyees", async () => {
+  const { AFFICHES_STATIQUES } = await import("../worker/reglages.js");
+  const { MEMOIRES, MEMOIRES_PAYSAGE, ecrireReglages } = await import("../worker/lien-affiches.js");
   globalThis.fetch = async (url) => { calls.push(String(url)); return new Response(new Uint8Array([0xff]), { headers: { "Content-Type": "image/jpeg" } }); };
-  await get("/affiche/series/landscape/tmdb:94605?imdb=tt11126994&s=1.zz9yN0nt&o=x");
-  const u = new URL(calls[0]);
-  assert.equal(u.searchParams.get("imdb"), "tt11126994");
-  assert.equal(u.searchParams.get("s"), "1.N0");
-  assert.equal(u.searchParams.get("o"), null);
-  // Réglages par défaut (ou s invalide) : pas de s du tout, pour partager le cache.
-  calls.length = 0;
+  await get(`/affiche/series/landscape/tmdb:94605?imdb=tt11126994&s=1.${ecrireReglages(MEMOIRES_PAYSAGE.signature)}`);
+  assert.equal(calls[0], `${AFFICHES_STATIQUES}/signature/series/landscape/tmdb%3A94605.jpg`);
+  await get(`/affiche/movie/poster/tt2?s=1.${ecrireReglages(MEMOIRES.cine)}`);
+  assert.equal(calls[1], `${AFFICHES_STATIQUES}/cine/movie/poster/tt2.jpg`);
   await get("/affiche/movie/poster/tt1?s=n'importe");
-  assert.equal(new URL(calls[0]).search, "");
+  assert.equal(calls[2], `${AFFICHES_STATIQUES}/maison/movie/poster/tt1.jpg`);
 });
 
 test("affiche_service_en_panne", async () => {

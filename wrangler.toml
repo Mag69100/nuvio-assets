@@ -10,6 +10,9 @@
 name = "nuvio-assets"
 main = "worker/index.js"
 compatibility_date = "2026-10-01"
+# Les appels de l'addon passent par Internet comme ceux de n'importe qui : sans cette option, Cloudflare refuse (404)
+# qu'un Worker en appelle un autre du même compte par son adresse workers.dev (les affiches statiques, « affiches »).
+compatibility_flags = ["global_fetch_strictly_public"]
 workers_dev = true
 # Garde les variables ajoutées dans le tableau de bord (copies : DEPOT, GEMINI_PUBLIC) à chaque déploiement.
 keep_vars = true

@@ -34,8 +34,8 @@ import {
 } from "./config.js";
 import { configurePage } from "./page.js";
 import { guidePage, NUVIO_TV_APK } from "./guide.js";
-import { AFFICHES_URL, APERCU_V, relaisUrl } from "./reglages.js";
-import { lireReglages, ecrireReglages } from "./lien-affiches.js";
+import { AFFICHES_STATIQUES, APERCU_V, relaisUrl } from "./reglages.js";
+import { lireReglages, ecrireReglages, dossierDe, MEMOIRES, MEMOIRES_PAYSAGE } from "./lien-affiches.js";
 import { lienPage } from "./lien.js";
 import { copiePage } from "./copie.js";
 import { nouveautesPage } from "./nouveautes.js";
@@ -61,7 +61,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.27";
+const VERSION = "5.38.28";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -1082,6 +1082,16 @@ async function photoTendances(env, kind) {
     return new Map((Array.isArray(d.ids) ? d.ids : []).map((id, i) => [id, i]));
   } catch (e) { return new Map(); }
 }
+/**
+ * Le dossier des affiches toutes faites pour des réglages de la régie (s, sans « 1. ») : le style tout prêt qu'ils
+ * donnent, en portrait ou en paysage (Signature a le sien), sinon « maison ».
+ */
+function dossierApercu(forme, s) {
+  if (forme !== "landscape") return dossierDe(lireReglages(new URLSearchParams(s ? { s: "1." + s } : {})), null) || "maison";
+  const m = Object.keys(MEMOIRES).find((k) => ecrireReglages(MEMOIRES_PAYSAGE[k] || MEMOIRES[k]) === s && dossierDe(MEMOIRES[k], MEMOIRES_PAYSAGE[k] || null));
+  return m ? dossierDe(MEMOIRES[m], MEMOIRES_PAYSAGE[m] || null) : "maison";
+}
+
 /** Titres rangés dans l'ordre de la photo ; ceux qu'elle n'a pas, à la suite, dans leur ordre. */
 const dansLOrdre = (items, photo) => (photo.size ? [...items].sort((a, b) => (photo.has(a.id) ? photo.get(a.id) : 1e9) - (photo.has(b.id) ? photo.get(b.id) : 1e9)) : items);
 const tendancesDuJour = (def) => /^\/trending\/(movie|tv)\/day$/.test(def.endpoint || "");
@@ -2571,7 +2581,7 @@ const app = {
         }
         return app.fetch(new Request(url.origin + p), env, ctx);
       };
-      return routeEtat(request, env, ctx, url, path, { version: VERSION, assets: ASSETS, affiches: env.AFFICHES_URL || AFFICHES_URL, appel, today, saison: decorSaison(url, today) }, HEADERS);
+      return routeEtat(request, env, ctx, url, path, { version: VERSION, assets: ASSETS, affiches: AFFICHES_STATIQUES + "/maison", appel, today, saison: decorSaison(url, today) }, HEADERS);
     }
 
     // Premier segment = config personnalisée, s'il n'est pas un mot réservé.
@@ -2703,9 +2713,11 @@ const app = {
       const r = (await renewalOf(env, ctx, d, follow.season, today)) || { error: "pas d'article Wikipédia" };
       return json({ wikipedia: await wikiNews(d.external_ids.wikidata_id), ...r, note: r.status ? renewalNote(r, follow.season) : follow.text }, 0);
     }
-    // Affiche maison des aperçus du site (et du Plan B Stremio), relayée depuis le service d'affiches
-    // (dossier affiches/, sur Vercel) avec les options de la salle 2 (o, r), gardée un jour dans le cache.
-    // /affiche/<type>/<poster|landscape>/<id>?imdb=tt…&o=…&r=tmdb
+    // Affiche maison des aperçus du site (et du Plan B Stremio), gardée un jour dans le cache. Le serveur des affiches
+    // (RELAIS_URL ; AFFICHES_URL, un service lancé à côté pour essayer en local) la dessine avec tous les réglages de la
+    // salle 2 ; sans lui, c'est l'affiche toute faite du style de ces réglages (fichiers statiques), « maison » pour un
+    // réglage perso, comme le lien qu'on copie (Vercel ne dessine plus).
+    // /affiche/<type>/<poster|landscape>/<id>?imdb=tt…&s=1.…
     const af = path.match(/^\/affiche\/(movie|series)\/(poster|landscape)\/(tt\d{1,10}|tmdb%3A\d{1,10}|tmdb:\d{1,10})$/);
     if (af) {
       const id = decodeURIComponent(af[3]), imdb = url.searchParams.get("imdb") || "";
@@ -2714,8 +2726,9 @@ const app = {
       const q = new URLSearchParams();
       if (/^tt\d{1,10}$/.test(imdb)) q.set("imdb", imdb);
       if (s) q.set("s", "1." + s);
-      // AFFICHES_URL de l'environnement : un service d'affiches lancé à côté, pour essayer en local.
-      const src = `${relaisUrl(env)}/${af[1]}/${af[2]}/${id}.jpg${q.size ? "?" + q : ""}`;
+      const serveur = env.RELAIS_URL || env.AFFICHES_URL;
+      const src = serveur ? `${serveur}/${af[1]}/${af[2]}/${id}.jpg${q.size ? "?" + q : ""}`
+        : `${AFFICHES_STATIQUES}/${dossierApercu(af[2], s)}/${af[1]}/${af[2]}/${encodeURIComponent(id)}.jpg`;
       const key = new Request(`https://cache.local/affiche-v${APERCU_V}/${af[1]}/${af[2]}/${id}?${q}&t=${jourTendances()}`);
       const hitA = await caches.default.match(key);
       if (hitA) return hitA;

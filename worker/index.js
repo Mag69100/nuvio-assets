@@ -34,7 +34,7 @@ import {
 } from "./config.js";
 import { configurePage } from "./page.js";
 import { guidePage, NUVIO_TV_APK } from "./guide.js";
-import { AFFICHES_STATIQUES, APERCU_V, relaisUrl } from "./reglages.js";
+import { AFFICHES_STATIQUES, APERCU_V, apercusDe, relaisUrl } from "./reglages.js";
 import { lireReglages, ecrireReglages, dossierDe, MEMOIRES, MEMOIRES_PAYSAGE } from "./lien-affiches.js";
 import { lienPage } from "./lien.js";
 import { compteNuvioPage } from "./compte-nuvio.js";
@@ -62,7 +62,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.40";
+const VERSION = "5.38.41";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -2674,14 +2674,14 @@ const app = {
         origin: url.origin, cfg: fixedId ? { ...cfg, k: "", al: "" } : cfg, rows, discover: DEFS.discover, providers: PROVIDERS, collections: cols,
         defaults: defaults(rows, DEFS.discover), regions: REGIONS, genres: GENRES, languages: LANGUAGES,
         sorts: SORTS, seasons: SEASON_KEYS, maxCustom: MAX_CUSTOM, season: decorSaison(url, today), copy: isCopy(url),
-        fixed: fixedId, fixedOk: fixedAvailable(env),
+        fixed: fixedId, fixedOk: fixedAvailable(env), apercus: apercusDe(env, url.origin),
       }));
       // Lien fixe : ses réglages changent sans que l'adresse change, la page n'est jamais resservie d'un cache.
       if (fixedId) page.headers.set("Cache-Control", "no-store");
       return page;
     }
-    if (path === "") return html(hallPage({ origin: url.origin, season: decorSaison(url, today), copy: isCopy(url) }));   // le hall : choisir sa salle
-    if (path === "/guide") return html(guidePage({ origin: url.origin, season: decorSaison(url, today) }));
+    if (path === "") return html(hallPage({ origin: url.origin, season: decorSaison(url, today), copy: isCopy(url), apercus: apercusDe(env, url.origin) }));   // le hall : choisir sa salle
+    if (path === "/guide") return html(guidePage({ origin: url.origin, season: decorSaison(url, today), apercus: apercusDe(env, url.origin) }));
     if (path === "/lien") return html(lienPage({ origin: url.origin }));   // ouvert par les QR codes du guide
     if (path === "/compte-nuvio") return html(compteNuvioPage({ origin: url.origin }));   // collections envoyées au compte Nuvio (essai)
     if (path === "/copie") return html(copiePage({ origin: url.origin }));   // « Monte ta propre salle » : héberger sa copie

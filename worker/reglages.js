@@ -116,6 +116,12 @@ export const AFFICHES_URL = "https://affiches-catalogue-fr.vercel.app";
  * affiches (secret RELAIS_URL, son adresse https) quand il est là, sinon le service de Vercel.
  */
 export const relaisUrl = (env) => env.RELAIS_URL || env.AFFICHES_URL || AFFICHES_URL;
+/**
+ * Qui dessine les aperçus d'affiches des pages du site (/affiche/…) : le serveur des affiches (RELAIS_URL), sans passer
+ * par l'addon : chaque aperçu relayé comptait une requête dans les 100 000 par jour du compte (le tiers des requêtes de
+ * l'addon le 26 octobre 2026). Sans serveur (copies, essais en local), l'addon lui-même.
+ */
+export const apercusDe = (env, origin) => (/^https:\/\/[^/]+/.test(env.RELAIS_URL || "") ? env.RELAIS_URL.replace(/\/+$/, "") : origin);
 // Version des aperçus d'affiches du site (/affiche/…, gardés un jour par le navigateur) : à changer quand le
 // dessin change, pour qu'aucun aperçu dessiné par l'ancienne version ne ressorte du cache.
 export const APERCU_V = "3";

@@ -10,7 +10,7 @@ import { esc } from "./outils-serveur.js";
 import { NOUVEAUTES, jourEnClair } from "./nouveautes.js";
 
 
-export function hallPage({ origin, season, copy = false }) {
+export function hallPage({ origin, season, copy = false, apercus = origin }) {
   const LOGO = origin + "/logo.png";
   const porte = (n, href, titre, texte, extra) => `
     <a class="porte" href="${esc(href)}"${extra || ""}>
@@ -178,7 +178,7 @@ ${copy ? "" : `  <p class="propre-salle">Tu veux ta propre salle, avec tes clés
   </footer>
 </main>
 ${scripts("scene.js")}
-<script>${apercuDonnees(origin)}</script>
+<script>${apercuDonnees(origin, apercus)}</script>
 ${scripts("affiches.js")}
 <script>
 // « Voir l'accueil que tu auras à la fin » : l'écran Nuvio (nuvio.js, le plus gros script du site) et l'aperçu

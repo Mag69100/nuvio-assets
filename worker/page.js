@@ -130,7 +130,7 @@ hoteRefresh();
 `;
 
 
-export function configurePage({ origin, cfg, rows, discover, providers, collections, defaults, regions, genres, languages, sorts, seasons, maxCustom, season, copy = false, fixed = "", fixedOk = false }) {
+export function configurePage({ origin, cfg, rows, discover, providers, collections, defaults, regions, genres, languages, sorts, seasons, maxCustom, season, copy = false, fixed = "", fixedOk = false, apercus = origin }) {
   const plain = (c) => ({ n: c.n, r: c.r, p: c.p, d: c.d, c: c.c, o: c.o, x: c.x, g: c.g, e: c.e, m: c.m, a: c.a, f: c.f, h: c.h, t: c.t, to: c.to || {}, u: c.u, k: c.k, al: c.al });
   const data = {
     origin, maxCustom, fixed, fixedOk,
@@ -425,7 +425,7 @@ ${copy ? HOTE_HTML : ""}
   </div>
 ${guichetHTML()}
 
-<script>${nuvioDonnees(origin)}</script>
+<script>${nuvioDonnees(origin, apercus)}</script>
 ${scripts("nuvio.js")}
 <script>
 const D = ${json};

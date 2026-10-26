@@ -175,7 +175,7 @@ adb disconnect</code><button type="button" data-copy="u-adb-${id}">Copier</butto
 // Ordinateur (Windows, Mac ou Linux) : Claude choisit lui-même le bon fichier, le message est le même.
 const MESSAGE_DESKTOP = `Installe Nuvio Desktop sur cet ordinateur. Prends la dernière version sur ${LINKS.nuvioDesktop}, avec le fichier qui correspond à mon système : .msi pour Windows ; .dmg arm64 (puce Apple) ou x86_64 (Intel) pour Mac ; .deb, .rpm, .flatpak ou .AppImage selon ma distribution Linux. Télécharge-le et installe-le. Explique-moi chaque étape avant de la faire, et à la fin dis-moi comment ouvrir Nuvio.`;
 
-export function guidePage({ origin, season }) {
+export function guidePage({ origin, season, apercus = origin }) {
   const short = origin.replace(/^https?:\/\//, "") + "/tv";
   const LOGO = origin + "/logo.png";
   const manifest = `${origin}/manifest.json`;
@@ -628,7 +628,7 @@ ${CREDITS_HTML}
 
 <script>const ORIG = ${JSON.stringify(origin)}, ORIGINE = ORIG;</script>
 ${scripts("liens.js", "outils.js", "guide.js", "scene.js")}
-<script>${apercuDonnees(origin)}</script>
+<script>${apercuDonnees(origin, apercus)}</script>
 ${scripts("nuvio.js", "apercu.js", "reglages.js")}
 <script>
 // Étape 8 : le lien d'affiches de cet appareil, avec ce qui a été choisi en salle 2 (« Tes affiches »).

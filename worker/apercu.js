@@ -127,7 +127,7 @@ export const APERCU_CSS =`/* L'aperçu du résultat : l'accueil Nuvio qu'on obti
 }`;
 
 /** Les données de l'aperçu propres au site qui sert la page (son adresse). */
-export const apercuDonnees = (origin) => nuvioDonnees(origin) + "\nconst ORIG_AP = " + JSON.stringify(origin) + ";";
+export const apercuDonnees = (origin, apercus = origin) => nuvioDonnees(origin, apercus) + "\nconst ORIG_AP = " + JSON.stringify(origin) + ";";
 
 /** Le script de l'aperçu (après nuvio.js et apercuDonnees). Servi à part par statique.js. */
 export const APERCU_JS = `// ---------- L'accueil qu'on aura à la fin du guide ----------

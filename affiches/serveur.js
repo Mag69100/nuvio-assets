@@ -3,7 +3,8 @@
  * quota de calcul. Installé par serveur/installer.sh, lancé par systemd (serveur/affiches.service).
  *   GET /statique/<style>/{type}/{shape}/{id}.jpg  pour le Worker « affiches » (clé X-Relais-Cle) : une affiche absente
  *       de ses fichiers statiques, dessinée tout de suite, puis publiée avec les autres (toutes les 3 minutes)
- *   GET /{type}/{shape}/{id}.jpg?s=…               comme sur Vercel (aperçus de la régie, par le relais de l'addon)
+ *   GET /{type}/{shape}/{id}.jpg?s=…               comme sur Vercel
+ *   GET /affiche/{type}/{shape}/{id}?imdb=…&s=…     les aperçus des pages du site (comme /affiche/… de l'addon, sans lui)
  *   GET /qualite/… /tendances/… /notes/… /vf.json /anilist.json   les relais de l'addon, comme sur Vercel
  *   GET /etat                                      le bilan du serveur
  * Il prend aussi la file des affiches demandées pendant son absence (toutes les 5 minutes) et redessine tout chaque
@@ -24,6 +25,11 @@ import { makeQualite } from "./api/qualite.js";
 import { makeAnilist } from "./api/anilist.js";
 import { creerCloudflare, dessinerStatique, dessinerTout, publierEtEnregistrer, lireEtat, empreinte } from "./lib/statiques.js";
 import { definirSecours } from "./lib/qualite.js";
+import { lireReglages, ecrireReglages } from "./lib/lien-affiches.js";
+import { secondesAvantBascule } from "./lib/tendances.js";
+
+// Aperçus gardés en mémoire (les mêmes pour tous les visiteurs du site : les rangées du hall, la galerie) ; ~100 Ko chacun.
+const APERCUS_MAX = 400;
 
 export function creerServeur({ env = process.env, fetchImpl = fetch, horloge = Date.now } = {}) {
   const PORT = Number(env.PORT) || 8080, BASE = `http://127.0.0.1:${PORT}`;
@@ -49,6 +55,39 @@ export function creerServeur({ env = process.env, fetchImpl = fetch, horloge = D
     const h = (x) => createHash("sha256").update(String(x || "")).digest();
     return timingSafeEqual(h(req.headers["x-relais-cle"]), h(env.RELAIS_KEY));
   };
+
+  // Aperçu d'une page du site : mêmes règles que /affiche/… de l'addon (worker/index.js), qui le relayait et comptait
+  // ainsi une requête de plus dans les 100 000 par jour du compte. Réglages remis dans leur forme canonique, attente de
+  // la régie (X-Apercu), gardé un jour au plus et jamais après la photo des tendances ; « en retard » : jamais gardé.
+  const apercus = new Map();   // clé → { jpg, type, fin }
+  const CORS_APERCU = { "Access-Control-Allow-Origin": "*", "Access-Control-Expose-Headers": "X-Affiche-Etat" };
+  async function apercu(type, shape, id, params) {
+    const q = new URLSearchParams(), imdb = params.get("imdb") || "", s = ecrireReglages(lireReglages(params));
+    if (/^tt\d{1,10}$/.test(imdb)) q.set("imdb", imdb);
+    if (s) q.set("s", "1." + s);
+    const cle = `${type}/${shape}/${id}?${q}`, now = horloge(), hit = apercus.get(cle);
+    const sortie = (jpg, ct, etat, garde) => new Response(jpg, { headers: { ...CORS_APERCU, "X-Affiche-Etat": etat, "Content-Type": ct,
+      "Cache-Control": garde ? `public, max-age=${garde}` : "no-store" } });
+    if (hit && hit.fin > now) return sortie(hit.jpg, hit.type, "complete", Math.ceil((hit.fin - now) / 1000));
+    let r = null, p = q;
+    // Le service renvoie (308) vers l'adresse canonique de ces réglages : on la suit, deux fois au plus.
+    for (let i = 0; i < 3; i++) {
+      p.set("type", type); p.set("shape", shape); p.set("id", id);
+      r = await affiche(new Request(`${BASE}/api/affiche?${p}`, { headers: { "X-Apercu": "1" } }));
+      if (r.status !== 308) break;
+      p = new URLSearchParams((r.headers.get("Location") || "").split("?")[1] || "");
+    }
+    const ct = (r && r.headers.get("Content-Type")) || "";
+    if (!r || !r.ok || !ct.startsWith("image/")) return new Response(null, { status: 404, headers: { ...CORS_APERCU, "Cache-Control": "public, max-age=3600" } });
+    const cc = r.headers.get("Cache-Control") || "", ma = /max-age=(\d+)/.exec(cc), jpg = Buffer.from(await r.arrayBuffer());
+    const etat = r.headers.get("X-Affiche-Etat") === "retard" ? "retard" : "complete";
+    const garde = etat === "retard" || /no-store|no-cache/.test(cc) ? 0 : Math.min(86400, ma ? Number(ma[1]) : 3600, secondesAvantBascule(now));
+    if (garde) {
+      if (apercus.size >= APERCUS_MAX) apercus.delete(apercus.keys().next().value);
+      apercus.set(cle, { jpg, type: ct, fin: now + garde * 1000 });
+    }
+    return sortie(jpg, ct, etat, garde);
+  }
 
   // Affiches dessinées pour le Worker, en attente de publication (chemin → { jpg, hash }).
   const enAttente = new Map();
@@ -77,6 +116,8 @@ export function creerServeur({ env = process.env, fetchImpl = fetch, horloge = D
       for (const k of ["if-none-match", "x-apercu"]) if (req.headers[k]) entetes[k] = req.headers[k];
       return affiche(new Request(`${BASE}/api/affiche?${q}`, { headers: entetes }));
     }
+    const ap = /^\/affiche\/(movie|series)\/(poster|landscape)\/(tt\d{1,10}|tmdb%3A\d{1,10}|tmdb:\d{1,10})$/.exec(p);
+    if (ap) return apercu(ap[1], ap[2], decodeURIComponent(ap[3]), url.searchParams);
     const enTetes = Object.fromEntries(Object.entries(req.headers).filter(([k]) => k === "x-relais-cle"));
     const t = /^\/tendances\/(movie|series)\.json$/.exec(p);
     if (t) return relais.tendances(new Request(`${BASE}/api/tendances?type=${t[1]}`, { headers: enTetes }));

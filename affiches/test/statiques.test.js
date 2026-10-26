@@ -211,3 +211,15 @@ test("inconnue_sort_de_la_file", async () => {
   assert.deepEqual(r.reessais, [["/maison/movie/poster/tt1.jpg", 1, 24 * 60]]);
   assert.deepEqual(r.faits, ["/maison/movie/poster/tt2.jpg"]);
 });
+
+// Les aperçus des pages du site (/affiche/…) : servis par le serveur sans clé, comme le relais de l'addon (qui comptait
+// une requête de plus par aperçu chez Cloudflare) ; titre inconnu : 404 lisible par la page (CORS), gardé une heure.
+test("serveur_apercus_du_site", async () => {
+  const { creerServeur } = await import("../serveur.js");
+  const s = creerServeur({ env: { TMDB_API_KEY: "x", PORT: "8797" }, fetchImpl: async () => new Response("{}", { status: 404 }) });
+  const r = await s.route({ url: "/affiche/movie/poster/tmdb%3A550?imdb=tt0137523&s=1.Q0N0G0A03c1&v=3&essai=1", headers: {} });
+  assert.equal(r.status, 404);
+  assert.equal(r.headers.get("Access-Control-Allow-Origin"), "*");
+  assert.equal(r.headers.get("Cache-Control"), "public, max-age=3600");
+  assert.equal((await s.route({ url: "/affiche/movie/poster/kitsu:1", headers: {} })).status, 404);
+});

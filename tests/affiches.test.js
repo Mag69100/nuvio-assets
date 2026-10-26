@@ -197,3 +197,20 @@ test("regie_qr_code", async () => {
   assert.ok(lien.includes("affiches-catalogue-fr.vercel.app"));
   assert.ok(lien.includes("Custom Poster Source"));
 });
+
+// Les aperçus des pages du site sont demandés au serveur des affiches (RELAIS_URL), pas à l'addon : chaque aperçu
+// relayé par l'addon comptait une requête dans les 100 000 par jour du compte (le tiers de ses requêtes le
+// 26 octobre 2026). Sans serveur (copies, essais en local), l'addon lui-même, comme avant.
+test("apercus_chez_le_serveur_des_affiches", async () => {
+  const { apercusDe } = await import("../worker/reglages.js");
+  const { NUVIO_JS, nuvioDonnees } = await import("../worker/nuvio.js");
+  const { hallPage } = await import("../worker/hall.js");
+  const o = "https://addon.test";
+  assert.equal(apercusDe({ RELAIS_URL: "https://serveur.test/" }, o), "https://serveur.test");
+  assert.equal(apercusDe({}, o), o);
+  assert.equal(apercusDe({ RELAIS_URL: "http://serveur.test" }, o), o);
+  assert.equal(nuvioDonnees(o), `const NV_ORIG = "${o}", NV_APERCU = "${o}";`);
+  assert.ok(NUVIO_JS.includes(`(typeof NV_APERCU === "string" ? NV_APERCU : NV_ORIG) + "/affiche/"`));
+  assert.ok(hallPage({ origin: o, season: null, apercus: "https://serveur.test" }).includes(`NV_APERCU = "https://serveur.test"`));
+  assert.ok(guidePage({ origin: o, season: null, apercus: "https://serveur.test" }).includes(`NV_APERCU = "https://serveur.test"`));
+});

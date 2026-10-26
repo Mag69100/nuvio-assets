@@ -445,8 +445,11 @@ const parametresJSON = (posterUrl) => {
   return JSON.stringify({ rubriques, pages: pages.map((p) => ({ ...p, body: net(p.body) })) }).replace(/</g, "\\u003c");
 };
 
-/** La donnée du script commun propre au site qui sert la page : origin = l'adresse de l'addon. */
-export const nuvioDonnees = (origin) => "const NV_ORIG = " + JSON.stringify(origin) + ";";
+/**
+ * La donnée du script commun propre au site qui sert la page : origin = l'adresse de l'addon ; apercus = qui dessine les
+ * aperçus d'affiches (/affiche/…) : le serveur des affiches s'il y en a un (apercusDe), sinon l'addon lui-même.
+ */
+export const nuvioDonnees = (origin, apercus = origin) => "const NV_ORIG = " + JSON.stringify(origin) + ", NV_APERCU = " + JSON.stringify(apercus) + ";";
 
 // Les réglages de l'aperçu et l'adresse des affiches maison (ppSrc) : dans l'écran Nuvio (NUVIO_JS) et, seuls,
 // sur le mur du hall (AFFICHES_JS), qui n'a besoin de l'écran entier qu'au clic sur « Voir l'accueil… ».
@@ -457,7 +460,7 @@ const REGLAGES_AFFICHES = `  const cssUrl = (u) => "url('" + String(u).replace(/
 
   // ---------- Réglages de l'aperçu (les mêmes partout : hall, guide, salle 2) ----------
   // Affiches maison : activées d'office (c'est le réglage de l'étape 8), avec les options choisies en
-  // salle 2 (« Tes affiches », gardées dans ce navigateur), demandées au worker (/affiche/…).
+  // salle 2 (« Tes affiches », gardées dans ce navigateur), demandées au serveur des affiches (/affiche/…, NV_APERCU).
   const reglages = {
     get format() { return lit("apercu-format") === "l" ? "l" : "p"; },
     set format(v) { ecrit("apercu-format", v === "l" ? "l" : "p"); },
@@ -484,7 +487,7 @@ const REGLAGES_AFFICHES = `  const cssUrl = (u) => "url('" + String(u).replace(/
   };
   /** Le lien d'affiches à coller dans Nuvio, avec les réglages de ce navigateur. */
   const lienPerso = () => LA.lienAffiches(reglages.affiches, reglages.affichesPaysage);
-  /** Affiche maison d'un titre, demandée au worker (/affiche/…) ; r : d'autres réglages que ceux du navigateur (la régie). */
+  /** Affiche maison d'un titre (/affiche/… chez NV_APERCU) ; r : d'autres réglages que ceux du navigateur (la régie). */
   const ppSrc = (m, forme, r) => {
     if ((!r && !reglages.pp) || !m || !m.id) return "";
     const id = String(m.id), imdb = m.imdb_id || (id.startsWith("tt") ? id : "");
@@ -494,7 +497,7 @@ const REGLAGES_AFFICHES = `  const cssUrl = (u) => "url('" + String(u).replace(/
     if (imdb && imdb !== id) q.set("imdb", imdb);
     if (s) q.set("s", "1." + s);
     q.set("v", "${APERCU_V}");   // version du dessin : un aperçu de l'ancienne version ne ressort pas du cache
-    return NV_ORIG + "/affiche/" + (m.type === "series" ? "series" : "movie") + "/" + forme + "/" + encodeURIComponent(id) + (String(q) ? "?" + q : "");
+    return (typeof NV_APERCU === "string" ? NV_APERCU : NV_ORIG) + "/affiche/" + (m.type === "series" ? "series" : "movie") + "/" + forme + "/" + encodeURIComponent(id) + (String(q) ? "?" + q : "");
   };`;
 
 /** Le script commun : window.NV, avec les réglages et le lien des affiches maison (LA = creerLienAffiches, repris tel

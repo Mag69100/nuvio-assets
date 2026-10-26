@@ -23,6 +23,7 @@ import { makeVf } from "./api/vf.js";
 import { makeQualite } from "./api/qualite.js";
 import { makeAnilist } from "./api/anilist.js";
 import { creerCloudflare, dessinerStatique, dessinerTout, publierEtEnregistrer, lireEtat, empreinte } from "./lib/statiques.js";
+import { definirSecours } from "./lib/qualite.js";
 
 export function creerServeur({ env = process.env, fetchImpl = fetch, horloge = Date.now } = {}) {
   const PORT = Number(env.PORT) || 8080, BASE = `http://127.0.0.1:${PORT}`;
@@ -38,6 +39,11 @@ export function creerServeur({ env = process.env, fetchImpl = fetch, horloge = D
   const cf = env.CLOUDFLARE_API_TOKEN && env.D1_AFFICHES
     ? creerCloudflare({ jeton: env.CLOUDFLARE_API_TOKEN, compte: env.CLOUDFLARE_ACCOUNT_ID, base: env.D1_AFFICHES, worker: env.AFFICHES_WORKER || "affiches", fetchImpl })
     : null;
+  // Le relais de Vercel ne répond pas (en pause, en panne) : la qualité de la nuit, lue par la machine GitHub (une ligne).
+  if (cf) definirSecours(async (video) => {
+    const r = await cf.sql("SELECT q FROM sources WHERE video = ?", [video]);
+    return r[0] ? JSON.parse(r[0].q) : null;
+  });
   const cleOk = (req) => {
     if (!env.RELAIS_KEY) return false;
     const h = (x) => createHash("sha256").update(String(x || "")).digest();

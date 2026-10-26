@@ -55,6 +55,8 @@ export function creerCloudflare({ jeton, compte, base, worker = "affiches", fetc
       await sql("CREATE TABLE IF NOT EXISTS fichiers (chemin TEXT PRIMARY KEY, hash TEXT NOT NULL, taille INTEGER NOT NULL, dessine TEXT NOT NULL, cree TEXT NOT NULL)");
       await sql("CREATE TABLE IF NOT EXISTS verrou (nom TEXT PRIMARY KEY, jusqua TEXT NOT NULL)");
       await sql("CREATE TABLE IF NOT EXISTS etat (nom TEXT PRIMARY KEY, vu TEXT NOT NULL)");
+      // La qualité lue chez Torrentio par la machine GitHub, chaque nuit (video → JSON de lireTorrentio).
+      await sql("CREATE TABLE IF NOT EXISTS sources (video TEXT PRIMARY KEY, q TEXT NOT NULL, lu TEXT NOT NULL)");
     },
     /** Prend le verrou pour `ms` ; false s'il est déjà pris (une autre publication en cours). */
     async verrouiller(nom, ms) {

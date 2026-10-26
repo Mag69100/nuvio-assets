@@ -193,3 +193,24 @@ test("avec_streamfusion", () => {
     { ...t, uhd: true, extra: "DV", hdr10p: true, fhd: true, atmos: true, vf: true, sources: 30, langue: "vf" });
   assert.deepEqual(avecStreamFusion(null, { vf: true, sources: 2 }), { uhd: false, extra: null, fhd: false, hdr10p: false, atmos: false, vf: true, sources: 2, langue: "vf" });
 });
+
+// Le relais ne répond pas (Vercel en pause) : la qualité de la nuit, lue par la machine GitHub (secours du serveur des
+// affiches) ; le relais répond : il passe devant ; sans secours posé : null, comme avant.
+test("qualite_secours_quand_le_relais_ne_repond_pas", async () => {
+  const { qualityOf, definirSecours, resetMemo } = await import("../lib/qualite.js");
+  const nuit = { uhd: true, extra: "DV", fhd: false, hdr10p: false, atmos: false, vf: true, sources: 12, langue: "multi" };
+  try {
+    resetMemo();
+    definirSecours(async (video) => (video === "movie/tt8888888" ? nuit : null));
+    assert.deepEqual(await qualityOf("movie", "tt8888888", null, async () => new Response("", { status: 500 }), "https://relais.test", "k"), nuit);
+    resetMemo();
+    const direct = { uhd: false, extra: null, fhd: true, hdr10p: false, atmos: false, vf: false, sources: 4, langue: "vo" };
+    assert.equal((await qualityOf("movie", "tt8888888", null, async () => Response.json(direct), "https://relais.test", "k")).vf, false);
+    resetMemo();
+    definirSecours(null);
+    assert.equal(await qualityOf("movie", "tt8888888", null, async () => new Response("", { status: 500 }), "https://relais.test", "k"), null);
+  } finally {
+    definirSecours(null);
+    resetMemo();
+  }
+});

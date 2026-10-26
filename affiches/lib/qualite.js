@@ -13,7 +13,11 @@ const DELAI_MS = 2500;
 const GARDE_MS = 86400 * 1000, GARDE_ECHEC_MS = 3600 * 1000;
 const MAX_MEMO = 5000;
 
-let memo = new Map();   // "movie/tt…" ou "series/tt…:saison:1" → { promesse, until }
+let memo = new Map();
+// Secours quand le relais ne répond pas (serveur des affiches : la qualité lue par la machine GitHub, chaque nuit, dans
+// la base) : video → qualité ou null. Posé par serveur.js ; sans lui, rien.
+let secours = null;
+export const definirSecours = (f) => { secours = f; };   // "movie/tt…" ou "series/tt…:saison:1" → { promesse, until }
 export function resetMemo() { memo = new Map(); }
 export const tailleMemo = () => memo.size;
 
@@ -105,7 +109,8 @@ export async function qualityOf(type, imdbId, lastSeason, fetchImpl = fetch, rel
   const memoCle = relais && sf ? video + "#sf" : video;
   const now = Date.now(), hit = memo.get(memoCle);
   if (hit && now < hit.until) return hit.promesse;
-  const entry = { promesse: relais ? lireRelais(relais, video, fetchImpl, cle, sf) : lireTorrentio(video, fetchImpl), until: now + GARDE_MS };
+  const lue = relais ? lireRelais(relais, video, fetchImpl, cle, sf) : lireTorrentio(video, fetchImpl);
+  const entry = { promesse: secours ? lue.then((q) => q || secours(video).catch(() => null)) : lue, until: now + GARDE_MS };
   memo.delete(memoCle);
   memo.set(memoCle, entry);
   // Mémoire plafonnée : les entrées les plus anciennes sortent (une Map garde l'ordre d'arrivée).

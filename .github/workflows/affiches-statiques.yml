@@ -8,10 +8,12 @@ on:
   schedule:
     - cron: "*/10 * * * *"
     - cron: "17 4 * * *"
+    # La qualité chez Torrentio pour le secours du serveur (scripts/affiches-statiques.mjs sources).
+    - cron: "41 2 * * *"
   workflow_dispatch:
     inputs:
       mode:
-        description: "file (les demandées), tout, ou code (le code du Worker seul)"
+        description: "file (les demandées), tout, code (le code du Worker seul) ou sources (la qualité pour le secours)"
         default: file
 
 permissions:
@@ -37,7 +39,8 @@ jobs:
         id: mode
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then m="${{ inputs.mode }}";
-          elif [ "${{ github.event.schedule }}" = "17 4 * * *" ]; then m=tout; else m=file; fi
+          elif [ "${{ github.event.schedule }}" = "17 4 * * *" ]; then m=tout;
+          elif [ "${{ github.event.schedule }}" = "41 2 * * *" ]; then m=sources; else m=file; fi
           echo "mode=$m" >> "$GITHUB_OUTPUT"
       # File vide : rien à installer ni à dessiner (la plupart des passages de 10 minutes). Les étapes suivantes tournent
       # pour tout autre mode que « file » : comparés par GitHub, '' (étape sautée) et '0' sont égaux.

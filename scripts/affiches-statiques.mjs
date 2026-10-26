@@ -5,6 +5,8 @@
  *   node scripts/affiches-statiques.mjs file   les affiches demandées et absentes (table demandes)
  *   node scripts/affiches-statiques.mjs tout   en plus, toutes celles déjà publiées (statuts du jour), chaque nuit
  *   node scripts/affiches-statiques.mjs code   seulement le code du Worker (sans lire la base)
+ *   node scripts/affiches-statiques.mjs sources   la qualité chez Torrentio des titres des affiches, rangée dans la base :
+ *                                                le secours du serveur quand le relais de Vercel ne répond pas (chaque nuit)
  *   … --essai                                    dessine sans rien publier ni écrire (20 affiches au plus)
  * Environnement : CLOUDFLARE_API_TOKEN (Workers Scripts et D1 en écriture), CLOUDFLARE_ACCOUNT_ID, D1_AFFICHES (id
  * de la base), TMDB_API_KEY ; MDBLIST_API_KEY facultatif ; AFFICHES_WORKER (nom du Worker, « affiches » par défaut).
@@ -17,7 +19,9 @@ import { makeTendances } from "../affiches/api/tendances.js";
 import { makeNotes } from "../affiches/api/notes.js";
 import { makeVf } from "../affiches/api/vf.js";
 import { makeQualite } from "../affiches/api/qualite.js";
-import { creerCloudflare, dessinerStatique, dessinerTout, publierEtEnregistrer, lireEtat } from "../affiches/lib/statiques.js";
+import { creerCloudflare, dessinerStatique, dessinerTout, publierEtEnregistrer, lireEtat, cheminValable } from "../affiches/lib/statiques.js";
+import { lireTorrentio } from "../affiches/lib/qualite.js";
+import { titleFacts } from "../affiches/lib/tmdb.js";
 
 const mode = process.argv[2] || "file", force = process.argv.includes("--force"), essai = process.argv.includes("--essai");
 const E = process.env;
@@ -29,6 +33,35 @@ const cf = creerCloudflare({ jeton: E.CLOUDFLARE_API_TOKEN, compte: E.CLOUDFLARE
 // lignes lues du jour).
 if (mode === "code") { await cf.mettreAJourCode(); console.log("code du Worker remis en ligne"); process.exit(0); }
 if (!essai) await cf.preparer();
+if (mode === "sources") {
+  // Les titres des affiches en ligne et demandées, une fois chacun (tous styles et formes confondus).
+  const lignes = [...await cf.sql("SELECT chemin FROM fichiers"), ...await cf.sql("SELECT chemin FROM demandes")];
+  const titres = [...new Map(lignes.map((l) => cheminValable(l.chemin)).filter(Boolean).map((m) => [`${m[2]}:${m[4]}`, { type: m[2], id: m[4] }])).values()];
+  console.log(`sources : ${titres.length} titres`);
+  const t0 = Date.now(), lus = [];
+  let i = 0, rates = 0;
+  // 4 à la fois : Torrentio reste ménagé (une lecture par titre et par nuit).
+  await Promise.all(Array.from({ length: 4 }, async () => {
+    while (i < titres.length) {
+      const t = titres[i++];
+      try {
+        const f = await titleFacts({ TMDB_API_KEY: E.TMDB_API_KEY }, { type: t.type, id: t.id, imdb: t.id.startsWith("tt") ? t.id : "" });
+        if (!f || !f.imdbId) continue;
+        const video = t.type === "series" ? `series/${f.imdbId}:${f.lastSeason || 1}:1` : `movie/${f.imdbId}`;
+        const q = await lireTorrentio(video);
+        if (q) lus.push([video, JSON.stringify(q)]); else rates++;
+      } catch (e) { rates++; }
+    }
+  }));
+  const maintenant = new Date().toISOString(), texte = (v) => `'${String(v).replace(/'/g, "''")}'`;
+  for (let j = 0; j < lus.length; j += 100) {
+    await cf.sql(`INSERT INTO sources (video, q, lu) VALUES ${lus.slice(j, j + 100).map(([v, q]) => `(${texte(v)}, ${texte(q)}, ${texte(maintenant)})`).join(", ")} ON CONFLICT (video) DO UPDATE SET q = excluded.q, lu = excluded.lu`);
+  }
+  // Plus lus depuis 30 jours : plus d'affiche pour eux.
+  await cf.sql("DELETE FROM sources WHERE lu < ?", [new Date(Date.now() - 30 * 86400000).toISOString()]);
+  console.log(`sources : ${lus.length} lues, ${rates} sans réponse, en ${Math.round((Date.now() - t0) / 1000)} s`);
+  process.exit(0);
+}
 if (!force && !essai && await cf.serveurRecent()) { console.log("le serveur des affiches est là : rien à faire ici"); process.exit(0); }
 const { parChemin, aFaire, file, enLigne } = await lireEtat(cf, { tout: mode === "tout" });
 console.log(`${mode} : ${aFaire.size} affiches à dessiner (${file} dans la file, ${enLigne} en ligne)`);

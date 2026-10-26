@@ -322,3 +322,12 @@ test("codes_mal_et_moyenne", () => {
   r.note.on = false;
   assert.equal(ecrireReglages(r), "N0");
 });
+
+// IMDb et TMDB ensemble, ou aucune des deux : la source n'est plus écrite sans principale (un seul lien par dessin).
+test("codes_deux_principales_ou_aucune", () => {
+  assert.equal(ecrit("s=1.3n1"), "3n1");
+  assert.equal(ecrit("s=1.nt3n1"), "nt3n1");
+  assert.equal(ecrit("s=1.nt3o0"), "3o0");
+  assert.equal(ecrit("s=1.3n13o0"), "3o0");
+  assert.equal(ecrit("s=1.N03n1"), "N0");
+});

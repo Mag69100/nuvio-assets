@@ -866,6 +866,10 @@ select:hover { border-color: rgba(255,207,107,.5); }
 .regie-console .puces button { border: 1px solid #4a3d45; border-radius: 99px; padding: 3px 9px; background: transparent; color: var(--cream); font: 600 .7rem system-ui, sans-serif; cursor: pointer; }
 .regie-console .puces button:hover { border-color: #7a6670; }
 .regie-console .puces button[aria-pressed="true"] { background: var(--cream); color: var(--ink); border-color: var(--cream); }
+.regie-console .puces button[aria-disabled="true"] { opacity: .38; cursor: not-allowed; }
+.regie-console .puces button[aria-disabled="true"]:hover { border-color: #4a3d45; }
+.regie-console .puces button[aria-pressed="true"][aria-disabled="true"] { opacity: 1; cursor: default; }
+.regie-console .regie-note.limite { color: var(--bulb); }
 .regie-console .curseur { display: flex; align-items: center; gap: 8px; }
 .regie-console .curseur output { font: 700 .74rem system-ui, sans-serif; width: 5ch; text-align: right; color: var(--cream); font-variant-numeric: tabular-nums; }
 /* Curseurs dessinés à la main : piste fine, partie remplie dorée jusqu'au bouton (--rempli), bouton rond doré. */
@@ -1615,21 +1619,38 @@ function carteDe(v) {
       principal: () => [choix("Montrer", [["aucune", "Rien"], ["realisateur", "Réalisateur"], ["accroche", "Accroche"], ["studio", "Studio"]], r.infos.ligne2, (x) => regle((r) => { r.infos.ligne2 = x; }))] },
     note: { nom: "Notes", ...onOff("note"),
       principal: () => {
-        const SITES = ["rt", "mc", "lb", "mal"], autres = SITES.filter((k) => r.note[k]).length;
-        // Séparées : deux autres notes au plus (la ligne déborderait) ; en moyenne, toutes.
-        const sites = el("div", { class: "choix" }, el("span", { text: "Autres" }), el("div", { class: "puces" },
-          ...[["rt", "Rotten T."], ["mc", "Metacritic"], ["lb", "Letterboxd"], ["mal", "MyAnimeList"]].map(([k, nom]) => el("button", { type: "button", text: nom, "data-cle": cleDe("autres:" + k), "aria-pressed": String(r.note[k]),
-            onclick: () => { if (r.note[k] || autres < 2 || r.note.moyenne) regle((r) => { r.note[k] = !r.note[k]; }); } }))));
-        return [choix("Principale", [["imdb", "IMDb"], ["tmdb", "TMDB"]], r.note.source, (x) => regle((r) => { r.note.source = x; })), sites,
-          choix("Montrer", [["non", "Chaque note"], ["oui", "La moyenne"]], r.note.moyenne ? "oui" : "non", (x) => regle((r) => {
+        // Une seule liste de sources, cochées librement : côte à côte, trois au plus (la ligne déborderait) ; en
+        // moyenne, autant qu'on veut. Toujours une au moins (pour n'en montrer aucune : l'interrupteur).
+        const SOURCES = [["imdb", "IMDb"], ["tmdb", "TMDB"], ["rt", "Rotten Tomatoes"], ["mc", "Metacritic"], ["lb", "Letterboxd"], ["mal", "MyAnimeList"]];
+        const MAX = 3;
+        const choisies = (n) => new Set(SOURCES.map(([k]) => k).filter((k) => (k === "imdb" ? n.principale && (n.source === "imdb" || n.deux)
+          : k === "tmdb" ? n.principale && (n.source === "tmdb" || n.deux) : n[k])));
+        const poser = (n, sel) => {
+          n.principale = sel.has("imdb") || sel.has("tmdb");
+          n.source = sel.has("imdb") || !n.principale ? "imdb" : "tmdb";
+          n.deux = sel.has("imdb") && sel.has("tmdb");
+          for (const k of ["rt", "mc", "lb", "mal"]) n[k] = sel.has(k);
+        };
+        const sel = choisies(r.note), plein = !r.note.moyenne && sel.size >= MAX;
+        const puces = el("div", { class: "puces" }, ...SOURCES.map(([k, nom]) => {
+          const pris = sel.has(k), bloque = (!pris && plein) || (pris && sel.size === 1);
+          return el("button", { type: "button", text: nom, "data-cle": cleDe("sources:" + k), "aria-pressed": String(pris), "aria-disabled": String(bloque),
+            title: bloque ? (pris ? "Une note au moins : pour les cacher toutes, éteins « Notes »." : "Trois notes au plus côte à côte : passe en moyenne pour en mettre plus.") : "",
+            onclick: () => { if (!bloque) regle((r) => { const s = choisies(r.note); if (s.has(k)) s.delete(k); else s.add(k); poser(r.note, s); }); } });
+        }));
+        const dit = r.note.moyenne
+          ? "Une seule note : la moyenne sur 10 de celles cochées que le titre a."
+          : plein ? "Trois notes au plus côte à côte : passe en moyenne pour en mettre plus." : "Jusqu'à trois notes côte à côte (" + sel.size + "/3).";
+        return [choix("Afficher", [["non", "Côte à côte"], ["oui", "La moyenne"]], r.note.moyenne ? "oui" : "non", (x) => regle((r) => {
             r.note.moyenne = x === "oui";
-            // Retour aux notes séparées : les deux premières seulement.
-            if (!r.note.moyenne) SITES.filter((k) => r.note[k]).slice(2).forEach((k) => { r.note[k] = false; });
-          }))];
+            // Retour côte à côte : les trois premières seulement.
+            if (!r.note.moyenne) poser(r.note, new Set([...choisies(r.note)].slice(0, MAX)));
+          })),
+          el("div", { class: "choix" }, el("span", { text: "Sources" }), puces),
+          el("p", { class: "regie-note" + (plein ? " limite" : ""), text: dit + (sel.has("mal") ? " MyAnimeList : sur les animés seulement." : "") })];
       },
       plus: () => [choix("Style", [["etoile", "★ 8,4"], ["nu", "8,4"], ["grand", "Grand"], ["badge", "Badge"]], r.note.style, (x) => regle((r) => { r.note.style = x; })),
-        choix("Couleur", [["non", "Non"], ["oui", "Selon la note"], ["halo", "+ halo"]], r.note.couleur, (x) => regle((r) => { r.note.couleur = x; })),
-        aide("Deux autres notes au plus, à côté de la principale ; en moyenne, autant que tu veux. MyAnimeList : sur les animés seulement.")] },
+        choix("Couleur", [["non", "Non"], ["oui", "Selon la note"], ["halo", "+ halo"]], r.note.couleur, (x) => regle((r) => { r.note.couleur = x; }))] },
     genre: { nom: "Genre", ...onOff("genre"),
       principal: () => [choix("Forme", [["court", "Court (SF)"], ["complet", "Complet"]], r.genre.forme, (x) => regle((r) => { r.genre.forme = x; }))] },
     annee: { nom: "Année", ...onOff("annee") },

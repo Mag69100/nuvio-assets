@@ -210,7 +210,7 @@ export function makeHandler({ fetchImpl = fetch, env = process.env } = {}) {
     // Langue des sources (réglage Langue) : lue avec la qualité, chez Torrentio.
     const langue = reglages.langue.on && env.QUALITE !== "off";
     // Note IMDb : pour la note affichée, ou pour le badge « Incontournable ».
-    const noteImdb = (reglages.titre.on && reglages.note.on && reglages.note.source !== "tmdb") || reglages.infos.culte;
+    const noteImdb = (reglages.titre.on && reglages.note.on && reglages.note.principale && (reglages.note.source !== "tmdb" || reglages.note.deux)) || reglages.infos.culte;
     // Les autres notes ne sont demandées que si elles serviront : dessinées (pas avec la note en grand chiffre), ou dans
     // la moyenne.
     const notesServent = reglages.titre.on && reglages.note.on && (reglages.note.style !== "grand" || reglages.note.moyenne);

@@ -22,7 +22,7 @@ export function creerLienAffiches() {
     haut: { inverse: false, style: "auto", forme: "arrondi", opacite: "l", couleur: "blanc", fond: "", coinStatut: "auto", coinQualite: "auto" },
     bandeau: { on: false, porte: "statut", coin: "d" },
     titre: { on: true, taille: 1, place: "auto", langue: "fr", monte: 0, large: 1, effet: "aucun" },
-    note: { on: true, source: "imdb", style: "etoile", rt: false, mc: false, lb: false, mal: false, moyenne: false, couleur: "non" },
+    note: { on: true, source: "imdb", principale: true, deux: false, style: "etoile", rt: false, mc: false, lb: false, mal: false, moyenne: false, couleur: "non" },
     genre: { on: true, forme: "court" },
     annee: { on: true },
     duree: { on: false },
@@ -105,7 +105,7 @@ export function creerLienAffiches() {
     ["m", "titre", "monte", MONTEES, titreOn],
     ["j", "titre", "large", TAILLES, titreOn],
     ["N", "note", "on", { 0: false }, titreOn],
-    ["n", "note", "source", { t: "tmdb" }, noteOn],
+    ["n", "note", "source", { t: "tmdb" }, (r) => noteOn(r) && r.note.principale],
     ["e", "note", "style", { n: "nu", g: "grand", b: "badge" }, noteOn],
     ["R", "note", "rt", { 1: true }, noteOn],
     ["M", "note", "mc", { 1: true }, noteOn],
@@ -171,6 +171,9 @@ export function creerLienAffiches() {
     // La note MyAnimeList (animés), et une seule note : la moyenne de celles choisies.
     ["3l", "note", "mal", { 1: true }, noteOn],
     ["3m", "note", "moyenne", { 1: true }, noteOn],
+    // IMDb et TMDB ensemble (la principale, puis l'autre) ; ou ni l'une ni l'autre (seulement les autres sites).
+    ["3n", "note", "deux", { 1: true }, (r) => noteOn(r) && r.note.principale],
+    ["3o", "note", "principale", { 0: false }, noteOn],
   ];
 
   /** Les styles tout prêts de la régie (« mémoires »). */

@@ -483,3 +483,19 @@ test("notes_mal_et_moyenne", () => {
   // Sans moyenne, en grand chiffre : la principale seule, comme avant.
   assert.equal(posterContent(v2, { ...plein, notes }, "poster", reglages("egR1"), AUJ).line.notes, undefined);
 });
+
+// IMDb et TMDB ensemble (3n1) : IMDb en principale, TMDB en premier des autres ; ni l'une ni l'autre (3o0) : seulement
+// les autres sites.
+test("notes_imdb_et_tmdb_ou_aucune", () => {
+  const notes = { rt: 94, mc: null, lb: null, mal: null };
+  const deux = posterContent(v2, { ...plein, notes }, "poster", reglages("R13n1"), AUJ);
+  assert.equal(deux.line.note, "8,4");
+  assert.deepEqual(deux.line.notes, [{ s: "tmdb", v: "8,1", n: 8.1 }, { s: "rt", v: "94 %", n: 9.4 }]);
+  // Sans note IMDb, la principale est déjà TMDB : pas deux fois.
+  assert.deepEqual(posterContent(v2, { ...plein, imdbRating: null, notes }, "poster", reglages("R13n1"), AUJ).line.notes, [{ s: "rt", v: "94 %", n: 9.4 }]);
+  const aucune = posterContent(v2, { ...plein, notes }, "poster", reglages("R13o0"), AUJ);
+  assert.equal(aucune.line.note, undefined);
+  assert.deepEqual(aucune.line.notes, [{ s: "rt", v: "94 %", n: 9.4 }]);
+  // En moyenne : IMDb 8,4, TMDB 8,1, RT 9,4 → 8,6.
+  assert.equal(posterContent(v2, { ...plein, notes }, "poster", reglages("R13m13n1"), AUJ).line.note, "8,6");
+});

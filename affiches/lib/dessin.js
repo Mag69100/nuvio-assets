@@ -91,6 +91,10 @@ function sigle(s, n, t) {
     const point = (x, couleur) => ({ type: "circle", props: { cx: x, cy: 6, r: 5, fill: couleur } });
     return { type: "svg", props: { width: c * 1.6, height: c * 0.62, viewBox: "0 0 32 12", children: [point(6, "#ff8000"), point(16, "#00e054"), point(26, "#40bcf4")] } };
   }
+  if (s === "imdb" || s === "tmdb") {
+    return h("div", { display: "flex", alignItems: "center", justifyContent: "center", width: c * 1.95, height: c, borderRadius: c * 0.18,
+      background: s === "imdb" ? OR : "#01b4e4", color: ENCRE, fontSize: c * 0.46, fontWeight: 800, textShadow: SANS_OMBRE }, s === "imdb" ? "IMDb" : "TMDB");
+  }
   if (s === "mal") {
     return h("div", { display: "flex", alignItems: "center", justifyContent: "center", width: c * 1.75, height: c, borderRadius: c * 0.18,
       background: "#2e51a2", color: "#fff", fontSize: c * 0.48, fontWeight: 800, textShadow: SANS_OMBRE }, "MAL");
@@ -136,7 +140,7 @@ function largeurLigne(l, st, police) {
   const parts = [l.genre, l.note || (l.notes && l.notes.length), l.annee, l.duree].filter(Boolean).length;
   let em = mots(l.genre) + mots(l.annee) + mots(l.duree) + Math.max(0, parts - 1) * (0.7 + c);
   if (l.note) em += mots(l.note) + (st.note === "badge" ? 4 * c * 0.6 + 0.75 : st.note === "etoile" ? 1.05 : 0);
-  for (const x of l.notes || []) em += (x.s === "mal" ? 1.75 : 1.35) + 0.22 + mots(x.v) + 0.45;
+  for (const x of l.notes || []) em += (x.s === "mal" ? 1.75 : x.s === "imdb" || x.s === "tmdb" ? 1.95 : 1.35) + 0.22 + mots(x.v) + 0.45;
   if (l.age) em += 0.4 + (String(l.age).length + 1) * c * 0.72 + 0.55;
   if (l.plateforme) em += 1.55;
   return em;

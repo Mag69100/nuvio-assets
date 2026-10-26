@@ -149,12 +149,19 @@ export function posterContent(facts, { imdbRating, rank, quality, notes, saga, s
     const genres = r.genre.forme === "complet" ? GENRES_COMPLETS : SHORT_GENRES;
     if (r.genre.on && genres[facts.genreIds[0]]) line.genre = genres[facts.genreIds[0]];
     const notesVisibles = r.note.on && !(r.sortie.cacherNote && pasSorti);
-    const n = notesVisibles ? note(facts, imdbRating, r.note.source) : null;
+    const n = notesVisibles && r.note.principale ? note(facts, imdbRating, r.note.source) : null;
     if (n) line.note = n.valeur;
     // La source n'est écrite que pour le badge (« IMDb 8,4 ») : les autres affiches gardent leur ETag.
     if (n && r.note.style === "badge") line.source = n.source;
     if (n && r.note.couleur !== "non") line.noteN = Number(n.valeur.replace(",", "."));
-    const autres = notesVisibles && notes && (r.note.style !== "grand" || r.note.moyenne) ? SITES.filter((k) => r.note[k] && notes[k]).map((k) => ({ s: k, ...AUTRES_NOTES[k](notes[k]) })) : [];
+    const servent = notesVisibles && (r.note.style !== "grand" || r.note.moyenne);
+    // IMDb et TMDB ensemble : l'autre en premier des autres notes (pas deux fois la même : sans note IMDb, la principale
+    // est déjà celle de TMDB).
+    const autre = servent && n && r.note.deux ? note(facts, n.source === "imdb" ? null : imdbRating, n.source === "imdb" ? "tmdb" : "imdb") : null;
+    const autres = [
+      ...(autre && autre.source !== n.source ? [{ s: autre.source, v: autre.valeur, n: Number(autre.valeur.replace(",", ".")) }] : []),
+      ...(servent && notes ? SITES.filter((k) => r.note[k] && notes[k]).map((k) => ({ s: k, ...AUTRES_NOTES[k](notes[k]) })) : []),
+    ];
     // Moyenne : une seule note, celle de toutes les notes choisies qu'on a (ramenées sur 10) ; une seule : elle-même.
     const valeurs = [...(n ? [Number(n.valeur.replace(",", "."))] : []), ...autres.map((x) => x.n)];
     if (r.note.moyenne && valeurs.length >= 2) {

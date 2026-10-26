@@ -136,6 +136,12 @@ export function creerServeur({ env = process.env, fetchImpl = fetch, horloge = D
     demarrer() {
       serveur.listen(PORT, "127.0.0.1", () => console.log(`affiches sur ${BASE}`));
       if (!cf) { console.warn("pas de publication : CLOUDFLARE_API_TOKEN ou D1_AFFICHES manquant"); return; }
+      // Son adresse et la clé pour le Worker, dès le démarrage : sans lire la base (elle peut être bloquée pour la journée).
+      if (env.SERVEUR_URL && env.RELAIS_KEY) {
+        cf.mettreAJourCode([{ type: "plain_text", name: "SERVEUR", text: env.SERVEUR_URL }, { type: "secret_text", name: "RELAIS_KEY", text: env.RELAIS_KEY }])
+          .then(() => { etat.liaisonsPosees = true; console.log(`Worker relié : ${env.SERVEUR_URL}`); })
+          .catch((e) => console.error(`liaison du Worker : ${e.message}`));
+      }
       cf.preparer().then(() => cf.signaler("serveur")).catch((e) => console.error(`base : ${e.message}`));
       minuteries.push(setInterval(() => cf.signaler("serveur").catch(() => {}), 60000));
       // Toutes les 3 minutes ce qui attend, et la file un tour sur cinq. Une fois par jour après 4 h 17 UTC (la photo des

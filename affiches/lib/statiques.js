@@ -75,13 +75,13 @@ export function creerCloudflare({ jeton, compte, base, worker = "affiches", fetc
      */
     /**
      * Remet en ligne le seul code du Worker, ses fichiers et ses liaisons gardés tels quels (keep_assets) : sans lire la
-     * base (bloquée quand le compte dépasse les lignes lues du jour).
+     * base (bloquée quand le compte dépasse les lignes lues du jour). liaisons : en plus de la base (SERVEUR, RELAIS_KEY).
      */
-    async mettreAJourCode() {
+    async mettreAJourCode(liaisons = []) {
       const form = new FormData();
       form.append("metadata", new Blob([JSON.stringify({
         main_module: "worker.js", compatibility_date: "2026-10-01",
-        bindings: [{ type: "d1", name: "DB", id: base }], keep_bindings: ["plain_text", "secret_text"],
+        bindings: [{ type: "d1", name: "DB", id: base }, ...liaisons], keep_bindings: ["plain_text", "secret_text"],
         keep_assets: true, assets: { config: { not_found_handling: "none", _headers: ENTETES } },
       })], { type: "application/json" }));
       form.append("worker.js", new Blob([codeDuWorker()], { type: "application/javascript+module" }), "worker.js");

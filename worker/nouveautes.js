@@ -9,6 +9,14 @@ import { feuilles } from "./statique.js";
 
 export const NOUVEAUTES = [
   {
+    date: "2026-10-26",
+    titre: "Tes propres affiches, et la date du cinéma",
+    points: [
+      "<b>Tes affiches</b> : tes réglages perso ont maintenant leur propre lien. Règle tout comme tu veux dans la salle 2, puis « Copier mon lien d'affiches » (ou le QR code pour ta TV). La première affiche de chaque titre met une à deux secondes, ensuite elle est instantanée.",
+      "Un film qui sort bientôt au cinéma en France : « AU CINÉMA LE 28 OCT. », et en dessous le jour où il arrive chez toi (« DISPO LE 17 NOV. »), la date qui range « Bientôt dispo ». Déjà en salle : « AU CINÉMA », toujours avec la date en dessous.",
+    ],
+  },
+  {
     date: "2026-10-22",
     titre: "Les animés retrouvent leurs saisons",
     points: [

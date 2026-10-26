@@ -133,13 +133,14 @@ function sortieFilm(facts, today, sources) {
   if (arrive && !sansVf) return { sorti: true, statut: nouveau(dispo) };
   // Sur une plateforme en France (en VF), sources pas lues : disponible aujourd'hui, même avant la date américaine.
   if (!s && facts.plateformeFrance) return { sorti: true, statut: nouveau(today) };
-  // Pas encore chez soi en VF : « En salle » s'il est au cinéma en France, sinon « Bientôt », avec la date à venir la
-  // plus utile (comme les rangées) : dispo chez soi, sortie au cinéma en France, ou première sortie.
+  // Pas encore chez soi en VF : « Au cinéma » s'il y est ou y sera en France (cinema : sa date, si elle est à venir),
+  // avec en dessous son arrivée chez soi (la date qui range « Bientôt dispo ») si elle est à venir : passée, sans la VF,
+  // on ne sait pas quand elle viendra. Sinon « Bientôt », avec la date à venir la plus utile (comme les rangées).
   const sallesFrance = releaseDates(facts.releases, [2, 3], ["FR"]);
   const aVenir = dispo > today ? { quoi: "dispo", date: dispo, vers } : null;
-  if (sallesFrance[0] && sallesFrance[0] <= today) return { sorti: false, statut: "salle", ...(aVenir ? { quand: aVenir } : {}) };
-  const cinema = sallesFrance.find((d) => d > today);
-  if (cinema) return { sorti: false, statut: "bientot", quand: { quoi: "cinema", date: cinema, vers: false } };
+  const enSalle = !!sallesFrance[0] && sallesFrance[0] <= today;
+  const cinema = enSalle ? null : sallesFrance.find((d) => d > today);
+  if (enSalle || cinema) return { sorti: false, statut: "salle", ...(cinema ? { cinema } : {}), ...(aVenir ? { quand: aVenir } : {}) };
   // La date passée, sources sans VF (The Fix) : « Bientôt » sans date (seule la VF compte, et on ne sait pas quand
   // elle viendra). Avant la date, sources en VO ou pas : la date (« DISPO LE 17 NOV. »), jamais « Bientôt » seul.
   if (!aVenir) return { sorti: false, statut: "bientot" };
@@ -189,7 +190,8 @@ function sortieSerieDates(facts, today) {
 /**
  * { sorti: disponible chez soi en VF, statut: "bientot" | "salle" | "nouveau" | "saison" | "prochaine" | null,
  *   saison (« prochaine » : la saison qui commence bientôt),
- *   quand (pas sorti, si on la connaît) : { quoi: "dispo" | "cinema" | "sortie", date, vers: date estimée } }.
+ *   cinema (« salle » : la sortie au cinéma en France, si elle est à venir),
+ *   quand (pas sorti, si on la connaît) : { quoi: "dispo" | "sortie", date, vers: date estimée } }.
  * sources (facultatif) : { vf, sources } lus chez Torrentio avec la qualité ; null ou vf inconnu : les dates.
  */
 export function etatSortie(facts, today, sources = null) {

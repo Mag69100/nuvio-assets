@@ -122,17 +122,20 @@ test("VF : en abonnement sur une plateforme qui double → sorti, même avec des
   assert.equal(etatSortie({ ...f, abonnementVf: false }, AUJ, { vf: false, sources: 12 }).sorti, false);
 });
 
-test("film : rien de sorti → bientôt", () => {
-  assert.equal(statutDe(film(sorties([3, jours(30)]), jours(30)), AUJ), "bientot");
+// Sortie au cinéma en France annoncée : « AU CINÉMA LE … » (avec son arrivée chez soi en dessous).
+test("film : rien de sorti, salle en France annoncée → au cinéma", () => {
+  assert.equal(statutDe(film(sorties([3, jours(30)]), jours(30)), AUJ), "salle");
+  assert.equal(statutDe(film([pays("US", [3, jours(30)])], jours(30)), AUJ), "bientot");
 });
 
-// Le statut se lit côté France : sorti au Japon mais pas encore en salle en France, ni en numérique → bientôt.
-test("film : sorti ailleurs, pas encore en France → bientôt", () => {
+// Le statut se lit côté France : sorti au Japon, en salle en France dans un mois → au cinéma (le …).
+test("film : sorti ailleurs, salle en France à venir → au cinéma", () => {
   const releases = [
     { iso_3166_1: "JP", release_dates: [{ type: 3, release_date: jours(-20) + "T00:00:00.000Z" }] },
     { iso_3166_1: "FR", release_dates: [{ type: 3, release_date: jours(30) + "T00:00:00.000Z" }] },
   ];
-  assert.equal(statutDe(film(releases), AUJ), "bientot");
+  assert.equal(statutDe(film(releases), AUJ), "salle");
+  assert.equal(etatSortie(film(releases), AUJ).cinema, jours(30));
 });
 
 test("film : aucune date du tout → bientôt", () => {
@@ -214,8 +217,15 @@ test("date : au cinéma en France, pas de date numérique → dispo vers salle +
   assert.deepEqual(e.quand, { quoi: "dispo", date: jours(35), vers: true });
 });
 
-test("date : sortie en salle en France annoncée → au cinéma le", () => {
-  assert.deepEqual(etatSortie(film(sorties([3, jours(30)]), jours(30)), AUJ).quand, { quoi: "cinema", date: jours(30), vers: false });
+// Au cinéma le …, et en dessous l'arrivée chez soi : annoncée, sinon estimée (salle + 45 jours).
+test("date : sortie en salle en France annoncée → au cinéma le, dispo le", () => {
+  const e = etatSortie(film(sorties([3, jours(30)]), jours(30)), AUJ);
+  assert.equal(e.statut, "salle");
+  assert.equal(e.cinema, jours(30));
+  assert.equal(e.quand.quoi, "dispo");
+  assert.equal(e.quand.vers, true);
+  const annonce = etatSortie(film([pays("FR", [3, jours(30)]), pays("US", [3, jours(5)], [4, jours(20)])], jours(5)), AUJ);
+  assert.deepEqual(annonce, { sorti: false, statut: "salle", cinema: jours(30), quand: { quoi: "dispo", date: jours(20), vers: false } });
 });
 
 test("date : pas de salle en France, numérique annoncé avec VF → dispo le", () => {
@@ -294,7 +304,7 @@ test("vieux film : pas avec une sortie en France à venir, sauf vraie reprise", 
   const { sourcesUtiles } = await import("../lib/statut.js");
   const f3670 = film([pays("KR", [1, jours(-540)], [3, jours(-413)]), pays("FR", [1, jours(-357)], [3, jours(28)])], "", "ko");
   assert.equal(sourcesUtiles(f3670, AUJ), true);
-  assert.deepEqual(etatSortie(f3670, AUJ, { vf: false, sources: 9 }), { sorti: false, statut: "bientot", quand: { quoi: "cinema", date: jours(28), vers: false } });
+  assert.deepEqual(etatSortie(f3670, AUJ, { vf: false, sources: 9 }), { sorti: false, statut: "salle", cinema: jours(28) });
   assert.equal(etatSortie(film([pays("FR", [3, "2004-10-27"], [3, jours(28)])], "", "fr"), AUJ).sorti, true);
 });
 

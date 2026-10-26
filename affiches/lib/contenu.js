@@ -48,6 +48,13 @@ function libelleCompte({ quoi, date, vers }, today) {
   return `${DEBUTS_COMPTE[quoi]} ${quand}`;
 }
 
+/** « AU CINÉMA LE 28 OCT. », « AU CINÉMA DANS 3 JOURS » (forme compte), « AU CINÉMA » (déjà en salle). */
+function libelleCinema(date, today, compte) {
+  if (!date) return LIBELLES_STATUT.salle;
+  if (compte) return libelleCompte({ quoi: "cinema", date, vers: false }, today).replace(/^SORT /, "AU CINÉMA ");
+  return libelleDate({ quoi: "cinema", date, vers: false }, today).replace(/^PRÉVU LE /, "AU CINÉMA LE ");
+}
+
 /** « DÈS LE 2 NOV. », « PRÉVU VERS LE 3 DÉC. », « PRÉVU LE 12 MARS 2027 » ; sous « AU CINÉMA » : « DISPO LE 2 NOV. ». */
 function libelleDate({ quoi, date, vers }, today, sousSalle) {
   const jour = `${Number(date.slice(8, 10))} ${MOIS[Number(date.slice(5, 7)) - 1]}`;
@@ -132,7 +139,7 @@ export function posterContent(facts, { imdbRating, rank, quality, notes, saga, s
   if (!image) return null;
   // Pas sorti = pas encore chez soi en VF, comme les rangées de l'addon (au cinéma compris).
   // Les sources lues avec la qualité (VF ou pas) décident pour un titre récent ; sinon, les dates.
-  const { sorti, statut, quand, saison: saisonProchaine } = etatSortie(facts, today, quality ? { vf: quality.vf, sources: quality.sources } : null);
+  const { sorti, statut, quand, cinema, saison: saisonProchaine } = etatSortie(facts, today, quality ? { vf: quality.vf, sources: quality.sources } : null);
   const pasSorti = !sorti;
   const plateforme = r.plateforme.on && facts.provider ? facts.provider.logo : null;
   const line = {};
@@ -155,12 +162,13 @@ export function posterContent(facts, { imdbRating, rank, quality, notes, saga, s
     if (Object.keys(line).length && r.ligne.ordre !== "gna") line.ordre = r.ligne.ordre;
   }
   // Pas encore sorti : la date quand on la connaît, plutôt que « Bientôt » ou « En salle ».
-  // Au cinéma en ce moment : « AU CINÉMA », et en petit dessous la date où on pourra le voir chez soi.
+  // Au cinéma en France, en ce moment ou bientôt (« AU CINÉMA », « AU CINÉMA LE 28 OCT. »), et en petit dessous la date
+  // où on pourra le voir chez soi (celle qui range « Bientôt dispo »).
   // Pas encore sorti : la date (« DÈS LE 4 NOV. ») quand on la connaît, sinon « BIENTÔT ».
   const dateDe = (q, sousSalle) => (r.statut.forme === "compte" ? libelleCompte(q, today) : libelleDate(q, today, sousSalle));
   let libelle = null, libelle2 = null;
   if (r.statut.on && statut) {
-    if (statut === "salle") { libelle = LIBELLES_STATUT.salle; if (quand) libelle2 = dateDe(quand, true); }
+    if (statut === "salle") { libelle = libelleCinema(cinema, today, r.statut.forme === "compte"); if (quand) libelle2 = dateDe(quand, true); }
     // Série déjà là, sa nouvelle saison commence bientôt : « SAISON 3 BIENTÔT » (une nouvelle série : « BIENTÔT »).
     else if (statut === "prochaine") libelle = `SAISON ${saisonProchaine} BIENTÔT`;
     else libelle = quand ? dateDe(quand) : LIBELLES_STATUT[statut];

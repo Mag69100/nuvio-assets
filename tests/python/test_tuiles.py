@@ -197,15 +197,15 @@ class Poids(unittest.TestCase):
 
     def test_saga_gif_reste_sous_7_mo(self):
         def encode(frames, durations, out, once=False):
-            return 9_000_000 if durations[0] == (720, 405) and frames[0] >= 6 else 5_000_000
+            return 9_000_000 if durations[0] == tuiles.GIF_SIZES[0] and frames[0] >= 6 else 5_000_000
         with mock.patch.object(tuiles, "encode_gif", side_effect=encode):
-            self.assertEqual(tuiles.saga_gif(theme(), Path("x.gif")), (5_000_000, (720, 405), 5))
+            self.assertEqual(tuiles.saga_gif(theme(), Path("x.gif")), (5_000_000, tuiles.GIF_SIZES[0], 5))
 
     def test_saga_gif_passe_en_petit(self):
         def encode(frames, durations, out, once=False):
-            return 5_000_000 if durations[0] == (480, 270) else 9_000_000
+            return 5_000_000 if durations[0] == tuiles.GIF_SIZES[1] else 9_000_000
         with mock.patch.object(tuiles, "encode_gif", side_effect=encode):
-            self.assertEqual(tuiles.saga_gif(theme(), Path("x.gif")), (5_000_000, (480, 270), 8))
+            self.assertEqual(tuiles.saga_gif(theme(), Path("x.gif")), (5_000_000, tuiles.GIF_SIZES[1], 8))
 
     def test_saga_gif_trop_lourd_partout(self):
         with tempfile.TemporaryDirectory() as d:

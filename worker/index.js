@@ -50,7 +50,7 @@ import { routeEtat } from "./etat.js";
 import { statique } from "./statique.js";
 import { smartSearch, prepareWords, isExact, norm, capQuery, genreQuery, filmography } from "./search.js";
 import { imdbRating } from "./ratings.js";
-import { ROWS as FAC_ROWS, facultativeCatalogs, laureats } from "./facultatives.js";
+import { ROWS as FAC_ROWS, facultativeCatalogs, laureats, SAGA_IDS, sagaCatalog, inReleaseOrder } from "./facultatives.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
 import { SEANCE_ID, carteSeance, rechercheSeance, routeSeance } from "./seance.js";
 import { routeDiagnostic } from "./diagnostic.js";
@@ -292,7 +292,7 @@ function manifest(today, cfg, url, alerts) {
     // Recherche : deux catalogues « Films » et « Séries » (titres en français), à la place
     // des « TMDB Search » de Discover Plus dont le nom ne se change pas.
     // Lien de l'hébergeur d'une copie : la rangée « Mise à jour » en tête (vide, donc masquée, sans mise à jour).
-    catalogs: [...(alerts ? [UPDATE_CATALOG] : []), ...discover, ...home, ...facultativeCatalogs(cfg, PAGE), ...SEARCH.map((c) => ({
+    catalogs: [...(alerts ? [UPDATE_CATALOG] : []), ...discover, ...home, ...sagaCatalog(cfg, PAGE), ...facultativeCatalogs(cfg, PAGE), ...SEARCH.map((c) => ({
       type: c.type, id: c.id, name: c.name, showInHome: false,
       extra: [{ name: "search", isRequired: true }, paging], extraRequired: ["search"], extraSupported: ["search", "skip"],
     }))],
@@ -1738,6 +1738,14 @@ async function catalogPage(env, ctx, type, id, extra, today, cfg, bilan, prefixe
     const page = pageOf(skip, pageSizeOf(home));
     return fetchPage(env, ctx, home, type, page, today, { ...opts, moitie: home.mix ? moitieParSelf(env, prefixe, type, home.id) : null });
   }
+  // Une saga dans l'ordre de sortie (collection Sagas) ; la saga est dans « genre ».
+  if (id === "saga" && type === "movie") {
+    const tmdbId = SAGA_IDS.get(extra.genre || "");
+    if (!tmdbId) return [];
+    const d = await tmdb(env, `/collection/${tmdbId}`, {}, opts.lang);
+    const parts = inReleaseOrder(d.parts || []).filter((it) => !opts.filtered || passeLesFiltres(it, type, cfg)).slice(skip, skip + PAGE);
+    return parts.length ? (await toMetas(env, ctx, parts, type, opts, today)).map(sansInternes) : [];
+  }
   // Rangées des collections facultatives (lauréats, durée, mini-séries) : servies même décochées (sans danger).
   const fac = FAC_ROWS.find((r) => r.id === id && r.type === type);
   if (fac) {
@@ -2862,7 +2870,7 @@ const app = {
       const src = folder && (folder.sources || [])[Number(dm[3])];
       if (src && src.provider === "addon") {
         // Rangée de l'addon (collections facultatives : lauréats, durée, mini-séries) : la même que Nuvio lira.
-        const metas = await catalogPage(env, ctx, src.type, src.catalogId, { skip: (page - 1) * PAGE }, today, cfg, null, "");
+        const metas = await catalogPage(env, ctx, src.type, src.catalogId, { skip: (page - 1) * PAGE, ...(src.genre ? { genre: src.genre } : {}) }, today, cfg, null, "");
         return json({ metas, hasMore: metas.length === PAGE }, 6 * 3600);
       }
       if (!src || src.provider !== "tmdb") return json({ metas: [], hasMore: false, error: "introuvable" }, 600);

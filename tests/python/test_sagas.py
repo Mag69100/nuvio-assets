@@ -92,11 +92,9 @@ class Collection(unittest.TestCase):
                           "sagas-comedie", "sagas-francais", "sagas-animes"])
         action = c["folders"][0]
         self.assertEqual(action["title"], "Action et aventure")
-        self.assertEqual(action["sources"][0]["tmdbId"], THEMES[0]["sagas"][0]["id"])
-        self.assertEqual(action["sources"][0], {"provider": "tmdb", "tmdbSourceType": "COLLECTION",
-                                                "title": THEMES[0]["sagas"][0]["title"],
-                                                "tmdbId": THEMES[0]["sagas"][0]["id"], "mediaType": "MOVIE",
-                                                "sortBy": "original", "filters": {}})
+        # Rangée de l'addon (films dans l'ordre de sortie : TMDB mélange certaines sagas, Nuvio ne sait pas les trier).
+        self.assertEqual(action["sources"][0], {"provider": "addon", "addonId": "com.xnzx07.catalogue-fr", "type": "movie",
+                                                "catalogId": "saga", "genre": THEMES[0]["sagas"][0]["title"]})
         self.assertEqual(action["coverImageUrl"], f"{RAW}/sagas/action.jpg?v=1")
         self.assertEqual(action["focusGifUrl"], f"{RAW}/gifs/sagas/action.gif?v=1")
         self.assertEqual(action["titleLogoUrl"], f"{RAW}/titles/sagas/action.png?v=1")
@@ -104,8 +102,8 @@ class Collection(unittest.TestCase):
         self.assertEqual(action["heroVideoUrl"], f"{RAW}/sagas/action-fond.mp4?v=1")
         self.assertTrue(action["hideTitle"] and action["focusGifEnabled"])
         self.assertEqual(action["tileShape"], "LANDSCAPE")
-        ids = [s["tmdbId"] for f in c["folders"] for s in f["sources"]]
-        self.assertEqual(len(ids), len(set(ids)))
+        names = [s["genre"] for f in c["folders"] for s in f["sources"]]
+        self.assertEqual(len(names), len(set(names)))          # le nom désigne la saga : jamais deux fois le même
 
     def test_ecriture_ne_touche_que_les_sagas(self):
         src = ROOT / "collections" / "collections.json"

@@ -108,6 +108,7 @@ def build() -> list[dict]:
 
 
 RAW = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main"
+ADDON_ID = "com.xnzx07.catalogue-fr"   # worker/hote.js (une copie : « .perso », réécrit par le Worker)
 
 
 def sagas_collection(themes: list[dict]) -> dict:
@@ -121,8 +122,10 @@ def sagas_collection(themes: list[dict]) -> dict:
             "tileShape": "LANDSCAPE",
             "hideTitle": True,
             "focusGifEnabled": True,
-            "sources": [{"provider": "tmdb", "tmdbSourceType": "COLLECTION", "title": s["title"], "tmdbId": s["id"],
-                         "mediaType": "MOVIE", "sortBy": "original", "filters": {}} for s in t["sagas"]],
+            # Rangée de l'addon : la saga dans l'ordre de sortie (TMDB en mélange certaines, Nuvio ne sait pas les
+            # trier du plus ancien au plus récent). Le nom de la saga la désigne (worker/facultatives.js).
+            "sources": [{"provider": "addon", "addonId": ADDON_ID, "type": "movie", "catalogId": "saga", "genre": s["title"]}
+                        for s in t["sagas"]],
             "coverImageUrl": f"{RAW}/sagas/{slug}.jpg?v=1",
             "focusGifUrl": f"{RAW}/gifs/sagas/{slug}.gif?v=1",
             "heroBackdropUrl": f"{RAW}/sagas/{slug}-fond.jpg?v=1",

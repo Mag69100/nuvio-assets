@@ -5,6 +5,28 @@
  *   - Selon le temps : films de moins de 90 minutes (durée) et mini-séries (type de série), en direct depuis TMDB.
  * Dans le manifest seulement si leur collection est cochée (showInHome: false : pas sur l'accueil).
  */
+import SAGAS from "../data/sagas.json";
+
+/**
+ * Sagas : TMDB rend certaines sagas dans le désordre (Rocky Balboa avant Rocky, Bad Boys for Life avant Bad Boys) et
+ * Nuvio ne sait trier une saga que du plus récent au plus ancien : l'addon sert chaque saga dans l'ordre de sortie
+ * (catalogue « saga », la saga en « genre », son nom dans data/sagas.json).
+ */
+export const SAGA_IDS = new Map(SAGAS.flatMap((t) => t.sagas.map((s) => [s.title, s.id])));
+
+/** Catalogue « saga » du manifest, si la collection Sagas est cochée (filtre : le nom de la saga). */
+export function sagaCatalog(cfg, pageSize) {
+  if (!cfg.c.includes("sagas")) return [];
+  const names = [...SAGA_IDS.keys()];
+  return [{ type: "movie", id: "saga", name: "Saga", showInHome: false, pageSize, genres: names,
+    extra: [{ name: "genre", isRequired: true, options: names }, { name: "skip" }],
+    extraRequired: ["genre"], extraSupported: ["genre", "skip"] }];
+}
+
+/** Films d'une saga dans l'ordre de sortie ; sans date (annoncés) à la fin. */
+export const inReleaseOrder = (parts) => [...parts].sort((a, b) =>
+  (a.release_date ? 0 : 1) - (b.release_date ? 0 : 1) || String(a.release_date || "").localeCompare(String(b.release_date || "")));
+
 export const ROWS = [
   { id: "fac-oscars", type: "movie", name: "Oscars du meilleur film", collection: "recompenses", list: "oscars" },
   { id: "fac-palmes", type: "movie", name: "Palmes d'or", collection: "recompenses", list: "palmes" },

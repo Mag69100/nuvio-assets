@@ -39,7 +39,10 @@ beforeEach(() => {
     calls.push(u);
     const credits = { cast: [{ id: 1, title: "Titanic", poster_path: "/t.jpg", popularity: 5 }, { id: 2, title: "Inception", popularity: 9 }],
       crew: [{ id: 3, title: "Interstellar", job: "Director", popularity: 7 }, { id: 4, title: "Autre", job: "Writer" }] };
-    const body = u.endsWith("/data/recompenses.json") ? AWARDS : u.endsWith("/collections/collections.json") ? COLLS
+    const rocky = { id: 1575, name: "Rocky - Saga", parts: [
+      { id: 1374, title: "Rocky Balboa", release_date: "2006-12-20" }, { id: 1366, title: "Rocky", release_date: "1976-11-21" },
+      { id: 1367, title: "Rocky II", release_date: "1979-06-15" }, { id: 9999, title: "Rocky VII", release_date: "" }] };
+    const body = u.includes("/collection/1575") ? rocky : u.endsWith("/data/recompenses.json") ? AWARDS : u.endsWith("/collections/collections.json") ? COLLS
       : u.includes("_credits") ? credits
       : u.includes("/external_ids") || u.includes("/movie/1") ? { imdb_id: "tt1", id: 1 } : { results: [], page: 1, total_pages: 1 };
     return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
@@ -131,4 +134,20 @@ test("laureats_suivent_les_filtres", async () => {
   const { metas } = await (await get(SOURCE, `/${seg({ f: 1 })}/catalog/movie/fac-oscars.json`)).json();
   assert.equal(metas.length, 20);
   assert.ok(!metas.some((m) => ["Film 0", "Film 1", "Film 2"].includes(m.name)));
+});
+
+// Sagas : TMDB rend certaines sagas dans le désordre (Rocky Balboa avant Rocky) et Nuvio ne sait pas trier du plus
+// ancien au plus récent : l'addon sert chaque saga dans l'ordre de sortie (catalogue « saga », genre = la saga).
+test("saga_dans_l_ordre_de_sortie", async () => {
+  const { metas } = await (await get(SOURCE, "/catalog/movie/saga/genre=Rocky.json")).json();
+  assert.deepEqual(metas.map((m) => m.name), ["Rocky", "Rocky II", "Rocky Balboa", "Rocky VII"]);   // sans date : à la fin
+});
+
+test("catalogue_des_sagas_dans_le_manifest", async () => {
+  const cat = async (cfg) => (await (await get(SOURCE, `/${seg(cfg)}/manifest.json`)).json()).catalogs.find((c) => c.id === "saga");
+  const saga = await cat({});
+  assert.ok(saga && saga.extra[0].name === "genre" && saga.extra[0].options.includes("Rocky"));
+  assert.equal(saga.showInHome, false);
+  const sansSagas = COLLECTIONS.filter((c) => !c.optional && c.id !== "sagas").reduce((m, c) => m | (1 << COLLECTIONS.indexOf(c)), 0);
+  assert.equal(await cat({ c: sansSagas }), undefined);
 });

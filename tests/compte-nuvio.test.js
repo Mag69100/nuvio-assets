@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
-import { fusionCollections, fusionAddons, avecAffiches, compteNuvioPage } from "../worker/compte-nuvio.js";
+import { fusionCollections, fusionAddons, avecAffiches, avecAffichesAppli, compteNuvioPage } from "../worker/compte-nuvio.js";
 
 test("fusion_garde_les_collections_perso", () => {
   // Nuvio remplace toute sa liste par celle du compte : celles de la personne restent, les nôtres sont remplacées.
@@ -92,4 +92,26 @@ test("page_compte_nuvio_remplit_les_liens", () => {
     URLSearchParams, URL, fetch: () => Promise.reject(new Error("hors ligne")), setTimeout, clearTimeout, crypto: globalThis.crypto });
   assert.equal(els.lien.value, lien);
   assert.equal(els.affiches.value, affiches);
+});
+
+// Nuvio PC et téléphone (plateformes « desktop » et « mobile ») : le lien des affiches est un champ texte des réglages
+// (custom_poster_url_pattern), pas le format de la TV ; le reste des réglages est gardé.
+test("affiches_sur_pc_et_telephone", () => {
+  const lien = "https://affiches.example/{type}/{shape}/{id}.jpg?s=x";
+  const avant = { version: 4, features: { theme_settings: { a: 1 }, custom_poster_url_pattern: "", custom_poster_enabled_screens: "home" } };
+  const apres = avecAffichesAppli(avant, lien);
+  assert.equal(apres.features.custom_poster_url_pattern, lien);
+  assert.deepEqual(apres.features.theme_settings, { a: 1 });
+  assert.equal(apres.features.custom_poster_enabled_screens, "home");
+  assert.equal(apres.version, 4);
+  // Appareil qui n'a jamais envoyé ses réglages : rien à écrire (un réglage presque vide effacerait les siens).
+  assert.equal(avecAffichesAppli(null, lien), null);
+  assert.equal(avecAffichesAppli({}, lien), null);
+});
+
+test("envoi_des_affiches_aux_trois_appareils", () => {
+  const html = compteNuvioPage({ origin: "https://x" });
+  assert.match(html, /p_platform: "tv"/);
+  assert.ok(html.includes('["desktop", "le PC"]') && html.includes('["mobile", "le téléphone"]'));
+  assert.match(html, /const avecAffichesAppli = function avecAffichesAppli/);
 });

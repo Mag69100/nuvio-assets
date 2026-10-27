@@ -44,6 +44,16 @@ export function avecAffiches(reglages, lien) {
 }
 
 /**
+ * Réglages de Nuvio PC et téléphone (plateformes « desktop » et « mobile ») avec le lien des affiches : un champ texte
+ * (custom_poster_url_pattern), pas le format de la TV. null si l'appareil n'a jamais envoyé ses réglages au compte :
+ * un réglage presque vide remplacerait tous les siens.
+ */
+export function avecAffichesAppli(reglages, lien) {
+  if (!reglages || typeof reglages.features !== "object" || !reglages.features) return null;
+  return { ...reglages, features: { ...reglages.features, custom_poster_url_pattern: lien } };
+}
+
+/**
  * Les collections du compte, avec les nôtres à la place des anciennes : Nuvio remplace toute sa liste par celle du
  * compte, il faut donc garder celles que la personne a faites elle-même. Les nôtres (ids de `nosIds`, toutes celles
  * que le site peut fournir, même masquées depuis) sont retirées, puis celles du lien passent devant, dans leur ordre.
@@ -149,6 +159,7 @@ var __name = function (f) { return f; };
   const fusion = ${fusionCollections.toString()};
   const fusionAddons = ${fusionAddons.toString()};
   const avecAffiches = ${avecAffiches.toString()};
+  const avecAffichesAppli = ${avecAffichesAppli.toString()};
   const LA = (${creerLienAffiches})();
 
   // Les liens : dans l'ancre (#lien=…&affiches=…), sinon ce que la salle 2 a gardé sur cet appareil, sinon les
@@ -277,11 +288,24 @@ var __name = function (f) { return f; };
   const envoiAffiches = async (lien, profil) => {
     // Un modèle que Nuvio remplit ({id}…), pas l'adresse d'une seule affiche.
     if (!/[{]id[}]/.test(lien) || !LA.reglagesDuLien(lien)) throw new Error("ce n'est pas un lien d'affiches (celui de ton billet, avec {type}/{shape}/{id}).");
-    const distant = await rpc("sync_pull_profile_settings_blob", { p_profile_id: profil, p_platform: "tv" });
-    const reglages = avecAffiches(Array.isArray(distant) && distant[0] && distant[0].settings_json, lien);
-    if (!reglages) throw new Error("ta TV n'a pas encore envoyé ses réglages au compte : ouvre Nuvio sur la TV connectée à ce compte, puis réessaie (ou colle le lien à la main).");
-    await rpc("sync_push_profile_settings_blob", { p_profile_id: profil, p_settings_json: reglages, p_platform: "tv", p_origin_client_id: memo.client });
-    return "Les affiches sur la TV ✓";
+    // Chaque appareil range ses réglages à part dans le compte : la TV (son format), le PC et le téléphone (le leur).
+    // Un appareil qui ne les a jamais envoyés est sauté (on n'écrase pas ses réglages par un réglage presque vide).
+    const faits = [];
+    const tv = await rpc("sync_pull_profile_settings_blob", { p_profile_id: profil, p_platform: "tv" });
+    const reglagesTv = avecAffiches(Array.isArray(tv) && tv[0] && tv[0].settings_json, lien);
+    if (reglagesTv) {
+      await rpc("sync_push_profile_settings_blob", { p_profile_id: profil, p_settings_json: reglagesTv, p_platform: "tv", p_origin_client_id: memo.client });
+      faits.push("la TV");
+    }
+    for (const [plateforme, nom] of [["desktop", "le PC"], ["mobile", "le téléphone"]]) {
+      const d = await rpc("sync_pull_profile_settings_blob", { p_profile_id: profil, p_platform: plateforme });
+      const reglages = avecAffichesAppli(Array.isArray(d) && d[0] && d[0].settings_json, lien);
+      if (!reglages) continue;
+      await rpc("sync_push_profile_settings_blob", { p_profile_id: profil, p_settings_json: reglages, p_platform: plateforme, p_origin_client_id: memo.client });
+      faits.push(nom);
+    }
+    if (!faits.length) throw new Error("aucun appareil n'a encore envoyé ses réglages au compte : ouvre Nuvio (TV, PC ou téléphone) connecté à ce compte, puis réessaie (ou colle le lien à la main).");
+    return "Les affiches ✓ (" + faits.join(", ") + ")";
   };
 
   $("envoyer").addEventListener("click", async () => {

@@ -9,6 +9,17 @@ import { feuilles } from "./statique.js";
 
 export const NOUVEAUTES = [
   {
+    date: "2026-10-27",
+    titre: "Sagas dans l'ordre, animations plus fluides",
+    points: [
+      "Les films de chaque saga sont dans l'ordre de sortie (Rocky avant Rocky Balboa, Bad Boys avant Bad Boys for Life) : la rangée s'appelle maintenant « Saga · … ».",
+      "Les animations des tuiles sont deux fois plus fluides ; celles des plateformes et des studios se jouent une fois puis restent sur la tuile. Le fond animé part de l'image et y revient, sans saut.",
+      "Sur la page de configuration, les collections se choisissent dans une fenêtre (bouton « Choisir les collections »).",
+      "« Tout envoyer dans Nuvio » met aussi le lien des affiches sur PC et téléphone, plus seulement sur la TV.",
+      "Pour en profiter : « Actualiser les addons » dans Nuvio, puis réimporte les collections.",
+    ],
+  },
+  {
     date: "2026-10-26",
     titre: "Sagas par thèmes et plateformes refaites",
     points: [

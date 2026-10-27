@@ -61,7 +61,7 @@ def render(job: dict, tile: list[dict], wall: list[str], folder: Path, leger: bo
         logo, posters = channel_logo(job["title"]), [t["poster"] for t in tile[:3]]
         tuiles.platform_card(logo, dark, brand, posters).save(folder / f"{slug}.jpg", quality=90, optimize=True, progressive=True)
         tuiles.fit_gif([(s, None) for s in sizes], lambda s, _: tuiles.platform_frames(logo, dark, brand, posters, s),
-                       folder / f"{slug}.gif")
+                       folder / f"{slug}.gif", once=True)   # arrivée jouée une fois
         tint = dark
     else:
         theme = {"title": job["title"], "subtitle": "", "sagas": tile}

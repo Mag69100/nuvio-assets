@@ -165,7 +165,7 @@ def render(entry: list, posters: list[str], wall: list[str], folder: Path) -> No
         folder / f"{slug}.jpg", quality=90, optimize=True, progressive=True)
     tuiles.fit_gif([(size, None) for size in tuiles.GIF_SIZES],
                    lambda size, _: tuiles.platform_frames(logo, tuple(dark), tuple(brand), posters, size),
-                   folder / f"{slug}.gif")
+                   folder / f"{slug}.gif", once=True)   # l'arrivée se joue une fois, puis la tuile reste
     tuiles.hero_still(wall, tuple(dark), HERO).save(folder / f"{slug}-fond.jpg", quality=88, optimize=True, progressive=True)
     tuiles.encode_mp4(tuiles.hero_frames(wall, tuple(dark), HERO), HERO, folder / f"{slug}-fond.mp4")
 

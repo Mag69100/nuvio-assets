@@ -350,3 +350,12 @@ class Genres(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class UneFois(unittest.TestCase):
+    def test_arrivee_jouee_une_fois(self):
+        """Plateformes (et studios, chaînes) : l'arrivée se joue une fois puis reste sur la tuile ; pas en boucle."""
+        seen = []
+        with mock.patch.object(mp.tuiles, "encode_gif", side_effect=lambda f, d, out, once=False: seen.append(once) or 1),                 mock.patch.object(mp.tuiles, "platform_frames", return_value=([], [])),                 mock.patch.object(mp.tuiles, "platform_card", return_value=mock.MagicMock()),                 mock.patch.object(mp.tuiles, "hero_still", return_value=mock.MagicMock()),                 mock.patch.object(mp.tuiles, "encode_mp4", return_value=1),                 tempfile.TemporaryDirectory() as d:
+            mp.render(mp.TILES[0], ["/a", "/b", "/c"], ["/w"], Path(d))
+        self.assertEqual(seen, [True])

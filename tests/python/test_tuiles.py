@@ -86,9 +86,10 @@ class Sagas(Base):
 
     def test_defile_boucle_sans_saut(self):
         frames, d = tuiles.saga_frames(theme(), steps=8, size=(720, 405))
-        self.assertEqual(len(frames), 8 * 13)
+        self.assertEqual(tuiles.FPS, 50)                        # 50 images/s : le maximum d'un GIF (2 centièmes)
+        self.assertEqual(len(frames), 8 * 25)
         self.assertEqual(d.count(1100), 8)
-        self.assertEqual(d.count(40), 8 * 12)
+        self.assertEqual(d.count(20), 8 * 24)
         after = tuiles.defile_frame(theme(), 8, 8, (720, 405))
         self.assertEqual(after.tobytes(), frames[0].tobytes())
 
@@ -110,7 +111,7 @@ class Sagas(Base):
 
     def test_defile_avec_peu_de_sagas(self):
         frames, _d = tuiles.saga_frames(theme(3), steps=3, size=(480, 270))
-        self.assertEqual(len(frames), 3 * 13)
+        self.assertEqual(len(frames), 3 * 25)
         self.assertEqual(tuiles.saga_card(theme(3)).size, (1280, 720))
 
 
@@ -163,9 +164,9 @@ class Plateformes(Base):
 
     def test_arrivee_durees(self):
         _f, d = tuiles.platform_frames(tuiles.white_logo(logo_rouge()), (20, 0, 0), (60, 0, 0), POSTERS, (240, 135))
-        self.assertEqual(len(d), 34)
+        self.assertEqual(len(d), 68)
         self.assertEqual(d[-1], 2500)
-        self.assertTrue(all(x == 40 for x in d[:-1]))
+        self.assertTrue(all(x == 20 for x in d[:-1]))
 
 
 class Donnees(unittest.TestCase):
@@ -195,13 +196,13 @@ class Poids(unittest.TestCase):
         self.addCleanup(frames.stop)
 
     def test_saga_gif_reste_sous_7_mo(self):
-        def encode(frames, durations, out):
+        def encode(frames, durations, out, once=False):
             return 9_000_000 if durations[0] == (720, 405) and frames[0] >= 6 else 5_000_000
         with mock.patch.object(tuiles, "encode_gif", side_effect=encode):
             self.assertEqual(tuiles.saga_gif(theme(), Path("x.gif")), (5_000_000, (720, 405), 5))
 
     def test_saga_gif_passe_en_petit(self):
-        def encode(frames, durations, out):
+        def encode(frames, durations, out, once=False):
             return 5_000_000 if durations[0] == (480, 270) else 9_000_000
         with mock.patch.object(tuiles, "encode_gif", side_effect=encode):
             self.assertEqual(tuiles.saga_gif(theme(), Path("x.gif")), (5_000_000, (480, 270), 8))
@@ -209,7 +210,7 @@ class Poids(unittest.TestCase):
     def test_saga_gif_trop_lourd_partout(self):
         with tempfile.TemporaryDirectory() as d:
             out = Path(d) / "x.gif"
-            def encode(frames, durations, o):
+            def encode(frames, durations, o, once=False):
                 o.write_bytes(b"x")
                 return 9_000_000
             with mock.patch.object(tuiles, "encode_gif", side_effect=encode):
@@ -265,12 +266,25 @@ class Fonds(Base):
         self.assertGreater(tuiles.wall_layout(12, (1920, 1080))["poster_h"],
                            tuiles.wall_layout(130, (1920, 1080))["poster_h"])
 
-    def test_fond_finit_sur_l_image_fixe(self):
+    def test_fond_part_et_revient_sur_l_image_fixe(self):
+        """Nuvio montre l'image fixe, puis la vidéo : elle part de cette image et y revient (aucun saut), à 60 i/s."""
         posters = [f"/p{i}.jpg" for i in range(30)]
         frames = list(tuiles.hero_frames(posters, (20, 0, 0), (320, 180), seconds=1))
-        self.assertEqual(len(frames), 25)
-        self.assertEqual(frames[-1].tobytes(), tuiles.hero_still(posters, (20, 0, 0), (320, 180)).tobytes())
-        self.assertNotEqual(frames[0].tobytes(), frames[-1].tobytes())
+        self.assertEqual(len(frames), 60)
+        still = tuiles.hero_still(posters, (20, 0, 0), (320, 180)).tobytes()
+        self.assertEqual(frames[0].tobytes(), still)
+        self.assertEqual(frames[-1].tobytes(), still)
+        self.assertNotEqual(frames[30].tobytes(), still)
+
+    def test_carte_au_sous_pixel(self):
+        """Une carte posée à x = 10,5 tombe entre x = 10 et x = 11 (pas d'à-coups d'un pixel entier)."""
+        card = Image.new("RGBA", (20, 20), (255, 255, 255, 255))
+        def at(x):
+            base = Image.new("RGBA", (60, 40), (0, 0, 0, 255))
+            tuiles._put(base, card, x, 10)
+            return base.getpixel((10, 15))[0]
+        self.assertGreater(at(10), at(10.5))
+        self.assertGreater(at(10.5), at(11))
 
 
 @unittest.skipUnless(shutil.which(os.environ.get("FFMPEG", "ffmpeg")), "ffmpeg introuvable")
@@ -304,6 +318,17 @@ class Encodage(unittest.TestCase):
             with Image.open(out) as im:
                 self.assertEqual(im.format, "GIF")
             self.assertEqual(n, out.stat().st_size)
+
+    def test_une_seule_fois(self):
+        """Arrivée des plateformes et studios : jouée une fois, puis arrêtée sur la tuile (dernière image tenue)."""
+        frames = [Image.new("RGB", (72, 40), c) for c in ((10, 10, 10), (200, 0, 0), (0, 0, 200))]
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "x.gif"
+            tuiles.encode_gif(frames, [20, 20, 2500], out, once=True)
+            with Image.open(out) as im:
+                im.seek(im.n_frames - 1)
+                self.assertGreaterEqual(im.info["duration"], 600_000)
+                self.assertNotEqual(im.info.get("loop"), 0)
 
 
 if __name__ == "__main__":

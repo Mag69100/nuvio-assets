@@ -255,7 +255,8 @@ def main() -> None:
         tuiles.save_if_changed(tuiles.platform_card(logo, dark, brand, tiles), ROOT / "studios" / f"{slug}.jpg",
                                quality=90, optimize=True, progressive=True)
         tuiles.fit_gif([(size, None) for size in tuiles.GIF_SIZES],
-                       lambda size, _: tuiles.platform_frames(logo, dark, brand, tiles, size), ROOT / "studios" / f"{slug}.gif")
+                       lambda size, _: tuiles.platform_frames(logo, dark, brand, tiles, size), ROOT / "studios" / f"{slug}.gif",
+                       once=True)   # l'arrivée se joue une fois, puis la tuile reste
         mp4 = ROOT / "studios" / f"{slug}-fond.mp4"
         fond = tuiles.hero_still(studio["posters"], dark, HERO)
         if tuiles.save_if_changed(fond, ROOT / "studios" / f"{slug}-fond.jpg", quality=88, optimize=True, progressive=True) \

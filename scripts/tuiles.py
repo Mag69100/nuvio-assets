@@ -21,9 +21,11 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import make_assets as ma
 
 CARD = (1280, 720)
-FPS = 25
+FPS = 50                 # animations des tuiles : 50 i/s, le plus fluide qu'un GIF permette (2 centièmes)
 FRAME_MS = 1000 // FPS
-GIF_SIZES = ((720, 405), (480, 270))   # la TV réduit l'image : plus grand, le semis des dégradés se fond
+HERO_FPS = 60            # vidéos de fond : 60 i/s, comme l'écran de la TV (pas d'à-coups)
+# 640x360 : plus grand que la tuile sur une TV 1080p (environ 420 px de large), et 50 i/s tiennent sous 7 Mo.
+GIF_SIZES = ((640, 360), (480, 270))
 GIF_MAX_BYTES = 7 * 1024 * 1024         # au-delà, Nuvio TV abandonne l'image (plus de 8 s pour arriver)
 GIFSKI_OPTS = ["--quality", "100", "--motion-quality", "90", "--lossy-quality", "90"]   # comme make_intros.py
 
@@ -36,7 +38,7 @@ POSTER_H = 0.570                        # hauteur d'une affiche (H), format 2:3
 FAN_STEP, FAN_ANGLE, FAN_DROP = 0.072, 6, 10 / 360   # écart (W), inclinaison (degrés) et descente (H) par place
 FAN_HALF = 2                            # places -2 … 2 visibles
 FAN_LEFT = 0.43                         # rien de l'éventail à gauche de cette ligne (W)
-REST_MS, SLIDE_FRAMES = 1100, 12        # défilé : repos, puis glissement d'une place
+REST_MS, SLIDE_FRAMES = 1100, 24        # défilé : repos, puis glissement d'une place (0,48 s)
 
 
 def smooth(t: float) -> float:
@@ -46,7 +48,7 @@ def smooth(t: float) -> float:
 
 
 def clear_caches() -> None:
-    for f in (_poster, _backdrop, title_layer, _brand_bg, _tilted, _hero_veil):
+    for f in (_poster, _backdrop, title_layer, _brand_bg, _tilted, _hero_veil, _wall_canvas, _veil_parts):
         f.cache_clear()
 
 
@@ -72,15 +74,39 @@ def _fade(im: Image.Image, alpha: float) -> Image.Image:
     return out
 
 
+def _subpixel(im: Image.Image, x: float, y: float) -> tuple[Image.Image, tuple[int, int]]:
+    """L'image décalée de la partie décimale de (x, y) (rééchantillonnée), et où la poser au pixel près : une carte
+    qui avance de 1,6 pixel par image n'avance plus par sauts de 1 puis 2 pixels."""
+    ix, iy = math.floor(x), math.floor(y)
+    fx, fy = x - ix, y - iy
+    if fx == 0 and fy == 0:
+        return im, (ix, iy)
+    # Bordure transparente d'abord : sinon le rééchantillonnage recopie le pixel du bord et le bord reste net.
+    padded = Image.new("RGBA", (im.width + 4, im.height + 4), (0, 0, 0, 0))
+    padded.paste(im, (2, 2))
+    moved = padded.transform(padded.size, Image.AFFINE, (1, 0, -fx, 0, 1, -fy), resample=Image.BICUBIC)
+    return moved, (ix - 2, iy - 2)
+
+
 def _put(base: Image.Image, im: Image.Image, x: float, y: float, alpha: float = 1.0) -> None:
-    """Pose une carte avec son ombre portée floue."""
+    """Pose une carte avec son ombre portée floue, au sous-pixel près."""
     w = base.width
     im = _fade(im, alpha)
     shadow = Image.new("RGBA", im.size, (0, 0, 0, 0))
     shadow.putalpha(im.getchannel("A").point(lambda v: round(v * 0.7)))
-    base.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(8 * w / 640)),
-                         (round(x + 4 * w / 640), round(y + 8 * w / 640)))
-    base.alpha_composite(im, (round(x), round(y)))
+    sh, at = _subpixel(shadow.filter(ImageFilter.GaussianBlur(8 * w / 640)), x + 4 * w / 640, y + 8 * w / 640)
+    base.alpha_composite(sh, at) if at[0] >= 0 and at[1] >= 0 else _composite_anywhere(base, sh, at)
+    card, at = _subpixel(im, x, y)
+    base.alpha_composite(card, at) if at[0] >= 0 and at[1] >= 0 else _composite_anywhere(base, card, at)
+
+
+def _composite_anywhere(base: Image.Image, im: Image.Image, at: tuple[int, int]) -> None:
+    """alpha_composite refuse une position négative : on rogne la partie qui sort à gauche ou en haut."""
+    x, y = at
+    if -x >= im.width or -y >= im.height or x >= base.width or y >= base.height:
+        return                                   # entièrement hors de l'image (une carte qui tombe d'en haut)
+    crop = im.crop((max(0, -x), max(0, -y), im.width, im.height))
+    base.alpha_composite(crop, (max(0, x), max(0, y)))
 
 
 def _fan(base: Image.Image, posters: list[str], positions: list[float], cx: float, top: float,
@@ -230,7 +256,7 @@ LOGO_X, LOGO_W, LOGO_H = 0.0625, 0.328, 0.25      # emplacement du logo (W, W, H
 LOGO_H_SQUARE = 0.42                               # hauteur permise à un logo presque carré (H)
 P_CX, P_TOP, P_POSTER_H = 0.734, 0.144, 0.597     # éventail (W, H, H)
 P_STEP, P_ANGLE = 0.106, 8
-ARRIVAL_FRAMES, ARRIVAL_HOLD_MS = 34, 2500
+ARRIVAL_FRAMES, ARRIVAL_HOLD_MS = 68, 2500   # 1,36 s à 50 i/s, puis la tuile (jouée une seule fois)
 
 
 def white_logo(logo: Image.Image) -> Image.Image:
@@ -283,11 +309,12 @@ def platform_frames(logo: Image.Image, dark: tuple, brand: tuple, posters: list[
     """Arrivée : le logo glisse depuis la gauche en apparaissant, puis les cartes tombent une à une."""
     W, H = size
     frames = []
+    k = 25 / FPS   # les temps ci-dessous sont comptés en images à 25 i/s
     for f in range(ARRIVAL_FRAMES):
-        a = smooth(f / 12)
+        a = smooth(f * k / 12)
         lifts = []
         for i in range(len(posters)):
-            u = max(0.0, min(1.0, (f - 6 - 5 * i) / 12))
+            u = max(0.0, min(1.0, (f * k - 6 - 5 * i) / 12))
             bounce = math.sin(math.pi * u) * 10 / 360 * H if u > 0.6 else 0.0
             lifts.append(-(1 - smooth(u)) * 0.89 * H - bounce)
         frames.append(platform_frame(logo, dark, brand, posters, -0.094 * W * (1 - a), a, lifts, size))
@@ -367,15 +394,34 @@ def _hero_veil(tint: tuple, size: tuple[int, int]) -> Image.Image:
     return veil
 
 
-def _hero_frame(posters: list[str], layout: dict, tint: tuple, t: float, size: tuple[int, int]) -> Image.Image:
-    base = Image.new("RGBA", size, (13, 13, 13, 255))
-    k = smooth(t)
+@lru_cache(maxsize=4)
+def _wall_canvas(posters: tuple, size: tuple[int, int]) -> tuple[Image.Image, int]:
+    """Le mur entier dessiné une seule fois, avec une marge pour le glissement : chaque image n'en est qu'un
+    déplacement (au sous-pixel), au lieu de reposer 50 affiches arrondies au pixel."""
+    layout = wall_layout(len(posters), size)
+    margin = math.ceil(WALL_DRIFT * size[1] / 2) + 2
+    canvas = Image.new("RGBA", (size[0] + 2 * margin, size[1] + 2 * margin), (13, 13, 13, 255))
     for c in layout["cells"]:
         img = _tilted(posters[c["index"]], round(layout["poster_h"]), round(10 * size[0] / 1920), WALL_ANGLE)
-        (x0, y0), (x1, y1) = c["start"], c["end"]
-        base.alpha_composite(img, (round(x0 + (x1 - x0) * k), round(y0 + (y1 - y0) * k)))
-    base.alpha_composite(_hero_veil(tuple(tint), size))
-    return base.convert("RGB")
+        _composite_anywhere(canvas, img, (round(c["end"][0]) + margin, round(c["end"][1]) + margin))
+    return canvas.convert("RGB"), margin
+
+
+@lru_cache(maxsize=4)
+def _veil_parts(tint: tuple, size: tuple[int, int]) -> tuple[Image.Image, Image.Image]:
+    """Le voile en deux morceaux prêts à l'emploi (couleur, masque) : 480 images à composer, chaque ms compte."""
+    veil = _hero_veil(tint, size)
+    return Image.new("RGB", size, tint), veil.getchannel("A")
+
+
+def _hero_frame(posters: list[str], tint: tuple, excursion: float, size: tuple[int, int]) -> Image.Image:
+    """Le mur décalé de « excursion » (0 = image fixe, 1 = le plus loin), voile de couleur par-dessus. Simple
+    glissement : bilinéaire suffit (et va deux fois plus vite que bicubique, en RVB)."""
+    canvas, margin = _wall_canvas(tuple(posters), size)
+    e = excursion * WALL_DRIFT * size[1] / 2
+    frame = canvas.transform(size, Image.AFFINE, (1, 0, margin - e, 0, 1, margin - e), resample=Image.BILINEAR)
+    color, mask = _veil_parts(tuple(tint), size)
+    return Image.composite(color, frame, mask)
 
 
 def save_if_changed(img: Image.Image, out: Path, **options) -> bool:
@@ -392,24 +438,24 @@ def save_if_changed(img: Image.Image, out: Path, **options) -> bool:
 
 
 def hero_still(posters: list[str], tint: tuple, size: tuple[int, int]) -> Image.Image:
-    """Image fixe du fond : la dernière image de l'animation."""
-    return _hero_frame(posters, wall_layout(len(posters), size), tint, 1.0, size)
+    """Image fixe du fond : la première et la dernière image de la vidéo (Nuvio la montre avant et après)."""
+    return _hero_frame(posters, tint, 0.0, size)
 
 
 def hero_frames(posters: list[str], tint: tuple, size: tuple[int, int], seconds: float = HERO_SECONDS):
-    """Images de l'animation (générateur : 200 images en 1080p ne tiennent pas en mémoire)."""
-    layout = wall_layout(len(posters), size)
-    n = round(FPS * seconds)
+    """Images de la vidéo à 60 i/s (générateur : 480 images en 1080p ne tiennent pas en mémoire) : le mur part de
+    l'image fixe, glisse et y revient, départ et arrivée adoucis : aucun saut quand Nuvio passe de l'une à l'autre."""
+    n = round(HERO_FPS * seconds)
     for i in range(n):
-        yield _hero_frame(posters, layout, tint, i / (n - 1), size)
+        yield _hero_frame(posters, tint, (1 - math.cos(2 * math.pi * i / (n - 1))) / 2, size)
 
 
 def encode_mp4(frames, size: tuple[int, int], out: Path) -> int:
     """Vidéo H.264 lue par Nuvio TV (heroVideoUrl), muette, démarrage rapide (faststart)."""
     out.parent.mkdir(parents=True, exist_ok=True)
     proc = subprocess.Popen([os.environ.get("FFMPEG", "ffmpeg"), "-y", "-loglevel", "error", "-f", "rawvideo",
-                             "-pix_fmt", "rgb24", "-s", f"{size[0]}x{size[1]}", "-r", str(FPS), "-i", "-",
-                             "-c:v", "libx264", "-preset", "slow", "-crf", "20", "-pix_fmt", "yuv420p",
+                             "-pix_fmt", "rgb24", "-s", f"{size[0]}x{size[1]}", "-r", str(HERO_FPS), "-i", "-",
+                             "-c:v", "libx264", "-preset", "medium", "-crf", "22", "-pix_fmt", "yuv420p",
                              "-movflags", "+faststart", "-an", str(out)], stdin=subprocess.PIPE)
     try:
         for f in frames:
@@ -428,8 +474,9 @@ def encode_mp4(frames, size: tuple[int, int], out: Path) -> int:
 
 
 # ---------- encodage ----------
-def encode_gif(frames: list[Image.Image], durations: list[int], out: Path) -> int:
-    """GIF par gifski à 25 i/s : une image tenue plus longtemps est répétée (gifski fusionne les doublons)."""
+def encode_gif(frames: list[Image.Image], durations: list[int], out: Path, once: bool = False) -> int:
+    """GIF par gifski à 50 i/s : une image tenue plus longtemps est répétée (gifski fusionne les doublons).
+    once : joué une seule fois, puis arrêté sur la dernière image (arrivée des plateformes et studios)."""
     out.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         names = []
@@ -446,16 +493,28 @@ def encode_gif(frames: list[Image.Image], durations: list[int], out: Path) -> in
                 names.append(copy)
         # Noms courts lancés depuis le dossier : la ligne de commande reste courte (limite de Windows).
         subprocess.run([os.environ.get("GIFSKI", "gifski"), "-q", *GIFSKI_OPTS, "--fps", str(FPS),
-                        "-o", str(out.resolve()), *names], check=True, cwd=tmp)
+                        *(["--repeat", "-1"] if once else []), "-o", str(out.resolve()), *names], check=True, cwd=tmp)
+    if once:
+        _hold_last_frame(out)
     return out.stat().st_size
 
 
-def fit_gif(attempts, render, out: Path):
+def _hold_last_frame(out: Path) -> None:
+    """Dernière image tenue 655 s (le plus long qu'un GIF permette) : même une appli qui fait boucler tous les GIF
+    reste sur la tuile. On réécrit le délai du dernier bloc « Graphic Control Extension » (21 F9 04)."""
+    data = bytearray(out.read_bytes())
+    i = data.rfind(b"\x21\xf9\x04")
+    if i >= 0:
+        data[i + 4:i + 6] = (65535).to_bytes(2, "little")
+        out.write_bytes(bytes(data))
+
+
+def fit_gif(attempts, render, out: Path, once: bool = False):
     """Premier essai (taille, réglage) dont le GIF tient sous GIF_MAX_BYTES ; render(taille, réglage) donne
-    (images, durées). Renvoie (octets, taille, réglage) ; lève RuntimeError si rien ne tient."""
+    (images, durées). Renvoie (octets, taille, réglage) ; lève RuntimeError si rien ne tient. once : joué une fois."""
     for size, setting in attempts:
         frames, durations = render(size, setting)
-        n = encode_gif(frames, durations, out)
+        n = encode_gif(frames, durations, out, once=once)
         if n <= GIF_MAX_BYTES:
             return n, size, setting
     out.unlink(missing_ok=True)

@@ -2192,6 +2192,15 @@
         "focusGifEnabled": true,
         "sources": [
           {
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Pirates des Cara\u00efbes",
+            "tmdbId": 295,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
+          },
+          {
             "provider": "addon",
             "addonId": "com.xnzx07.catalogue-fr",
             "type": "movie",
@@ -2204,15 +2213,6 @@
             "type": "movie",
             "catalogId": "saga",
             "genre": "Fast & Furious"
-          },
-          {
-            "provider": "tmdb",
-            "tmdbSourceType": "COLLECTION",
-            "title": "Pirates des Cara\u00efbes",
-            "tmdbId": 295,
-            "mediaType": "MOVIE",
-            "sortBy": "original",
-            "filters": {}
           },
           {
             "provider": "addon",
@@ -2669,6 +2669,15 @@
         "focusGifEnabled": true,
         "sources": [
           {
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Jurassic Park",
+            "tmdbId": 328,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
+          },
+          {
             "provider": "addon",
             "addonId": "com.xnzx07.catalogue-fr",
             "type": "movie",
@@ -2681,15 +2690,6 @@
             "type": "movie",
             "catalogId": "saga",
             "genre": "Star Wars"
-          },
-          {
-            "provider": "tmdb",
-            "tmdbSourceType": "COLLECTION",
-            "title": "Jurassic Park",
-            "tmdbId": 328,
-            "mediaType": "MOVIE",
-            "sortBy": "original",
-            "filters": {}
           },
           {
             "provider": "tmdb",
@@ -2919,13 +2919,6 @@
         "focusGifEnabled": true,
         "sources": [
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Saw"
-          },
-          {
             "provider": "tmdb",
             "tmdbSourceType": "COLLECTION",
             "title": "Alien",
@@ -2933,6 +2926,13 @@
             "mediaType": "MOVIE",
             "sortBy": "original",
             "filters": {}
+          },
+          {
+            "provider": "addon",
+            "addonId": "com.xnzx07.catalogue-fr",
+            "type": "movie",
+            "catalogId": "saga",
+            "genre": "Saw"
           },
           {
             "provider": "tmdb",
@@ -3338,13 +3338,6 @@
         "focusGifEnabled": true,
         "sources": [
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Very Bad Trip"
-          },
-          {
             "provider": "tmdb",
             "tmdbSourceType": "COLLECTION",
             "title": "Cinquante Nuances",
@@ -3352,6 +3345,13 @@
             "mediaType": "MOVIE",
             "sortBy": "original",
             "filters": {}
+          },
+          {
+            "provider": "addon",
+            "addonId": "com.xnzx07.catalogue-fr",
+            "type": "movie",
+            "catalogId": "saga",
+            "genre": "Very Bad Trip"
           },
           {
             "provider": "tmdb",
@@ -3445,13 +3445,6 @@
         "focusGifEnabled": true,
         "sources": [
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Ast\u00e9rix & Ob\u00e9lix"
-          },
-          {
             "provider": "tmdb",
             "tmdbSourceType": "COLLECTION",
             "title": "Taxi",
@@ -3459,6 +3452,13 @@
             "mediaType": "MOVIE",
             "sortBy": "original",
             "filters": {}
+          },
+          {
+            "provider": "addon",
+            "addonId": "com.xnzx07.catalogue-fr",
+            "type": "movie",
+            "catalogId": "saga",
+            "genre": "Ast\u00e9rix & Ob\u00e9lix"
           },
           {
             "provider": "addon",
@@ -3654,13 +3654,6 @@
         "focusGifEnabled": true,
         "sources": [
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Naruto"
-          },
-          {
             "provider": "tmdb",
             "tmdbSourceType": "COLLECTION",
             "title": "Demon Slayer : Kimetsu no Yaiba",
@@ -3668,6 +3661,13 @@
             "mediaType": "MOVIE",
             "sortBy": "original",
             "filters": {}
+          },
+          {
+            "provider": "addon",
+            "addonId": "com.xnzx07.catalogue-fr",
+            "type": "movie",
+            "catalogId": "saga",
+            "genre": "Naruto"
           },
           {
             "provider": "tmdb",

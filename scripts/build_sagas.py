@@ -125,6 +125,14 @@ def saga_source(s: dict) -> dict:
     return {"provider": "addon", "addonId": ADDON_ID, "type": "movie", "catalogId": "saga", "genre": s["title"]}
 
 
+def first_row_direct(sagas: list[dict]) -> list[dict]:
+    """La première saga lue en direct chez TMDB passe en tête. Nuvio TV se place sur la première rangée une fois
+    chargée : une rangée de l'addon arrive après celles de TMDB, Nuvio est déjà descendu plus bas et le dossier ne
+    s'ouvre pas en haut."""
+    i = next((k for k, s in enumerate(sagas) if s.get("in_order", True)), 0)
+    return [sagas[i], *sagas[:i], *sagas[i + 1:]]
+
+
 def sagas_collection(themes: list[dict]) -> dict:
     """Collection « Sagas » : une tuile par thème, une rangée par saga (films dans l'ordre de sortie)."""
     folders = []
@@ -139,7 +147,7 @@ def sagas_collection(themes: list[dict]) -> dict:
             # Saga dans l'ordre chez TMDB : Nuvio la lit en direct (gratuit). Dans le désordre (53 sur 175 : Rocky
             # Balboa avant Rocky…), rangée de l'addon, dans l'ordre de sortie (Nuvio ne sait pas trier du plus ancien
             # au plus récent) ; le nom de la saga la désigne (worker/facultatives.js).
-            "sources": [saga_source(s) for s in t["sagas"]],
+            "sources": [saga_source(s) for s in first_row_direct(t["sagas"])],
             "coverImageUrl": f"{RAW}/sagas/{slug}.jpg?v=1",
             "focusGifUrl": f"{RAW}/gifs/sagas/{slug}.gif?v=1",
             "heroBackdropUrl": f"{RAW}/sagas/{slug}-fond.jpg?v=1",

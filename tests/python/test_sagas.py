@@ -102,7 +102,7 @@ class Collection(unittest.TestCase):
         # Saga dans le désordre chez TMDB : rangée de l'addon (ordre de sortie) ; dans l'ordre : TMDB en direct (gratuit,
         # aucune requête à l'addon).
         for f, t in zip(c["folders"], THEMES):
-            for src, s in zip(f["sources"], t["sagas"]):
+            for src, s in zip(f["sources"], bs.first_row_direct(t["sagas"])):
                 if s["in_order"]:
                     self.assertEqual(src, {"provider": "tmdb", "tmdbSourceType": "COLLECTION", "title": s["title"],
                                            "tmdbId": s["id"], "mediaType": "MOVIE", "sortBy": "original", "filters": {}})
@@ -118,6 +118,21 @@ class Collection(unittest.TestCase):
         self.assertEqual(action["tileShape"], "LANDSCAPE")
         names = [s.get("genre") or s["title"] for f in c["folders"] for s in f["sources"]]
         self.assertEqual(len(names), len(set(names)))          # le nom désigne la saga : jamais deux fois le même
+
+    def test_premiere_rangee_en_direct(self):
+        # Nuvio TV se place sur la première rangée une fois chargée ; une rangée de l'addon arrive après celles de
+        # TMDB en direct, Nuvio s'est déjà placé plus bas et le dossier ne s'ouvre pas en haut.
+        saga = lambda n, ordre: {"id": n, "title": f"S{n}", "in_order": ordre}
+        theme = {"slug": "x", "title": "X", "sagas": [saga(1, False), saga(2, False), saga(3, True), saga(4, True)]}
+        sources = bs.sagas_collection([theme])["folders"][0]["sources"]
+        self.assertEqual([s.get("tmdbId") or s["genre"] for s in sources], [3, "S1", "S2", 4])
+        # Déjà en direct : rien ne bouge ; aucune en direct : rien ne bouge non plus.
+        dans_l_ordre = [saga(1, True), saga(2, False)]
+        self.assertEqual(bs.first_row_direct(dans_l_ordre), dans_l_ordre)
+        aucune = [saga(1, False), saga(2, False)]
+        self.assertEqual(bs.first_row_direct(aucune), aucune)
+        for f in bs.sagas_collection(THEMES)["folders"]:
+            self.assertEqual(f["sources"][0]["provider"], "tmdb", f["id"])
 
     def test_ecriture_ne_touche_que_les_sagas(self):
         src = ROOT / "collections" / "collections.json"

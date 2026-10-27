@@ -271,7 +271,12 @@ ${copy ? "" : `        <p class="sub">Le lien partagé sature ? <a href="${origi
       <section class="act" id="s-collections">
         <header><span>Grand écran</span><h2>Les collections</h2></header>
         <p class="sub">Les grandes tuiles de l'accueil, à importer avec le second lien de ton billet. Plateformes reste tout en haut ; les autres viennent après tes rangées. Choisis les collections, puis les tuiles de chacune et leur ordre.</p>
-        <div id="collections" style="display:grid;gap:10px"></div>
+        <p class="coll-resume" id="coll-resume"></p>
+        <button type="button" class="btn solid" id="coll-ouvrir">Choisir les collections</button>
+        <dialog id="coll-dialog" aria-labelledby="coll-titre">
+          <div class="coll-dlg-head"><h2 id="coll-titre">Les collections</h2><button type="button" class="btn line" id="coll-fermer">Fermer</button></div>
+          <div class="coll-dlg-body"><div id="collections" style="display:grid;gap:10px"></div></div>
+        </dialog>
       </section>
 
       <section class="act" id="s-affiches">
@@ -586,6 +591,13 @@ aside.long .stage:not(.big) { position: sticky; top: var(--stage-top, 18px); }
 .btn.solid:hover { background: var(--red); border-color: var(--red); }
 .btn.line { background: transparent; color: var(--ink); }
 .btn.full { grid-column: 1 / -1; }
+/* Collections : 19 avec les facultatives, choisies dans une fenêtre ; la page n'en garde qu'un résumé. */
+.coll-resume { margin: 0 0 12px; font-weight: 700; }
+#coll-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(100vh - 32px); padding: 0; border: 2px solid var(--ink); border-radius: 14px; background: var(--cream); color: var(--ink); }
+#coll-dialog::backdrop { background: rgba(5,3,4,.72); }
+.coll-dlg-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; background: var(--cream); border-bottom: 2px solid var(--ink); }
+.coll-dlg-head h2 { margin: 0; }
+.coll-dlg-body { padding: 14px 16px 18px; }
 .btn:disabled { opacity: .6; cursor: wait; }
 /* Lien fixe : un encart pointillé dans le billet, sous le lien de l'addon. */
 .compte-nuvio { display: grid; gap: 6px; }
@@ -2144,6 +2156,10 @@ function setBig(on) {
 }
 $("zoom").addEventListener("click", () => setBig(!stageEl.classList.contains("big")));
 $("big-close").addEventListener("click", () => setBig(false));
+$("coll-ouvrir").addEventListener("click", () => $("coll-dialog").showModal());
+$("coll-fermer").addEventListener("click", () => $("coll-dialog").close());
+// Clic sur le fond assombri (hors de la fenêtre) : on ferme.
+$("coll-dialog").addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
 stageEl.addEventListener("click", (e) => { if (e.target === stageEl) setBig(false); });
 addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
@@ -2251,6 +2267,10 @@ function renderCollections() {
     if (c.id === "plateformes-streaming") box.append(el("p", { class: "coll-rangees" }, "↓ Ici, sur l'accueil : ", el("b", { text: "tes rangées du Catalogue FR" }), " ↓"));
   });
   rendFocus(box, rep);
+  const choisies = byPos(D.collections).filter(c => state.c.includes(c.id)).map(c => c.name);
+  $("coll-resume").textContent = choisies.length
+    ? choisies.length + " collection" + (choisies.length > 1 ? "s" : "") + " sur " + D.collections.length + " : " + choisies.join(", ") + "."
+    : "Aucune collection.";
 }
 // Tuiles d'une collection dans l'ordre choisi (positions dans le fichier) ; les autres suivent, ordre habituel.
 function tileOrder(c) {

@@ -282,3 +282,12 @@ test("positions_des_tuiles_version_2", () => {
   const html = page();
   assert.match(html, /if \(o\.t \|\| o\.to\) o\.tv = 2;/);
 });
+
+// Collections : 19 avec les facultatives, trop pour la page : un résumé et une fenêtre pour les choisir.
+test("collections_dans_une_fenetre", () => {
+  const html = page();
+  assert.match(html, /<button type="button" class="btn solid" id="coll-ouvrir">/);
+  assert.match(html, /<dialog id="coll-dialog"[^>]*>[\s\S]*<div id="collections"[\s\S]*<\/dialog>/);
+  assert.match(html, /id="coll-resume"/);
+  assert.match(html, /\$\("coll-ouvrir"\)\.addEventListener\("click", \(\) => \$\("coll-dialog"\)\.showModal\(\)\)/);
+});

@@ -50,6 +50,7 @@ import { routeEtat } from "./etat.js";
 import { statique } from "./statique.js";
 import { smartSearch, prepareWords, isExact, norm, capQuery, genreQuery, filmography } from "./search.js";
 import { imdbRating } from "./ratings.js";
+import { ROWS as FAC_ROWS, facultativeCatalogs, laureats } from "./facultatives.js";
 import { isCopy, addonId, hostRoute, hasAlerts, pendingUpdate, updateInfo, updateCard, same, UPDATE_CATALOG } from "./hote.js";
 import { SEANCE_ID, carteSeance, rechercheSeance, routeSeance } from "./seance.js";
 import { routeDiagnostic } from "./diagnostic.js";
@@ -62,7 +63,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.38.45";
+const VERSION = "5.39.0";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -291,7 +292,7 @@ function manifest(today, cfg, url, alerts) {
     // Recherche : deux catalogues « Films » et « Séries » (titres en français), à la place
     // des « TMDB Search » de Discover Plus dont le nom ne se change pas.
     // Lien de l'hébergeur d'une copie : la rangée « Mise à jour » en tête (vide, donc masquée, sans mise à jour).
-    catalogs: [...(alerts ? [UPDATE_CATALOG] : []), ...discover, ...home, ...SEARCH.map((c) => ({
+    catalogs: [...(alerts ? [UPDATE_CATALOG] : []), ...discover, ...home, ...facultativeCatalogs(cfg, PAGE), ...SEARCH.map((c) => ({
       type: c.type, id: c.id, name: c.name, showInHome: false,
       extra: [{ name: "search", isRequired: true }, paging], extraRequired: ["search"], extraSupported: ["search", "skip"],
     }))],
@@ -429,12 +430,23 @@ async function dossierSource(env, src, lang, page) {
     const d = await tmdb(env, `/collection/${Number(src.tmdbId)}`, {}, lang);
     return { metas: (d.parts || []).map(toMeta).filter(Boolean), hasMore: false };
   }
+  if (src.tmdbSourceType === "PERSON" || src.tmdbSourceType === "DIRECTOR") {
+    // Filmographie (une seule page, comme Nuvio TV) : rôles, ou films réalisés ; les plus populaires d'abord.
+    if (page > 1) return { metas: [], hasMore: false };
+    const d = await tmdb(env, `/person/${Number(src.tmdbId)}/${tv ? "tv" : "movie"}_credits`, {}, lang);
+    const rows = src.tmdbSourceType === "DIRECTOR" ? (d.crew || []).filter((c) => c.job === "Director") : d.cast || [];
+    const seen = new Set();
+    const metas = rows.filter((it) => !seen.has(it.id) && seen.add(it.id))
+      .sort((a, b) => (b.popularity || 0) - (a.popularity || 0)).map(toMeta).filter(Boolean);
+    return { metas, hasMore: false };
+  }
   const f = src.filters || {};
   const sort = src.sortBy || "popularity.desc";
   const p = { page: String(page), sort_by: tv ? sort.replace("primary_release_date.desc", "first_air_date.desc") : sort.replace("first_air_date.desc", "primary_release_date.desc") };
   const set = (k, v) => { if (v != null && v !== "") p[k] = String(v); };
   set("with_companies", f.withCompanies); set("vote_count.gte", f.voteCountGte); set("with_genres", f.withGenres); set("without_genres", f.withoutGenres); set("without_keywords", f.withoutKeywords);
   set("vote_average.gte", f.voteAverageGte); set("with_original_language", f.withOriginalLanguage);
+  set("with_keywords", f.withKeywords); set("with_origin_country", f.withOriginCountry); set("with_networks", f.withNetworks);
   set(tv ? "first_air_date.gte" : "primary_release_date.gte", f.releaseDateGte); set(tv ? "first_air_date.lte" : "primary_release_date.lte", f.releaseDateLte);
   if (f.withWatchProviders) { set("watch_region", f.watchRegion || "US"); set("with_watch_providers", f.withWatchProviders); set("with_watch_monetization_types", "flatrate|free|ads|rent|buy"); }
   const d = await tmdb(env, `/discover/${tv ? "tv" : "movie"}`, p, lang);
@@ -1725,6 +1737,16 @@ async function catalogPage(env, ctx, type, id, extra, today, cfg, bilan, prefixe
     const page = pageOf(skip, pageSizeOf(home));
     return fetchPage(env, ctx, home, type, page, today, { ...opts, moitie: home.mix ? moitieParSelf(env, prefixe, type, home.id) : null });
   }
+  // Rangées des collections facultatives (lauréats, durée, mini-séries) : servies même décochées (sans danger).
+  const fac = FAC_ROWS.find((r) => r.id === id && r.type === type);
+  if (fac) {
+    if (fac.list) {
+      // Filtres généraux (mode famille, genres masqués, note…) appliqués à la liste, comme aux Tendances.
+      const results = await laureats(ASSETS, fac.list, skip, PAGE, (it) => !opts.filtered || passeLesFiltres(it, type, cfg));
+      return results.length ? (await toMetas(env, ctx, results, type, opts, today)).map(sansInternes) : [];
+    }
+    return fetchPage(env, ctx, fac, type, pageOf(skip, PAGE), today, opts);
+  }
   const disc = discoverDefs(today).find((d) => d.id === id && d.type === type);
   if (disc) {
     // Sans filtre (Nuvio ouvre Découvrir sur « Par défaut ») : le 1er filtre (« Tout »…).
@@ -2522,8 +2544,12 @@ function userOrder(order, folders, pos) {
   return [...folders].sort((a, b) => rank(a) - rank(b));
 }
 
+/** Rangée de l'addon dans une collection : l'identifiant de cet addon-ci (une copie a le sien, « .perso »). */
+const notreAddon = (src, id) => (src.provider === "addon" && src.addonId && src.addonId.startsWith("com.xnzx07.catalogue-fr")
+  ? { ...src, addonId: id } : src);
+
 /** Collections Nuvio filtrées : collections, plateformes et tuiles choisies, filtres appliqués. */
-async function collections(cfg) {
+async function collections(cfg, url) {
   const all = await loadCollections();
   const chosenFolders = new Set(PROVIDERS.filter((p) => cfg.p.includes(p.id)).map((p) => p.folder));
   const platformFolders = new Set(PROVIDERS.map((p) => p.folder).filter(Boolean));
@@ -2535,7 +2561,8 @@ async function collections(cfg) {
       const folders = userOrder(cfg.to[c.id], displayOrder(c, c.folders), (f) => c.folders.indexOf(f))
         .filter((f) => !hidden.has(c.folders.indexOf(f)))
         .filter((f) => c.id !== "plateformes-streaming" || !platformFolders.has(f.id) || chosenFolders.has(f.id))
-        .map((f) => (filtered && f.sources ? { ...f, sources: f.sources.map((src) => filterSource(src, cfg)) } : f));
+        .map((f) => (filtered && f.sources ? { ...f, sources: f.sources.map((src) => filterSource(src, cfg)) } : f))
+        .map((f) => (url && f.sources ? { ...f, sources: f.sources.map((src) => notreAddon(src, addonId(url))) } : f));
       return { ...c, folders };
     })
     .filter((c) => c.folders.length);
@@ -2698,7 +2725,7 @@ const app = {
       if (fixedId) ctx.waitUntil(noteLecture(env, fixedId, request));
       return res;
     }
-    if (path === "/collections.json") return json(await collections(cfg), CACHE_CLIENT_S);
+    if (path === "/collections.json") return json(await collections(cfg, url), CACHE_CLIENT_S);
     // Soirée à deux (salle 2) : les rangées d'un lien, sans clé Gemini ni jeton d'alerte (voir soiree.js).
     if (path === "/programmation.json") return json(programmationPublique(cfg), fixedId ? 60 : 86400);
     // La photo du jour des tendances, lue par le service d'affiches (worker/tendances.js).
@@ -2832,6 +2859,11 @@ const app = {
       const col = (await collections(cfg)).find((c) => c.id === dm[1]);
       const folder = col && col.folders.find((f) => f.id === dm[2]);
       const src = folder && (folder.sources || [])[Number(dm[3])];
+      if (src && src.provider === "addon") {
+        // Rangée de l'addon (collections facultatives : lauréats, durée, mini-séries) : la même que Nuvio lira.
+        const metas = await catalogPage(env, ctx, src.type, src.catalogId, { skip: (page - 1) * PAGE }, today, cfg, null, "");
+        return json({ metas, hasMore: metas.length === PAGE }, 6 * 3600);
+      }
       if (!src || src.provider !== "tmdb") return json({ metas: [], hasMore: false, error: "introuvable" }, 600);
       return json(await dossierSource(env, src, langOf(cfg), page), 6 * 3600);
     }

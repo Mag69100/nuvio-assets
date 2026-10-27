@@ -67,8 +67,23 @@ test("tuiles_marvel_warner_dc_passees_aux_studios", () => {
   assert.deepEqual(old.to, { "plateformes-streaming": [7, 0] });
   // Seules des tuiles déplacées étaient masquées : plus rien à masquer dans les Plateformes.
   assert.deepEqual(decodeConfig(seg({ t: { 0: [8] } }), rows, discover).t, { studios: [10] });
-  // Lien d'après (tv: 1) : positions lues telles quelles.
-  const now = decodeConfig(seg({ tv: 1, t: { 0: [7] }, to: { 0: [7, 0] } }), rows, discover);
-  assert.deepEqual(now.t, { "plateformes-streaming": [7] });
-  assert.deepEqual(now.to, { "plateformes-streaming": [7, 0] });
+  // Lien d'après (tv: 1, puis tv: 2) : positions lues telles quelles.
+  for (const tv of [1, 2]) {
+    const now = decodeConfig(seg({ tv, t: { 0: [7] }, to: { 0: [7, 0] } }), rows, discover);
+    assert.deepEqual(now.t, { "plateformes-streaming": [7] });
+    assert.deepEqual(now.to, { "plateformes-streaming": [7, 0] });
+  }
+});
+
+test("anciennes_tuiles_de_sagas_ignorees", () => {
+  // Les 24 tuiles de sagas sont devenues 8 thèmes : une ancienne position ne doit masquer aucun thème.
+  for (const tv of [undefined, 1]) {
+    const old = decodeConfig(seg({ tv, t: { 3: [0, 5, 20], 2: [1] }, to: { 3: [4, 0] } }), rows, discover);
+    assert.deepEqual(old.t, { genres: [1] });
+    assert.deepEqual(old.to, {});
+  }
+  // Lien d'après les thèmes (tv: 2) : positions lues telles quelles.
+  const now = decodeConfig(seg({ tv: 2, t: { 3: [2] }, to: { 3: [1, 0] } }), rows, discover);
+  assert.deepEqual(now.t, { sagas: [2] });
+  assert.deepEqual(now.to, { sagas: [1, 0] });
 });

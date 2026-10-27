@@ -29,7 +29,24 @@ export const COLLECTIONS = [
   { id: "genres", name: "Genres" },
   { id: "sagas", name: "Sagas" },
   { id: "studios", name: "Studios" },
+  // Facultatives (scripts/build_optional.py) : décochées par défaut, toujours en fin de liste (positions des liens).
+  { id: "decennies", name: "Décennies", optional: true },
+  { id: "monde", name: "Cinéma du monde", optional: true },
+  { id: "realisateurs", name: "Réalisateurs", optional: true },
+  { id: "acteurs", name: "Acteurs et actrices", optional: true },
+  { id: "recompenses", name: "Récompenses", optional: true },
+  { id: "univers", name: "Grands univers", optional: true },
+  { id: "chaines", name: "Chaînes françaises", optional: true },
+  { id: "enfants", name: "Pour les enfants", optional: true },
+  { id: "cultes", name: "Cultes et classiques", optional: true },
+  { id: "adaptations", name: "Adaptations", optional: true },
+  { id: "temps", name: "Selon le temps", optional: true },
+  { id: "animes-genres", name: "Animés par genre", optional: true },
+  { id: "documentaires", name: "Documentaires", optional: true },
+  { id: "sport", name: "Sport", optional: true },
 ];
+/** Identifiants des collections facultatives (le compte Nuvio les retire quand on les décoche). */
+export const FACULTATIVES = COLLECTIONS.filter((c) => c.optional).map((c) => c.id);
 
 /** Pays : région des plateformes et langue des titres. */
 export const REGIONS = [
@@ -83,7 +100,7 @@ export function defaults(rows, discover) {
       .map(({ d }) => d.id),
     p: ["8", "119", "337", "531", "1899", "350", "381"],
     d: discover.map((d) => d.id),
-    c: COLLECTIONS.map((c) => c.id),
+    c: COLLECTIONS.filter((c) => !c.optional).map((c) => c.id),
     o: {},            // noms personnalisés : { idRangée: "Nom" }
     x: [],            // rangées sur mesure
     g: "FR",          // pays
@@ -163,6 +180,7 @@ function oldTiles(t, to) {
  *   f mode famille · h fêtes (masque) · t tuiles masquées par collection
  *   to ordre des tuiles par collection (positions dans le fichier ; les autres suivent dans l'ordre habituel)
  *   tv 1 = positions des tuiles d'après le passage de Marvel, Warner et DC aux Studios (voir oldTiles)
+ *   tv 2 = de plus, Sagas rangées en 8 thèmes (les positions de sagas d'avant sont oubliées)
  *   u titres pas encore regardables gardés dans les Tendances
  *   k clé Gemini personnelle (l'IA tourne avec le quota de l'utilisateur ; hors clé de cache)
  *   al jeton d'alerte de l'hébergeur d'une copie (voir hote.js ; hors clé de cache)
@@ -206,7 +224,9 @@ export function decodeConfig(segment, rows, discover) {
     return out;
   };
   const t = tiles(raw.t), to = tiles(raw.to);
-  if (raw.tv !== 1) oldTiles(t, to);
+  if (raw.tv !== 1 && raw.tv !== 2) oldTiles(t, to);
+  // Avant tv 2, la collection Sagas avait 24 tuiles (une par saga) : ces positions ne veulent plus rien dire.
+  if (raw.tv !== 2) { delete t.sagas; delete to.sagas; }
   const region = REGIONS.find((r) => r.id === raw.g);
   const genreNames = GENRES.map(([n]) => n);
 

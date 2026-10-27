@@ -1171,7 +1171,7 @@ function compact(st) {
   });
   if (Object.keys(t).length) o.t = t;
   if (Object.keys(to).length) o.to = to;
-  if (o.t || o.to) o.tv = 1; // positions d'après le passage de Marvel, Warner et DC aux Studios (config.js)
+  if (o.t || o.to) o.tv = 2; // positions d'après les Studios (Marvel, Warner, DC) et les Sagas en thèmes (config.js)
   return o;
 }
 function enc(obj) {
@@ -2226,7 +2226,12 @@ function renderCollections() {
   const box = $("collections"), rep = repereFocus(box);
   const ouvertes = new Set([...box.querySelectorAll("details[open]")].map((d) => d.dataset.coll));
   box.textContent = "";
+  let enPlus = false;
   byPos(D.collections).forEach(c => {
+    if (c.optional && !enPlus) {
+      enPlus = true;
+      box.append(el("p", { class: "coll-rangees" }, el("b", { text: "En plus, au choix" }), " : des collections à ajouter si tu veux"));
+    }
     const on = state.c.includes(c.id);
     const hidden = state.t[c.id] || [];
     const cb = el("input", { type: "checkbox", id: "col-" + c.id }); cb.checked = on;

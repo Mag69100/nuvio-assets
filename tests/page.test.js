@@ -276,3 +276,9 @@ test("derniere_programmation_gardee_sans_cle", () => {
   assert.match(SALLE2_JS, /sessionStorage\.getItem\("reprise"\) === location\.pathname\) \{\s*sessionStorage\.removeItem\("reprise"\);\s*addEventListener\("DOMContentLoaded", \(\) => effet\("toast", "Ta dernière programmation est rouverte/);
   assert.match(page(), /<script>try\{\(function reprise\(/);
 });
+
+// Positions des tuiles d'après le rangement des sagas en thèmes (config.js : tv 2).
+test("positions_des_tuiles_version_2", () => {
+  const html = page();
+  assert.match(html, /if \(o\.t \|\| o\.to\) o\.tv = 2;/);
+});

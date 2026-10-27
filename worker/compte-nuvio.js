@@ -13,6 +13,7 @@
 import { feuilles, scripts } from "./statique.js";
 import { creerLienAffiches } from "./lien-affiches.js";
 import { DERNIERE } from "./page.js";
+import { FACULTATIVES } from "./config.js";
 
 export const NUVIO_DECOUVERTE = "https://api.nuvio.tv/.well-known/nuvio";
 export const NUVIO_LIEN = "https://nuvio.tv/link";   // page où l'on approuve un appareil (DEVICE_LOGIN_WEB_BASE_URL)
@@ -267,7 +268,8 @@ var __name = function (f) { return f; };
     if (!Array.isArray(nos) || !nos.length) throw new Error("ton lien ne donne aucune collection.");
     const distant = await rpc("sync_pull_collections", { p_profile_id: profil });
     const avant = (Array.isArray(distant) && distant[0] && distant[0].collections_json) || [];
-    const liste = fusion(avant, nos, (Array.isArray(toutes) ? toutes : []).map((c) => c.id));
+    // Les nôtres : celles de la config par défaut, plus les facultatives (décochées, elles quittent le compte).
+    const liste = fusion(avant, nos, (Array.isArray(toutes) ? toutes : []).map((c) => c.id).concat(${JSON.stringify(FACULTATIVES)}));
     await rpc("sync_push_collections", { p_profile_id: profil, p_collections_json: liste, p_origin_client_id: memo.client });
     const perso = liste.length - nos.length;
     return "Les collections ✓ (" + nos.length + (perso ? ", et tes " + perso + " à toi gardées" : "") + ")";

@@ -10,6 +10,16 @@ import { feuilles } from "./statique.js";
 export const NOUVEAUTES = [
   {
     date: "2026-10-26",
+    titre: "Sagas par thèmes et plateformes refaites",
+    points: [
+      "Sagas : 8 thèmes (Action et aventure, Super-héros, Science-fiction et fantastique, Horreur, Animation et famille, Comédie et romance, Cinéma français, Animés) et 175 sagas, une rangée par saga avec les films dans l'ordre. Tout est en français.",
+      "Plateformes : chaque tuile montre les deux films et la série du moment, refaits chaque lundi.",
+      "Quand tu restes sur une tuile de saga ou de plateforme, le fond s'anime : un mur d'affiches qui glisse.",
+      "Pour les voir : réimporte les collections (« Tout envoyer dans Nuvio » ou le lien des collections). « Actualiser les addons » ne suffit pas.",
+    ],
+  },
+  {
+    date: "2026-10-26",
     titre: "Tout envoyer dans Nuvio, sans rien coller",
     points: [
       "Tu as un compte Nuvio ? Sur ton billet (salle 2) ou à l'étape 7 du guide, « Tout envoyer dans Nuvio » : tu approuves avec un code dans Nuvio, et l'addon, les collections et les affiches de ta TV arrivent tout seuls, sur tous tes appareils connectés à ce compte.",

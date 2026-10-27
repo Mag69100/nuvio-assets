@@ -6278,18 +6278,22 @@
     "title": "Terre du Milieu",
     "sources": [
      {
-      "provider": "addon",
-      "addonId": "com.xnzx07.catalogue-fr",
-      "type": "movie",
-      "catalogId": "saga",
-      "genre": "Le Seigneur des anneaux"
+      "provider": "tmdb",
+      "tmdbSourceType": "COLLECTION",
+      "title": "Le Seigneur des anneaux",
+      "tmdbId": 119,
+      "mediaType": "MOVIE",
+      "sortBy": "original",
+      "filters": {}
      },
      {
-      "provider": "addon",
-      "addonId": "com.xnzx07.catalogue-fr",
-      "type": "movie",
-      "catalogId": "saga",
-      "genre": "Le Hobbit"
+      "provider": "tmdb",
+      "tmdbSourceType": "COLLECTION",
+      "title": "Le Hobbit",
+      "tmdbId": 121938,
+      "mediaType": "MOVIE",
+      "sortBy": "original",
+      "filters": {}
      }
     ],
     "posters": [
@@ -6362,18 +6366,22 @@
     "title": "Conjuring",
     "sources": [
      {
-      "provider": "addon",
-      "addonId": "com.xnzx07.catalogue-fr",
-      "type": "movie",
-      "catalogId": "saga",
-      "genre": "Conjuring"
+      "provider": "tmdb",
+      "tmdbSourceType": "COLLECTION",
+      "title": "Conjuring",
+      "tmdbId": 313086,
+      "mediaType": "MOVIE",
+      "sortBy": "original",
+      "filters": {}
      },
      {
-      "provider": "addon",
-      "addonId": "com.xnzx07.catalogue-fr",
-      "type": "movie",
-      "catalogId": "saga",
-      "genre": "Annabelle"
+      "provider": "tmdb",
+      "tmdbSourceType": "COLLECTION",
+      "title": "Annabelle",
+      "tmdbId": 402074,
+      "mediaType": "MOVIE",
+      "sortBy": "original",
+      "filters": {}
      }
     ],
     "posters": [
@@ -6401,11 +6409,13 @@
     "title": "Jurassic Park",
     "sources": [
      {
-      "provider": "addon",
-      "addonId": "com.xnzx07.catalogue-fr",
-      "type": "movie",
-      "catalogId": "saga",
-      "genre": "Jurassic Park"
+      "provider": "tmdb",
+      "tmdbSourceType": "COLLECTION",
+      "title": "Jurassic Park",
+      "tmdbId": 328,
+      "mediaType": "MOVIE",
+      "sortBy": "original",
+      "filters": {}
      }
     ],
     "posters": [

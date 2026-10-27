@@ -57,6 +57,13 @@ class Entree(unittest.TestCase):
                  {"id": 4, "vote_count": 0, "release_date": "2999-01-01", "poster_path": "/futur.jpg"}]
         self.assertEqual(bs.saga_entry(coll(parts=parts), imgs(), None)["films"], ["/a.jpg", "/b.jpg"])
 
+    def test_ordre_de_tmdb(self):
+        """TMDB rend certaines sagas dans le désordre : on le note (seules celles-là passeront par l'addon)."""
+        melange = [{"id": 2, "release_date": "2006-12-20", "poster_path": "/b"}, {"id": 1, "release_date": "1976-11-21", "poster_path": "/a"}]
+        self.assertFalse(bs.saga_entry(coll(parts=melange), imgs(), None)["in_order"])
+        ordre = list(reversed(melange)) + [{"id": 3, "release_date": "", "poster_path": "/c"}]   # annoncé : à la fin
+        self.assertTrue(bs.saga_entry(coll(parts=ordre), imgs(), None)["in_order"])
+
     def test_premier_film_de_la_saga(self):
         self.assertEqual(bs.first_film(coll())["id"], 1)
         self.assertIsNone(bs.first_film(coll(parts=[{"id": 3, "release_date": ""}])))
@@ -92,9 +99,16 @@ class Collection(unittest.TestCase):
                           "sagas-comedie", "sagas-francais", "sagas-animes"])
         action = c["folders"][0]
         self.assertEqual(action["title"], "Action et aventure")
-        # Rangée de l'addon (films dans l'ordre de sortie : TMDB mélange certaines sagas, Nuvio ne sait pas les trier).
-        self.assertEqual(action["sources"][0], {"provider": "addon", "addonId": "com.xnzx07.catalogue-fr", "type": "movie",
-                                                "catalogId": "saga", "genre": THEMES[0]["sagas"][0]["title"]})
+        # Saga dans le désordre chez TMDB : rangée de l'addon (ordre de sortie) ; dans l'ordre : TMDB en direct (gratuit,
+        # aucune requête à l'addon).
+        for f, t in zip(c["folders"], THEMES):
+            for src, s in zip(f["sources"], t["sagas"]):
+                if s["in_order"]:
+                    self.assertEqual(src, {"provider": "tmdb", "tmdbSourceType": "COLLECTION", "title": s["title"],
+                                           "tmdbId": s["id"], "mediaType": "MOVIE", "sortBy": "original", "filters": {}})
+                else:
+                    self.assertEqual(src, {"provider": "addon", "addonId": "com.xnzx07.catalogue-fr", "type": "movie",
+                                           "catalogId": "saga", "genre": s["title"]})
         self.assertEqual(action["coverImageUrl"], f"{RAW}/sagas/action.jpg?v=1")
         self.assertEqual(action["focusGifUrl"], f"{RAW}/gifs/sagas/action.gif?v=1")
         self.assertEqual(action["titleLogoUrl"], f"{RAW}/titles/sagas/action.png?v=1")
@@ -102,7 +116,7 @@ class Collection(unittest.TestCase):
         self.assertEqual(action["heroVideoUrl"], f"{RAW}/sagas/action-fond.mp4?v=1")
         self.assertTrue(action["hideTitle"] and action["focusGifEnabled"])
         self.assertEqual(action["tileShape"], "LANDSCAPE")
-        names = [s["genre"] for f in c["folders"] for s in f["sources"]]
+        names = [s.get("genre") or s["title"] for f in c["folders"] for s in f["sources"]]
         self.assertEqual(len(names), len(set(names)))          # le nom désigne la saga : jamais deux fois le même
 
     def test_ecriture_ne_touche_que_les_sagas(self):

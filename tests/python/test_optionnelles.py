@@ -42,14 +42,16 @@ class Definitions(unittest.TestCase):
             self.assertTrue(all(s["mediaType"] == "MOVIE" for s in f["sources"]), f["id"])
 
     def test_univers_dans_l_ordre(self):
-        """Les sagas des grands univers passent par la rangée « saga » de l'addon (ordre de sortie), comme Sagas."""
+        """Sagas des grands univers : même règle que la collection Sagas (TMDB en direct si elle y est dans l'ordre,
+        sinon la rangée « saga » de l'addon)."""
+        sagas = {s["title"]: s for t in json.loads((ROOT / "data" / "sagas.json").read_text(encoding="utf-8")) for s in t["sagas"]}
         univers = next(c for c in bo.COLLECTIONS if c["id"] == "univers")
-        srcs = [s for f in univers["folders"] for s in f["sources"]]
-        self.assertFalse([s for s in srcs if s.get("tmdbSourceType") == "COLLECTION"])
-        sagas = [s["genre"] for s in srcs if s.get("catalogId") == "saga"]
-        self.assertIn("Star Wars", sagas)
-        names = {s["title"] for t in json.loads((ROOT / "data" / "sagas.json").read_text(encoding="utf-8")) for s in t["sagas"]}
-        self.assertTrue(set(sagas) <= names)
+        for s in (s for f in univers["folders"] for s in f["sources"]):
+            if s.get("catalogId") == "saga":
+                self.assertFalse(sagas[s["genre"]]["in_order"], s["genre"])
+            elif s.get("tmdbSourceType") == "COLLECTION":
+                self.assertTrue(sagas[s["title"]]["in_order"], s["title"])
+        self.assertIn("Star Wars", [s.get("genre") for f in univers["folders"] for s in f["sources"]])   # dans le désordre
 
     def test_rangees_addon_de_l_addon(self):
         """Récompenses, moins de 1 h 30, mini-séries : rangées de l'addon (Nuvio ne sait pas les faire seul)."""

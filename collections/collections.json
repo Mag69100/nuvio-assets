@@ -1945,11 +1945,13 @@
             "genre": "Fast & Furious"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Pirates des Cara\u00efbes"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Pirates des Cara\u00efbes",
+            "tmdbId": 295,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -1959,32 +1961,40 @@
             "genre": "Mission : Impossible"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "John Wick"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "John Wick",
+            "tmdbId": 404609,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Indiana Jones"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Indiana Jones",
+            "tmdbId": 84,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Le Parrain"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Le Parrain",
+            "tmdbId": 230,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Jason Bourne"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Jason Bourne",
+            "tmdbId": 31562,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -1994,25 +2004,31 @@
             "genre": "Die Hard"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Jumanji"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Jumanji",
+            "tmdbId": 495527,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Kill Bill"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Kill Bill",
+            "tmdbId": 2883,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Kingsman"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Kingsman",
+            "tmdbId": 391860,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2022,18 +2038,22 @@
             "genre": "Rocky"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Ocean's"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Ocean's",
+            "tmdbId": 304,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Gladiator"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Gladiator",
+            "tmdbId": 1069584,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2043,11 +2063,13 @@
             "genre": "Sherlock Holmes"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Taken"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Taken",
+            "tmdbId": 135483,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2057,60 +2079,76 @@
             "genre": "Bad Boys"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Rambo"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Rambo",
+            "tmdbId": 5039,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "La Momie"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "La Momie",
+            "tmdbId": 1733,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Expendables"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Expendables",
+            "tmdbId": 126125,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Top Gun"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Top Gun",
+            "tmdbId": 531330,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Equalizer"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Equalizer",
+            "tmdbId": 523855,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Creed"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Creed",
+            "tmdbId": 553717,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "L'Arme Fatale"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "L'Arme Fatale",
+            "tmdbId": 945,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Rush Hour"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Rush Hour",
+            "tmdbId": 90863,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2120,32 +2158,40 @@
             "genre": "Le Transporteur"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Le Flic de Beverly Hills"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Le Flic de Beverly Hills",
+            "tmdbId": 85861,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Lara Croft"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Lara Croft",
+            "tmdbId": 2467,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Ip Man"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Ip Man",
+            "tmdbId": 70068,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Hyper Tension"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Hyper Tension",
+            "tmdbId": 64751,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2155,11 +2201,13 @@
             "genre": "Zorro"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "The Raid"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "The Raid",
+            "tmdbId": 257960,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           }
         ],
         "coverImageUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/sagas/action.jpg?v=1",
@@ -2176,18 +2224,22 @@
         "focusGifEnabled": true,
         "sources": [
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Avengers"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Avengers",
+            "tmdbId": 86311,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "X-Men"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "X-Men",
+            "tmdbId": 748,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2204,11 +2256,13 @@
             "genre": "Iron Man"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Thor"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Thor",
+            "tmdbId": 131296,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2218,39 +2272,49 @@
             "genre": "Captain America"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Spider-Man (MCU)"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Spider-Man (MCU)",
+            "tmdbId": 531241,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Les Gardiens de la Galaxie"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Les Gardiens de la Galaxie",
+            "tmdbId": 284433,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Deadpool"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Deadpool",
+            "tmdbId": 448150,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Spider-Man (Sam Raimi)"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Spider-Man (Sam Raimi)",
+            "tmdbId": 556,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Ant-Man"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Ant-Man",
+            "tmdbId": 422834,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2260,46 +2324,58 @@
             "genre": "Venom"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Black Panther"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Black Panther",
+            "tmdbId": 529892,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Wonder Woman"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Wonder Woman",
+            "tmdbId": 468552,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Batman (1989-1997)"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Batman (1989-1997)",
+            "tmdbId": 120794,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Spider-Man : New Generation"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Spider-Man : New Generation",
+            "tmdbId": 573436,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Blade"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Blade",
+            "tmdbId": 735,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Hellboy"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Hellboy",
+            "tmdbId": 17235,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2309,11 +2385,13 @@
             "genre": "Superman"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Batman: The Dark Knight Returns"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Batman: The Dark Knight Returns",
+            "tmdbId": 248534,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           }
         ],
         "coverImageUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/sagas/super-heros.jpg?v=1",
@@ -2344,18 +2422,22 @@
             "genre": "Star Wars"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Jurassic Park"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Jurassic Park",
+            "tmdbId": 328,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Le Seigneur des anneaux"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Le Seigneur des anneaux",
+            "tmdbId": 119,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2365,18 +2447,22 @@
             "genre": "Hunger Games"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Terminator"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Terminator",
+            "tmdbId": 528,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Matrix"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Matrix",
+            "tmdbId": 2344,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2393,25 +2479,31 @@
             "genre": "Twilight"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Le Hobbit"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Le Hobbit",
+            "tmdbId": 121938,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Retour vers le futur"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Retour vers le futur",
+            "tmdbId": 264,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Transformers"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Transformers",
+            "tmdbId": 8650,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2421,25 +2513,31 @@
             "genre": "Mad Max"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "La Plan\u00e8te des singes"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "La Plan\u00e8te des singes",
+            "tmdbId": 173710,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Le Labyrinthe"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Le Labyrinthe",
+            "tmdbId": 295130,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Men in Black"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Men in Black",
+            "tmdbId": 86055,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2449,11 +2547,13 @@
             "genre": "Les Animaux fantastiques"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Predator"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Predator",
+            "tmdbId": 399,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2463,67 +2563,85 @@
             "genre": "Divergente"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Blade Runner"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Blade Runner",
+            "tmdbId": 422837,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Star Trek"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Star Trek",
+            "tmdbId": 115575,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Le Monde de Narnia"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Le Monde de Narnia",
+            "tmdbId": 420,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Dune"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Dune",
+            "tmdbId": 726871,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "S.O.S. Fant\u00f4mes"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "S.O.S. Fant\u00f4mes",
+            "tmdbId": 2980,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Les Chroniques de Riddick"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Les Chroniques de Riddick",
+            "tmdbId": 2794,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Tron"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Tron",
+            "tmdbId": 63043,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Star Trek : les films originaux"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Star Trek : les films originaux",
+            "tmdbId": 151,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "La Plan\u00e8te des singes (1968)"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "La Plan\u00e8te des singes (1968)",
+            "tmdbId": 1709,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           }
         ],
         "coverImageUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/sagas/sf.jpg?v=1",
@@ -2547,25 +2665,31 @@
             "genre": "Saw"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Alien"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Alien",
+            "tmdbId": 8091,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Conjuring"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Conjuring",
+            "tmdbId": 313086,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Scream"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Scream",
+            "tmdbId": 2602,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2582,18 +2706,22 @@
             "genre": "Resident Evil"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Halloween"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Halloween",
+            "tmdbId": 91361,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "American Nightmare"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "American Nightmare",
+            "tmdbId": 256322,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2617,11 +2745,13 @@
             "genre": "Insidious"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Vendredi 13"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Vendredi 13",
+            "tmdbId": 9735,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2638,18 +2768,22 @@
             "genre": "Paranormal Activity"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Freddy Krueger"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Freddy Krueger",
+            "tmdbId": 8581,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Annabelle"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Annabelle",
+            "tmdbId": 402074,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2659,46 +2793,58 @@
             "genre": "Chucky"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Evil Dead"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Evil Dead",
+            "tmdbId": 1960,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Massacre \u00e0 la Tron\u00e7onneuse"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Massacre \u00e0 la Tron\u00e7onneuse",
+            "tmdbId": 111751,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Sinister"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Sinister",
+            "tmdbId": 357173,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Alien vs. Predator"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Alien vs. Predator",
+            "tmdbId": 115762,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Smile"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Smile",
+            "tmdbId": 1100788,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Five Nights at Freddy's"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Five Nights at Freddy's",
+            "tmdbId": 1240438,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2722,18 +2868,22 @@
         "focusGifEnabled": true,
         "sources": [
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Toy Story"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Toy Story",
+            "tmdbId": 10194,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Shrek"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Shrek",
+            "tmdbId": 2150,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2743,46 +2893,58 @@
             "genre": "L'\u00c2ge de glace"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Moi, moche et m\u00e9chant"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Moi, moche et m\u00e9chant",
+            "tmdbId": 86066,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Le Monde de Nemo"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Le Monde de Nemo",
+            "tmdbId": 137697,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Les Indestructibles"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Les Indestructibles",
+            "tmdbId": 468222,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Monstres & Cie"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Monstres & Cie",
+            "tmdbId": 137696,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Kung Fu Panda"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Kung Fu Panda",
+            "tmdbId": 77816,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Vice-Versa"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Vice-Versa",
+            "tmdbId": 1022790,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2792,11 +2954,13 @@
             "genre": "Cars"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "La Reine des neiges"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "La Reine des neiges",
+            "tmdbId": 386382,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2806,25 +2970,31 @@
             "genre": "Le Roi lion"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Madagascar"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Madagascar",
+            "tmdbId": 14740,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "La Nuit au mus\u00e9e"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "La Nuit au mus\u00e9e",
+            "tmdbId": 85943,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "H\u00f4tel Transylvanie"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "H\u00f4tel Transylvanie",
+            "tmdbId": 185103,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2834,11 +3004,13 @@
             "genre": "Sonic"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Les Minions"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Les Minions",
+            "tmdbId": 544669,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2848,32 +3020,40 @@
             "genre": "Le Chat Pott\u00e9"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Le Roi Lion (2019)"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Le Roi Lion (2019)",
+            "tmdbId": 762512,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Rio"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Rio",
+            "tmdbId": 229932,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Paddington"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Paddington",
+            "tmdbId": 488924,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Les Trolls"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Les Trolls",
+            "tmdbId": 489724,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2904,18 +3084,22 @@
             "genre": "Very Bad Trip"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Cinquante Nuances"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Cinquante Nuances",
+            "tmdbId": 344830,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Maman, j'ai rat\u00e9 l'avion !"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Maman, j'ai rat\u00e9 l'avion !",
+            "tmdbId": 9888,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2925,39 +3109,49 @@
             "genre": "Scary Movie"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "American Pie"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "American Pie",
+            "tmdbId": 2806,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "After"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "After",
+            "tmdbId": 702624,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Pitch Perfect"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Pitch Perfect",
+            "tmdbId": 306031,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Bridget Jones"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Bridget Jones",
+            "tmdbId": 8936,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Mamma Mia!"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Mamma Mia!",
+            "tmdbId": 458558,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -2967,11 +3161,13 @@
             "genre": "American Pie Pr\u00e9sente"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "La Revanche d'une blonde"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "La Revanche d'une blonde",
+            "tmdbId": 86024,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           }
         ],
         "coverImageUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/sagas/comedie.jpg?v=1",
@@ -2995,11 +3191,13 @@
             "genre": "Ast\u00e9rix & Ob\u00e9lix"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Taxi"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Taxi",
+            "tmdbId": 211721,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -3009,60 +3207,76 @@
             "genre": "Arthur et les Minimoys"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Qu'est-ce qu'on a fait au Bon Dieu ?"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Qu'est-ce qu'on a fait au Bon Dieu ?",
+            "tmdbId": 579870,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "OSS 117"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "OSS 117",
+            "tmdbId": 1413999,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Le Gendarme"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Le Gendarme",
+            "tmdbId": 10517,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Les Visiteurs"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Les Visiteurs",
+            "tmdbId": 52888,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Les Tuche"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Les Tuche",
+            "tmdbId": 389544,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Babysitting"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Babysitting",
+            "tmdbId": 331841,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Les Bronz\u00e9s"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Les Bronz\u00e9s",
+            "tmdbId": 52835,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Les Petits Mouchoirs"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Les Petits Mouchoirs",
+            "tmdbId": 629597,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -3072,11 +3286,13 @@
             "genre": "Les Trois Mousquetaires (2023)"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Les Profs"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Les Profs",
+            "tmdbId": 377491,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -3086,18 +3302,22 @@
             "genre": "Camping"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Fant\u00f4mas"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Fant\u00f4mas",
+            "tmdbId": 103001,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Mesrine"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Mesrine",
+            "tmdbId": 85945,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -3107,18 +3327,22 @@
             "genre": "Brice de Nice"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Le Petit Nicolas"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Le Petit Nicolas",
+            "tmdbId": 303872,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "La V\u00e9rit\u00e9 si je mens !"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "La V\u00e9rit\u00e9 si je mens !",
+            "tmdbId": 115840,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -3128,25 +3352,31 @@
             "genre": "Les Nouvelles Aventures d'Aladin"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Belle et S\u00e9bastien"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Belle et S\u00e9bastien",
+            "tmdbId": 455123,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Kaamelott"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Kaamelott",
+            "tmdbId": 1076903,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Le Grand Blond"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Le Grand Blond",
+            "tmdbId": 105764,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           }
         ],
         "coverImageUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/sagas/francais.jpg?v=1",
@@ -3170,18 +3400,22 @@
             "genre": "Naruto"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Demon Slayer : Kimetsu no Yaiba"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Demon Slayer : Kimetsu no Yaiba",
+            "tmdbId": 925155,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Dragon Ball Super"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Dragon Ball Super",
+            "tmdbId": 620873,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -3191,11 +3425,13 @@
             "genre": "One Piece"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Ghost in the Shell"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Ghost in the Shell",
+            "tmdbId": 23026,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -3205,11 +3441,13 @@
             "genre": "D\u00e9tective Conan"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Resident Evil: Animation"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Resident Evil: Animation",
+            "tmdbId": 133352,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -3219,18 +3457,22 @@
             "genre": "Pok\u00e9mon, le film"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Evangelion (Rebuild)"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Evangelion (Rebuild)",
+            "tmdbId": 210303,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "My Hero Academia"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "My Hero Academia",
+            "tmdbId": 1189668,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
             "provider": "addon",
@@ -3247,11 +3489,13 @@
             "genre": "Dragon Ball"
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Ghost in the Shell Arise"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Ghost in the Shell Arise",
+            "tmdbId": 196753,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           }
         ],
         "coverImageUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main/sagas/animes.jpg?v=1",
@@ -5763,18 +6007,22 @@
         "focusGifEnabled": true,
         "sources": [
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Le Seigneur des anneaux"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Le Seigneur des anneaux",
+            "tmdbId": 119,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Le Hobbit"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Le Hobbit",
+            "tmdbId": 121938,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           }
         ],
         "coverImageUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/tuiles-optionnelles/univers/univers-terre-du-milieu.jpg",
@@ -5825,18 +6073,22 @@
         "focusGifEnabled": true,
         "sources": [
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Conjuring"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Conjuring",
+            "tmdbId": 313086,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           },
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Annabelle"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Annabelle",
+            "tmdbId": 402074,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           }
         ],
         "coverImageUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/tuiles-optionnelles/univers/univers-conjuring.jpg",
@@ -5853,11 +6105,13 @@
         "focusGifEnabled": true,
         "sources": [
           {
-            "provider": "addon",
-            "addonId": "com.xnzx07.catalogue-fr",
-            "type": "movie",
-            "catalogId": "saga",
-            "genre": "Jurassic Park"
+            "provider": "tmdb",
+            "tmdbSourceType": "COLLECTION",
+            "title": "Jurassic Park",
+            "tmdbId": 328,
+            "mediaType": "MOVIE",
+            "sortBy": "original",
+            "filters": {}
           }
         ],
         "coverImageUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/tuiles-optionnelles/univers/univers-jurassic.jpg",

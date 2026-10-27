@@ -59,6 +59,11 @@ def _released(collection: dict) -> list[dict]:
                   key=lambda p: p["release_date"])
 
 
+def _in_order(parts: list[dict]) -> bool:
+    dates = [p.get("release_date") or "9999" for p in parts]
+    return dates == sorted(dates)
+
+
 def first_film(collection: dict) -> dict | None:
     """Premier film sorti de la saga (son affiche représente la saga, pas celle du coffret)."""
     released = _released(collection)
@@ -81,6 +86,8 @@ def saga_entry(collection: dict, images: dict, override: str | None) -> dict | N
         "poster": poster,
         "backdrop": _first(images.get("backdrops") or [], None),
         "films": [p["poster_path"] for p in released if p.get("poster_path")],   # affiches (VF) de chaque film : fonds
+        # TMDB rend-il la saga dans l'ordre de sortie (films annoncés sans date à la fin) ? Sinon, rangée de l'addon.
+        "in_order": _in_order(collection.get("parts") or []),
     }
 
 
@@ -111,6 +118,13 @@ RAW = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/main"
 ADDON_ID = "com.xnzx07.catalogue-fr"   # worker/hote.js (une copie : « .perso », réécrit par le Worker)
 
 
+def saga_source(s: dict) -> dict:
+    if s.get("in_order", True):
+        return {"provider": "tmdb", "tmdbSourceType": "COLLECTION", "title": s["title"], "tmdbId": s["id"],
+                "mediaType": "MOVIE", "sortBy": "original", "filters": {}}
+    return {"provider": "addon", "addonId": ADDON_ID, "type": "movie", "catalogId": "saga", "genre": s["title"]}
+
+
 def sagas_collection(themes: list[dict]) -> dict:
     """Collection « Sagas » : une tuile par thème, une rangée par saga (films dans l'ordre de sortie)."""
     folders = []
@@ -122,10 +136,10 @@ def sagas_collection(themes: list[dict]) -> dict:
             "tileShape": "LANDSCAPE",
             "hideTitle": True,
             "focusGifEnabled": True,
-            # Rangée de l'addon : la saga dans l'ordre de sortie (TMDB en mélange certaines, Nuvio ne sait pas les
-            # trier du plus ancien au plus récent). Le nom de la saga la désigne (worker/facultatives.js).
-            "sources": [{"provider": "addon", "addonId": ADDON_ID, "type": "movie", "catalogId": "saga", "genre": s["title"]}
-                        for s in t["sagas"]],
+            # Saga dans l'ordre chez TMDB : Nuvio la lit en direct (gratuit). Dans le désordre (53 sur 175 : Rocky
+            # Balboa avant Rocky…), rangée de l'addon, dans l'ordre de sortie (Nuvio ne sait pas trier du plus ancien
+            # au plus récent) ; le nom de la saga la désigne (worker/facultatives.js).
+            "sources": [saga_source(s) for s in t["sagas"]],
             "coverImageUrl": f"{RAW}/sagas/{slug}.jpg?v=1",
             "focusGifUrl": f"{RAW}/gifs/sagas/{slug}.gif?v=1",
             "heroBackdropUrl": f"{RAW}/sagas/{slug}-fond.jpg?v=1",

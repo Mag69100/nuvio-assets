@@ -24,8 +24,9 @@ DATA = ROOT / "data" / "optionnelles.json"
 ADDON_ID = "com.xnzx07.catalogue-fr"   # worker/hote.js (une copie : « .perso », réécrit par le Worker)
 BRANCH = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/tuiles-optionnelles"
 _sagas = ROOT / "data" / "sagas.json"
-SAGA_IDS = {s["title"]: s["id"] for t in (json.loads(_sagas.read_text(encoding="utf-8")) if _sagas.exists() else [])
-            for s in t["sagas"]}
+SAGAS_BY_NAME = {s["title"]: s for t in (json.loads(_sagas.read_text(encoding="utf-8")) if _sagas.exists() else [])
+                 for s in t["sagas"]}
+SAGA_IDS = {k: v["id"] for k, v in SAGAS_BY_NAME.items()}
 AWARDS = json.loads(p.read_text(encoding="utf-8")) if (p := ROOT / "data" / "recompenses.json").exists() else {}
 TILE, WALL = 8, 120   # affiches d'une tuile (défilé), du mur (fond)
 
@@ -51,7 +52,11 @@ def addon(catalog: str, kind: str, genre: str | None = None) -> dict:
 
 
 def saga(name: str) -> dict:
-    """Une saga de data/sagas.json dans l'ordre de sortie (rangée « saga » de l'addon : TMDB en mélange certaines)."""
+    """Une saga de data/sagas.json dans l'ordre de sortie : TMDB en direct si elle y est dans l'ordre (gratuit),
+    sinon la rangée « saga » de l'addon (même règle que la collection Sagas)."""
+    s = SAGAS_BY_NAME.get(name, {})
+    if s.get("in_order"):
+        return coll(name, s["id"])
     return addon("saga", "movie", name)
 
 

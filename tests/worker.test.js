@@ -688,6 +688,21 @@ test("fiche_deja_dispo_sur_une_plateforme_en_france", async () => {
   assert.ok(calls.some((u) => /\/movie\/1662858\?/.test(u) && /append_to_response=[^&]*watch/.test(decodeURIComponent(u))), "plateformes pas demandées");
 });
 
+// L'Étrange Noël de monsieur Jack (1993), en VF sur Disney+ : « Déjà dispo » ne dit rien d'un vieux film.
+test("fiche_vieux_film_sans_deja_dispo", async () => {
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (/\/movie\/9479\?/.test(u)) return new Response(JSON.stringify({ id: 9479, title: "L'Étrange Noël de monsieur Jack",
+      release_date: "1993-10-09", original_language: "en",
+      release_dates: { results: [{ iso_3166_1: "US", release_dates: [{ type: 3, release_date: "1993-10-09T00:00:00.000Z" }] }] },
+      "watch/providers": { results: { FR: { flatrate: [{ provider_name: "Disney Plus" }] } } } }));
+    return new Response("{}");
+  };
+  const m = (await (await get("/meta/movie/tmdb:9479.json")).json()).meta;
+  assert.doesNotMatch(m.description || "", /Déjà dispo|📅/);
+});
+
 test("prochainement_pages_pleines_et_fiches_lues_une_fois", async () => {
   const jour = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   const film = (id) => ({ id, title: "Film " + id, original_language: "en", release_date: jour(10) });

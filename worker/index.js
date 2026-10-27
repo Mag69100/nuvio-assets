@@ -63,7 +63,7 @@ import { routeCpu } from "./cpu.js";
 import { routeReserve, nettoyerReserve } from "./reserve.js";
 import { looksDescriptive, aiTitles, aiMiss, resolveTitles, aiRecap, aiProfile, aiProfiles, aiRenewal, aiEnv, AI_WAIT_MS } from "./ai.js";
 
-const VERSION = "5.39.0";
+const VERSION = "5.39.1";
 // Format des réponses gardées dans le cache Cloudflare (pages de rangées, fiches) : à augmenter seulement quand
 // ce qu'elles contiennent change (champ ajouté, règle d'affichage…). Avec VERSION dans les clés, chaque mise à jour
 // vidait tous les caches d'un coup : pic d'appels TMDB et Gemini. Les réponses de Gemini ont leurs propres clés (ai.js).
@@ -904,8 +904,9 @@ function releaseNote(releases, langue, today, etat = {}, vod = null) {
   const { date, vers } = dispoChezSoi(releases || [], langue, vod);
   const connuPasse = !!date && !vers && date <= today;
   // Les dates et les plateformes se trompent (Kraken, norvégien, en VF sur Paramount+) : seules les sources disent
-  // « Pas encore en VF », et seulement une fois le fichier sorti.
-  if (!connuPasse && etat.vf) return "Déjà dispo";
+  // « Pas encore en VF », et seulement une fois le fichier sorti. Vieux film (L'Étrange Noël de monsieur Jack, en VF
+  // sur Disney+) : évidemment dispo, rien à dire.
+  if (!connuPasse && etat.vf) return filmRecent(releases, today) ? "Déjà dispo" : "";
   // Le fichier américain est sorti sans VF : plus de date à attendre (on ne sait pas quand la VF viendra) ; jamais la
   // VO (seule la VF compte).
   if (etat.vo && !etat.vf && !(date > today)) return "Aucune date";

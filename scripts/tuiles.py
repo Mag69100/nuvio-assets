@@ -259,6 +259,17 @@ P_STEP, P_ANGLE = 0.106, 8
 ARRIVAL_FRAMES, ARRIVAL_HOLD_MS = 68, 2500   # 1,36 s à 50 i/s, puis la tuile (jouée une seule fois)
 
 
+def text_logo(name: str) -> Image.Image:
+    """Nom en blanc (Bebas Neue), pour une marque sans logo propre : sur TMDB, ceux des chaînes et plateformes
+    françaises sont des icônes d'appli carrées (celui de france.tv porte « prime video channels »)."""
+    font = ImageFont.truetype(str(ma.FONT), 200)
+    text = name.upper()
+    w = int(ImageDraw.Draw(Image.new("L", (1, 1))).textlength(text, font=font)) + 20
+    img = Image.new("RGBA", (w, 230), (255, 255, 255, 0))
+    ImageDraw.Draw(img).text((10, 210), text, font=font, fill=(255, 255, 255, 255), anchor="ls")
+    return img
+
+
 def white_logo(logo: Image.Image) -> Image.Image:
     """Logo en blanc pur ; un logo dans un cadre plein (Canal+) reste tel quel."""
     alpha = logo.getchannel("A")

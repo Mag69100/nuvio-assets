@@ -42,15 +42,8 @@ def part(all_jobs: list[dict], i: int, n: int) -> list[dict]:
 
 
 def channel_logo(name: str) -> Image.Image:
-    """Nom de la chaîne en blanc (Bebas Neue) : sur TMDB, leurs logos sont des icônes d'appli carrées (et celui de
-    france.tv porte « prime video channels »)."""
-    from PIL import ImageDraw, ImageFont
-    font = ImageFont.truetype(str(ma.FONT), 200)
-    text = name.upper()
-    w = int(ImageDraw.Draw(Image.new("L", (1, 1))).textlength(text, font=font)) + 20
-    img = Image.new("RGBA", (w, 230), (255, 255, 255, 0))
-    ImageDraw.Draw(img).text((10, 210), text, font=font, fill=(255, 255, 255, 255), anchor="ls")
-    return img
+    """Nom de la chaîne en blanc (voir tuiles.text_logo)."""
+    return tuiles.text_logo(name)
 
 
 def render(job: dict, tile: list[dict], wall: list[str], folder: Path, leger: bool = False) -> None:

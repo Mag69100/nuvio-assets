@@ -28,6 +28,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from update_addon import TMDBAuthError, TMDBError, tmdb  # noqa: E402
+import make_assets as ma  # noqa: E402
 import tuiles  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -97,6 +98,7 @@ FILTERS = {"withGenres": "with_genres", "withoutGenres": "without_genres", "vote
            "withCompanies": "with_companies", "withoutKeywords": "without_keywords"}
 MIN_VOTES = 50    # affiches d'une tuile de genre : pas de titres inconnus de tous
 COLLECTIONS = json.loads((ROOT / "collections" / "collections.json").read_text(encoding="utf-8"))
+PLATFORM_NAMES = {f["id"]: f["title"] for c in COLLECTIONS if c["id"] == "plateformes-streaming" for f in c["folders"]}
 
 
 def source_params(source: dict) -> tuple[str, dict]:
@@ -160,7 +162,11 @@ def wall_posters(provider: str, pages: int = 3) -> list[str]:
 def render(entry: list, posters: list[str], wall: list[str], folder: Path) -> None:
     """Tuile fixe, animation « arrivée », fond (mur incliné) et sa vidéo de 8 s."""
     slug, _provider, dark, brand, _networks = entry
-    logo = tuiles.white_logo(Image.open(ROOT / "logos" / f"{slug}.png").convert("RGBA"))
+    path = ROOT / "logos" / f"{slug}.png"
+    # Sans logo propre (TF1+, france.tv, M6+ : icônes d'appli sur TMDB) : le nom de la plateforme en blanc.
+    logo = tuiles.white_logo(Image.open(path).convert("RGBA")) if path.exists() else tuiles.text_logo(PLATFORM_NAMES[slug])
+    if not path.exists():   # pas de logo sur main pour l'écran ouvert : le nom, dessiné ici
+        ma.hero_title(PLATFORM_NAMES[slug], folder / f"{slug}-titre.png")
     tuiles.platform_card(logo, tuple(dark), tuple(brand), posters).convert("RGB").save(
         folder / f"{slug}.jpg", quality=90, optimize=True, progressive=True)
     tuiles.fit_gif([(size, None) for size in tuiles.GIF_SIZES],
@@ -236,7 +242,7 @@ def build(out: Path) -> int:
     for family in {j["family"] for j in all_jobs}:
         slugs = {j["slug"] for j in all_jobs if j["family"] == family}
         for f in (out / family).iterdir():
-            if f.name.split(".")[0].removesuffix("-fond") not in slugs:
+            if f.name.split(".")[0].removesuffix("-fond").removesuffix("-titre") not in slugs:
                 f.unlink()
     if holes:
         # Une tuile nouvelle sans images : elle reste grise, mais le reste est publié (sinon toutes les nouvelles
@@ -262,6 +268,8 @@ def point_platforms(path: Path) -> None:
             slug = folder["id"]
             folder.update(coverImageUrl=f"{base}/{slug}.jpg", focusGifUrl=f"{base}/{slug}.gif",
                           heroBackdropUrl=f"{base}/{slug}-fond.jpg", heroVideoUrl=f"{base}/{slug}-fond.mp4")
+            if not folder.get("titleLogoUrl"):   # sans logo sur main (TF1+, france.tv, M6+) : le nom dessiné ici
+                folder["titleLogoUrl"] = f"{base}/{slug}-titre.png"
     path.write_text(json.dumps(collections, indent=2), encoding="utf-8", newline="\n")
 
 

@@ -10,6 +10,14 @@ import { feuilles } from "./statique.js";
 export const NOUVEAUTES = [
   {
     date: "2026-10-27",
+    titre: "TF1+, france.tv et M6+ dans tes plateformes",
+    points: [
+      "Coche-les dans « Mes plateformes » : leur tuile arrive dans la collection Plateformes (titres du moment chaque lundi), et leurs nouveautés dans « Nouveautés sur tes plateformes ».",
+      "Puis réimporte les collections (« Tout envoyer dans Nuvio »).",
+    ],
+  },
+  {
+    date: "2026-10-27",
     titre: "Sagas dans l'ordre, animations plus fluides",
     points: [
       "Les films de chaque saga sont dans l'ordre de sortie (Rocky avant Rocky Balboa, Bad Boys avant Bad Boys for Life) : la rangée s'appelle maintenant « Saga · … ».",

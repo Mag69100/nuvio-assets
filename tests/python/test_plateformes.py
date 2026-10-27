@@ -226,7 +226,8 @@ class Collection(unittest.TestCase):
                 self.assertEqual(fa["focusGifUrl"], f"{branch}/{slug}.gif")
                 self.assertEqual(fa["heroBackdropUrl"], f"{branch}/{slug}-fond.jpg")
                 self.assertEqual(fa["heroVideoUrl"], f"{branch}/{slug}-fond.mp4")
-                self.assertEqual(fa["titleLogoUrl"], fb["titleLogoUrl"])
+                # Logo propre sur main ; sinon (TF1+, france.tv, M6+) le nom, dessiné sur la branche.
+                self.assertEqual(fa["titleLogoUrl"], fb.get("titleLogoUrl") or f"{branch}/{slug}-titre.png")
                 self.assertEqual(fa["sources"], fb["sources"])
 
 
@@ -359,3 +360,21 @@ class UneFois(unittest.TestCase):
         with mock.patch.object(mp.tuiles, "encode_gif", side_effect=lambda f, d, out, once=False: seen.append(once) or 1),                 mock.patch.object(mp.tuiles, "platform_frames", return_value=([], [])),                 mock.patch.object(mp.tuiles, "platform_card", return_value=mock.MagicMock()),                 mock.patch.object(mp.tuiles, "hero_still", return_value=mock.MagicMock()),                 mock.patch.object(mp.tuiles, "encode_mp4", return_value=1),                 tempfile.TemporaryDirectory() as d:
             mp.render(mp.TILES[0], ["/a", "/b", "/c"], ["/w"], Path(d))
         self.assertEqual(seen, [True])
+
+    def test_nom_ecrit_sans_logo(self):
+        """TF1+, france.tv, M6+ : leurs logos TMDB sont des icônes d'appli ; la tuile écrit leur nom en blanc."""
+        names = []
+        with mock.patch.object(mp.tuiles, "text_logo", side_effect=lambda n: names.append(n) or mp.Image.new("RGBA", (10, 10))),                 mock.patch.object(mp.tuiles, "encode_gif", return_value=1),                 mock.patch.object(mp.tuiles, "platform_frames", return_value=([], [])),                 mock.patch.object(mp.tuiles, "platform_card", return_value=mock.MagicMock()),                 mock.patch.object(mp.tuiles, "hero_still", return_value=mock.MagicMock()),                 mock.patch.object(mp.tuiles, "encode_mp4", return_value=1),                 tempfile.TemporaryDirectory() as d:
+            mp.render(next(t for t in mp.TILES if t[0] == "tf1-plus"), ["/a", "/b", "/c"], ["/w"], Path(d))
+        self.assertEqual(names, ["TF1+"])
+
+    def test_titre_garde_sur_la_branche(self):
+        """Le nom dessiné (<slug>-titre.png) n'est pas effacé comme une tuile retirée."""
+        d = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(d, ignore_errors=True))
+        def render(entry, posters, wall, folder):
+            for n in (f"{entry[0]}.jpg", f"{entry[0]}.gif", f"{entry[0]}-fond.jpg", f"{entry[0]}-fond.mp4", f"{entry[0]}-titre.png"):
+                (folder / n).write_bytes(b"x")
+        with mock.patch.object(mp, "render", side_effect=render), mock.patch.object(mp, "render_genre", side_effect=fake_render_genre),                 mock.patch.object(mp, "posters_for", return_value=["/a", "/b", "/c"]),                 mock.patch.object(mp, "wall_posters", return_value=[f"/w{i}" for i in range(20)]),                 mock.patch.object(mp, "folder_titles", return_value=[{"poster": f"/p{i}", "backdrop": None} for i in range(20)]):
+            mp.build(d)
+        self.assertTrue((d / "plateformes" / "tf1-plus-titre.png").exists())

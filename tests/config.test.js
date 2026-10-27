@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { decodeConfig, contentKey } from "../worker/config.js";
+import { decodeConfig, contentKey, PROVIDERS, defaults } from "../worker/config.js";
 
 const rows = [{ id: "a", home: true }];
 const discover = [];
@@ -86,4 +86,14 @@ test("anciennes_tuiles_de_sagas_ignorees", () => {
   const now = decodeConfig(seg({ tv: 2, t: { 3: [2] }, to: { 3: [1, 0] } }), rows, discover);
   assert.deepEqual(now.t, { sagas: [2] });
   assert.deepEqual(now.to, { sagas: [1, 0] });
+});
+
+test("plateformes_francaises_en_option", () => {
+  // TF1+, france.tv, M6+ : en fin de liste (les liens repèrent les plateformes par position), décochées par défaut.
+  const ids = PROVIDERS.map((p) => p.id);
+  assert.deepEqual(ids.slice(0, 8), ["8", "119", "337", "531", "1899", "350", "381", "283"]);
+  assert.deepEqual(PROVIDERS.slice(8).map((p) => [p.id, p.name, p.folder]),
+    [["1754", "TF1+", "tf1-plus"], ["2535", "france.tv", "france-tv"], ["147", "M6+", "m6-plus"]]);
+  assert.ok(!["1754", "2535", "147"].some((id) => defaults(rows, discover).p.includes(id)));
+  assert.ok(decodeConfig(seg({ p: [0, 8] }), rows, discover).p.includes("1754"));
 });

@@ -20,6 +20,11 @@ export const PROVIDERS = [
   { id: "350", name: "Apple TV+", folder: "apple-tv-plus" },
   { id: "381", name: "Canal+", folder: "canal-plus" },
   { id: "283", name: "Crunchyroll", folder: "crunchyroll" },
+  // Plateformes françaises (TF1+, france.tv — sur TMDB « France TV Amazon Channel », même catalogue —, M6+) :
+  // décochées par défaut, en fin de liste (les liens repèrent les plateformes par position).
+  { id: "1754", name: "TF1+", folder: "tf1-plus" },
+  { id: "2535", name: "france.tv", folder: "france-tv" },
+  { id: "147", name: "M6+", folder: "m6-plus" },
 ];
 
 /** Collections du fichier collections.json (dans l'ordre du fichier). */

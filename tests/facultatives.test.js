@@ -150,4 +150,6 @@ test("catalogue_des_sagas_dans_le_manifest", async () => {
   assert.equal(saga.showInHome, false);
   const sansSagas = COLLECTIONS.filter((c) => !c.optional && c.id !== "sagas").reduce((m, c) => m | (1 << COLLECTIONS.indexOf(c)), 0);
   assert.equal(await cat({ c: sansSagas }), undefined);
+  // Grands univers cochés sans Sagas : le catalogue est là aussi (leurs sagas passent par lui).
+  assert.ok(await cat({ c: sansSagas | (1 << COLLECTIONS.findIndex((c) => c.id === "univers")) }));
 });

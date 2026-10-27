@@ -5704,13 +5704,11 @@
         "focusGifEnabled": true,
         "sources": [
           {
-            "provider": "tmdb",
-            "tmdbSourceType": "COLLECTION",
-            "title": "La saga",
-            "tmdbId": 10,
-            "mediaType": "MOVIE",
-            "sortBy": "original",
-            "filters": {}
+            "provider": "addon",
+            "addonId": "com.xnzx07.catalogue-fr",
+            "type": "movie",
+            "catalogId": "saga",
+            "genre": "Star Wars"
           },
           {
             "provider": "tmdb",
@@ -5737,22 +5735,18 @@
         "focusGifEnabled": true,
         "sources": [
           {
-            "provider": "tmdb",
-            "tmdbSourceType": "COLLECTION",
-            "title": "Harry Potter",
-            "tmdbId": 1241,
-            "mediaType": "MOVIE",
-            "sortBy": "original",
-            "filters": {}
+            "provider": "addon",
+            "addonId": "com.xnzx07.catalogue-fr",
+            "type": "movie",
+            "catalogId": "saga",
+            "genre": "Harry Potter"
           },
           {
-            "provider": "tmdb",
-            "tmdbSourceType": "COLLECTION",
-            "title": "Les Animaux fantastiques",
-            "tmdbId": 435259,
-            "mediaType": "MOVIE",
-            "sortBy": "original",
-            "filters": {}
+            "provider": "addon",
+            "addonId": "com.xnzx07.catalogue-fr",
+            "type": "movie",
+            "catalogId": "saga",
+            "genre": "Les Animaux fantastiques"
           }
         ],
         "coverImageUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/tuiles-optionnelles/univers/univers-wizarding.jpg",
@@ -5769,22 +5763,18 @@
         "focusGifEnabled": true,
         "sources": [
           {
-            "provider": "tmdb",
-            "tmdbSourceType": "COLLECTION",
-            "title": "Le Seigneur des anneaux",
-            "tmdbId": 119,
-            "mediaType": "MOVIE",
-            "sortBy": "original",
-            "filters": {}
+            "provider": "addon",
+            "addonId": "com.xnzx07.catalogue-fr",
+            "type": "movie",
+            "catalogId": "saga",
+            "genre": "Le Seigneur des anneaux"
           },
           {
-            "provider": "tmdb",
-            "tmdbSourceType": "COLLECTION",
-            "title": "Le Hobbit",
-            "tmdbId": 121938,
-            "mediaType": "MOVIE",
-            "sortBy": "original",
-            "filters": {}
+            "provider": "addon",
+            "addonId": "com.xnzx07.catalogue-fr",
+            "type": "movie",
+            "catalogId": "saga",
+            "genre": "Le Hobbit"
           }
         ],
         "coverImageUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/tuiles-optionnelles/univers/univers-terre-du-milieu.jpg",
@@ -5835,22 +5825,18 @@
         "focusGifEnabled": true,
         "sources": [
           {
-            "provider": "tmdb",
-            "tmdbSourceType": "COLLECTION",
-            "title": "Conjuring",
-            "tmdbId": 313086,
-            "mediaType": "MOVIE",
-            "sortBy": "original",
-            "filters": {}
+            "provider": "addon",
+            "addonId": "com.xnzx07.catalogue-fr",
+            "type": "movie",
+            "catalogId": "saga",
+            "genre": "Conjuring"
           },
           {
-            "provider": "tmdb",
-            "tmdbSourceType": "COLLECTION",
-            "title": "Annabelle",
-            "tmdbId": 402074,
-            "mediaType": "MOVIE",
-            "sortBy": "original",
-            "filters": {}
+            "provider": "addon",
+            "addonId": "com.xnzx07.catalogue-fr",
+            "type": "movie",
+            "catalogId": "saga",
+            "genre": "Annabelle"
           }
         ],
         "coverImageUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/tuiles-optionnelles/univers/univers-conjuring.jpg",
@@ -5867,13 +5853,11 @@
         "focusGifEnabled": true,
         "sources": [
           {
-            "provider": "tmdb",
-            "tmdbSourceType": "COLLECTION",
-            "title": "La saga",
-            "tmdbId": 328,
-            "mediaType": "MOVIE",
-            "sortBy": "original",
-            "filters": {}
+            "provider": "addon",
+            "addonId": "com.xnzx07.catalogue-fr",
+            "type": "movie",
+            "catalogId": "saga",
+            "genre": "Jurassic Park"
           }
         ],
         "coverImageUrl": "https://raw.githubusercontent.com/xnzx07/nuvio-assets/tuiles-optionnelles/univers/univers-jurassic.jpg",

@@ -23,6 +23,9 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data" / "optionnelles.json"
 ADDON_ID = "com.xnzx07.catalogue-fr"   # worker/hote.js (une copie : « .perso », réécrit par le Worker)
 BRANCH = "https://raw.githubusercontent.com/xnzx07/nuvio-assets/tuiles-optionnelles"
+_sagas = ROOT / "data" / "sagas.json"
+SAGA_IDS = {s["title"]: s["id"] for t in (json.loads(_sagas.read_text(encoding="utf-8")) if _sagas.exists() else [])
+            for s in t["sagas"]}
 AWARDS = json.loads(p.read_text(encoding="utf-8")) if (p := ROOT / "data" / "recompenses.json").exists() else {}
 TILE, WALL = 8, 120   # affiches d'une tuile (défilé), du mur (fond)
 
@@ -43,8 +46,13 @@ def person(title: str, tmdb_id: int, media: str = "MOVIE", kind: str = "PERSON",
             "sortBy": sort, "filters": {}}
 
 
-def addon(catalog: str, kind: str) -> dict:
-    return {"provider": "addon", "addonId": ADDON_ID, "type": kind, "catalogId": catalog}
+def addon(catalog: str, kind: str, genre: str | None = None) -> dict:
+    return {"provider": "addon", "addonId": ADDON_ID, "type": kind, "catalogId": catalog, **({"genre": genre} if genre else {})}
+
+
+def saga(name: str) -> dict:
+    """Une saga de data/sagas.json dans l'ordre de sortie (rangée « saga » de l'addon : TMDB en mélange certaines)."""
+    return addon("saga", "movie", name)
 
 
 def films_series(**f) -> list[dict]:
@@ -105,12 +113,12 @@ COLLECTIONS = [
     {"id": "univers", "title": "Grands univers", "style": "saga", "folders": [
         tile("univers-marvel", "Marvel", [disc("Films", withKeywords="180547"), disc("Séries", "TV", withKeywords="180547")]),
         tile("univers-dc", "DC", [disc("Films", withKeywords="229266"), disc("Séries", "TV", withCompanies="429|128064")]),
-        tile("univers-star-wars", "Star Wars", [coll("La saga", 10), disc("Séries", "TV", withCompanies="1")]),
-        tile("univers-wizarding", "Harry Potter", [coll("Harry Potter", 1241), coll("Les Animaux fantastiques", 435259)]),
-        tile("univers-terre-du-milieu", "Terre du Milieu", [coll("Le Seigneur des anneaux", 119), coll("Le Hobbit", 121938)]),
+        tile("univers-star-wars", "Star Wars", [saga("Star Wars"), disc("Séries", "TV", withCompanies="1")]),
+        tile("univers-wizarding", "Harry Potter", [saga("Harry Potter"), saga("Les Animaux fantastiques")]),
+        tile("univers-terre-du-milieu", "Terre du Milieu", [saga("Le Seigneur des anneaux"), saga("Le Hobbit")]),
         tile("univers-monsterverse", "Monsterverse", [disc("Films", withKeywords="380322"), disc("Séries", "TV", withKeywords="380322")]),
-        tile("univers-conjuring", "Conjuring", [coll("Conjuring", 313086), coll("Annabelle", 402074)]),
-        tile("univers-jurassic", "Jurassic Park", [coll("La saga", 328)])]},
+        tile("univers-conjuring", "Conjuring", [saga("Conjuring"), saga("Annabelle")]),
+        tile("univers-jurassic", "Jurassic Park", [saga("Jurassic Park")])]},
     {"id": "chaines", "title": "Chaînes françaises", "style": "plateforme", "folders": [
         tile(f"chaine-{k}", n, [disc("Films", watchRegion="FR", withWatchProviders=str(p)),
                                 disc("Séries", "TV", watchRegion="FR", withWatchProviders=str(p))],
@@ -197,6 +205,8 @@ def titles(src: dict, pages: int = 1) -> list[dict]:
     kind = src.get("tmdbSourceType")
     if src.get("provider") == "addon":
         cat = src["catalogId"]
+        if cat == "saga":
+            return _titles(tmdb(f"/collection/{SAGA_IDS[src['genre']]}").get("parts") or [])
         if cat in ADDON_AWARDS:
             return _titles(AWARDS.get(ADDON_AWARDS[cat], []))
         media, params = ADDON_DISCOVER[cat]

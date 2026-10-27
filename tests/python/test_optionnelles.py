@@ -41,10 +41,20 @@ class Definitions(unittest.TestCase):
         for f in acteurs["folders"]:
             self.assertTrue(all(s["mediaType"] == "MOVIE" for s in f["sources"]), f["id"])
 
+    def test_univers_dans_l_ordre(self):
+        """Les sagas des grands univers passent par la rangée « saga » de l'addon (ordre de sortie), comme Sagas."""
+        univers = next(c for c in bo.COLLECTIONS if c["id"] == "univers")
+        srcs = [s for f in univers["folders"] for s in f["sources"]]
+        self.assertFalse([s for s in srcs if s.get("tmdbSourceType") == "COLLECTION"])
+        sagas = [s["genre"] for s in srcs if s.get("catalogId") == "saga"]
+        self.assertIn("Star Wars", sagas)
+        names = {s["title"] for t in json.loads((ROOT / "data" / "sagas.json").read_text(encoding="utf-8")) for s in t["sagas"]}
+        self.assertTrue(set(sagas) <= names)
+
     def test_rangees_addon_de_l_addon(self):
         """Récompenses, moins de 1 h 30, mini-séries : rangées de l'addon (Nuvio ne sait pas les faire seul)."""
         addon = [s for c in bo.COLLECTIONS for f in c["folders"] for s in f["sources"] if s.get("provider") == "addon"]
-        self.assertEqual({s["catalogId"] for s in addon}, {"fac-oscars", "fac-palmes", "fac-cesars", "fac-moins-90", "fac-mini-series"})
+        self.assertEqual({s["catalogId"] for s in addon}, {"fac-oscars", "fac-palmes", "fac-cesars", "fac-moins-90", "fac-mini-series", "saga"})
         self.assertTrue(all(s["addonId"] == bo.ADDON_ID for s in addon))
 
 

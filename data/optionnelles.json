@@ -6144,13 +6144,11 @@
     "title": "Star Wars",
     "sources": [
      {
-      "provider": "tmdb",
-      "tmdbSourceType": "COLLECTION",
-      "title": "La saga",
-      "tmdbId": 10,
-      "mediaType": "MOVIE",
-      "sortBy": "original",
-      "filters": {}
+      "provider": "addon",
+      "addonId": "com.xnzx07.catalogue-fr",
+      "type": "movie",
+      "catalogId": "saga",
+      "genre": "Star Wars"
      },
      {
       "provider": "tmdb",
@@ -6236,22 +6234,18 @@
     "title": "Harry Potter",
     "sources": [
      {
-      "provider": "tmdb",
-      "tmdbSourceType": "COLLECTION",
-      "title": "Harry Potter",
-      "tmdbId": 1241,
-      "mediaType": "MOVIE",
-      "sortBy": "original",
-      "filters": {}
+      "provider": "addon",
+      "addonId": "com.xnzx07.catalogue-fr",
+      "type": "movie",
+      "catalogId": "saga",
+      "genre": "Harry Potter"
      },
      {
-      "provider": "tmdb",
-      "tmdbSourceType": "COLLECTION",
-      "title": "Les Animaux fantastiques",
-      "tmdbId": 435259,
-      "mediaType": "MOVIE",
-      "sortBy": "original",
-      "filters": {}
+      "provider": "addon",
+      "addonId": "com.xnzx07.catalogue-fr",
+      "type": "movie",
+      "catalogId": "saga",
+      "genre": "Les Animaux fantastiques"
      }
     ],
     "posters": [
@@ -6284,22 +6278,18 @@
     "title": "Terre du Milieu",
     "sources": [
      {
-      "provider": "tmdb",
-      "tmdbSourceType": "COLLECTION",
-      "title": "Le Seigneur des anneaux",
-      "tmdbId": 119,
-      "mediaType": "MOVIE",
-      "sortBy": "original",
-      "filters": {}
+      "provider": "addon",
+      "addonId": "com.xnzx07.catalogue-fr",
+      "type": "movie",
+      "catalogId": "saga",
+      "genre": "Le Seigneur des anneaux"
      },
      {
-      "provider": "tmdb",
-      "tmdbSourceType": "COLLECTION",
-      "title": "Le Hobbit",
-      "tmdbId": 121938,
-      "mediaType": "MOVIE",
-      "sortBy": "original",
-      "filters": {}
+      "provider": "addon",
+      "addonId": "com.xnzx07.catalogue-fr",
+      "type": "movie",
+      "catalogId": "saga",
+      "genre": "Le Hobbit"
      }
     ],
     "posters": [
@@ -6372,22 +6362,18 @@
     "title": "Conjuring",
     "sources": [
      {
-      "provider": "tmdb",
-      "tmdbSourceType": "COLLECTION",
-      "title": "Conjuring",
-      "tmdbId": 313086,
-      "mediaType": "MOVIE",
-      "sortBy": "original",
-      "filters": {}
+      "provider": "addon",
+      "addonId": "com.xnzx07.catalogue-fr",
+      "type": "movie",
+      "catalogId": "saga",
+      "genre": "Conjuring"
      },
      {
-      "provider": "tmdb",
-      "tmdbSourceType": "COLLECTION",
-      "title": "Annabelle",
-      "tmdbId": 402074,
-      "mediaType": "MOVIE",
-      "sortBy": "original",
-      "filters": {}
+      "provider": "addon",
+      "addonId": "com.xnzx07.catalogue-fr",
+      "type": "movie",
+      "catalogId": "saga",
+      "genre": "Annabelle"
      }
     ],
     "posters": [
@@ -6415,13 +6401,11 @@
     "title": "Jurassic Park",
     "sources": [
      {
-      "provider": "tmdb",
-      "tmdbSourceType": "COLLECTION",
-      "title": "La saga",
-      "tmdbId": 328,
-      "mediaType": "MOVIE",
-      "sortBy": "original",
-      "filters": {}
+      "provider": "addon",
+      "addonId": "com.xnzx07.catalogue-fr",
+      "type": "movie",
+      "catalogId": "saga",
+      "genre": "Jurassic Park"
      }
     ],
     "posters": [

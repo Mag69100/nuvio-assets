@@ -14,9 +14,9 @@ import SAGAS from "../data/sagas.json";
  */
 export const SAGA_IDS = new Map(SAGAS.flatMap((t) => t.sagas.map((s) => [s.title, s.id])));
 
-/** Catalogue « saga » du manifest, si la collection Sagas est cochée (filtre : le nom de la saga). */
+/** Catalogue « saga » du manifest, si Sagas ou Grands univers est cochée (filtre : le nom de la saga). */
 export function sagaCatalog(cfg, pageSize) {
-  if (!cfg.c.includes("sagas")) return [];
+  if (!cfg.c.includes("sagas") && !cfg.c.includes("univers")) return [];   // Grands univers : leurs sagas aussi
   const names = [...SAGA_IDS.keys()];
   return [{ type: "movie", id: "saga", name: "Saga", showInHome: false, pageSize, genres: names,
     extra: [{ name: "genre", isRequired: true, options: names }, { name: "skip" }],
